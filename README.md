@@ -8,12 +8,13 @@ A comprehensive suite of AI-powered agents that automate the software developmen
 
 ## ✨ Overview
 
-This monorepo contains three interconnected systems that demonstrate different approaches to building autonomous AI agents:
+This monorepo contains four interconnected systems that demonstrate different approaches to building autonomous AI agents:
 
 | System | Description | Use Case |
 |--------|-------------|----------|
 | **[Single Agent System](./single-agent-system/)** | Local orchestration with AWS Bedrock | Development & Testing |
 | **[Multiple Agents System](./multiple-agents-system/)** | Distributed AWS architecture | Production Deployment |
+| **[Claude Code CLI](./claude-code-cli/)** | Production-ready two-agent system | **Enterprise Production** |
 | **[Claude Code CLI POC](./claude-code-cli-poc/)** | Docker-based two-agent system | Quick Proof of Concept |
 
 ---
@@ -54,13 +55,14 @@ This monorepo contains three interconnected systems that demonstrate different a
 
 ## 🏗️ Architecture Comparison
 
-| Feature | Single Agent | Multiple Agents | CLI POC |
-|---------|--------------|-----------------|---------|
-| **LLM Provider** | AWS Bedrock | AWS Bedrock | Claude CLI |
-| **Orchestration** | Python | Step Functions | Docker Compose |
-| **Tool Access** | AgentCore MCP | AgentCore MCP | MCP Servers |
-| **State Storage** | In-memory | DynamoDB | File-based |
-| **Best For** | Local dev | Production | Quick demos |
+| Feature | Single Agent | Multiple Agents | Claude Code CLI | CLI POC |
+|---------|--------------|-----------------|-----------------|---------|
+| **LLM Provider** | AWS Bedrock | AWS Bedrock | Claude CLI | Claude CLI |
+| **Orchestration** | Python | Step Functions | Kubernetes | Docker Compose |
+| **Tool Access** | AgentCore MCP | AgentCore MCP | MCP Servers | MCP Servers |
+| **State Storage** | In-memory | DynamoDB | PostgreSQL + Redis | File-based |
+| **Scaling** | Single instance | AWS native | Auto-scaling | Fixed |
+| **Best For** | Local dev | AWS Production | Cloud Production | Quick demos |
 
 ---
 
@@ -108,7 +110,32 @@ terraform init
 terraform apply
 ```
 
-### Claude Code CLI POC (Docker)
+### Claude Code CLI (Production-Ready)
+
+```bash
+cd claude-code-cli
+
+# Install Claude CLI
+npm install -g @anthropic-ai/claude-code
+claude login
+
+# Setup MCP servers
+./scripts/setup-mcp.sh
+
+# Configure
+cp infrastructure/docker/.env.example infrastructure/docker/.env
+# Edit .env with your credentials
+
+# Build and start
+cd infrastructure/docker
+docker-compose build
+docker-compose up -d
+
+# Access dashboard
+open http://localhost:3000
+```
+
+### Claude Code CLI POC (Quick Demo)
 
 ```bash
 cd claude-code-cli-poc
@@ -166,6 +193,7 @@ All systems expose similar webhook endpoints:
 
 - [Single Agent Architecture](./single-agent-system/SINGLE-AEGNT-SYSTEM.ARCHITECTURE.md)
 - [Multiple Agents Architecture](./multiple-agents-system/MULTIPLE-AGENTS-SYSTEM.ARCHITECTURE.md)
+- [Claude Code CLI Architecture](./claude-code-cli/CLAUDE-CODE-CLI.ARCHITECTURE.md) ⭐ **Production**
 - [CLI POC Architecture](./claude-code-cli-poc/CLAUDE-CODE-CLI-POC.ARCHITECTURE.md)
 
 ---
@@ -212,6 +240,8 @@ SLACK_CHANNEL=#ai-agent
 
 ## 💰 Cost Estimation
 
+### POC Deployment (CLI POC)
+
 | Component | Monthly Cost (Est.) |
 |-----------|---------------------|
 | Claude Teams | $150/seat |
@@ -219,12 +249,23 @@ SLACK_CHANNEL=#ai-agent
 | AWS Extras (Lambda, Step Functions, DynamoDB) | ~$10-20 |
 | **Total POC** | **~$200** |
 
+### Production Deployment (Claude Code CLI)
+
+| Component | Monthly Cost (Est.) |
+|-----------|---------------------|
+| Claude Teams (5 seats) | $750 |
+| AWS EKS + EC2 | ~$400 |
+| RDS PostgreSQL + ElastiCache Redis | ~$100 |
+| ALB + EFS + misc | ~$50 |
+| **Total Production** | **~$1,300** |
+| **ROI (50 developers)** | **3,223%** |
+
 ---
 
 ## 📊 Project Structure
 
 ```
-agents-prod/
+agents-system/
 ├── single-agent-system/       # Local orchestration system
 │   ├── agents/                # Agent implementations
 │   ├── services/              # LLM, gateway, storage services
@@ -237,7 +278,16 @@ agents-prod/
 │   ├── infrastructure/        # Terraform IaC
 │   └── prompts/               # Agent system prompts
 │
-├── claude-code-cli-poc/       # Docker-based POC
+├── claude-code-cli/           # Production Claude Code CLI ⭐
+│   ├── agents/                # Planning & Executor agents
+│   │   ├── planning-agent/    # Discovery, analysis, planning
+│   │   └── executor-agent/    # TDD workflow, git ops
+│   ├── services/              # Webhook server, Slack bot, dashboard
+│   ├── infrastructure/        # Docker Compose + Kubernetes + Terraform
+│   ├── shared/                # Shared utilities and models
+│   └── scripts/               # Setup and deployment scripts
+│
+├── claude-code-cli-poc/       # Docker-based POC (quick demo)
 │   ├── webhook-server/        # FastAPI webhook receiver
 │   ├── planning-agent/        # Planning & discovery
 │   ├── executor-agent/        # Code execution
