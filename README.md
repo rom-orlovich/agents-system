@@ -267,7 +267,7 @@ SLACK_CHANNEL=#ai-agent
 - **Success Rate:** 40% (learning phase)
 - **Actual Value:** 20-40 bugs fixed/month
 
-**Department Savings (איך זה חוסך למחלקה):**
+**Department Savings (How It Saves the Department):**
 - Time saved: 40 bugs × 15 min × 40% = 240 hours/month
 - Developer cost: $60/hour
 - **Monthly Savings:** $14,400
@@ -306,7 +306,7 @@ SLACK_CHANNEL=#ai-agent
 - **Success Rate:** 65% (production-grade agents)
 - **Actual Value:** 1,300-2,275 bugs fixed/month
 
-**Department Savings (איך זה חוסך למחלקה):**
+**Department Savings (How It Saves the Department):**
 - Time saved: 2,000 bugs × 15 min × 65% = 1,950 hours/month
 - Developer cost: $60/hour
 - **Monthly Savings:** $117,000
@@ -356,7 +356,7 @@ SLACK_CHANNEL=#ai-agent
 - **Success Rate:** 70% (MCP-powered accuracy)
 - **Actual Value:** 1,680-3,360 bugs fixed/month
 
-**Department Savings (איך זה חוסך למחלקה):**
+**Department Savings (How It Saves the Department):**
 - Time saved: 2,400 bugs × 15 min × 70% = 2,520 hours/month
 - Developer cost: $60/hour
 - **Monthly Savings:** $151,200
@@ -369,7 +369,7 @@ SLACK_CHANNEL=#ai-agent
    - Equivalent to hiring 15 additional developers
    - Annual savings: $1,814,400
 
-2. **Operational Excellence** (איך זה חוסך למחלקה - How It Saves the Department)
+2. **Operational Excellence (How It Saves the Department)**
    - ⚡ **Response Time:** < 20 minutes (vs 4 hours manual)
    - 🎯 **First-Time Fix Rate:** 70% (vs 45% manual)
    - 📉 **Incident Backlog:** Reduced by 85%
@@ -406,7 +406,7 @@ SLACK_CHANNEL=#ai-agent
 - **Success Rate:** 50% (POC validation)
 - **Actual Value:** 75-150 bugs fixed/month
 
-**Department Savings (איך זה חוסך למחלקה):**
+**Department Savings (How It Saves the Department):**
 - Time saved: 150 bugs × 15 min × 50% = 112.5 hours/month
 - Developer cost: $60/hour
 - **Monthly Savings:** $6,750
