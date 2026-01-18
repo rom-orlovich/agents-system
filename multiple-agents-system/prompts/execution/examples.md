@@ -1,0 +1,383 @@
+# Execution Agent Examples
+
+## Example 1: Implement Test Task
+
+### Input
+```json
+{
+  "task": {
+    "id": 1,
+    "description": "Write unit tests for ImageProcessor",
+    "file": "tests/utils/test_image_processor.py",
+    "estimatedHours": 2,
+    "dependencies": []
+  },
+  "plan": {
+    "architecture": {
+      "components": [
+        {
+          "name": "ImageProcessor",
+          "path": "src/utils/image_processor.py",
+          "responsibilities": ["Resize images to standard sizes"]
+        }
+      ]
+    },
+    "testStrategy": {
+      "unitTests": [
+        {"description": "Resize creates correct dimensions"},
+        {"description": "Maintains aspect ratio by cropping"},
+        {"description": "Handles various input formats"}
+      ]
+    }
+  },
+  "existingCode": {}
+}
+```
+
+### Expected Generated Code
+```python
+# tests/utils/test_image_processor.py
+"""Unit tests for ImageProcessor."""
+
+import pytest
+from PIL import Image
+from io import BytesIO
+from src.utils.image_processor import ImageProcessor
+
+
+class TestImageProcessor:
+    """Tests for image processing functionality."""
+    
+    @pytest.fixture
+    def processor(self):
+        """Create ImageProcessor instance."""
+        return ImageProcessor()
+    
+    @pytest.fixture
+    def sample_image(self):
+        """Create a sample test image."""
+        img = Image.new('RGB', (500, 500), color='red')
+        buffer = BytesIO()
+        img.save(buffer, format='PNG')
+        buffer.seek(0)
+        return buffer
+    
+    @pytest.fixture
+    def rectangular_image(self):
+        """Create a rectangular test image."""
+        img = Image.new('RGB', (300, 200), color='blue')
+        buffer = BytesIO()
+        img.save(buffer, format='PNG')
+        buffer.seek(0)
+        return buffer
+    
+    # Test: Resize creates correct dimensions
+    def test_resize_32x32_creates_exact_dimensions(self, processor, sample_image):
+        """Verify 32x32 resize produces exact target dimensions."""
+        result = processor.resize(sample_image, 32, 32)
+        assert result.size == (32, 32)
+    
+    def test_resize_64x64_creates_exact_dimensions(self, processor, sample_image):
+        """Verify 64x64 resize produces exact target dimensions."""
+        result = processor.resize(sample_image, 64, 64)
+        assert result.size == (64, 64)
+    
+    def test_resize_256x256_creates_exact_dimensions(self, processor, sample_image):
+        """Verify 256x256 resize produces exact target dimensions."""
+        result = processor.resize(sample_image, 256, 256)
+        assert result.size == (256, 256)
+    
+    # Test: Maintains aspect ratio by cropping
+    def test_resize_rectangular_image_crops_to_square(self, processor, rectangular_image):
+        """Verify rectangular images are center-cropped to square."""
+        result = processor.resize(rectangular_image, 64, 64)
+        assert result.size == (64, 64)
+    
+    def test_resize_preserves_image_quality(self, processor, sample_image):
+        """Verify resized image maintains reasonable quality."""
+        result = processor.resize(sample_image, 256, 256)
+        assert result.mode in ('RGB', 'RGBA')
+    
+    # Test: Handles various input formats
+    def test_resize_handles_jpeg_input(self, processor):
+        """Verify JPEG images are processed correctly."""
+        img = Image.new('RGB', (200, 200), color='green')
+        buffer = BytesIO()
+        img.save(buffer, format='JPEG')
+        buffer.seek(0)
+        
+        result = processor.resize(buffer, 64, 64)
+        assert result.size == (64, 64)
+    
+    def test_resize_handles_png_with_transparency(self, processor):
+        """Verify PNG with alpha channel is handled."""
+        img = Image.new('RGBA', (200, 200), color=(255, 0, 0, 128))
+        buffer = BytesIO()
+        img.save(buffer, format='PNG')
+        buffer.seek(0)
+        
+        result = processor.resize(buffer, 64, 64)
+        assert result.size == (64, 64)
+    
+    # Error cases
+    def test_resize_raises_on_invalid_input(self, processor):
+        """Verify invalid input raises appropriate error."""
+        with pytest.raises(ValueError, match="Invalid image"):
+            processor.resize(BytesIO(b"not an image"), 64, 64)
+    
+    def test_resize_raises_on_zero_dimensions(self, processor, sample_image):
+        """Verify zero dimensions raise error."""
+        with pytest.raises(ValueError, match="dimensions must be positive"):
+            processor.resize(sample_image, 0, 64)
+```
+
+### Expected Output
+```json
+{
+  "taskId": 1,
+  "status": "success",
+  "filesModified": [
+    {"path": "tests/utils/test_image_processor.py", "action": "created"}
+  ],
+  "testsRun": {
+    "total": 10,
+    "passed": 0,
+    "failed": 10,
+    "skipped": 0,
+    "duration": "0.5s",
+    "note": "Tests fail as expected - ImageProcessor not yet implemented"
+  },
+  "commit": {
+    "sha": "a1b2c3d",
+    "message": "test: add unit tests for ImageProcessor\n\nTask ID: 1\nGenerated by AI Execution Agent"
+  }
+}
+```
+
+---
+
+## Example 2: Implement Code Based on Tests
+
+### Input
+```json
+{
+  "task": {
+    "id": 2,
+    "description": "Implement ImageProcessor with Pillow",
+    "file": "src/utils/image_processor.py",
+    "estimatedHours": 2,
+    "dependencies": [1]
+  },
+  "existingTests": "tests/utils/test_image_processor.py"
+}
+```
+
+### Expected Generated Code
+```python
+# src/utils/image_processor.py
+"""Image processing utilities for avatar resizing."""
+
+from io import BytesIO
+from PIL import Image
+import structlog
+
+logger = structlog.get_logger(__name__)
+
+
+class ImageProcessor:
+    """Process images for avatar generation."""
+    
+    SUPPORTED_FORMATS = {'JPEG', 'PNG', 'GIF', 'WEBP'}
+    
+    def resize(self, image_data: BytesIO, width: int, height: int) -> Image.Image:
+        """Resize an image to specified dimensions.
+        
+        The image is center-cropped to a square aspect ratio before
+        resizing to maintain proportions.
+        
+        Args:
+            image_data: BytesIO containing image data.
+            width: Target width in pixels.
+            height: Target height in pixels.
+            
+        Returns:
+            PIL Image object with target dimensions.
+            
+        Raises:
+            ValueError: If image is invalid or dimensions are not positive.
+        """
+        if width <= 0 or height <= 0:
+            raise ValueError("Target dimensions must be positive integers")
+        
+        try:
+            image = Image.open(image_data)
+        except Exception as e:
+            logger.error("invalid_image", error=str(e))
+            raise ValueError(f"Invalid image: {e}")
+        
+        if image.format not in self.SUPPORTED_FORMATS:
+            logger.warning("unsupported_format", format=image.format)
+        
+        # Convert to RGB if necessary (for transparency handling)
+        if image.mode in ('RGBA', 'P'):
+            # Create white background for transparency
+            background = Image.new('RGB', image.size, (255, 255, 255))
+            if image.mode == 'P':
+                image = image.convert('RGBA')
+            background.paste(image, mask=image.split()[-1])
+            image = background
+        elif image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        # Center crop to square
+        image = self._center_crop_square(image)
+        
+        # Resize to target dimensions
+        resized = image.resize(
+            (width, height),
+            Image.Resampling.LANCZOS
+        )
+        
+        logger.info(
+            "image_resized",
+            original_size=image.size,
+            target_size=(width, height)
+        )
+        
+        return resized
+    
+    def _center_crop_square(self, image: Image.Image) -> Image.Image:
+        """Crop image to square from center.
+        
+        Args:
+            image: PIL Image to crop.
+            
+        Returns:
+            Square-cropped PIL Image.
+        """
+        width, height = image.size
+        
+        if width == height:
+            return image
+        
+        size = min(width, height)
+        left = (width - size) // 2
+        top = (height - size) // 2
+        right = left + size
+        bottom = top + size
+        
+        return image.crop((left, top, right, bottom))
+    
+    def generate_avatar_sizes(
+        self,
+        image_data: BytesIO
+    ) -> dict[str, Image.Image]:
+        """Generate all standard avatar sizes.
+        
+        Args:
+            image_data: BytesIO containing source image.
+            
+        Returns:
+            Dict mapping size names to Image objects.
+        """
+        sizes = {
+            'small': (32, 32),
+            'medium': (64, 64),
+            'large': (256, 256),
+        }
+        
+        results = {}
+        for name, (width, height) in sizes.items():
+            # Reset stream position for each resize
+            image_data.seek(0)
+            results[name] = self.resize(image_data, width, height)
+        
+        return results
+```
+
+### Expected Output
+```json
+{
+  "taskId": 2,
+  "status": "success",
+  "filesModified": [
+    {"path": "src/utils/image_processor.py", "action": "created"}
+  ],
+  "testsRun": {
+    "total": 10,
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "duration": "1.2s"
+  },
+  "lintResult": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "commit": {
+    "sha": "d4e5f6g",
+    "message": "feat: implement ImageProcessor with Pillow\n\nAdd center-crop and resize functionality for avatar generation.\nSupports JPEG, PNG, GIF, and WEBP formats.\n\nTask ID: 2\nGenerated by AI Execution Agent"
+  }
+}
+```
+
+---
+
+## Example 3: Retry on Test Failure
+
+### Input
+```json
+{
+  "task": {
+    "id": 3,
+    "description": "Implement S3 upload for avatars",
+    "file": "src/storage/s3_storage.py",
+    "estimatedHours": 2,
+    "dependencies": [2]
+  }
+}
+```
+
+### First Attempt - Failure
+```json
+{
+  "taskId": 3,
+  "status": "retry",
+  "attempt": 1,
+  "testsRun": {
+    "passed": 3,
+    "failed": 1,
+    "error": "test_upload_generates_cdn_url: AssertionError: Expected URL to start with 'https://cdn.example.com/', got 'https://s3.amazonaws.com/'"
+  },
+  "analysis": "Test expects CDN URL format but implementation returns S3 URL directly"
+}
+```
+
+### Second Attempt - Success
+After analyzing the failure, modify the implementation:
+
+```python
+def upload(self, image: Image.Image, key: str) -> str:
+    """Upload image to S3 and return CDN URL."""
+    # ... upload logic ...
+    
+    # Return CDN URL, not S3 URL
+    cdn_domain = os.environ.get('CDN_DOMAIN', 'cdn.example.com')
+    return f"https://{cdn_domain}/{key}"
+```
+
+```json
+{
+  "taskId": 3,
+  "status": "success",
+  "attempt": 2,
+  "testsRun": {
+    "passed": 4,
+    "failed": 0
+  },
+  "commit": {
+    "sha": "h7i8j9k",
+    "message": "feat: implement S3 avatar upload with CDN URLs"
+  }
+}
+```

@@ -1,0 +1,85 @@
+services:
+  # ==========================================================================
+  # Redis - Message Queue
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ==========================================================================
+  # Webhook Server - Receives Jira/Sentry/GitHub webhooks
+  # ==========================================================================
+  webhook-server:
+    build:
+      context: .
+      dockerfile: webhook-server/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./shared:/app/shared:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ==========================================================================
+  # Planning Agent - Discovery & Planning
+  # ==========================================================================
+  planning-agent:
+    build:
+      context: .
+      dockerfile: planning-agent/Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      # Mount Claude CLI config from host
+      - ${HOME}/.claude:/root/.claude:ro
+      # Shared workspace for repositories
+      - workspace:/workspace
+      # Mount shared utilities
+      - ./shared:/app/shared:ro
+    # Run as worker that polls Redis queue
+    command: ["python", "worker.py"]
+
+  # ==========================================================================
+  # Executor Agent - Code Implementation
+  # ==========================================================================
+  executor-agent:
+    build:
+      context: .
+      dockerfile: executor-agent/Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      # Mount Claude CLI config from host
+      - ${HOME}/.claude:/root/.claude:ro
+      # Shared workspace for repositories
+      - workspace:/workspace
+      # Mount shared utilities
+      - ./shared:/app/shared:ro
+    # Run as worker that polls Redis queue
+    command: ["python", "worker.py"]
+
+volumes:
+  redis-data:
+  workspace:

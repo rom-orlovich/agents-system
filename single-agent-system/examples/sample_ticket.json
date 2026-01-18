@@ -1,0 +1,11 @@
+{
+    "id": "PROJ-123",
+    "summary": "Add user authentication with OAuth",
+    "description": "Implement OAuth 2.0 authentication flow for the application. Users should be able to sign in using Google or GitHub accounts. The system should handle token refresh and store user sessions securely.",
+    "labels": [
+        "feature",
+        "auth",
+        "security"
+    ],
+    "priority": "High"
+}
