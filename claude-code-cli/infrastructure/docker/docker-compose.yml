@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  # Infrastructure Services
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: aiagent
+      POSTGRES_PASSWORD: localdev
+      POSTGRES_DB: aiagent
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aiagent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Webhook Server
+  webhook-server:
+    build:
+      context: ../../services/webhook-server
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://aiagent:localdev@postgres:5432/aiagent
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
+      - JIRA_URL=${JIRA_URL:-}
+      - JIRA_EMAIL=${JIRA_EMAIL:-}
+      - JIRA_API_TOKEN=${JIRA_API_TOKEN:-}
+      - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN:-}
+      - DEBUG=true
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # Planning Agent
+  planning-agent:
+    build:
+      context: ../../agents/planning-agent
+      dockerfile: Dockerfile
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://aiagent:localdev@postgres:5432/aiagent
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN:-}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
+      - SLACK_CHANNEL_AGENTS=${SLACK_CHANNEL_AGENTS:-#ai-agents}
+      - CLAUDE_CONFIG_DIR=/root/.claude
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ~/.claude:/root/.claude:ro
+      - workspace:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # Executor Agent
+  executor-agent:
+    build:
+      context: ../../agents/executor-agent
+      dockerfile: Dockerfile
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://aiagent:localdev@postgres:5432/aiagent
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
+      - CLAUDE_CONFIG_DIR=/root/.claude
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ~/.claude:/root/.claude:ro
+      - workspace:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  redis_data:
+  postgres_data:
+  workspace:
+
+networks:
+  default:
+    name: ai-agent-network
