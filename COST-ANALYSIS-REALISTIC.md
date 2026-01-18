@@ -113,7 +113,7 @@ Data Transfer:             $5.00
 Total Infrastructure:     $25.00
 ```
 
-**TOTAL MONTHLY COST:** **$52.91 ≈ $50/month**
+**TOTAL MONTHLY COST:** **$52.91 ≈ $53/month**
 
 ### Value Delivered
 - **Tasks Completed:** 30/month
@@ -223,29 +223,38 @@ Total Infrastructure:   $230.00
 ### Pricing Model: Claude Teams Subscription
 
 **Claude Teams Advantage:**
-- Fixed $30/user/month for **unlimited API usage**
+- Fixed $150/user/month (Professional tier) for **unlimited API usage**
 - No token counting required
 - Includes Claude Sonnet 4.5 + Opus 4.5 access
+- **Required tier for Claude Code CLI**
 
 ### Cost Breakdown
 
-**Claude Teams Subscription:**
+**Claude Teams Subscription (Professional Tier):**
 ```
-Planning Agent Seat:    $30.00
-Executor Agent Seat:    $30.00
-Total Subscription:     $60.00
-```
-
-**Infrastructure (Single Server):**
-```
-EC2 t3.large:           $62.00  (Docker host)
-EBS Storage (50GB):      $5.00  (persistent volumes)
-Data Transfer:           $3.00  (minimal traffic)
-CloudWatch Basic:        $5.00  (basic monitoring)
-Total Infrastructure:   $75.00
+Single Shared Seat:    $150.00  (runs both planning & executor agents)
+Total Subscription:    $150.00
 ```
 
-**TOTAL MONTHLY COST:** **$135 ≈ $150/month**
+**Infrastructure (Local Docker - Recommended for POC):**
+```
+Local Development:       $0.00  (Docker on laptop/workstation)
+Total Infrastructure:    $0.00
+```
+
+**TOTAL MONTHLY COST (Local POC):** **$150/month**
+
+### Alternative: Cloud-Hosted POC
+For teams preferring cloud deployment:
+```
+Claude Teams (Professional): $150.00
+EC2 t3.large (Docker host):   $62.00
+EBS Storage (50GB):            $5.00
+Data Transfer:                 $3.00
+CloudWatch Basic:              $5.00
+Total Infrastructure:         $75.00
+TOTAL:                       $225/month
+```
 
 ### Alternative: API-Based POC
 If using direct API instead of Teams (for comparison):
@@ -253,8 +262,9 @@ If using direct API instead of Teams (for comparison):
 225 tasks × 90K/11K tokens
 API Cost:               ~$85.00
 Infrastructure:         ~$65.00
-Total:                  ~$150/month  (same cost!)
+Total:                  ~$150/month
 ```
+**Note:** However, Claude Code CLI requires Claude Teams Professional subscription, not direct API access.
 
 ### Value Delivered
 - **Tasks Completed:** 113/month
@@ -335,12 +345,12 @@ Total:          $750 + $480 = $1,230/month
 
 | Metric | Single Agent | Multiple Agents | CLI POC | CLI Production |
 |--------|--------------|-----------------|---------|----------------|
-| **Monthly Cost** | $50 | $1,150 | $150 | $1,550 |
+| **Monthly Cost** | $53 | $1,150 | $150 | $1,550 |
 | **Tasks/Month** | 75 | 2,750 | 225 | 3,600 |
 | **Success Rate** | 40% | 65% | 50% | 70% |
 | **Successful Tasks** | 30 | 1,788 | 113 | 2,520 |
 | **Hours Saved** | 60 | 3,576 | 226 | 5,040 |
-| **Cost per Task** | $1.67 | $0.64 | $1.33 | $0.62 |
+| **Cost per Task** | $1.77 | $0.64 | $1.33 | $0.62 |
 | **Monthly Savings** | $3,600 | $214,560 | $13,560 | $302,400 |
 | **ROI** | 6,700% | 18,558% | 8,940% | 19,406% |
 | **Break-even** | 1 task | 20 tasks | 3 tasks | 26 tasks |

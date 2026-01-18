@@ -246,7 +246,7 @@ SLACK_CHANNEL=#ai-agent
 
 | Solution | Monthly Cost | Tasks Processed | Success Rate | Bugs Fixed | Cost/Fix | Monthly Savings | ROI | Best For |
 |----------|-------------|-----------------|--------------|------------|----------|-----------------|-----|----------|
-| **Single Agent System** | $53 | 75 | 40% | 30 | $1.76 | $3,600 | 6,700% | Local Development & Testing |
+| **Single Agent System** | $53 | 75 | 40% | 30 | $1.77 | $3,600 | 6,700% | Local Development & Testing |
 | **Multiple Agents System** | $1,150 | 2,750 | 65% | 1,788 | $0.64 | $214,560 | 18,558% | AWS Production at Scale |
 | **Claude Code CLI** ⭐ | $1,550 | 3,600 | 70% | 2,520 | $0.62 | $302,400 | 19,406% | Enterprise Production |
 | **Claude Code CLI POC** | $150 | 225 | 50% | 113 | $1.33 | $13,560 | 8,940% | Quick Proof of Concept |
@@ -406,18 +406,16 @@ SLACK_CHANNEL=#ai-agent
 **Monthly Cost Breakdown (225 Tasks):**
 | Component | Cost | Details |
 |-----------|------|---------|
-| **Claude Teams** | **$60** | Unlimited usage |
-| └─ Planning Agent (1 seat) | $30 | Shared seat |
-| └─ Executor Agent (1 seat) | $30 | Shared seat |
-| **Infrastructure** | **$90** | Single-server setup |
-| └─ EC2 t3.large | $62 | Docker host |
-| └─ EBS Storage (50GB) | $5 | Persistent volumes |
-| └─ Data Transfer | $3 | Minimal traffic |
-| └─ Route53 + CloudWatch | $6 | DNS + monitoring |
-| └─ Elastic IP | $4 | Static address |
-| └─ Backups (S3) | $10 | Daily snapshots |
-| **Total** | **$150** | POC environment |
-| **Local-only** | **$60** | No cloud (laptop Docker) |
+| **Claude Teams** | **$150** | Professional tier (required for Claude Code CLI) |
+| └─ Shared Seat | $150 | Runs both planning & executor agents |
+| **Infrastructure** | **$0** | Local Docker on laptop/workstation |
+| **Total** | **$150** | POC environment (local) |
+
+**Alternative: Cloud-Hosted POC ($225/month):**
+| Component | Cost |
+|-----------|------|
+| Claude Teams | $150 |
+| EC2 t3.large + Infrastructure | $75 |
 
 **Token Usage:**
 - Input: 20.25M tokens (75% cached)
