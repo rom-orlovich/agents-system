@@ -47,6 +47,16 @@ Used to update the Jira ticket with enriched information.
 
 ## Workflow Steps
 
+### Step 0: Notify Jira - Starting Work
+Add a comment to the Jira ticket to notify that work has started.
+
+```
+Call: mcp_atlassian.add_comment(
+  issue_key="PROJ-123",
+  body="🤖 **AI Agent Started**\n\nThe AI Planning Agent has picked up this ticket and is now:\n- Fetching Sentry error details\n- Analyzing the codebase\n- Creating a fix plan\n\n⏳ This typically takes 2-5 minutes."
+)
+```
+
 ### Step 1: Parse Jira Webhook
 Extract the Sentry Issue ID from the ticket description.
 

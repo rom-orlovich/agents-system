@@ -1,4 +1,4 @@
-.PHONY: help setup env up down logs test clean ngrok
+.PHONY: help setup env oauth up down logs test clean ngrok
 
 help:
 	@echo "AI Agent System - Claude Code CLI"
@@ -6,6 +6,7 @@ help:
 	@echo "Available commands:"
 	@echo "  make setup    - Initial setup (install dependencies)"
 	@echo "  make env      - Edit environment variables (.env)"
+	@echo "  make oauth    - Extract OAuth from Keychain (uses your Claude subscription)"
 	@echo "  make up       - Start all services"
 	@echo "  make down     - Stop all services"
 	@echo "  make logs     - View logs"
@@ -25,10 +26,18 @@ setup:
 	@test -d ~/.claude || { echo "❌ Claude not authenticated. Run 'claude login' first"; exit 1; }
 	@echo "✅ Prerequisites OK"
 	@echo "📄 Checking environment file..."
-	@test -f infrastructure/docker/.env || { echo "Creating .env from example..."; cp infrastructure/docker/.env.example infrastructure/docker/.env; echo "⚠️  Please edit infrastructure/docker/.env with your credentials"; exit 0; }
+	@test -f infrastructure/docker/.env || { echo "Creating .env from example..."; cp infrastructure/docker/.env.example infrastructure/docker/.env; echo "⚠️  Please edit infrastructure/docker/.env with your credentials"; }
+	@echo "🔑 Extracting OAuth credentials from Keychain..."
+	@./infrastructure/docker/extract-oauth.sh || echo "⚠️  OAuth extraction failed. You can use ANTHROPIC_API_KEY instead."
 	@echo "✅ Setup complete!"
 
+oauth:
+	@echo "🔑 Extracting OAuth credentials from macOS Keychain..."
+	@./infrastructure/docker/extract-oauth.sh
+
 up:
+	@echo "🔑 Refreshing OAuth credentials from Keychain..."
+	@./infrastructure/docker/extract-oauth.sh || echo "⚠️  OAuth extraction failed. Containers will use ANTHROPIC_API_KEY if set."
 	@echo "🚀 Starting AI Agent System..."
 	cd infrastructure/docker && docker-compose up -d
 	@echo "⏳ Waiting for services to start..."

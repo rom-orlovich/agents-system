@@ -86,6 +86,7 @@ def extract_repository_from_description(description: str) -> Optional[str]:
     return None
 
 
+@router.post("")
 @router.post("/")
 async def jira_webhook(request: Request):
     """Handle Jira webhook events.
