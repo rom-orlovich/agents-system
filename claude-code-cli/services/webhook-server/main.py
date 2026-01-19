@@ -8,10 +8,10 @@ from fastapi.responses import JSONResponse
 import uvicorn
 
 # Add shared module to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "shared"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from config import settings
-from metrics import metrics
+from shared.config import settings
+from shared.metrics import metrics
 
 # Import routes
 from routes import jira, sentry, github, slack

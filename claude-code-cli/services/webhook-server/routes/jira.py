@@ -6,16 +6,19 @@ from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
+import logging
 
 # Add shared module to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "shared"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from config import settings
-from models import TaskSource
-from task_queue import RedisQueue
+from shared.config import settings
+from shared.models import TaskSource
+from shared.task_queue import RedisQueue
+from shared.constants import BOT_CONFIG
 
 router = APIRouter()
 queue = RedisQueue()
+logger = logging.getLogger("jira-webhook")
 
 
 def extract_sentry_issue_id(description: str) -> Optional[str]:

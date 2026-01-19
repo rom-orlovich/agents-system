@@ -6,24 +6,22 @@
         "run",
         "-i",
         "--rm",
-        "-e",
-        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "-e", "GITHUB_TOOLSETS=default,actions,code_security",
         "ghcr.io/github/github-mcp-server"
-      ],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
-      }
+      ]
     },
     "atlassian": {
-      "url": "https://mcp.atlassian.com/v1/mcp"
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote@latest",
+        "https://mcp.atlassian.com/v1/sse"
+      ]
     },
     "sentry": {
       "command": "npx",
-      "args": ["-y", "@sentry/mcp-server@latest"],
-      "env": {
-        "SENTRY_ACCESS_TOKEN": "${SENTRY_AUTH_TOKEN}",
-        "SENTRY_HOST": "${SENTRY_HOST:-sentry.io}"
-      }
+      "args": ["-y", "@sentry/mcp-server@latest"]
     },
     "filesystem": {
       "command": "npx",

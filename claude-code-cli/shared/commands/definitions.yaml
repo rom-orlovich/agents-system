@@ -1,0 +1,503 @@
+# ==============================================================================
+# AI AGENT COMMAND DEFINITIONS
+# ==============================================================================
+#
+# This file defines all commands the AI Agent understands.
+# Claude Code can read this file to understand available commands.
+#
+# Format:
+#   command_name:
+#     aliases: [list of alternative names]
+#     description: What the command does (multiline string)
+#     usage: How to use it
+#     examples: List of example invocations
+#     parameters: List of {name, type, required, description}
+#     handler: Python handler function name
+#     platforms: Where available [github, jira, slack, all]
+#     response_template: Optional response template
+#
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# CORE COMMANDS
+# -----------------------------------------------------------------------------
+
+approve:
+  aliases:
+    - approved
+    - lgtm
+    - go
+    - ship-it
+    - "yes"
+  description: |
+    Approve the current plan and start execution.
+    
+    The executor agent will:
+    1. Clone the repository
+    2. Create a feature branch
+    3. Run tests locally first (TDD workflow)
+    4. Implement the fix
+    5. Commit using conventional commits
+    6. Push and update the PR
+    
+    Only use when confident the plan is correct.
+  usage: "@agent approve"
+  examples:
+    - "@agent approve"
+    - "@agent lgtm"
+    - "@agent ship-it"
+  parameters: []
+  handler: handle_approve
+  platforms:
+    - github
+    - jira
+    - slack
+  response_template: |
+    ✅ **Approved!**
+    
+    Task `{task_id}` queued for execution.
+    
+    **Next Steps:**
+    1. 🔄 Cloning repository
+    2. 🧪 Running tests locally
+    3. 🔧 Implementing fix
+    4. 📤 Pushing changes
+    
+    ⏱️ Estimated: 5-10 minutes
+
+reject:
+  aliases:
+    - rejected
+    - no
+    - stop
+    - cancel
+  description: |
+    Reject the current plan with an optional reason.
+    Task will be marked as rejected, no execution.
+  usage: "@agent reject [reason]"
+  examples:
+    - "@agent reject"
+    - "@agent reject needs more error handling"
+    - "@agent reject approach is too risky"
+  parameters:
+    - name: reason
+      type: string
+      required: false
+      description: Explanation for rejection
+  handler: handle_reject
+  platforms:
+    - github
+    - jira
+    - slack
+  response_template: |
+    ❌ **Rejected**
+    
+    Task `{task_id}` has been rejected.
+    
+    {reason_text}
+    
+    The plan will not be executed.
+
+improve:
+  aliases:
+    - refine
+    - update
+    - change
+    - modify
+    - revise
+    - fix-plan
+  description: |
+    Request improvements to the current plan.
+    
+    The planning agent will:
+    1. Read your feedback
+    2. Update the plan
+    3. Push changes
+    4. Notify when done
+    
+    Be specific about what to change.
+  usage: "@agent improve <instruction>"
+  examples:
+    - "@agent improve add more error handling"
+    - "@agent improve use async/await instead of callbacks"
+    - "@agent improve also update the integration tests"
+  parameters:
+    - name: instruction
+      type: string
+      required: true
+      description: What to improve in the plan
+  handler: handle_improve
+  platforms:
+    - github
+    - jira
+    - slack
+
+status:
+  aliases:
+    - state
+    - info
+    - progress
+    - check
+    - "?"
+  description: |
+    Get current status of the task.
+    
+    Shows:
+    - Task ID
+    - Current phase
+    - Repository
+    - Last update
+    - Any errors
+  usage: "@agent status"
+  examples:
+    - "@agent status"
+    - "@agent ?"
+  parameters: []
+  handler: handle_status
+  platforms:
+    - github
+    - jira
+    - slack
+
+help:
+  aliases:
+    - commands
+    - usage
+    - man
+    - "help me"
+  description: |
+    Show available commands and usage.
+    Can show all or specific command help.
+  usage: "@agent help [command]"
+  examples:
+    - "@agent help"
+    - "@agent help approve"
+    - "@agent help ci-status"
+  parameters:
+    - name: command
+      type: string
+      required: false
+      description: Specific command for help
+  handler: handle_help
+  platforms:
+    - github
+    - jira
+    - slack
+
+# -----------------------------------------------------------------------------
+# CI/CD COMMANDS
+# -----------------------------------------------------------------------------
+
+ci-status:
+  aliases:
+    - ci
+    - build-status
+    - checks
+    - pipeline
+    - build
+  description: |
+    Check CI/CD status for the current PR.
+    
+    Uses GitHub MCP to:
+    1. Get PR check status
+    2. List workflow runs
+    3. Report overall state
+    4. Analyze failures if any
+  usage: "@agent ci-status"
+  examples:
+    - "@agent ci-status"
+    - "@agent ci"
+    - "@agent checks"
+  parameters: []
+  handler: handle_ci_status
+  platforms:
+    - github
+    - slack
+
+ci-logs:
+  aliases:
+    - build-logs
+    - failure-logs
+    - why-failed
+    - show-error
+  description: |
+    Get logs from failed CI jobs.
+    
+    Analyzes failure and provides:
+    - Error summary
+    - Affected file and line
+    - Suggested fix
+  usage: "@agent ci-logs"
+  examples:
+    - "@agent ci-logs"
+    - "@agent why-failed"
+  parameters: []
+  handler: handle_ci_logs
+  platforms:
+    - github
+    - slack
+
+retry-ci:
+  aliases:
+    - rerun-ci
+    - rerun
+    - rebuild
+    - restart-ci
+  description: |
+    Re-run failed CI jobs.
+    Uses GitHub MCP rerun_failed_jobs.
+  usage: "@agent retry-ci"
+  examples:
+    - "@agent retry-ci"
+    - "@agent rerun"
+  parameters: []
+  handler: handle_retry_ci
+  platforms:
+    - github
+    - slack
+
+# -----------------------------------------------------------------------------
+# CODE UNDERSTANDING COMMANDS
+# -----------------------------------------------------------------------------
+
+ask:
+  aliases:
+    - question
+    - how
+    - what
+    - why
+    - where
+    - when
+    - tell-me
+  description: |
+    Ask a question about the codebase.
+    
+    Claude Code will:
+    1. Search relevant code
+    2. Analyze the code
+    3. Answer with references
+  usage: "@agent ask <question>"
+  examples:
+    - "@agent ask how does authentication work?"
+    - "@agent ask where is the database connection?"
+    - "@agent how does caching work?"
+  parameters:
+    - name: question
+      type: string
+      required: true
+      description: Your question about the code
+  handler: handle_ask
+  platforms:
+    - github
+    - jira
+    - slack
+
+explain:
+  aliases:
+    - describe
+    - what-is
+    - analyze
+    - show
+  description: |
+    Explain what a file or function does.
+    
+    Provides:
+    - Purpose of the code
+    - Key functions/methods
+    - Dependencies
+    - Usage examples
+  usage: "@agent explain <file-or-function>"
+  examples:
+    - "@agent explain src/auth.js"
+    - "@agent explain UserService.authenticate"
+    - "@agent what-is PaymentProcessor"
+  parameters:
+    - name: target
+      type: string
+      required: true
+      description: File path or function name
+  handler: handle_explain
+  platforms:
+    - github
+    - jira
+    - slack
+
+find:
+  aliases:
+    - grep
+    - search-code
+    - locate
+    - search
+  description: |
+    Search for a pattern in the codebase.
+    Returns matching files and line numbers.
+  usage: "@agent find <pattern>"
+  examples:
+    - "@agent find UserService"
+    - "@agent find TODO"
+    - "@agent grep password"
+  parameters:
+    - name: pattern
+      type: string
+      required: true
+      description: Pattern to search for
+  handler: handle_find
+  platforms:
+    - github
+    - slack
+
+# -----------------------------------------------------------------------------
+# DISCOVERY COMMANDS
+# -----------------------------------------------------------------------------
+
+discover:
+  aliases:
+    - rediscover
+    - scan
+    - analyze-error
+  description: |
+    Re-run discovery to find affected files.
+    
+    Useful when:
+    - More context added to issue
+    - Initial discovery missed something
+    - Want to search specific repo
+  usage: "@agent discover [repo]"
+  examples:
+    - "@agent discover"
+    - "@agent discover myorg/backend"
+  parameters:
+    - name: repo
+      type: string
+      required: false
+      description: Specific repository to search
+  handler: handle_discover
+  platforms:
+    - github
+    - jira
+    - slack
+
+list-repos:
+  aliases:
+    - repos
+    - repositories
+  description: |
+    List all repositories the agent can access.
+  usage: "@agent list repos"
+  examples:
+    - "@agent list repos"
+    - "@agent repos"
+  parameters: []
+  handler: handle_list_repos
+  platforms:
+    - slack
+
+list-files:
+  aliases:
+    - files
+    - ls
+    - dir
+  description: |
+    List files in a directory of the repository.
+  usage: "@agent list files <path>"
+  examples:
+    - "@agent list files src/"
+    - "@agent ls tests/"
+  parameters:
+    - name: path
+      type: string
+      required: true
+      description: Directory path to list
+  handler: handle_list_files
+  platforms:
+    - github
+    - slack
+
+# -----------------------------------------------------------------------------
+# PR MANAGEMENT COMMANDS
+# -----------------------------------------------------------------------------
+
+update-title:
+  aliases:
+    - rename
+    - title
+  description: |
+    Update the PR title.
+  usage: "@agent update-title <new-title>"
+  examples:
+    - "@agent update-title fix: handle null user session"
+  parameters:
+    - name: title
+      type: string
+      required: true
+      description: New PR title
+  handler: handle_update_title
+  platforms:
+    - github
+
+add-tests:
+  aliases:
+    - write-tests
+    - more-tests
+  description: |
+    Add tests for the current changes.
+  usage: "@agent add-tests"
+  examples:
+    - "@agent add-tests"
+  parameters: []
+  handler: handle_add_tests
+  platforms:
+    - github
+
+fix-lint:
+  aliases:
+    - lint
+    - format
+    - autofix
+  description: |
+    Auto-fix linting and formatting issues.
+  usage: "@agent fix-lint"
+  examples:
+    - "@agent fix-lint"
+    - "@agent format"
+  parameters: []
+  handler: handle_fix_lint
+  platforms:
+    - github
+
+# -----------------------------------------------------------------------------
+# JIRA COMMANDS
+# -----------------------------------------------------------------------------
+
+update-jira:
+  aliases:
+    - sync-jira
+    - jira-update
+  description: |
+    Update the linked Jira ticket with progress.
+  usage: "@agent update-jira"
+  examples:
+    - "@agent update-jira"
+  parameters: []
+  handler: handle_update_jira
+  platforms:
+    - github
+    - jira
+
+link-pr:
+  aliases:
+    - attach-pr
+    - add-pr
+  description: |
+    Link current PR to a Jira ticket.
+  usage: "@agent link-pr <jira-key>"
+  examples:
+    - "@agent link-pr PROJ-123"
+  parameters:
+    - name: jira_key
+      type: string
+      required: true
+      description: Jira issue key
+  handler: handle_link_pr
+  platforms:
+    - github

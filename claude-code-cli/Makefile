@@ -1,18 +1,20 @@
-.PHONY: help setup env oauth up down logs test clean ngrok
+.PHONY: help setup env oauth up down logs test clean tunnel skills health
 
 help:
 	@echo "AI Agent System - Claude Code CLI"
 	@echo ""
 	@echo "Available commands:"
-	@echo "  make setup    - Initial setup (install dependencies)"
+	@echo "  make setup    - Initial setup (prerequisites, env, OAuth, skills)"
 	@echo "  make env      - Edit environment variables (.env)"
 	@echo "  make oauth    - Extract OAuth from Keychain (uses your Claude subscription)"
+	@echo "  make skills   - Setup Claude Code skills (lazy loading)"
 	@echo "  make up       - Start all services"
 	@echo "  make down     - Stop all services"
 	@echo "  make logs     - View logs"
 	@echo "  make test     - Run tests"
+	@echo "  make health   - Run health check"
+	@echo "  make tunnel   - Setup Cloudflare Tunnel (FREE persistent webhooks)"
 	@echo "  make clean    - Clean up volumes and images"
-	@echo "  make ngrok    - Expose webhook server to the internet via ngrok"
 	@echo ""
 
 env:
@@ -29,11 +31,22 @@ setup:
 	@test -f infrastructure/docker/.env || { echo "Creating .env from example..."; cp infrastructure/docker/.env.example infrastructure/docker/.env; echo "⚠️  Please edit infrastructure/docker/.env with your credentials"; }
 	@echo "🔑 Extracting OAuth credentials from Keychain..."
 	@./infrastructure/docker/extract-oauth.sh || echo "⚠️  OAuth extraction failed. You can use ANTHROPIC_API_KEY instead."
+	@echo "📦 Setting up skills..."
+	@./scripts/setup-skills.sh
 	@echo "✅ Setup complete!"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Edit .env:  make env"
+	@echo "  2. Start:      make up"
+	@echo "  3. Tunnel:     make tunnel"
 
 oauth:
 	@echo "🔑 Extracting OAuth credentials from macOS Keychain..."
 	@./infrastructure/docker/extract-oauth.sh
+
+skills:
+	@echo "📦 Setting up Claude Code skills..."
+	@./scripts/setup-skills.sh
 
 up:
 	@echo "🔑 Refreshing OAuth credentials from Keychain..."
@@ -45,11 +58,11 @@ up:
 	@echo ""
 	@echo "✅ System is running!"
 	@echo ""
-	@echo "📊 Dashboard:      http://localhost:3000 (not yet implemented)"
 	@echo "🔗 Webhook Server: http://localhost:8000"
-	@echo "📈 Metrics:        http://localhost:8000/metrics"
+	@echo "📊 Health:         http://localhost:8000/health"
 	@echo ""
 	@echo "View logs with: make logs"
+	@echo "Health check:   make health"
 
 down:
 	@echo "🛑 Stopping AI Agent System..."
@@ -63,12 +76,18 @@ test:
 	@echo "🧪 Running tests..."
 	pytest tests/ -v
 
+health:
+	@echo "🏥 Running health check..."
+	@./scripts/health-check.sh
+
+tunnel:
+	@echo "🌐 Setting up Cloudflare Tunnel (FREE)..."
+	@./scripts/setup-tunnel.sh
+
 clean:
 	@echo "🧹 Cleaning up..."
 	cd infrastructure/docker && docker-compose down -v
-	@echo "✅ Cleaned up volumes"
-
-ngrok:
-	@echo "🌐 Exposing port 8000 via ngrok..."
-	ngrok http 8000
-
+	rm -rf shared/__pycache__ shared/commands/__pycache__
+	find . -name "*.pyc" -delete
+	find . -name "__pycache__" -type d -delete
+	@echo "✅ Cleaned up"

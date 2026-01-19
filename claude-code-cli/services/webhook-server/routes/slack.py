@@ -1,58 +1,231 @@
-"""Slack webhook routes."""
+"""Slack webhook routes.
+
+Handles Slack webhooks including:
+- URL verification
+- Button clicks (approvals/rejections)
+- Slash commands (future)
+- App mentions with bot commands (@agent help, etc.)
+"""
 
 import sys
 from pathlib import Path
 from fastapi import APIRouter, Request
+import logging
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "shared"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from config import settings
-from models import TaskSource, TaskStatus
-from task_queue import RedisQueue
+from shared.config import settings
+from shared.models import TaskStatus
+from shared.task_queue import RedisQueue
+from shared.commands import CommandParser
+from shared.commands.executor import CommandExecutor
+from shared.enums import Platform
+from shared.constants import BOT_CONFIG
 
 router = APIRouter()
 queue = RedisQueue()
+command_parser = CommandParser()
+command_executor = CommandExecutor(redis=queue)
+
+logger = logging.getLogger("slack-webhook")
 
 
 @router.post("/")
 async def slack_webhook(request: Request):
-    """Handle Slack webhook events."""
+    """Handle Slack webhook events.
+    
+    Processes:
+    - url_verification: Slack challenge response
+    - event_callback: App mentions, messages
+    - block_actions: Button clicks (approve/reject)
+    """
     payload = await request.json()
-
-    # Handle different Slack event types
+    
+    # Handle URL verification challenge
     if payload.get("type") == "url_verification":
-        # Slack URL verification
+        logger.info("Slack URL verification")
         return {"challenge": payload.get("challenge")}
-
-    # Handle button clicks (approvals)
+    
+    # Handle interactive components (buttons)
     if "actions" in payload:
-        action = payload["actions"][0]
-        action_id = action.get("action_id")
-        task_id = action.get("value")
+        return await handle_button_action(payload)
+    
+    # Handle event callbacks (messages, mentions)
+    if payload.get("type") == "event_callback":
+        event = payload.get("event", {})
+        event_type = event.get("type", "")
+        
+        if event_type == "app_mention":
+            return await handle_app_mention(event)
+        
+        if event_type == "message":
+            return await handle_message(event)
+    
+    return {"status": "processed"}
 
-        if action_id == "approve_task":
-            # Approve task
-            task_data = await queue.get_task(task_id)
-            if task_data:
-                await queue.update_task_status(task_id, TaskStatus.APPROVED)
-                await queue.push(settings.EXECUTION_QUEUE, task_data)
 
-                print(f"✅ Task {task_id} approved via Slack")
+async def handle_button_action(payload: dict):
+    """Handle Slack button clicks (approve/reject buttons).
+    
+    Args:
+        payload: Slack interactive payload
+        
+    Returns:
+        Response dict
+    """
+    action = payload.get("actions", [{}])[0]
+    action_id = action.get("action_id", "")
+    task_id = action.get("value", "")
+    user = payload.get("user", {}).get("username", "unknown")
+    
+    logger.info(f"Slack button action: {action_id} from @{user}")
+    
+    if action_id == "approve_task":
+        task_data = await queue.get_task(task_id)
+        if task_data:
+            await queue.update_task_status(task_id, TaskStatus.APPROVED)
+            await queue.push(settings.EXECUTION_QUEUE, task_data)
+            
+            logger.info(f"Task {task_id} approved via Slack by @{user}")
+            
+            return {
+                "response_type": "in_channel",
+                "text": f"✅ Task `{task_id}` approved by @{user} and queued for execution!"
+            }
+        else:
+            return {
+                "response_type": "ephemeral",
+                "text": f"❌ Task `{task_id}` not found"
+            }
+    
+    elif action_id == "reject_task":
+        await queue.update_task_status(task_id, TaskStatus.REJECTED)
+        
+        logger.info(f"Task {task_id} rejected via Slack by @{user}")
+        
+        return {
+            "response_type": "in_channel",
+            "text": f"❌ Task `{task_id}` rejected by @{user}"
+        }
+    
+    return {"status": "processed"}
 
-                return {"status": "approved"}
 
-        elif action_id == "reject_task":
-            # Reject task
-            await queue.update_task_status(task_id, TaskStatus.REJECTED)
+async def handle_app_mention(event: dict):
+    """Handle app mention events (@bot commands).
+    
+    Args:
+        event: Slack event object
+        
+    Returns:
+        Response dict
+    """
+    text = event.get("text", "")
+    channel = event.get("channel", "")
+    thread_ts = event.get("thread_ts", event.get("ts"))
+    user = event.get("user", "")
+    
+    logger.info(f"App mention from <@{user}>: {text[:100]}...")
+    
+    # Build context for command parser
+    context = {
+        "channel": channel,
+        "thread_ts": thread_ts,
+        "user": user,
+    }
+    
+    # Parse the command (prepend @agent since the bot was mentioned)
+    # The actual bot mention will be like <@U12345> so we need to normalize
+    normalized_text = text
+    # Replace Slack user mention with @agent
+    import re
+    normalized_text = re.sub(r"<@[A-Z0-9]+>", "@agent", text)
+    
+    parsed = command_parser.parse(
+        text=normalized_text,
+        platform=Platform.SLACK,
+        context=context
+    )
+    
+    if not parsed:
+        logger.warning(f"Could not parse command from: {text[:50]}")
+        return {
+            "response_type": "ephemeral",
+            "text": f"I didn't understand that. Try `@{BOT_CONFIG.name} help` for commands."
+        }
+    
+    logger.info(f"Parsed command: {parsed.command_name}")
+    
+    # Execute the command
+    result = await command_executor.execute(parsed)
+    
+    # TODO: Send result as Slack message
+    # This would use Slack API:
+    # await slack_client.post_message(
+    #     channel=channel,
+    #     thread_ts=thread_ts,
+    #     text=result.message
+    # )
+    
+    return {
+        "status": "executed",
+        "command": parsed.command_name,
+        "success": result.success
+    }
 
-            print(f"❌ Task {task_id} rejected via Slack")
 
-            return {"status": "rejected"}
-
+async def handle_message(event: dict):
+    """Handle direct messages to the bot.
+    
+    Args:
+        event: Slack event object
+        
+    Returns:
+        Response dict
+    """
+    # Ignore bot messages to prevent loops
+    if event.get("bot_id"):
+        return {"status": "ignored", "reason": "bot message"}
+    
+    # Only handle DMs (channel starts with D)
+    channel = event.get("channel", "")
+    if not channel.startswith("D"):
+        return {"status": "ignored", "reason": "not DM"}
+    
+    text = event.get("text", "")
+    user = event.get("user", "")
+    
+    logger.info(f"DM from <@{user}>: {text[:100]}...")
+    
+    # For DMs, prepend @agent since they're talking to us directly
+    normalized_text = f"@agent {text}"
+    
+    context = {
+        "channel": channel,
+        "user": user,
+    }
+    
+    parsed = command_parser.parse(
+        text=normalized_text,
+        platform=Platform.SLACK,
+        context=context
+    )
+    
+    if parsed:
+        result = await command_executor.execute(parsed)
+        return {
+            "status": "executed",
+            "command": parsed.command_name
+        }
+    
     return {"status": "processed"}
 
 
 @router.get("/test")
 async def test_slack_webhook():
     """Test endpoint."""
-    return {"status": "Slack webhook endpoint is working"}
+    return {
+        "status": "Slack webhook endpoint is working",
+        "bot_name": BOT_CONFIG.name,
+        "bot_tags": BOT_CONFIG.tags
+    }
