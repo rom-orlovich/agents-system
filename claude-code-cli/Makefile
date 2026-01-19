@@ -1,5 +1,8 @@
 .PHONY: help setup env oauth up down logs test clean tunnel skills health
 
+# LocalTunnel subdomain - change this to something unique!
+LT_SUBDOMAIN ?= claude-agent-webhooks
+
 help:
 	@echo "AI Agent System - Claude Code CLI"
 	@echo ""
@@ -13,7 +16,7 @@ help:
 	@echo "  make logs     - View logs"
 	@echo "  make test     - Run tests"
 	@echo "  make health   - Run health check"
-	@echo "  make tunnel   - Setup Cloudflare Tunnel (FREE persistent webhooks)"
+	@echo "  make tunnel   - Start LocalTunnel (FREE, consistent URL)"
 	@echo "  make clean    - Clean up volumes and images"
 	@echo ""
 
@@ -38,7 +41,7 @@ setup:
 	@echo "Next steps:"
 	@echo "  1. Edit .env:  make env"
 	@echo "  2. Start:      make up"
-	@echo "  3. Tunnel:     make tunnel"
+	@echo "  3. Tunnel:     make tunnel  (for external webhooks)"
 
 oauth:
 	@echo "🔑 Extracting OAuth credentials from macOS Keychain..."
@@ -81,8 +84,30 @@ health:
 	@./scripts/health-check.sh
 
 tunnel:
-	@echo "🌐 Setting up Cloudflare Tunnel (FREE)..."
-	@./scripts/setup-tunnel.sh
+	@echo "🌐 Starting LocalTunnel (FREE - Open Source)"
+	@echo ""
+	@echo "📦 Checking if localtunnel is installed..."
+	@command -v lt >/dev/null 2>&1 || { echo "Installing localtunnel..."; npm install -g localtunnel; }
+	@echo ""
+	@echo "🚀 Starting tunnel with subdomain: $(LT_SUBDOMAIN)"
+	@echo ""
+	@echo "═══════════════════════════════════════════════════════════════"
+	@echo "Your webhook URL will be:"
+	@echo ""
+	@echo "  🔗 https://$(LT_SUBDOMAIN).loca.lt"
+	@echo ""
+	@echo "Configure this in GitHub/Jira/Sentry webhooks:"
+	@echo "  • GitHub:  https://$(LT_SUBDOMAIN).loca.lt/webhooks/github"
+	@echo "  • Jira:    https://$(LT_SUBDOMAIN).loca.lt/webhooks/jira"
+	@echo "  • Sentry:  https://$(LT_SUBDOMAIN).loca.lt/webhooks/sentry"
+	@echo ""
+	@echo "💡 To use a different subdomain:"
+	@echo "   make tunnel LT_SUBDOMAIN=your-unique-name"
+	@echo ""
+	@echo "Press Ctrl+C to stop"
+	@echo "═══════════════════════════════════════════════════════════════"
+	@echo ""
+	lt --port 8000 --subdomain $(LT_SUBDOMAIN)
 
 clean:
 	@echo "🧹 Cleaning up..."
