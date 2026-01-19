@@ -304,31 +304,31 @@ Slack provides **bidirectional communication**:
 
 | Component | Specification | Cost/Month |
 |-----------|---------------|------------|
-| **Claude Teams** | 1 seat | $150 |
+| **Claude Max $100** | POC tier (5x Pro usage) | $100 |
 | **EC2 Instance** | t3.medium (2 vCPU, 4GB) | ~$30 |
 | **EBS Storage** | 50GB gp3 | ~$5 |
 | **Redis** | Docker container (included) | $0 |
 | **Data Transfer** | ~10GB | ~$1 |
-| **Total Fixed** | | **~$186/month** |
+| **Total Fixed** | | **~$136/month** |
 
-### Variable Costs (Claude API Usage)
+### Claude Max $100 Limits
 
-| Metric | Estimate |
-|--------|----------|
-| Avg tokens per task | ~50,000 tokens |
-| Claude Sonnet price | $3/1M input, $15/1M output |
-| Cost per task | ~$0.50 - $2.00 |
+| Metric | Value |
+|--------|-------|
+| Usage multiplier | 5x Pro |
+| Messages per 5h | ~225 |
+| Daily capacity (12h) | ~540 messages |
+| Tasks per day | ~36-54 (at 10-15 msgs/task) |
 
 ### Total Cost Estimates
 
 | Usage Level | Tasks/Month | Monthly Cost |
 |-------------|-------------|--------------|
-| **Light** | 20 tasks | ~$200 |
-| **Medium** | 50 tasks | ~$250 |
-| **Heavy** | 100 tasks | ~$350 |
+| **Light** | 20 tasks | ~$140 |
+| **Medium** | 50 tasks | ~$140 |
+| **Heavy (quota limit)** | 65 tasks | ~$140 |
 
-> **Note:** Claude Teams at $150/month includes generous rate limits suitable for automated agent usage.
-
+> **Note:** Claude Max $100 has usage limits. For full production, upgrade to Claude Teams ($150/seat).
 ---
 
 ## Capacity & Performance
@@ -336,19 +336,22 @@ Slack provides **bidirectional communication**:
 ### Task Processing Capacity
 
 | Metric | Estimate |
-|--------|----------|
-| **Planning Agent** | ~10-20 minutes per task |
-| **Executor Agent** | ~20-60 minutes per task |
-| **Total Task Time** | ~30-80 minutes end-to-end |
-| **Parallel Tasks** | 1 (sequential queue) |
+|--------|---------|
+| **Planning Agent** | ~5-10 minutes per task |
+| **Executor Agent** | ~15-30 minutes per task |
+| **Total Agent Time** | ~20-40 minutes end-to-end |
+| **Human Approval Time** | ~30 min - 5 hours |
+| **Total with Approval** | ~2.5 hours average |
 
-### Monthly Capacity (Single Instance)
+### Monthly Capacity (Single Instance, Max $100)
 
 | Work Pattern | Tasks/Day | Tasks/Month |
 |--------------|-----------|-------------|
-| **8h workday** | 6-12 tasks | 120-240 tasks |
-| **24/7 operation** | 18-36 tasks | 540-1080 tasks |
-| **Realistic (with failures)** | 4-8 tasks | 80-160 tasks |
+| **Agent only (12h)** | 18-36 tasks | 396-792 tasks |
+| **With human approval** | 5-6 tasks | 110-130 tasks |
+| **Max $100 quota limit** | ~3 tasks | **~65 tasks** |
+
+> ⚠️ **Bottleneck:** Human approval is the main throughput limiter, not agent speed.
 
 ### Task Complexity Guidelines
 
@@ -357,39 +360,6 @@ Slack provides **bidirectional communication**:
 | **Simple** | Single file fix, clear error | 30 min |
 | **Medium** | 2-5 files, tests needed | 60 min |
 | **Complex** | Multiple repos, architecture change | 90+ min |
-
----
-
-## Feasibility Analysis
-
-### ✅ What This System CAN Do
-
-| Capability | Details |
-|------------|---------|
-| **Simple Bug Fixes** | Clear error → fix → test |
-| **Sentry Error Resolution** | Stack trace → locate → fix |
-| **Test Writing** | Add tests for existing code |
-| **Code Refactoring** | Improve code following patterns |
-| **Documentation** | Update docs with code changes |
-| **Linting Fixes** | Auto-fix ESLint, Prettier, Ruff |
-
-### ⚠️ What Requires Human Oversight
-
-| Scenario | Why |
-|----------|-----|
-| **Architecture Changes** | Needs design review |
-| **Security-Related Fixes** | Needs security review |
-| **Breaking API Changes** | Needs impact assessment |
-| **Complex Cross-Repo** | May miss dependencies |
-
-### ❌ What This System CANNOT Do
-
-| Limitation | Reason |
-|------------|--------|
-| **UI/UX Changes** | Cannot visually verify |
-| **Performance Optimization** | Cannot benchmark |
-| **Business Logic Decisions** | Needs domain expertise |
-| **Production Deployment** | Safety concern |
 
 ### Success Rate Expectations
 
@@ -400,17 +370,21 @@ Slack provides **bidirectional communication**:
 | Feature implementation | 50-70% |
 | Complex refactoring | 30-50% |
 
-### ROI Analysis
+### ROI Analysis (Based on Industry Benchmarks)
 
-| Factor | Calculation |
-|--------|-------------|
-| **Developer hourly cost** | ~$75/hour |
-| **Time saved per task** | 1-4 hours |
-| **Value per task** | $75-$300 |
-| **System cost per task** | $2-5 |
-| **ROI per task** | 15x - 150x |
+| Factor | Value |
+|--------|-------|
+| **Developer hourly cost** | ~$60/hour |
+| **Time saved per task** | 2 hours |
+| **Claude Code success rate** | 70-77% (SWE-bench) |
+| **Tasks completed** | 65 × 70% = 46/month |
+| **Hours saved** | 46 × 2h = 92 hours |
+| **Monthly savings** | 92 × $60 = **$5,520** |
+| **Monthly cost** | ~$136 |
+| **Net value** | **$5,384** |
+| **ROI** | **3,950%** |
 
-**Break-even:** ~3-5 successful tasks per month covers system cost.
+**Break-even:** ~3 successful tasks per month covers system cost.
 
 ---
 
@@ -488,7 +462,7 @@ REDIS_URL=redis://redis:6379/0
 - ✅ TDD methodology ensures test coverage
 - ✅ Slack integration for control and visibility
 - ✅ Fully Dockerized for easy deployment
-- ✅ Low cost (~$200/month for light usage)
+- ✅ Low cost (~$136/month for POC with Max $100)
 
 ### Recommended Use Cases
 

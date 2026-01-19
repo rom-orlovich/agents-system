@@ -240,164 +240,90 @@ SLACK_CHANNEL=#ai-agent
 
 ## 💰 Detailed Cost Analysis & ROI
 
-> **Based on Real Claude API Pricing (2025)** - See [COST-ANALYSIS-REALISTIC.md](./COST-ANALYSIS-REALISTIC.md) for full methodology
+> **Based on Real Claude API Pricing (2026)** - See [COST-ANALYSIS-REALISTIC.md](./COST-ANALYSIS-REALISTIC.md) for full methodology
+> 
+> ⚠️ **Important:** Capacity numbers include human approval bottleneck (~2.5h/task for Claude Code, ~3.5h/task for custom agents)
 
 ### Cost Comparison: All Four Solutions
 
-| Solution | Monthly Cost | Tasks Processed | Success Rate | Bugs Fixed | Cost/Fix | Monthly Savings | ROI | Best For |
-|----------|-------------|-----------------|--------------|------------|----------|-----------------|-----|----------|
-| **Single Agent System** | $53 | 75 | 40% | 30 | $1.77 | $3,600 | 6,700% | Local Development & Testing |
-| **Multiple Agents System** | $1,150 | 2,750 | 65% | 1,788 | $0.64 | $214,560 | 18,558% | AWS Production at Scale |
-| **Claude Code CLI** ⭐ | $1,550 | 3,600 | 70% | 2,520 | $0.62 | $302,400 | 19,406% | Enterprise Production |
-| **Claude Code CLI POC** | $150 | 225 | 50% | 113 | $1.33 | $13,560 | 8,940% | Quick Proof of Concept |
+| Solution | Monthly Cost | Capacity | Success Rate | Tasks Done | Net Value | ROI | Best For |
+|----------|-------------|----------|--------------|------------|-----------|-----|----------|
+| **Single Agent System** | $40 | 77 tasks | 50% | 39 | $4,640 | 11,600% | Local Development |
+| **Multiple Agents System** | $356 | 385 tasks | 65% | 250 | $29,644 | 8,326% | AWS Production |
+| **Claude Code CLI POC** | $100 | 65 tasks | 70% | 46 | $5,420 | 5,320% | Quick POC |
+| **Claude Code CLI** ⭐ | $1,100 | 580 tasks | 70% | 406 | $47,620 | 4,329% | Enterprise Production |
+
+> ⚠️ **Note:** Higher ROI % doesn't mean higher value! CLI Production has 10x more net value than Single Agent.
+> 
+> 📊 Success rates based on SWE-bench (Claude Code: 77.2%) and industry estimates.
 
 ---
 
 ### 1️⃣ Single Agent System (Development & Testing)
 
-**Monthly Cost Breakdown (75 Tasks):**
+**Monthly Cost Breakdown:**
 | Component | Cost | Details |
 |-----------|------|---------|
-| **AWS Bedrock API** | **$28** | Claude Sonnet 4.5 + Opus 4.5 with Prompt Caching |
-| └─ Sonnet 4.5 (30%) | $6 | Discovery + Planning: 2M cached, 0.5M new |
-| └─ Opus 4.5 (70%) | $22 | Execution + CI/CD: 3.5M cached, 1.2M new |
-| **Infrastructure** | **$25** | Minimal AWS resources |
-| └─ EC2 t3.small | $15 | Optional runtime environment |
-| └─ Lambda + CloudWatch | $10 | Serverless + monitoring |
-| **Total** | **~$53** | Development environment |
+| **AWS Bedrock API** | **~$15** | Claude Sonnet + Opus mix |
+| **Infrastructure** | **~$25** | EC2 t3.small + basic AWS |
+| **Total** | **~$40** | Development environment |
 
-**Token Usage:**
-- Input: 6.75M tokens (75% cached)
-- Output: 0.825M tokens
-- Cost per task: $0.71
-
-**Capacity & Value:**
-- **Tasks Processed:** 75/month
-- **Success Rate:** 40% (learning phase)
-- **Bugs Fixed:** 30/month
-- **Time per Fix:** ~2 hours saved
-
-**Department Savings (How It Saves Money):**
-- Developer hours saved: 30 bugs × 2 hours = **60 hours/month**
-- Developer cost: $60/hour (fully loaded)
-- **Monthly Savings:** $3,600
-- **ROI:** 6,700%
-- **Break-even:** 1 bug/month
+**Capacity & Value (with human approval):**
+- **Capacity:** 77 tasks/month
+- **Success Rate:** 50% (custom agent)
+- **Tasks Completed:** 39/month
+- **Hours Saved:** 78 hours
+- **Monthly Savings:** $4,680
+- **Net Value:** $4,640/month
+- **ROI:** 11,600%
 
 ---
 
 ### 2️⃣ Multiple Agents System (AWS Production)
 
-**Monthly Cost Breakdown (2,750 Tasks):**
+**Monthly Cost Breakdown:**
 | Component | Cost | Details |
 |-----------|------|---------|
-| **AWS Bedrock API** | **$921** | Claude Sonnet 4.5 + Opus 4.5 with 85% Caching |
-| └─ Discovery Agent (15%) | $94 | Sonnet: 31.5M cached, 5.5M new, 4.5M output |
-| └─ Planning Agent (25%) | $262 | Opus: 52.6M cached, 9.3M new, 7.5M output |
-| └─ Execution Agent (45%) | $471 | Opus: 94.7M cached, 16.7M new, 13.6M output |
-| └─ CI/CD Agent (15%) | $94 | Sonnet: 31.5M cached, 5.5M new, 4.5M output |
-| **AWS Infrastructure** | **$230** | Production-grade distributed |
-| └─ Step Functions | $50 | 2,750 workflow executions |
-| └─ Lambda (4 functions) | $40 | ~1M invocations |
-| └─ DynamoDB | $25 | Task state storage |
-| └─ S3 + CloudWatch | $15 | Logs + artifacts |
-| └─ VPC + NAT Gateway | $45 | Network infrastructure |
-| └─ EventBridge | $10 | Webhook routing |
-| └─ Secrets Manager | $15 | Encrypted credentials |
-| └─ CloudWatch Logs | $20 | 30-day retention |
-| └─ X-Ray Tracing | $10 | Distributed tracing |
-| **Total** | **$1,151** | Full production stack |
-| **Rounded** | **$1,150** | Conservative estimate |
+| **AWS Bedrock API** | **~$246** | Sonnet 30% / Opus 70% (no caching) |
+| **AWS Infrastructure** | **~$110** | Lambda, Step Functions, DynamoDB |
+| **Total** | **~$356** | Production stack |
 
-**Token Usage:**
-- Input: 247.5M tokens (85% cached)
-- Output: 30.25M tokens
-- Cost per task: $0.42
+> ⚠️ **Note:** Prompt caching doesn't work reliably in practice. Costs calculated at full price.
 
-**Capacity & Value:**
-- **Tasks Processed:** 2,750/month
-- **Success Rate:** 65% (specialized agents)
-- **Bugs Fixed:** 1,788/month
-- **Time per Fix:** ~2 hours saved
-
-**Department Savings (How It Saves Money):**
-- Developer hours saved: 1,788 bugs × 2 hours = **3,576 hours/month**
-- Developer cost: $60/hour (fully loaded)
-- **Monthly Savings:** $214,560
-- **ROI:** 18,558%
-- **Break-even:** 20 bugs/month
-
-**Why This Saves Your Department:**
-- ✅ Eliminates 3,576 hours of manual bug fixing (21 FTE equivalent)
-- ✅ Developers focus on high-value features, not toil work
-- ✅ Faster incident response (< 30 min vs 4 hours manual)
-- ✅ Reduces customer-facing downtime by 70%
-- ✅ Improves team morale (less firefighting, more innovation)
+**Capacity & Value (with human approval):**
+- **Capacity:** 385 tasks/month (5 parallel agents)
+- **Success Rate:** 50-65% (custom agents)
+- **Tasks Completed:** 250/month
+- **Hours Saved:** 500 hours
+- **Monthly Savings:** $30,000
+- **Net Value:** $29,644/month
+- **ROI:** 8,326%
 
 ---
 
 ### 3️⃣ Claude Code CLI ⭐ (Enterprise Production)
 
-**Monthly Cost Breakdown (3,600 Tasks):**
+**Monthly Cost Breakdown:**
 | Component | Cost | Details |
 |-----------|------|---------|
-| **Claude Teams Subscription** | **$750** | Unlimited API usage |
-| └─ Planning Agent (1 seat) | $150 | Professional tier |
-| └─ Executor Agents (4 seats) | $600 | Professional tier |
-| **AWS EKS Infrastructure** | **$960** | Production Kubernetes |
-| └─ EKS Control Plane | $73 | Managed K8s |
-| └─ System Nodes (2 × t3.medium) | $60 | Cluster services |
-| └─ Planning Node (1 × t3.large) | $62 | Planning agent |
-| └─ Executor Nodes (4 × t3.xlarge) | $500 | Auto-scaling workers |
-| └─ RDS PostgreSQL (db.t3.medium) | $80 | Task persistence |
-| └─ ElastiCache Redis (t3.small) | $35 | Queue + cache |
-| └─ EFS Storage | $15 | Shared workspace |
-| └─ Application Load Balancer | $25 | Traffic routing |
-| └─ NAT Gateway | $45 | Outbound internet |
-| └─ Data Transfer | $20 | Network egress |
-| └─ CloudWatch | $30 | Logs + metrics |
-| └─ Secrets Manager | $15 | Credential storage |
-| **Total** | **$1,710** | Full production stack |
-| **With Reserved (30%)** | **$1,422** | 1-year commitment |
-| **Recommended Budget** | **$1,550** | With 10% buffer |
+| **Claude Teams** | **$750** | 5 seats @ $150/seat (unlimited usage) |
+| **AWS Infrastructure** | **~$350** | EKS, RDS, ElastiCache |
+| **Total** | **~$1,100** | Production stack |
 
-**Why Teams vs API?**
-- 3,600 tasks would cost ~$1,200 on API
-- Teams unlimited: $750 flat rate
-- **Savings:** $450/month (37% cheaper)
+**Capacity & Value (with human approval):**
+- **Capacity:** 580 tasks/month (5 parallel executors)
+- **Success Rate:** 70-77% (SWE-bench validated)
+- **Tasks Completed:** 406/month
+- **Hours Saved:** 812 hours
+- **Monthly Savings:** $48,720
+- **Net Value:** $47,620/month
+- **ROI:** 4,329%
 
-**Capacity & Value:**
-- **Tasks Processed:** 3,600/month
-- **Success Rate:** 70% (MCP-powered)
-- **Bugs Fixed:** 2,520/month
-- **Time per Fix:** ~2 hours saved
-
-**Department Savings (How It Saves Money):**
-- Developer hours saved: 2,520 bugs × 2 hours = **5,040 hours/month**
-- Developer cost: $60/hour (fully loaded)
-- **Monthly Savings:** $302,400
-- **ROI:** 19,406%
-- **Break-even:** 26 bugs/month
-
-**Enterprise Value Proposition:**
-
-1. **Human Capital Savings**
-   - 5,040 developer hours freed monthly
-   - Equivalent to **30 FTE developers**
-   - Annual savings: **$3,628,800**
-
-2. **Operational Excellence**
-   - ⚡ **Response Time:** < 20 min (vs 4 hours manual) - **92% faster**
-   - 🎯 **Fix Success Rate:** 70% (vs 45% manual) - **56% more reliable**
-   - 📉 **Incident Backlog:** Reduced by **85%**
-   - 🔄 **On-Call Burden:** Reduced by **60%**
-   - 💰 **Opportunity Cost:** $3.6M/year in feature development time
-
-3. **Quality & Consistency**
-   - 📝 TDD methodology enforced (100% test coverage)
-   - 🔍 Automated code review before merge
-   - 📊 Real-time metrics and dashboards
-   - 🛡️ Security best practices built-in
+**Why Claude Code is Better:**
+1. ⚡ **2x faster** - 40 min vs 80 min per task
+2. 🎯 **Higher success rate** - 70%+ vs 50-65%
+3. 💰 **Fixed cost** - retries are free
+4. 🛠️ **No development** - 1-2 days setup vs 2-4 weeks
 
 ---
 
@@ -437,7 +363,7 @@ SLACK_CHANNEL=#ai-agent
 
 **POC Value Proposition:**
 - ✅ **Quick validation** - Prove ROI in 2-4 weeks
-- ✅ **Low risk** - Only $150/month investment
+- ✅ **Low risk** - Only $100/month investment (Max $100 plan)
 - ✅ **Stakeholder demo** - Real bugs fixed, real time saved
 - ✅ **Team training** - Learn AI agent workflows
 - ✅ **Integration testing** - Identify challenges early
@@ -451,11 +377,12 @@ SLACK_CHANNEL=#ai-agent
 
 | Aspect | POC | Production | When to Choose |
 |--------|-----|------------|----------------|
-| **Setup Time** | 1-2 days | 2-3 weeks | POC: Need quick demo<br>Production: Long-term deployment |
-| **Infrastructure** | Docker Compose | Kubernetes (EKS) | POC: Single server<br>Production: Auto-scaling needed |
-| **Cost** | $150-$200/month | $1,550/month | POC: Budget validation<br>Production: 2,400+ tasks/month |
-| **Capacity** | 150-300 tasks/month | 2,400-4,800 tasks/month | POC: < 10 developers<br>Production: 50+ developers |
-| **Success Rate** | 50% | 70% | POC: Learning phase<br>Production: Critical workloads |
+| **Plan Used** | Max $100 | Teams $150/seat | POC: Limited quota<br>Production: Unlimited |
+| **Cost** | $100-$136/month | $1,100/month | POC: Validation<br>Production: Full scale |
+| **Capacity** | 65 tasks/month | 580 tasks/month | POC: Small team<br>Production: 50+ devs |
+| **Success Rate** | 70% | 70% | Same Claude Code engine |
+| **Infrastructure** | Local Docker | Kubernetes (EKS) | POC: Single server<br>Production: Auto-scaling |
+| **Human Approval** | ~2.5h/task | ~2.5h/task | Same bottleneck |
 | **Monitoring** | Basic logs | CloudWatch + Dashboard | POC: Manual checks<br>Production: Full observability |
 | **High Availability** | ❌ Single instance | ✅ Multi-zone + auto-scaling | POC: Acceptable downtime<br>Production: 99.9% uptime SLA |
 | **Scalability** | Fixed (1 worker) | Auto-scale (2-8 workers) | POC: Predictable load<br>Production: Variable load |
