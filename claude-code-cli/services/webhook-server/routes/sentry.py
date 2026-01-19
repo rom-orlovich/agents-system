@@ -3,15 +3,17 @@
 import sys
 from pathlib import Path
 from fastapi import APIRouter, Request
+import logging
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "shared"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from config import settings
-from models import TaskSource
-from task_queue import RedisQueue
+from shared.config import settings
+from shared.models import TaskSource
+from shared.task_queue import RedisQueue
 
 router = APIRouter()
 queue = RedisQueue()
+logger = logging.getLogger("sentry-webhook")
 
 
 def extract_sentry_tags(event_data: dict) -> dict:

@@ -47,6 +47,8 @@ services:
       - JIRA_EMAIL=${JIRA_EMAIL:-}
       - JIRA_API_TOKEN=${JIRA_API_TOKEN:-}
       - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN:-}
+      - BOT_TAGS=${BOT_TAGS:-@agent,@claude}
+      - BOT_NAME=${BOT_NAME:-AI Agent}
       - DEBUG=true
     depends_on:
       redis:
@@ -64,7 +66,9 @@ services:
       - DATABASE_URL=postgresql://aiagent:localdev@postgres:5432/aiagent
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_TOKEN}
       - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN:-}
+      - SENTRY_ACCESS_TOKEN=${SENTRY_AUTH_TOKEN:-}
       - SENTRY_HOST=${SENTRY_HOST:-sentry.io}
       - JIRA_URL=${JIRA_URL:-}
       - JIRA_EMAIL=${JIRA_EMAIL:-}
@@ -72,14 +76,17 @@ services:
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
       - SLACK_CHANNEL_AGENTS=${SLACK_CHANNEL_AGENTS:-#ai-agents}
       - CLAUDE_CONFIG_DIR=/home/claude/.claude
+      - TOKEN_REFRESH_ENABLED=true
     depends_on:
       redis:
         condition: service_healthy
     volumes:
-      # Mount OAuth credentials (extracted from Keychain via ./extract-oauth.sh)
-      - ~/.claude/.credentials.json:/home/claude/.claude/.credentials.json:ro
+      # Mount OAuth credentials
+      - ${HOME}/.claude/.credentials.json:/home/claude/.claude/.credentials.json:ro
       # Mount MCP config for tool access
-      - ~/.claude/mcp.json:/home/claude/.claude/mcp.json:ro
+      - ./mcp.json:/home/claude/.claude/mcp.json:ro
+      # Mount skills for lazy loading
+      - ${HOME}/.claude/skills:/home/claude/.claude/skills:ro
       - workspace:/workspace
       - /var/run/docker.sock:/var/run/docker.sock
 
@@ -92,16 +99,19 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql://aiagent:localdev@postgres:5432/aiagent
       - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_TOKEN}
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
       - CLAUDE_CONFIG_DIR=/home/claude/.claude
     depends_on:
       redis:
         condition: service_healthy
     volumes:
-      # Mount OAuth credentials (extracted from Keychain via ./extract-oauth.sh)
-      - ~/.claude/.credentials.json:/home/claude/.claude/.credentials.json:ro
-      # Mount MCP config for tool access
-      - ~/.claude/mcp.json:/home/claude/.claude/mcp.json:ro
+      # Mount OAuth credentials
+      - ${HOME}/.claude/.credentials.json:/home/claude/.claude/.credentials.json:ro
+      # Mount MCP config
+      - ./mcp.json:/home/claude/.claude/mcp.json:ro
+      # Mount skills
+      - ${HOME}/.claude/skills:/home/claude/.claude/skills:ro
       - workspace:/workspace
       - /var/run/docker.sock:/var/run/docker.sock
 

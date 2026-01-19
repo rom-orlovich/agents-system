@@ -14,14 +14,19 @@ from typing import Optional
 import re
 
 # Add shared module to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "shared"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from config import settings
-from models import TaskStatus
-from task_queue import RedisQueue
-from slack_client import SlackClient
-from metrics import metrics
-from logging_utils import get_logger
+from shared.config import settings
+from shared.models import TaskStatus
+from shared.task_queue import RedisQueue
+from shared.slack_client import SlackClient
+from shared.metrics import metrics
+from shared.logging_utils import get_logger
+from shared.token_manager import TokenManager
+from shared.git_utils import GitUtils
+from shared.types import GitRepository
+from shared.enums import TokenStatus
+from shared.constants import TIMEOUT_CONFIG
 
 logger = get_logger("planning-agent")
 
@@ -41,6 +46,8 @@ class PlanningAgentWorker:
         self.queue = RedisQueue()
         self.slack = SlackClient()
         self.queue_name = settings.PLANNING_QUEUE
+        self.token_manager = TokenManager()
+        self.git = GitUtils()
         
         # Log available skills on startup
         available_skills = [d.name for d in SKILLS_DIR.iterdir() if d.is_dir()]
@@ -156,12 +163,43 @@ class PlanningAgentWorker:
         metrics.record_task_started("planning")
         
         try:
+            # Check token status first
+            logger.info("STEP 4: Checking OAuth token status")
+            token_result = await self.token_manager.ensure_valid()
+            if not token_result.success:
+                logger.warning(
+                    "Token not valid",
+                    status=token_result.status.value,
+                    error=token_result.error
+                )
+                # Continue anyway - Claude Code may have its own auth
+            else:
+                logger.info(f"Token valid for {token_result.credentials.minutes_until_expiry:.1f} min")
+            
             # Update status
-            logger.info("STEP 4: Updating task status to DISCOVERING")
+            logger.info("STEP 5: Updating task status to DISCOVERING")
             await self.queue.update_task_status(task_id, TaskStatus.DISCOVERING)
             
+            # Clone or update repository if specified
+            repository = task_data.get("repository")
+            repo_path = None
+            if repository:
+                logger.info(f"STEP 6: Cloning/updating repository: {repository}")
+                repo = GitRepository.from_full_name(repository)
+                clone_result = await self.git.clone_repository(repo)
+                if clone_result.success:
+                    repo_path = self.git.get_repo_path(repo)
+                    logger.info(f"Repository ready at: {repo_path}")
+                else:
+                    logger.warning(
+                        "Failed to clone repository",
+                        error=clone_result.error
+                    )
+            else:
+                logger.info("STEP 6: No repository specified, skipping clone")
+            
             # Load the skill prompt
-            logger.info(f"STEP 5: Loading skill prompt from {SKILLS_DIR / skill_name}")
+            logger.info(f"STEP 7: Loading skill prompt from {SKILLS_DIR / skill_name}")
             skill_prompt = self._load_skill(skill_name)
             if not skill_prompt:
                 raise ValueError(f"Skill not found: {skill_name}")
@@ -172,31 +210,31 @@ class PlanningAgentWorker:
             )
             
             # Build context from task data
-            logger.info("STEP 6: Building task context")
+            logger.info("STEP 8: Building task context")
             context = self._build_context(task_data)
             logger.info(f"Context built:\n{context}")
             
             # Full prompt = skill instructions + task context
             full_prompt = f"{skill_prompt}\n\n---\n\n## Current Task Context\n\n{context}"
             logger.info(
-                "STEP 7: Full prompt prepared",
+                "STEP 9: Full prompt prepared",
                 total_length=len(full_prompt)
             )
             
             # Run Claude Code CLI
-            logger.info("STEP 8: Invoking Claude Code CLI")
+            logger.info("STEP 10: Invoking Claude Code CLI")
             result = await self._run_claude_code(full_prompt, task_id)
             
             if result["success"]:
-                logger.info("STEP 9: Claude Code CLI completed successfully")
+                logger.info("STEP 11: Claude Code CLI completed successfully")
                 logger.info(f"Output preview: {result['output'][:500]}...")
                 
                 # Extract PR URL from Claude's output
                 pr_url = self._extract_pr_url(result["output"])
-                logger.info(f"STEP 10: Extracted PR URL: {pr_url or 'None found'}")
+                logger.info(f"STEP 12: Extracted PR URL: {pr_url or 'None found'}")
                 
                 # Update status to pending approval
-                logger.info("STEP 11: Updating task status to PENDING_APPROVAL")
+                logger.info("STEP 13: Updating task status to PENDING_APPROVAL")
                 await self.queue.update_task_status(
                     task_id,
                     TaskStatus.PENDING_APPROVAL,
@@ -205,7 +243,7 @@ class PlanningAgentWorker:
                 )
                 
                 # Notify Slack
-                logger.info("STEP 12: Sending Slack notification")
+                logger.info("STEP 14: Sending Slack notification")
                 await self._notify_slack(task_id, task_data, result, pr_url)
                 
                 duration = (datetime.now() - start_time).total_seconds()

@@ -195,6 +195,16 @@ claude-code-cli/
 │
 ├── shared/
 │   ├── __init__.py
+│   ├── enums.py                    # TokenStatus, TaskStatus, CommandType, Platform
+│   ├── types.py                    # OAuthCredentials, Task, ParsedCommand
+│   ├── constants.py                # BOT_CONFIG, QUEUE_CONFIG, TIMEOUT_CONFIG
+│   ├── token_manager.py            # OAuth refresh + AWS Secrets sync
+│   ├── git_utils.py                # Async git operations
+│   ├── commands/                   # Bot command system
+│   │   ├── definitions.yaml        # 17+ commands with aliases
+│   │   ├── loader.py               # YAML to typed objects
+│   │   ├── parser.py               # Message parsing
+│   │   └── executor.py             # Command handlers
 │   ├── config.py                   # Pydantic settings
 │   ├── database.py                 # PostgreSQL connection
 │   ├── github_client.py            # GitHub utilities (fallback)
@@ -204,11 +214,21 @@ claude-code-cli/
 │   ├── slack_client.py             # Slack notifications
 │   └── task_queue.py               # Redis queue utilities
 │
+├── scripts/
+│   ├── setup-skills.sh             # Install Claude Code skills (98% token savings!)
+│   ├── setup-tunnel.sh             # Cloudflare Tunnel (FREE webhooks)
+│   ├── refresh-token.py            # Cron token refresh
+│   └── health-check.sh             # System health check
+│
 ├── infrastructure/
 │   └── docker/
 │       ├── docker-compose.yml      # Local development
 │       ├── mcp.json                # MCP servers configuration
+│       ├── extract-oauth.sh        # Extract OAuth from Keychain
 │       └── .env.example            # Environment template
+│
+├── tests/
+│   └── test_commands.py            # Command parser tests
 │
 ├── CLAUDE-CODE-CLI.ARCHITECTURE.md # This file
 ├── Makefile                        # Development commands
