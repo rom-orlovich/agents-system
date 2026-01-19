@@ -18,6 +18,15 @@ The Jira ticket was created by Sentry's integration. The ticket description cont
 
 ## Instructions
 
+### Step 0: Notify Jira - Starting Work
+**FIRST**, add a comment to the Jira ticket to notify that the AI agent is starting work:
+
+```
+Use the Atlassian MCP add_comment tool:
+- issue_key: [JIRA_ISSUE_KEY from context]
+- body: "🤖 **AI Agent Started**\n\nThe AI Planning Agent has picked up this ticket and is now:\n- Fetching Sentry error details\n- Analyzing the codebase\n- Creating a fix plan\n\n⏳ This typically takes 2-5 minutes. You'll receive another update when the analysis is complete."
+```
+
 ### Step 1: Get Sentry Details
 Use the Sentry MCP to fetch the complete error information:
 

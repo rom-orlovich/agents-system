@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     docker.io \
+    sudo \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js for MCP servers
@@ -19,6 +20,11 @@ RUN npm install -g @anthropic-ai/claude-code
 RUN npm install -g @sentry/mcp-server@latest \
     @modelcontextprotocol/server-filesystem
 
+# Create non-root user for Claude CLI (required for --dangerously-skip-permissions)
+RUN useradd -m -s /bin/bash claude \
+    && usermod -aG docker claude \
+    && echo "claude ALL=(ALL) NOPASSWD: /bin/chown" >> /etc/sudoers.d/claude
+
 # Set up workspace
 WORKDIR /app
 
@@ -29,16 +35,23 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY agents/planning-agent/worker.py .
 COPY agents/planning-agent/skills/ ./skills/
+COPY agents/planning-agent/entrypoint.sh .
 
 # Copy shared utilities
 COPY shared /shared
 
-# Create workspace directory
-RUN mkdir -p /workspace
+# Create directories and set permissions
+RUN mkdir -p /workspace /home/claude/.claude \
+    && chown -R claude:claude /app /workspace /home/claude \
+    && chmod +x entrypoint.sh
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
-ENV CLAUDE_CONFIG_DIR=/root/.claude
+ENV CLAUDE_CONFIG_DIR=/home/claude/.claude
+ENV HOME=/home/claude
 
-# Run worker
-CMD ["python", "worker.py"]
+# Switch to non-root user
+USER claude
+
+# Run entrypoint (checks/refreshes OAuth, then starts worker)
+ENTRYPOINT ["./entrypoint.sh"]

@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude login)",
+      "Bash(claude login --help:*)",
+      "Bash(claude setup-token:*)",
+      "Bash(claude)",
+      "Bash(claude --version:*)",
+      "Bash(grep:*)",
+      "Bash(security find-generic-password:*)",
+      "Bash(security dump-keychain:*)",
+      "Bash(chmod:*)",
+      "Bash(./infrastructure/docker/extract-oauth.sh:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose ps:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(docker exec:*)",
+      "Bash(curl:*)",
+      "Bash(xargs:*)",
+      "Bash(pgrep:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker-compose build:*)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "filesystem",
+    "reddit",
+    "gitmcp",
+    "github"
+  ]
+}

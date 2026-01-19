@@ -71,15 +71,15 @@ services:
       - JIRA_API_TOKEN=${JIRA_API_TOKEN:-}
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
       - SLACK_CHANNEL_AGENTS=${SLACK_CHANNEL_AGENTS:-#ai-agents}
-      - CLAUDE_CONFIG_DIR=/root/.claude
+      - CLAUDE_CONFIG_DIR=/home/claude/.claude
     depends_on:
       redis:
         condition: service_healthy
     volumes:
-      # Mount only credentials file (OAuth) - NOT entire ~/.claude directory
-      # The full directory mount causes path issues with symlinks
-      - ~/.claude/.credentials.json:/root/.claude/.credentials.json:ro
-      - ~/.claude/mcp.json:/root/.claude/mcp.json:ro
+      # Mount OAuth credentials (extracted from Keychain via ./extract-oauth.sh)
+      - ~/.claude/.credentials.json:/home/claude/.claude/.credentials.json:ro
+      # Mount MCP config for tool access
+      - ~/.claude/mcp.json:/home/claude/.claude/mcp.json:ro
       - workspace:/workspace
       - /var/run/docker.sock:/var/run/docker.sock
 
@@ -93,14 +93,15 @@ services:
       - DATABASE_URL=postgresql://aiagent:localdev@postgres:5432/aiagent
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
-      - CLAUDE_CONFIG_DIR=/root/.claude
+      - CLAUDE_CONFIG_DIR=/home/claude/.claude
     depends_on:
       redis:
         condition: service_healthy
     volumes:
-      # Mount only credentials file (OAuth) - NOT entire ~/.claude directory
-      - ~/.claude/.credentials.json:/root/.claude/.credentials.json:ro
-      - ~/.claude/mcp.json:/root/.claude/mcp.json:ro
+      # Mount OAuth credentials (extracted from Keychain via ./extract-oauth.sh)
+      - ~/.claude/.credentials.json:/home/claude/.claude/.credentials.json:ro
+      # Mount MCP config for tool access
+      - ~/.claude/mcp.json:/home/claude/.claude/mcp.json:ro
       - workspace:/workspace
       - /var/run/docker.sock:/var/run/docker.sock
 
