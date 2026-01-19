@@ -18,7 +18,7 @@ This system implements an enterprise-grade AI agent platform using **Claude Code
 | **Architecture** | Kubernetes-ready | Docker Compose only |
 | **Scaling** | Auto-scaling workers | Fixed containers |
 | **Infrastructure** | AWS EKS, RDS, ElastiCache | Local Docker |
-| **Cost** | ~$1,100/month (5 seats) | ~$136/month (Max $100) |
+| **Cost** | ~$1,100/month (5 seats) | ~$136/month |
 | **Capacity** | 580 tasks/month (with approval) | 65 tasks/month |
 
 ---
@@ -36,8 +36,8 @@ This system implements an enterprise-grade AI agent platform using **Claude Code
 │  │   PLANNING AGENT     │        │   EXECUTOR AGENT     │      │
 │  │                      │        │                      │      │
 │  │  • Discovery         │──Plan──▶│  • TDD Workflow     │      │
-│  │  • Root Cause        │        │  • Code Changes     │      │
-│  │  • Planning          │        │  • Testing          │      │
+│  │  • Jira Enrichment   │        │  • Code Changes     │      │
+│  │  • Plan Changes      │        │  • Testing          │      │
 │  │  • Risk Assessment   │        │  • Git Operations   │      │
 │  └──────────────────────┘        └──────────────────────┘      │
 │           │                                  │                  │
@@ -57,20 +57,26 @@ This system implements an enterprise-grade AI agent platform using **Claude Code
 ### Agent Responsibilities
 
 #### Planning Agent
-- **Discovery Skill**: Identify affected repositories and files
-- **Sentry Analysis**: Parse stack traces and error patterns
-- **Planning Skill**: Create TDD execution plans
-- **Notification Skill**: Send Slack/GitHub notifications
 
-**Tools**: GitHub MCP, Atlassian MCP, Sentry MCP
+The Planning Agent (`agents/planning-agent/`) is responsible for:
+
+| Skill | Purpose | MCP Tools Used |
+|-------|---------|----------------|
+| **Discovery** | Identify affected repositories and files | GitHub MCP (search_code, get_file_content) |
+| **Jira Enrichment** | Enrich Sentry-created Jira tickets with analysis | Sentry MCP, GitHub MCP, Atlassian MCP |
+| **Plan Changes** | Handle PR comment feedback | GitHub MCP |
+| **Execution** | Execute approved fix plans | All MCPs |
 
 #### Executor Agent
-- **Git Operations**: Clone, branch, commit, push
-- **TDD Workflow**: RED → GREEN → REFACTOR cycle
-- **Code Execution**: Implement fixes following plans
-- **Verification**: Run tests, linting, type checking
 
-**Tools**: GitHub MCP, Filesystem MCP
+The Executor Agent (`agents/executor-agent/`) is responsible for:
+
+| Skill | Purpose | Actions |
+|-------|---------|---------|
+| **Git Operations** | Clone, branch, commit, push | Full Git workflow |
+| **TDD Workflow** | RED → GREEN → REFACTOR cycle | Test-first development |
+| **Execution** | Implement fixes following plans | Code modification |
+| **Code Review** | Self-review before commit | Quality checks |
 
 ---
 
@@ -78,13 +84,13 @@ This system implements an enterprise-grade AI agent platform using **Claude Code
 
 ### Phase 1: Trigger
 ```
-Sentry Alert / Jira Ticket / Slack Command / Dashboard
-              │
-              ▼
-      Webhook Server
-              │
-              ▼
-    Redis: planning_queue
+Sentry Alert → Jira Ticket Created (Sentry integration)
+                    │
+                    ▼
+            Webhook Server (FastAPI)
+                    │
+                    ▼
+            Redis: planning_queue
 ```
 
 ### Phase 2: Discovery & Planning
@@ -94,8 +100,8 @@ Planning Agent picks task
     ┌─────────┼─────────┐
     │         │         │
     ▼         ▼         ▼
-Discovery  Sentry   Planning
-   Skill   Analysis   Skill
+Discovery  Jira     Plan
+  Skill   Enrich   Creating
               │
               ▼
         PLAN.md created
@@ -109,7 +115,7 @@ Discovery  Sentry   Planning
 
 ### Phase 3: Human Approval
 ```
-GitHub Comment / Slack Button / Dashboard
+GitHub Comment / Slack Button
               │
               ▼
        "@agent approve"
@@ -145,119 +151,69 @@ Executor Agent (any free worker)
 
 ```
 claude-code-cli/
-├── .claude/
-│   └── mcp.json                    # MCP servers configuration
-│
 ├── agents/
 │   ├── planning-agent/
-│   │   ├── Dockerfile
-│   │   ├── CLAUDE.md               # System prompt
-│   │   ├── worker.py               # Queue consumer
-│   │   ├── executor.py             # CLI wrapper
+│   │   ├── Dockerfile              # Container definition
+│   │   ├── worker.py               # Queue consumer & CLI invoker
 │   │   ├── requirements.txt
 │   │   └── skills/
-│   │       ├── discovery/SKILL.md
-│   │       ├── planning/SKILL.md
-│   │       ├── sentry-analysis/SKILL.md
-│   │       └── slack-notifications/SKILL.md
+│   │       ├── discovery/
+│   │       │   └── SKILL.md        # Repo/file discovery
+│   │       ├── execution/
+│   │       │   └── SKILL.md        # Execute approved plans
+│   │       ├── jira-enrichment/
+│   │       │   ├── SKILL.md        # Enrich Jira tickets
+│   │       │   └── prompt.md       # Detailed prompt
+│   │       └── plan-changes/
+│   │           └── SKILL.md        # Handle PR feedback
 │   │
 │   └── executor-agent/
 │       ├── Dockerfile
-│       ├── CLAUDE.md               # System prompt
 │       ├── worker.py               # Queue consumer
-│       ├── executor.py             # CLI wrapper
 │       ├── requirements.txt
 │       └── skills/
-│           ├── execution/SKILL.md
-│           ├── tdd-workflow/SKILL.md
-│           ├── code-review/SKILL.md
-│           └── git-operations/SKILL.md
+│           ├── code-review/
+│           │   └── SKILL.md        # Self-review checks
+│           ├── execution/
+│           │   └── SKILL.md        # Main orchestration
+│           ├── git-operations/
+│           │   └── SKILL.md        # Git workflow
+│           └── tdd-workflow/
+│               └── SKILL.md        # RED-GREEN-REFACTOR
 │
 ├── services/
-│   ├── webhook-server/
-│   │   ├── Dockerfile
-│   │   ├── main.py                 # FastAPI app
-│   │   ├── routes/
-│   │   │   ├── jira.py
-│   │   │   ├── sentry.py
-│   │   │   ├── github.py
-│   │   │   └── slack.py
-│   │   ├── queue.py
-│   │   └── requirements.txt
-│   │
-│   ├── slack-agent/
-│   │   ├── Dockerfile
-│   │   ├── main.py
-│   │   ├── handlers/
-│   │   │   ├── commands.py
-│   │   │   └── interactions.py
-│   │   └── requirements.txt
-│   │
-│   └── dashboard/
+│   └── webhook-server/
 │       ├── Dockerfile
-│       ├── package.json
-│       ├── src/
-│       │   ├── app/
-│       │   │   ├── page.tsx
-│       │   │   └── api/
-│       │   └── components/
-│       └── tailwind.config.js
+│       ├── main.py                 # FastAPI application
+│       ├── requirements.txt
+│       └── routes/
+│           ├── __init__.py
+│           ├── github.py           # GitHub webhook handler
+│           ├── jira.py             # Jira webhook handler
+│           ├── sentry.py           # Sentry webhook handler
+│           └── slack.py            # Slack webhook handler
 │
 ├── shared/
+│   ├── __init__.py
 │   ├── config.py                   # Pydantic settings
-│   ├── models.py                   # Data models
-│   ├── queue.py                    # Redis utilities
 │   ├── database.py                 # PostgreSQL connection
-│   ├── slack_client.py
-│   ├── github_client.py
-│   └── metrics.py                  # Prometheus metrics
+│   ├── github_client.py            # GitHub utilities (fallback)
+│   ├── logging_utils.py            # Structured JSON logging
+│   ├── metrics.py                  # Prometheus metrics
+│   ├── models.py                   # Data models (Task, etc.)
+│   ├── slack_client.py             # Slack notifications
+│   └── task_queue.py               # Redis queue utilities
 │
 ├── infrastructure/
-│   ├── docker/
-│   │   ├── docker-compose.yml      # Local development
-│   │   ├── docker-compose.prod.yml # Production simulation
-│   │   └── .env.example
-│   │
-│   ├── kubernetes/
-│   │   ├── namespace.yaml
-│   │   ├── configmap.yaml
-│   │   ├── secrets.yaml
-│   │   ├── planning-agent/
-│   │   ├── executor-agent/
-│   │   ├── webhook-server/
-│   │   ├── dashboard/
-│   │   └── ingress.yaml
-│   │
-│   └── terraform/
-│       ├── main.tf
-│       ├── variables.tf
-│       ├── modules/
-│       │   ├── vpc/
-│       │   ├── eks/
-│       │   ├── rds/
-│       │   ├── elasticache/
-│       │   └── efs/
-│       └── environments/
-│           ├── dev/
-│           └── prod/
+│   └── docker/
+│       ├── docker-compose.yml      # Local development
+│       ├── mcp.json                # MCP servers configuration
+│       └── .env.example            # Environment template
 │
-├── scripts/
-│   ├── setup-local.sh              # Local setup
-│   ├── run-local.sh                # Start local
-│   ├── setup-mcp.sh                # MCP setup
-│   ├── test-webhook.sh             # Test webhooks
-│   ├── trigger-task.sh             # Manual trigger
-│   └── deploy.sh                   # Production deploy
-│
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/
-│
-├── pyproject.toml
-├── Makefile
-├── README.md
-└── CLAUDE-CODE-CLI.ARCHITECTURE.md (this file)
+├── CLAUDE-CODE-CLI.ARCHITECTURE.md # This file
+├── Makefile                        # Development commands
+├── pyproject.toml                  # Python project config
+└── README.md                       # User documentation
 ```
 
 ---
@@ -267,27 +223,59 @@ claude-code-cli/
 ### Core Components
 
 | Component | Technology | Purpose |
-|-----------|-----------|---------|
+|-----------|------------|---------|
 | **Agent Runtime** | Claude Code CLI | Execute agent prompts with MCP tools |
 | **Queue System** | Redis | Task distribution and coordination |
 | **Database** | PostgreSQL | Task state and history |
 | **API Server** | FastAPI | Webhook receiver |
-| **Dashboard** | Next.js + React | Task monitoring UI |
 | **Orchestration** | Docker Compose (local), Kubernetes (prod) | Container management |
 
 ### MCP Servers (Official)
 
-| Server | Provider | Tools Available |
-|--------|----------|----------------|
-| **GitHub** | GitHub (official) | search_code, get_file_content, create_branch, create_pull_request, create_or_update_file, add_issue_comment |
-| **Atlassian** | Atlassian (official) | get_issue, add_comment, transition_issue, search_issues |
-| **Sentry** | Sentry (official) | list_issues, get_issue_events, resolve_issue |
-| **Filesystem** | Anthropic (official) | read_file, write_file, list_directory |
+| Server | Provider | Configuration | Tools Available |
+|--------|----------|---------------|-----------------|
+| **GitHub** | GitHub (Docker image) | `ghcr.io/github/github-mcp-server` | search_code, get_file_content, create_branch, create_pull_request, create_or_update_file, add_issue_comment |
+| **Atlassian** | Atlassian (Remote) | `https://mcp.atlassian.com/v1/mcp` | get_issue, update_issue, add_comment, transition_issue, search_issues |
+| **Sentry** | Sentry (npx) | `@sentry/mcp-server@latest` | get_sentry_issue, get_sentry_event, list_issues, resolve_issue |
+| **Filesystem** | Anthropic (npx) | `@modelcontextprotocol/server-filesystem` | read_file, write_file, list_directory |
+
+### MCP Configuration
+
+Located at `infrastructure/docker/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "ghcr.io/github/github-mcp-server"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "atlassian": {
+      "url": "https://mcp.atlassian.com/v1/mcp"
+    },
+    "sentry": {
+      "command": "npx",
+      "args": ["-y", "@sentry/mcp-server@latest"],
+      "env": {
+        "SENTRY_ACCESS_TOKEN": "${SENTRY_AUTH_TOKEN}",
+        "SENTRY_HOST": "${SENTRY_HOST:-sentry.io}"
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
+    }
+  }
+}
+```
 
 ### Infrastructure (Production)
 
 | Service | AWS Equivalent | Purpose |
-|---------|---------------|---------|
+|---------|----------------|---------|
 | **Compute** | EKS (Kubernetes) | Run agent containers |
 | **Database** | RDS PostgreSQL | Persistent storage |
 | **Cache/Queue** | ElastiCache (Redis) | Task queuing |
@@ -300,56 +288,58 @@ claude-code-cli/
 
 ### Planning Agent Skills
 
-#### 1. Discovery Skill (`agents/planning-agent/skills/discovery/SKILL.md`)
+#### 1. Discovery Skill
+**Path**: `agents/planning-agent/skills/discovery/SKILL.md`
 
 **Purpose**: Identify which repository contains the bug and which files are affected.
 
 **Process**:
 1. Parse error information (stack trace, error message)
-2. Search GitHub for matching code
+2. Search GitHub for matching code using `github.search_code`
 3. Identify repository and affected files
 4. Find related test files
 
 **Output**: JSON with repository, confidence score, affected files, root cause
 
-#### 2. Sentry Analysis Skill (`agents/planning-agent/skills/sentry-analysis/SKILL.md`)
+#### 2. Jira Enrichment Skill
+**Path**: `agents/planning-agent/skills/jira-enrichment/SKILL.md`
 
-**Purpose**: Deep analysis of Sentry error events.
-
-**Process**:
-1. Get issue details (frequency, users affected)
-2. Analyze stack trace patterns
-3. Extract error context
-4. Identify common patterns
-
-**Output**: Error analysis with suggested fix approach
-
-#### 3. Planning Skill (`agents/planning-agent/skills/planning/SKILL.md`)
-
-**Purpose**: Create TDD execution plan.
+**Purpose**: Enrich Jira tickets created by Sentry with full analysis.
 
 **Process**:
-1. Review discovery results
-2. Design TDD approach (RED → GREEN → REFACTOR)
-3. Create step-by-step plan
-4. Assess risks and breaking changes
-5. Generate PLAN.md
+1. Fetch Sentry error details (stack trace, context)
+2. Discover relevant files in GitHub
+3. Analyze root cause
+4. Update Jira ticket with analysis
+5. Create GitHub draft PR with PLAN.md
 
-**Output**: Structured execution plan with test-first steps
+**MCP Tools**: Sentry MCP, GitHub MCP, Atlassian MCP
 
-#### 4. Slack Notifications Skill (`agents/planning-agent/skills/slack-notifications/SKILL.md`)
+#### 3. Plan Changes Skill
+**Path**: `agents/planning-agent/skills/plan-changes/SKILL.md`
 
-**Purpose**: Send formatted Slack messages.
+**Purpose**: Handle PR comment feedback and update plans.
 
-**Templates**:
-- Plan ready for approval
-- Execution started
-- Task completed
-- Task failed
+**Process**:
+1. Read developer feedback from PR comment
+2. Update PLAN.md based on feedback
+3. Commit changes and reply to comment
+
+#### 4. Execution Skill
+**Path**: `agents/planning-agent/skills/execution/SKILL.md`
+
+**Purpose**: Execute approved fix plans.
+
+**Process**:
+1. Read approved PLAN.md
+2. Implement code changes
+3. Run tests
+4. Commit and push
 
 ### Executor Agent Skills
 
-#### 1. Git Operations Skill (`agents/executor-agent/skills/git-operations/SKILL.md`)
+#### 1. Git Operations Skill
+**Path**: `agents/executor-agent/skills/git-operations/SKILL.md`
 
 **Purpose**: Handle all Git operations.
 
@@ -362,7 +352,8 @@ claude-code-cli/
 
 **Convention**: Conventional Commits (`fix:`, `feat:`, `test:`, etc.)
 
-#### 2. TDD Workflow Skill (`agents/executor-agent/skills/tdd-workflow/SKILL.md`)
+#### 2. TDD Workflow Skill
+**Path**: `agents/executor-agent/skills/tdd-workflow/SKILL.md`
 
 **Purpose**: Execute RED → GREEN → REFACTOR cycle.
 
@@ -373,7 +364,8 @@ claude-code-cli/
 
 **Verification**: All tests must pass before commit
 
-#### 3. Execution Skill (`agents/executor-agent/skills/execution/SKILL.md`)
+#### 3. Execution Skill
+**Path**: `agents/executor-agent/skills/execution/SKILL.md`
 
 **Purpose**: Main orchestration of execution.
 
@@ -385,7 +377,8 @@ claude-code-cli/
 5. Commit and push
 6. Update Jira and Slack
 
-#### 4. Code Review Skill (`agents/executor-agent/skills/code-review/SKILL.md`)
+#### 4. Code Review Skill
+**Path**: `agents/executor-agent/skills/code-review/SKILL.md`
 
 **Purpose**: Self-review before commit.
 
@@ -400,34 +393,33 @@ claude-code-cli/
 
 ## 🌐 Deployment Models
 
-### Local Development
+### Local Development (Docker Compose)
 
 ```yaml
-# docker-compose.yml
+# docker-compose.yml services
 services:
-  redis:           # 1 container
-  postgres:        # 1 container
-  webhook-server:  # 1 container
-  planning-agent:  # 1 container
-  executor-agent:  # 1 container
-  dashboard:       # 1 container
+  redis:           # Queue - port 6379
+  postgres:        # Database - port 5432
+  webhook-server:  # API - port 8000
+  planning-agent:  # Consumes planning_queue
+  executor-agent:  # Consumes execution_queue
 ```
 
 **Requirements**:
 - Docker & Docker Compose
 - Claude CLI authenticated (`claude login`)
-- Environment variables configured
+- Environment variables in `.env`
+- ngrok for webhook testing
 
-**Cost**: $0 (uses local resources)
+**Cost**: $0 (uses local resources + Claude API)
 
 ### Production (AWS EKS)
 
 ```
 Infrastructure:
 ├── 1 Planning Agent Pod (t3.large)
-├── 4 Executor Agent Pods (t3.xlarge, auto-scaling 2-8)
+├── 2-8 Executor Agent Pods (t3.xlarge, auto-scaling)
 ├── 2 Webhook Server Pods
-├── 2 Dashboard Pods
 ├── RDS PostgreSQL (db.t3.medium)
 ├── ElastiCache Redis (cache.t3.small)
 └── EFS for shared workspace
@@ -446,11 +438,10 @@ Infrastructure:
 ### Horizontal Scaling
 
 | Component | Scaling Method | Metric |
-|-----------|---------------|--------|
+|-----------|----------------|--------|
 | Planning Agent | Manual (1-2 replicas) | Task latency |
 | Executor Agent | HPA (2-8 replicas) | Queue length |
 | Webhook Server | HPA (2-5 replicas) | CPU/Memory |
-| Dashboard | Fixed (2 replicas) | - |
 
 ### Queue-Based Load Balancing
 
@@ -483,7 +474,7 @@ planning_queue → Planning Agent (1 instance)
 | Jira | API Token (read/write issues) |
 | Sentry | Auth Token (read issues) |
 | Slack | Bot Token (post messages, read commands) |
-| Claude API | Teams subscription (via CLI login) |
+| Claude API | Teams subscription (via CLI login) or API key |
 
 ### Secret Management
 
@@ -497,6 +488,7 @@ metadata:
   name: ai-agent-secrets
 type: Opaque
 stringData:
+  ANTHROPIC_API_KEY: "sk-ant-xxx"
   GITHUB_TOKEN: "ghp_xxx"
   JIRA_API_TOKEN: "xxx"
   SENTRY_AUTH_TOKEN: "xxx"
@@ -505,15 +497,17 @@ stringData:
 
 ### Webhook Validation
 
-- GitHub: HMAC-SHA256 signature validation
-- Jira: IP allowlist + signature
-- Sentry: Secret token validation
+- **GitHub**: HMAC-SHA256 signature validation
+- **Jira**: IP allowlist + signature
+- **Sentry**: Secret token validation
 
 ---
 
 ## 📈 Monitoring & Observability
 
 ### Prometheus Metrics
+
+Exposed at `/metrics` endpoint:
 
 ```python
 # Exposed metrics
@@ -526,10 +520,10 @@ ai_agent_errors_total{agent, error_type}
 
 ### Logging
 
-**Structured JSON logs** to stdout:
+**Structured JSON logs** (via `shared/logging_utils.py`):
 ```json
 {
-  "timestamp": "2026-01-18T10:30:00Z",
+  "timestamp": "2026-01-19T10:30:00Z",
   "level": "INFO",
   "agent": "planning-agent",
   "task_id": "task-123",
@@ -542,15 +536,6 @@ ai_agent_errors_total{agent, error_type}
 ```
 
 **Production**: Shipped to CloudWatch Logs
-
-### Dashboards
-
-**Grafana Dashboards**:
-- Task throughput over time
-- Queue length trends
-- Success/failure rates
-- Agent performance metrics
-- Cost tracking (Claude API usage)
 
 ---
 
@@ -580,13 +565,13 @@ ai_agent_errors_total{agent, error_type}
 - Claude Code success rate: **75%**
 - Tasks completed: 580 × 75% = **435/month**
 - Time saved per task: 2 hours
-- Hours saved: 406 × 2h = **812 hours**
+- Hours saved: 435 × 2h = **870 hours**
 - Developer cost: $60/hour
-- **Monthly savings**: 812 × $60 = **$48,720**
+- **Monthly savings**: 870 × $60 = **$52,200**
 
 **ROI Calculation**:
-- Net value: $48,720 - $1,100 = **$47,620/month**
-- ROI: **4,329%**
+- Net value: $52,200 - $1,100 = **$51,100/month**
+- ROI: **4,645%**
 - Payback: < 1 day
 
 ---
@@ -604,7 +589,7 @@ ai_agent_errors_total{agent, error_type}
 - Claude CLI
 
 # Required accounts
-- Claude Teams subscription
+- Claude Teams subscription OR ANTHROPIC_API_KEY
 - GitHub account with PAT
 - Jira account with API token
 - Sentry account (optional)
@@ -624,134 +609,29 @@ npm install -g @anthropic-ai/claude-code
 # 3. Authenticate Claude
 claude login
 
-# 4. Setup MCP servers
-./scripts/setup-mcp.sh
-
-# 5. Configure environment
+# 4. Configure environment
 cp infrastructure/docker/.env.example infrastructure/docker/.env
 # Edit .env with your credentials
 
-# 6. Build images
+# 5. Build images
 cd infrastructure/docker
 docker-compose build
 
-# 7. Start system
+# 6. Start system
 docker-compose up -d
 
-# 8. Verify health
+# 7. Verify health
 curl http://localhost:8000/health
-curl http://localhost:3000
 
-# 8. Expose Webhooks
-# Run ngrok to expose port 8000
+# 8. Expose Webhooks (in separate terminal)
 ngrok http 8000
-
-# 9. View dashboard
-open http://localhost:3000
-```
-
-### Test the System
-
-```bash
-# Trigger a test task via webhook
-./scripts/test-webhook.sh
-
-# Or trigger manually
-./scripts/trigger-task.sh "Fix null pointer exception in auth service"
-
-# Monitor logs
-docker-compose logs -f planning-agent
-docker-compose logs -f executor-agent
-
-# Check task status
-curl http://localhost:8000/api/tasks
-```
-
----
-
-## 🏗️ Production Deployment
-
-### Step 1: Terraform Infrastructure
-
-```bash
-cd infrastructure/terraform
-
-# Initialize
-terraform init
-
-# Plan
-terraform plan -var-file=environments/prod/terraform.tfvars
-
-# Apply
-terraform apply -var-file=environments/prod/terraform.tfvars
-```
-
-### Step 2: Configure Kubernetes
-
-```bash
-# Update kubeconfig
-aws eks update-kubeconfig --name ai-agent-prod --region us-east-1
-
-# Create namespace
-kubectl apply -f infrastructure/kubernetes/namespace.yaml
-
-# Create secrets
-kubectl apply -f infrastructure/kubernetes/secrets.yaml
-
-# Create configmaps
-kubectl apply -f infrastructure/kubernetes/configmap.yaml
-```
-
-### Step 3: Deploy Applications
-
-```bash
-# Deploy Redis
-kubectl apply -f infrastructure/kubernetes/redis/
-
-# Deploy PostgreSQL (or use RDS)
-kubectl apply -f infrastructure/kubernetes/postgres/
-
-# Deploy agents
-kubectl apply -f infrastructure/kubernetes/planning-agent/
-kubectl apply -f infrastructure/kubernetes/executor-agent/
-
-# Deploy services
-kubectl apply -f infrastructure/kubernetes/webhook-server/
-kubectl apply -f infrastructure/kubernetes/dashboard/
-
-# Deploy ingress
-kubectl apply -f infrastructure/kubernetes/ingress.yaml
-```
-
-### Step 4: Verify Deployment
-
-```bash
-# Check pods
-kubectl get pods -n ai-agent-system
-
-# Check services
-kubectl get svc -n ai-agent-system
-
-# Check logs
-kubectl logs -f deployment/planning-agent -n ai-agent-system
-
-# Test health
-curl https://webhooks.yourcompany.com/health
 ```
 
 ---
 
 ## 🎯 Best Practices
 
-### Agent Prompts (CLAUDE.md)
-
-1. **Be specific** about agent responsibilities
-2. **List available skills** with clear instructions
-3. **Define output formats** (JSON schemas)
-4. **Set boundaries** (what NOT to do)
-5. **Provide examples** of good outputs
-
-### Skills Design
+### Skill Design
 
 1. **Single responsibility** - one skill, one purpose
 2. **Clear inputs/outputs** - documented JSON schemas
@@ -766,14 +646,6 @@ curl https://webhooks.yourcompany.com/health
 3. **Dead letter queue** - failed tasks
 4. **TTL** - prevent stale tasks
 5. **Monitoring** - queue length alerts
-
-### Testing Strategy
-
-1. **Unit tests** - individual skills
-2. **Integration tests** - agent workflows
-3. **E2E tests** - full task lifecycle
-4. **Load tests** - queue under stress
-5. **Chaos tests** - failure scenarios
 
 ---
 
@@ -811,7 +683,7 @@ curl https://webhooks.yourcompany.com/health
 - [MCP Protocol Specification](https://modelcontextprotocol.io)
 - [GitHub MCP Server](https://github.com/github/github-mcp-server)
 - [Sentry MCP Server](https://docs.sentry.io/product/integrations/integration-platform/mcp/)
-- [Atlassian MCP](https://developer.atlassian.com/cloud/mcp/)
+- [Atlassian MCP](https://mcp.atlassian.com)
 
 ---
 
@@ -824,6 +696,6 @@ For questions or issues:
 
 ---
 
-**Last Updated**: January 2026
-**Version**: 1.0.0
+**Last Updated**: January 2026  
+**Version**: 1.0.0  
 **Status**: Production Ready

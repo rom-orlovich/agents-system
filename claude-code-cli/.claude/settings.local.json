@@ -1,9 +1,16 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(docker exec claude-agent-system-planning-agent-1 bash -c 'claude -p \"\"Say hello\"\" --output-format json 2>&1; echo \"\"Exit code: $?\"\"')",
+      "Bash(docker exec:*)",
+      "Bash(docker-compose up:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "filesystem",
     "reddit",
     "gitmcp",
     "github"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }
