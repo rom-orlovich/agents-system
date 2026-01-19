@@ -15,9 +15,9 @@ Unlike the POC version (`claude-code-cli-poc/`), this system is designed for **p
 | **Target** | Production (50+ devs) | Local testing |
 | **Scaling** | Auto-scaling workers | Fixed containers |
 | **Infrastructure** | Kubernetes + AWS | Docker Compose only |
-| **Capacity** | 2,400 tasks/month | 50 tasks/month |
-| **Cost** | ~$1,550/month | ~$200/month |
-| **ROI** | 3,223% (50 devs) | Proof of value |
+| **Capacity** | 580 tasks/month | 65 tasks/month |
+| **Cost** | ~$1,100/month | ~$136/month |
+| **ROI** | 4,329% (50 devs) | Proof of value |
 
 ---
 
@@ -32,14 +32,14 @@ This system automates the entire bug-fixing workflow:
 
 ### What It Does
 
-✅ **Analyzes** error reports from Sentry
-✅ **Identifies** affected repositories and files
-✅ **Plans** TDD-based fixes (tests first!)
-✅ **Waits** for human approval
-✅ **Implements** fixes following the plan
-✅ **Runs** all tests to verify
-✅ **Creates** pull requests ready for review
-✅ **Updates** Jira tickets and Slack notifications
+✅ **Analyzes** error reports from Sentry  
+✅ **Identifies** affected repositories and files  
+✅ **Plans** TDD-based fixes (tests first!)  
+✅ **Waits** for human approval  
+✅ **Implements** fixes following the plan  
+✅ **Runs** all tests to verify  
+✅ **Creates** pull requests ready for review  
+✅ **Updates** Jira tickets and Slack notifications  
 
 ---
 
@@ -98,13 +98,75 @@ This system automates the entire bug-fixing workflow:
 ### Components
 
 | Component | Purpose | Technology |
-|-----------|---------|-----------|
+|-----------|---------|-----------:|
 | **Planning Agent** | Analyzes bugs, creates execution plans | Claude Code CLI + MCP |
 | **Executor Agent** | Implements fixes following TDD | Claude Code CLI + MCP |
 | **Webhook Server** | Receives triggers from external services | FastAPI |
 | **Queue System** | Distributes tasks between agents | Redis |
 | **Database** | Stores task state and history | PostgreSQL |
-| **Dashboard** | Monitor tasks and approve plans | Next.js |
+
+---
+
+## 📂 Project Structure
+
+```
+claude-code-cli/
+├── agents/
+│   ├── planning-agent/
+│   │   ├── Dockerfile
+│   │   ├── worker.py               # Queue consumer & Claude CLI invoker
+│   │   ├── requirements.txt
+│   │   └── skills/
+│   │       ├── discovery/SKILL.md
+│   │       ├── execution/SKILL.md
+│   │       ├── jira-enrichment/
+│   │       │   ├── SKILL.md
+│   │       │   └── prompt.md
+│   │       └── plan-changes/SKILL.md
+│   │
+│   └── executor-agent/
+│       ├── Dockerfile
+│       ├── worker.py               # Queue consumer
+│       ├── requirements.txt
+│       └── skills/
+│           ├── code-review/SKILL.md
+│           ├── execution/SKILL.md
+│           ├── git-operations/SKILL.md
+│           └── tdd-workflow/SKILL.md
+│
+├── services/
+│   └── webhook-server/
+│       ├── Dockerfile
+│       ├── main.py                 # FastAPI app
+│       ├── requirements.txt
+│       └── routes/
+│           ├── github.py
+│           ├── jira.py
+│           ├── sentry.py
+│           └── slack.py
+│
+├── shared/
+│   ├── config.py                   # Pydantic settings
+│   ├── database.py                 # PostgreSQL connection
+│   ├── github_client.py            # GitHub utilities
+│   ├── logging_utils.py            # Structured logging
+│   ├── metrics.py                  # Prometheus metrics
+│   ├── models.py                   # Data models
+│   ├── slack_client.py             # Slack notifications
+│   └── task_queue.py               # Redis queue utilities
+│
+├── infrastructure/
+│   └── docker/
+│       ├── docker-compose.yml      # Local development
+│       ├── mcp.json                # MCP servers configuration
+│       ├── OAUTH-SETUP.md          # OAuth authentication guide
+│       └── .env.example
+│
+├── CLAUDE-CODE-CLI.ARCHITECTURE.md
+├── Makefile
+├── pyproject.toml
+└── README.md                       # This file
+```
 
 ---
 
@@ -116,7 +178,7 @@ Before you begin, ensure you have:
 
 - ✅ Docker 20+ and Docker Compose 2+
 - ✅ Node.js 20+ (for MCP servers)
-- ✅ Claude Teams subscription
+- ✅ Claude Pro/Teams subscription **OR** ANTHROPIC_API_KEY
 - ✅ GitHub Personal Access Token
 - ✅ Jira API Token (optional)
 - ✅ Sentry Auth Token (optional)
@@ -132,17 +194,32 @@ npm install -g @anthropic-ai/claude-code
 claude login
 ```
 
-### 2. Setup MCP Servers
+### 2. Configure Authentication
+
+You have two options for authenticating Claude Code CLI in Docker:
+
+#### Option A: OAuth (Recommended - Use Your Subscription)
+
+If you have a Claude Pro or Teams subscription, you can use OAuth credentials:
 
 ```bash
-# From the claude-code-cli directory
-./scripts/setup-mcp.sh
+# Login on your host machine (one-time)
+claude login
+
+# The credentials are automatically mounted into Docker containers
+# See infrastructure/docker/OAUTH-SETUP.md for details
 ```
 
-This installs:
-- GitHub MCP Server (Docker image)
-- Sentry MCP Server (npm package)
-- Filesystem MCP Server (npm package)
+> **See [OAUTH-SETUP.md](./infrastructure/docker/OAUTH-SETUP.md)** for detailed OAuth configuration, including cloud deployment with multiple machines.
+
+#### Option B: API Key
+
+If you prefer using an API key from console.anthropic.com:
+
+```bash
+# Add to infrastructure/docker/.env
+ANTHROPIC_API_KEY=sk-ant-api03-xxxxx
+```
 
 ### 3. Configure Environment
 
@@ -156,7 +233,10 @@ nano infrastructure/docker/.env
 
 Required variables:
 ```bash
-# GitHub
+# Anthropic (optional if using OAuth)
+ANTHROPIC_API_KEY=sk-ant-xxx
+
+# GitHub (required)
 GITHUB_TOKEN=ghp_your_token_here
 
 # Jira (optional)
@@ -166,17 +246,17 @@ JIRA_API_TOKEN=your_token
 
 # Sentry (optional)
 SENTRY_AUTH_TOKEN=your_token
-SENTRY_ORG=your-org
+SENTRY_HOST=sentry.io
 
 # Slack (optional)
 SLACK_BOT_TOKEN=xoxb-your-token
-SLACK_CHANNEL=#ai-agents
+SLACK_CHANNEL_AGENTS=#ai-agents
 ```
 
-### 4. Build and Start
+### 3. Build and Start
 
 ```bash
-# From infrastructure/docker directory
+# From project root
 cd infrastructure/docker
 
 # Build all images
@@ -185,11 +265,11 @@ docker-compose build
 # Start all services
 docker-compose up -d
 
-# Wait for services to be ready (~30 seconds)
-sleep 30
+# Check service health (~30 seconds to be ready)
+docker-compose ps
 ```
 
-### 5. Expose to Internet (ngrok)
+### 4. Expose to Internet (ngrok)
 
 Since GitHub and Sentry need to send webhooks to your local machine, you must expose port `8000` to the internet:
 
@@ -200,15 +280,12 @@ ngrok http 8000
 
 Copy the **Forwarding URL** (e.g., `https://xxxx.ngrok-free.app`). This is your base URL for all webhooks.
 
-### 6. Verify Installation
+### 5. Verify Installation
 
 ```bash
 # Check service health
 curl http://localhost:8000/health
 # Expected: {"status":"healthy","service":"webhook-server"}
-
-# Access dashboard
-open http://localhost:3000
 ```
 
 ---
@@ -217,37 +294,24 @@ open http://localhost:3000
 
 ### Triggering Tasks
 
-#### Via Slack (Recommended)
+#### Via Jira Webhook (Automatic)
+
+When Sentry creates a Jira ticket (via Sentry-Jira integration), the system automatically:
+1. Receives the Jira webhook
+2. Enriches the ticket with error analysis
+3. Creates a draft PR with fix plan
+
+#### Via GitHub Comment
+
+Comment on any PR with `@agent approve` to trigger the execution phase.
+
+#### Via Slack (If configured)
 
 ```bash
 /agent run Fix null pointer exception in authentication service
 ```
 
-#### Via Webhook (Jira)
-
-When you create a Jira ticket with the `AI-Fix` label, it automatically triggers the system.
-
-#### Via Dashboard
-
-1. Open http://localhost:3000
-2. Click "Create Task"
-3. Enter description and repository
-4. Click "Submit"
-
-#### Via CLI
-
-```bash
-./scripts/trigger-task.sh "Fix authentication bug" "your-org/your-repo"
-```
-
 ### Monitoring Tasks
-
-#### Dashboard
-Visit http://localhost:3000 to see:
-- Active tasks
-- Task status (Discovering, Planning, Pending Approval, Executing, Completed)
-- Approval buttons
-- Execution logs
 
 #### Logs
 
@@ -270,16 +334,13 @@ docker-compose logs -f webhook-server
 After the Planning Agent creates a plan, you'll receive notifications via:
 
 1. **GitHub**: Draft PR with PLAN.md
-2. **Slack**: Message with "Approve" button
-3. **Dashboard**: Approval modal
+2. **Slack**: Message with "Approve" button (if configured)
 
 **To approve**:
 
 **GitHub**: Comment `@agent approve` on the PR
 
 **Slack**: Click the "✅ Approve" button
-
-**Dashboard**: Click "Approve" on the task
 
 ---
 
@@ -300,9 +361,8 @@ When a task arrives, the **Planning Agent**:
 
 **Skills Used**:
 - `discovery/` - Find repo and files
-- `sentry-analysis/` - Parse error events
-- `planning/` - Create TDD plan
-- `slack-notifications/` - Send updates
+- `jira-enrichment/` - Parse Jira tickets with Sentry links
+- `plan-changes/` - Handle PR feedback
 
 ### Phase 2: Human Approval
 
@@ -342,20 +402,16 @@ Once approved, the **Executor Agent**:
 
 ## 🛠️ Development
 
-### Running Tests
+### Makefile Commands
 
 ```bash
-# Unit tests
-pytest tests/unit -v
-
-# Integration tests
-pytest tests/integration -v
-
-# E2E tests
-pytest tests/e2e -v
-
-# All tests
-pytest tests/ -v
+make help      # Show all commands
+make setup     # Initial setup
+make up        # Start services
+make down      # Stop services
+make logs      # View logs
+make test      # Run tests
+make clean     # Clean up Docker resources
 ```
 
 ### Adding a New Skill
@@ -367,6 +423,11 @@ pytest tests/ -v
 
 2. Create `SKILL.md`:
    ```markdown
+   ---
+   name: my-skill
+   description: What this skill does
+   ---
+
    # My Skill
 
    ## Purpose
@@ -375,25 +436,52 @@ pytest tests/ -v
    ## When to Use
    Trigger conditions
 
+   ## MCP Tools to Use
+   - `github.search_code`
+   - `jira.get_issue`
+
    ## Process
    Step-by-step instructions
 
    ## Output Format
-   JSON schema
+   Expected output structure
    ```
 
-3. Update agent's `CLAUDE.md` to reference the new skill
+3. The worker will automatically load skills based on the SKILL.md files
 
-### Makefile Commands
+---
 
-```bash
-make help      # Show all commands
-make setup     # Initial setup
-make up        # Start services
-make down      # Stop services
-make logs      # View logs
-make test      # Run tests
-make trigger   # Trigger test task
+## 🔧 MCP Configuration
+
+The system uses Model Context Protocol (MCP) servers for tool access. Configuration is in `infrastructure/docker/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "ghcr.io/github/github-mcp-server"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "atlassian": {
+      "url": "https://mcp.atlassian.com/v1/mcp"
+    },
+    "sentry": {
+      "command": "npx",
+      "args": ["-y", "@sentry/mcp-server@latest"],
+      "env": {
+        "SENTRY_ACCESS_TOKEN": "${SENTRY_AUTH_TOKEN}",
+        "SENTRY_HOST": "${SENTRY_HOST:-sentry.io}"
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
+    }
+  }
+}
 ```
 
 ---
@@ -432,23 +520,9 @@ kubectl apply -f infrastructure/kubernetes/configmap.yaml
 kubectl apply -f infrastructure/kubernetes/planning-agent/
 kubectl apply -f infrastructure/kubernetes/executor-agent/
 kubectl apply -f infrastructure/kubernetes/webhook-server/
-kubectl apply -f infrastructure/kubernetes/dashboard/
 
 # Deploy ingress
 kubectl apply -f infrastructure/kubernetes/ingress.yaml
-```
-
-#### 3. Verify Deployment
-
-```bash
-# Check pods
-kubectl get pods -n ai-agent-system
-
-# Check services
-kubectl get svc -n ai-agent-system
-
-# View logs
-kubectl logs -f deployment/planning-agent -n ai-agent-system
 ```
 
 ### Production Configuration
@@ -462,9 +536,9 @@ kubectl logs -f deployment/planning-agent -n ai-agent-system
 - Planning Agent: 2 vCPU, 4GB RAM
 - Executor Agent: 4 vCPU, 8GB RAM
 
-**Monthly Cost** (~$1,550):
+**Monthly Cost** (~$1,100):
 - Claude Teams: $750 (5 seats)
-- AWS Infrastructure: $800
+- AWS Infrastructure: $350
 
 ---
 
@@ -482,15 +556,6 @@ Available metrics:
 - `ai_agent_task_duration_seconds` - Task execution time
 - `ai_agent_queue_length` - Current queue size
 - `ai_agent_errors_total` - Errors by type
-
-### Grafana Dashboards
-
-Import provided dashboards:
-- Task throughput
-- Success rates
-- Queue trends
-- Agent performance
-- Cost tracking
 
 ---
 
@@ -519,83 +584,6 @@ All webhooks validate signatures:
 
 ---
 
-## 🧪 Testing the System
-
-### Manual Test Flow
-
-```bash
-# 1. Trigger a test task
-./scripts/trigger-task.sh "Test: Fix null pointer in auth"
-
-# 2. Monitor planning agent
-docker-compose logs -f planning-agent
-
-# 3. Check dashboard
-open http://localhost:3000
-
-# 4. Approve the plan (via GitHub, Slack, or Dashboard)
-
-# 5. Monitor executor agent
-docker-compose logs -f executor-agent
-
-# 6. Verify PR created on GitHub
-```
-
-### Webhook Testing
-
-```bash
-# Test Jira webhook
-./scripts/test-webhook.sh jira
-
-# Test Sentry webhook
-./scripts/test-webhook.sh sentry
-
-# Test GitHub webhook
-./scripts/test-webhook.sh github
-```
-
----
-
-## 💡 Best Practices
-
-### Task Descriptions
-
-**Good**:
-```
-Fix null pointer exception in AuthService.getCurrentUser()
-when session expires
-```
-
-**Bad**:
-```
-Fix bug
-```
-
-### Approval Guidelines
-
-**Approve if**:
-- ✅ Correct repository identified
-- ✅ Root cause makes sense
-- ✅ Plan is minimal and focused
-- ✅ Tests are included
-- ✅ Low/medium risk
-
-**Reject if**:
-- ❌ Wrong repository
-- ❌ Plan is too broad or risky
-- ❌ Missing test coverage
-- ❌ Breaking changes without consideration
-
-### Monitoring
-
-**Watch for**:
-- Queue length > 10 (scale up needed)
-- High failure rate (skill improvements needed)
-- Long task duration (timeout issues)
-- Approval latency (training needed)
-
----
-
 ## 🐛 Troubleshooting
 
 ### Common Issues
@@ -613,11 +601,13 @@ claude --version
 #### "MCP server not found"
 
 ```bash
-# Re-run setup
-./scripts/setup-mcp.sh
+# Verify Docker is running
+docker ps
 
-# Verify installation
-docker images | grep mcp
+# Pull GitHub MCP image
+docker pull ghcr.io/github/github-mcp-server
+
+# Verify npm packages
 npm list -g | grep mcp
 ```
 
@@ -645,8 +635,6 @@ curl -X POST http://localhost:8000/webhooks/jira \
 
 # Check webhook server logs
 docker-compose logs webhook-server
-
-# For production, check ingress/ALB logs
 ```
 
 ---
@@ -654,15 +642,17 @@ docker-compose logs webhook-server
 ## 📚 Documentation
 
 - **[Architecture Guide](./CLAUDE-CODE-CLI.ARCHITECTURE.md)** - Detailed system design
+- **[OAuth Setup Guide](./infrastructure/docker/OAUTH-SETUP.md)** - Use Claude subscription in Docker (no API key needed)
 - **[Planning Agent Skills](./agents/planning-agent/skills/)** - Skill documentation
 - **[Executor Agent Skills](./agents/executor-agent/skills/)** - Skill documentation
-- **[API Documentation](http://localhost:8000/docs)** - Interactive API docs (when running)
 
 ### External Resources
 
 - [Claude Code CLI Docs](https://docs.anthropic.com/claude/docs/claude-code)
 - [MCP Protocol](https://modelcontextprotocol.io)
 - [GitHub MCP Server](https://github.com/github/github-mcp-server)
+- [Sentry MCP Server](https://docs.sentry.io/product/integrations/integration-platform/mcp/)
+- [Atlassian MCP](https://mcp.atlassian.com)
 
 ---
 
@@ -671,12 +661,12 @@ docker-compose logs webhook-server
 ### ✅ Completed (v1.0)
 
 - [x] Two-agent architecture
-- [x] Official MCP integrations
+- [x] Official MCP integrations (GitHub, Jira, Sentry)
 - [x] Local Docker Compose setup
-- [x] Production Kubernetes manifests
 - [x] TDD workflow enforcement
 - [x] Human-in-the-loop approval
-- [x] Dashboard UI
+- [x] Slack notifications
+- [x] Jira ticket enrichment
 
 ### 🚧 In Progress (v1.1)
 
@@ -691,6 +681,19 @@ docker-compose logs webhook-server
 - [ ] Security vulnerability scanning
 - [ ] Performance profiling integration
 - [ ] Custom model fine-tuning
+
+---
+
+## 💰 ROI Summary
+
+| Metric | Value |
+|--------|-------|
+| Monthly Cost | ~$1,100 |
+| Tasks/Month (with approval) | 580 |
+| Success Rate | 75% (industry benchmark) |
+| Hours Saved/Month | 812 |
+| Monthly Savings | $48,720 |
+| **ROI** | **4,329%** |
 
 ---
 
@@ -719,20 +722,6 @@ Need help?
 - **Documentation**: Check this README and architecture docs
 - **Issues**: Create a GitHub issue
 - **Slack**: Join #ai-agents channel
-- **Email**: ai-team@yourcompany.com
-
----
-
-## 🎉 Success Stories
-
-> "The AI agent fixed 45 bugs in the first month, saving our team 60+ hours."
-> — Engineering Manager
-
-> "Approval takes 2 minutes, execution takes 15 minutes. This is a game-changer."
-> — Senior Developer
-
-> "ROI was positive within the first week. Best investment we made."
-> — VP of Engineering
 
 ---
 

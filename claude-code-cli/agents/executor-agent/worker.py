@@ -13,6 +13,10 @@ from models import TaskStatus
 from task_queue import RedisQueue
 from slack_client import SlackClient
 from metrics import metrics
+from logging_utils import get_logger
+import json
+
+logger = get_logger("executor-agent")
 
 
 class ExecutorAgentWorker:
@@ -26,8 +30,7 @@ class ExecutorAgentWorker:
 
     async def run(self):
         """Main worker loop."""
-        print(f"🚀 Executor Agent Worker started")
-        print(f"📥 Listening on queue: {self.queue_name}")
+        logger.info("Executor Agent Worker started", queue=self.queue_name)
 
         while True:
             try:
@@ -38,7 +41,7 @@ class ExecutorAgentWorker:
                     await self.process_task(task_data)
 
             except Exception as e:
-                print(f"❌ Error in worker loop: {e}")
+                logger.error(f"Error in worker loop: {str(e)}")
                 metrics.record_error("executor", "worker_loop")
                 await asyncio.sleep(5)
 
@@ -51,7 +54,7 @@ class ExecutorAgentWorker:
         task_id = task_data.get("task_id")
         start_time = datetime.now()
 
-        print(f"⚙️ Executing task: {task_id}")
+        logger.info("Executing task started", task_id=task_id)
         metrics.record_task_started("executor")
 
         try:
@@ -61,12 +64,15 @@ class ExecutorAgentWorker:
                 TaskStatus.EXECUTING
             )
 
+            # Get repository from discovery data
+            discovery_raw = task_data.get("discovery", "{}")
+            discovery = json.loads(discovery_raw) if isinstance(discovery_raw, str) else discovery_raw
+            repository = discovery.get("repository", "unknown")
+            
             # Send Slack notification
-            repository = task_data.get("discovery", {}).get("repository", "unknown")
             await self.slack.send_execution_started(task_id, repository)
 
-            # Simulate execution (placeholder)
-            print(f"  🔄 Running TDD workflow for {task_id}")
+            logger.info("Running TDD workflow", task_id=task_id, repository=repository)
             await asyncio.sleep(5)  # Simulate execution
 
             # Mock results
@@ -91,10 +97,10 @@ class ExecutorAgentWorker:
             duration = (datetime.now() - start_time).total_seconds()
             metrics.record_task_completed("executor", "success", duration)
 
-            print(f"✅ Task {task_id} completed")
+            logger.info("Task execution completed successfully", task_id=task_id, duration=f"{duration:.2f}s")
 
         except Exception as e:
-            print(f"❌ Task {task_id} failed: {e}")
+            logger.error("Task execution failed", task_id=task_id, error=str(e))
             await self.queue.update_task_status(
                 task_id,
                 TaskStatus.FAILED,

@@ -62,8 +62,13 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql://aiagent:localdev@postgres:5432/aiagent
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN:-}
+      - SENTRY_HOST=${SENTRY_HOST:-sentry.io}
+      - JIRA_URL=${JIRA_URL:-}
+      - JIRA_EMAIL=${JIRA_EMAIL:-}
+      - JIRA_API_TOKEN=${JIRA_API_TOKEN:-}
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
       - SLACK_CHANNEL_AGENTS=${SLACK_CHANNEL_AGENTS:-#ai-agents}
       - CLAUDE_CONFIG_DIR=/root/.claude
@@ -71,7 +76,10 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ~/.claude:/root/.claude:ro
+      # Mount only credentials file (OAuth) - NOT entire ~/.claude directory
+      # The full directory mount causes path issues with symlinks
+      - ~/.claude/.credentials.json:/root/.claude/.credentials.json:ro
+      - ~/.claude/mcp.json:/root/.claude/mcp.json:ro
       - workspace:/workspace
       - /var/run/docker.sock:/var/run/docker.sock
 
@@ -90,7 +98,9 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ~/.claude:/root/.claude:ro
+      # Mount only credentials file (OAuth) - NOT entire ~/.claude directory
+      - ~/.claude/.credentials.json:/root/.claude/.credentials.json:ro
+      - ~/.claude/mcp.json:/root/.claude/mcp.json:ro
       - workspace:/workspace
       - /var/run/docker.sock:/var/run/docker.sock
 
