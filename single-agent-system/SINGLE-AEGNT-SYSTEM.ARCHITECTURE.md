@@ -723,7 +723,8 @@ class Settings:
 | **Scheduling** | Manual CLI | EventBridge |
 | **Approval Flow** | `--wait-approval` flag | Slack interactive |
 | **Scaling** | None (local) | Lambda auto-scaling |
-| **Cost** | API calls only | AWS service costs |
+| **Cost** | ~$40/month (API only) | ~$356/month (AWS + API) |
+| **Capacity** | ~77 tasks/month | ~385 tasks/month |
 
 ### Migration Path
 

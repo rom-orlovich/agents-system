@@ -18,8 +18,8 @@ This system implements an enterprise-grade AI agent platform using **Claude Code
 | **Architecture** | Kubernetes-ready | Docker Compose only |
 | **Scaling** | Auto-scaling workers | Fixed containers |
 | **Infrastructure** | AWS EKS, RDS, ElastiCache | Local Docker |
-| **Cost** | ~$1,550/month (50 devs) | ~$200/month (testing) |
-| **Capacity** | 2,400 tasks/month | 50 tasks/month |
+| **Cost** | ~$1,100/month (5 seats) | ~$136/month (Max $100) |
+| **Capacity** | 580 tasks/month (with approval) | 65 tasks/month |
 
 ---
 
@@ -433,11 +433,11 @@ Infrastructure:
 └── EFS for shared workspace
 ```
 
-**Monthly Cost**: ~$1,550
+**Monthly Cost**: ~$1,100
 - Claude Teams: $750 (5 seats)
-- AWS Infrastructure: $800
+- AWS Infrastructure: $350
 
-**Capacity**: ~2,400 tasks/month
+**Capacity**: ~580 tasks/month (with human approval bottleneck)
 
 ---
 
@@ -556,31 +556,38 @@ ai_agent_errors_total{agent, error_type}
 
 ## 💰 ROI Analysis
 
-### Cost Breakdown (50 Developers)
+### Cost Breakdown (50 Developers, 5 Seats)
 
 | Item | Monthly Cost |
-|------|-------------|
+|------|--------------|
 | Claude Teams (5 seats) | $750 |
-| AWS EKS + EC2 | $400 |
-| RDS + ElastiCache | $100 |
-| ALB + EFS + misc | $50 |
-| **Total** | **$1,300** |
+| AWS EKS + EC2 | $250 |
+| RDS + ElastiCache | $80 |
+| ALB + misc | $20 |
+| **Total** | **$1,100** |
+
+### Capacity (With Human Approval)
+
+| Metric | Value |
+|--------|-------|
+| Pure agent capacity | 1,320 tasks/month |
+| With human approval (~2.5h/task) | **580 tasks/month** |
+| Bottleneck | Human approval (56% idle) |
 
 ### Value Delivered
 
-**Assumptions**:
-- 50 developers
-- 15 min/bug manual fix
-- 60% success rate
-- 80 bugs/month automated
-
-**Savings**:
-- Time saved: 80 bugs × 15 min × 60% = 720 hours
+**Based on Industry Benchmarks (SWE-bench)**:
+- Claude Code success rate: **70-77%**
+- Tasks completed: 580 × 70% = **406/month**
+- Time saved per task: 2 hours
+- Hours saved: 406 × 2h = **812 hours**
 - Developer cost: $60/hour
-- **Monthly value**: $43,200
+- **Monthly savings**: 812 × $60 = **$48,720**
 
-**ROI**: 3,223% (value/cost)
-**Payback**: < 1 day
+**ROI Calculation**:
+- Net value: $48,720 - $1,100 = **$47,620/month**
+- ROI: **4,329%**
+- Payback: < 1 day
 
 ---
 
