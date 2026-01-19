@@ -5,8 +5,8 @@ from datetime import datetime
 from sqlalchemy import create_engine, Column, String, DateTime, Integer, JSON, Text, Enum as SQLEnum
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
-from .config import settings
-from .models import TaskStatus, TaskSource
+from config import settings
+from models import TaskStatus, TaskSource
 
 Base = declarative_base()
 

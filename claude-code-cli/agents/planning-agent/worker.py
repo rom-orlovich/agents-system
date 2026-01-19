@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "shared"))
 
 from config import settings
 from models import TaskStatus
-from queue import RedisQueue
+from task_queue import RedisQueue
 from slack_client import SlackClient
 from github_client import GitHubClient
 from metrics import metrics

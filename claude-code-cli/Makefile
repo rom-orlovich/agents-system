@@ -1,16 +1,22 @@
-.PHONY: help setup up down logs test clean
+.PHONY: help setup env up down logs test clean ngrok
 
 help:
 	@echo "AI Agent System - Claude Code CLI"
 	@echo ""
 	@echo "Available commands:"
 	@echo "  make setup    - Initial setup (install dependencies)"
+	@echo "  make env      - Edit environment variables (.env)"
 	@echo "  make up       - Start all services"
 	@echo "  make down     - Stop all services"
 	@echo "  make logs     - View logs"
 	@echo "  make test     - Run tests"
 	@echo "  make clean    - Clean up volumes and images"
+	@echo "  make ngrok    - Expose webhook server to the internet via ngrok"
 	@echo ""
+
+env:
+	@test -f infrastructure/docker/.env || { echo "Creating .env from example..."; cp infrastructure/docker/.env.example infrastructure/docker/.env; }
+	nano infrastructure/docker/.env
 
 setup:
 	@echo "🔧 Setting up Claude Code CLI system..."
@@ -52,3 +58,8 @@ clean:
 	@echo "🧹 Cleaning up..."
 	cd infrastructure/docker && docker-compose down -v
 	@echo "✅ Cleaned up volumes"
+
+ngrok:
+	@echo "🌐 Exposing port 8000 via ngrok..."
+	ngrok http 8000
+

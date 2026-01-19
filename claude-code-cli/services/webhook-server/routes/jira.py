@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "shared"))
 
 from config import settings
 from models import TaskSource
-from queue import RedisQueue
+from task_queue import RedisQueue
 
 router = APIRouter()
 queue = RedisQueue()

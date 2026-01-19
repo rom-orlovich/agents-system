@@ -22,15 +22,15 @@ RUN npm install -g @modelcontextprotocol/server-filesystem
 WORKDIR /app
 
 # Copy requirements and install
-COPY requirements.txt .
+COPY agents/executor-agent/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY worker.py .
-COPY skills/ ./skills/
+COPY agents/executor-agent/worker.py .
+COPY agents/executor-agent/skills/ ./skills/
 
 # Copy shared utilities
-COPY ../../shared /app/shared
+COPY shared /shared
 
 # Create workspace directory
 RUN mkdir -p /workspace

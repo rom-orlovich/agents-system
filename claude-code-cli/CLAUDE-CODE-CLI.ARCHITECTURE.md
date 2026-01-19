@@ -577,8 +577,8 @@ ai_agent_errors_total{agent, error_type}
 ### Value Delivered
 
 **Based on Industry Benchmarks (SWE-bench)**:
-- Claude Code success rate: **70-77%**
-- Tasks completed: 580 × 70% = **406/month**
+- Claude Code success rate: **75%**
+- Tasks completed: 580 × 75% = **435/month**
 - Time saved per task: 2 hours
 - Hours saved: 406 × 2h = **812 hours**
 - Developer cost: $60/hour
@@ -641,6 +641,10 @@ docker-compose up -d
 # 8. Verify health
 curl http://localhost:8000/health
 curl http://localhost:3000
+
+# 8. Expose Webhooks
+# Run ngrok to expose port 8000
+ngrok http 8000
 
 # 9. View dashboard
 open http://localhost:3000

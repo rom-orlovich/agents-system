@@ -120,6 +120,7 @@ Before you begin, ensure you have:
 - ✅ GitHub Personal Access Token
 - ✅ Jira API Token (optional)
 - ✅ Sentry Auth Token (optional)
+- ✅ ngrok (required for local webhook testing)
 
 ### 1. Install Claude CLI
 
@@ -188,7 +189,18 @@ docker-compose up -d
 sleep 30
 ```
 
-### 5. Verify Installation
+### 5. Expose to Internet (ngrok)
+
+Since GitHub and Sentry need to send webhooks to your local machine, you must expose port `8000` to the internet:
+
+```bash
+# Start ngrok
+ngrok http 8000
+```
+
+Copy the **Forwarding URL** (e.g., `https://xxxx.ngrok-free.app`). This is your base URL for all webhooks.
+
+### 6. Verify Installation
 
 ```bash
 # Check service health
