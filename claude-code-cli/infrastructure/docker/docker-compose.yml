@@ -1,4 +1,4 @@
-version: '3.8'
+name: claude-agent-system
 
 services:
   # Infrastructure Services
@@ -33,8 +33,8 @@ services:
   # Webhook Server
   webhook-server:
     build:
-      context: ../../services/webhook-server
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/webhook-server/Dockerfile
     ports:
       - "8000:8000"
     environment:
@@ -57,8 +57,8 @@ services:
   # Planning Agent
   planning-agent:
     build:
-      context: ../../agents/planning-agent
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: agents/planning-agent/Dockerfile
     environment:
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql://aiagent:localdev@postgres:5432/aiagent
@@ -78,8 +78,8 @@ services:
   # Executor Agent
   executor-agent:
     build:
-      context: ../../agents/executor-agent
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: agents/executor-agent/Dockerfile
     environment:
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql://aiagent:localdev@postgres:5432/aiagent

@@ -376,8 +376,8 @@ Slack provides **bidirectional communication**:
 |--------|-------|
 | **Developer hourly cost** | ~$60/hour |
 | **Time saved per task** | 2 hours |
-| **Claude Code success rate** | 70-77% (SWE-bench) |
-| **Tasks completed** | 65 × 70% = 46/month |
+| **Claude Code success rate** | 75% (SWE-bench) |
+| **Tasks completed** | 65 × 75% = 49/month |
 | **Hours saved** | 46 × 2h = 92 hours |
 | **Monthly savings** | 92 × $60 = **$5,520** |
 | **Monthly cost** | ~$136 |

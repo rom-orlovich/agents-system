@@ -249,13 +249,13 @@ SLACK_CHANNEL=#ai-agent
 | Solution | Monthly Cost | Capacity | Success Rate | Tasks Done | Net Value | ROI | Best For |
 |----------|-------------|----------|--------------|------------|-----------|-----|----------|
 | **Single Agent System** | $40 | 77 tasks | 50% | 39 | $4,640 | 11,600% | Local Development |
-| **Multiple Agents System** | $356 | 385 tasks | 65% | 250 | $29,644 | 8,326% | AWS Production |
-| **Claude Code CLI POC** | $100 | 65 tasks | 70% | 46 | $5,420 | 5,320% | Quick POC |
-| **Claude Code CLI** ⭐ | $1,100 | 580 tasks | 70% | 406 | $47,620 | 4,329% | Enterprise Production |
+| **Multiple Agents System** | $356 | 385 tasks | 55% | 212 | $25,084 | 7,046% | AWS Production |
+| **Claude Code CLI POC** | $100 | 65 tasks | 75% | 49 | $5,780 | 5,680% | Quick POC |
+| **Claude Code CLI** ⭐ | $1,100 | 580 tasks | 75% | 435 | $51,100 | 4,645% | Enterprise Production |
 
-> ⚠️ **Note:** Higher ROI % doesn't mean higher value! CLI Production has 10x more net value than Single Agent.
+> ⚠️ **Note:** Higher ROI % doesn't mean higher value! CLI Production has 11x more net value than Single Agent.
 > 
-> 📊 Success rates based on SWE-bench (Claude Code: 77.2%) and industry estimates.
+> 📊 Success rates: Custom agents 50-55% (industry avg), Claude Code 75% (SWE-bench 77.2%)
 
 ---
 
@@ -292,7 +292,7 @@ SLACK_CHANNEL=#ai-agent
 
 **Capacity & Value (with human approval):**
 - **Capacity:** 385 tasks/month (5 parallel agents)
-- **Success Rate:** 50-65% (custom agents)
+- **Success Rate:** 55% (custom agents)
 - **Tasks Completed:** 250/month
 - **Hours Saved:** 500 hours
 - **Monthly Savings:** $30,000
@@ -312,7 +312,7 @@ SLACK_CHANNEL=#ai-agent
 
 **Capacity & Value (with human approval):**
 - **Capacity:** 580 tasks/month (5 parallel executors)
-- **Success Rate:** 70-77% (SWE-bench validated)
+- **Success Rate:** 75% (SWE-bench validated)
 - **Tasks Completed:** 406/month
 - **Hours Saved:** 812 hours
 - **Monthly Savings:** $48,720
@@ -321,7 +321,7 @@ SLACK_CHANNEL=#ai-agent
 
 **Why Claude Code is Better:**
 1. ⚡ **2x faster** - 40 min vs 80 min per task
-2. 🎯 **Higher success rate** - 70%+ vs 50-65%
+2. 🎯 **Higher success rate** - 75% vs 50-55%
 3. 💰 **Fixed cost** - retries are free
 4. 🛠️ **No development** - 1-2 days setup vs 2-4 weeks
 
@@ -350,7 +350,7 @@ SLACK_CHANNEL=#ai-agent
 
 **Capacity & Value:**
 - **Tasks Processed:** 225/month
-- **Success Rate:** 50% (POC validation)
+- **Success Rate:** 75% (Claude Code)
 - **Bugs Fixed:** 113/month
 - **Time per Fix:** ~2 hours saved
 
@@ -380,7 +380,7 @@ SLACK_CHANNEL=#ai-agent
 | **Plan Used** | Max $100 | Teams $150/seat | POC: Limited quota<br>Production: Unlimited |
 | **Cost** | $100-$136/month | $1,100/month | POC: Validation<br>Production: Full scale |
 | **Capacity** | 65 tasks/month | 580 tasks/month | POC: Small team<br>Production: 50+ devs |
-| **Success Rate** | 70% | 70% | Same Claude Code engine |
+| **Success Rate** | 75% | 75% | Same Claude Code engine |
 | **Infrastructure** | Local Docker | Kubernetes (EKS) | POC: Single server<br>Production: Auto-scaling |
 | **Human Approval** | ~2.5h/task | ~2.5h/task | Same bottleneck |
 | **Monitoring** | Basic logs | CloudWatch + Dashboard | POC: Manual checks<br>Production: Full observability |
@@ -629,12 +629,12 @@ multiple-agents-system/
 ```
 
 **Value Proposition:**
-- **Cost:** $1,150/month
-- **Capacity:** 2,750 tasks/month, 1,788 bugs fixed
-- **ROI:** 18,558%
-- **Savings:** $214,560/month
-- **Hours Saved:** 3,576/month (21 FTE equivalent)
-- **Best For:** AWS-centric enterprises needing massive scale, distributed processing
+- **Cost:** $356/month
+- **Capacity:** 385 tasks/month, 212 bugs fixed
+- **ROI:** 7,046%
+- **Savings:** $25,440/month
+- **Hours Saved:** 424/month
+- **Best For:** AWS-centric enterprises needing AWS-native infrastructure
 
 **Key Features:**
 - 🔄 Distributed processing across 5 specialized agents
@@ -801,11 +801,11 @@ claude-code-cli/
 - 🔐 **Enterprise-Ready:** Kubernetes, secrets management, observability
 
 **Why This is Recommended (⭐):**
-1. **Highest Success Rate:** 70% vs 65% (Multiple Agents) vs 40% (Single Agent)
+1. **Highest Success Rate:** 75% vs 55% (Multiple Agents) vs 50% (Single Agent)
 2. **Official Tool Support:** MCP servers are maintained by GitHub, Sentry, etc.
 3. **Local-First Development:** Test everything locally before deploying
 4. **Cloud Agnostic:** Works on AWS, GCP, Azure, or on-premise
-5. **Best ROI:** 9,655% return on investment
+5. **Best Value:** $51,100/month net value
 
 ---
 

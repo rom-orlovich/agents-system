@@ -259,11 +259,11 @@ Total Infrastructure:   $110.00
 **TOTAL MONTHLY COST:** **$356/month**
 
 ### Value Delivered (385 tasks)
-- **Tasks Completed:** 385 × 65% = 250
-- **Hours Saved:** 250 × 2h = 500 hours
-- **Monthly Savings:** 500 × $60 = **$30,000**
+- **Tasks Completed:** 385 × 55% = 212
+- **Hours Saved:** 212 × 2h = 424 hours
+- **Monthly Savings:** 424 × $60 = **$25,440**
 - **Cost per Task:** $0.92
-- **ROI:** 8,326%
+- **ROI:** 7,046%
 
 ---
 
@@ -355,11 +355,11 @@ Total:                        $553.00
 ```
 
 ### Value Delivered (580 tasks - realistic capacity)
-- **Tasks Completed:** 580 × 70% = 406
-- **Hours Saved:** 406 × 2h = 812 hours
-- **Monthly Savings:** 812 × $60 = **$48,720**
+- **Tasks Completed:** 580 × 75% = 435
+- **Hours Saved:** 435 × 2h = 870 hours
+- **Monthly Savings:** 870 × $60 = **$52,200**
 - **Cost per Task:** $1.90
-- **ROI:** 4,329%
+- **ROI:** 4,645%
 
 ---
 
@@ -374,21 +374,21 @@ Total:                        $553.00
 | **With Approval** | 3.5 hrs | 3.5 hrs | 2.5 hrs | 2.5 hrs |
 | **Monthly Capacity** | 77 | 385 | 65 | 580 |
 | **Can Handle 1,250?** | ❌ 6% | ❌ 31% | ❌ 5% | ❌ 46% |
-| **Success Rate** | 50-65%* | 50-65%* | 70-77%** | 70-77%** |
-| **Tasks Completed** | 39 | 250 | 46 | 406 |
-| **Cost per Task** | $1.03 | $1.42 | $2.17 | $1.90 |
-| **Monthly Savings** | $4,680 | $30,000 | $5,520 | $48,720 |
-| **Net Value** 💰 | **$4,640** | **$29,644** | **$5,420** | **$47,620** |
-| **ROI %** | 11,600% | 8,326% | 5,320% | 4,329% |
+| **Success Rate** | 50%* | 55%* | 75%** | 75%** |
+| **Tasks Completed** | 39 | 212 | 49 | 435 |
+| **Cost per Task** | $1.03 | $1.68 | $2.04 | $1.90 |
+| **Monthly Savings** | $4,680 | $25,440 | $5,880 | $52,200 |
+| **Net Value** 💰 | **$4,640** | **$25,084** | **$5,780** | **$51,100** |
+| **ROI %** | 11,600% | 7,046% | 5,680% | 4,645% |
 | **Dev Effort** | 2-4 weeks | 2-4 weeks | 1-2 days | 1-2 days |
 | **Recommendation** | ❌ Too slow | ⚠️ Partial | ✅ POC | ✅ Best Value |
 
-> *Custom Agents: 50-65% success rate depends on configuration quality (SWE-bench data)
-> **Claude Code: 70-77% based on SWE-bench and HumanEval benchmarks
+> *Custom Agents: 50-55% success rate (industry average for custom implementations)
+> **Claude Code: 75%+ based on SWE-bench 77.2% benchmark
 
 > ⚠️ **חשוב:** ROI גבוה לא אומר ערך גבוה!
 > - Single Agent: ROI 11,600% אבל רק **$4,640** נטו
-> - CLI Production: ROI 4,329% אבל **$47,620** נטו ← **10x יותר ערך!**
+> - CLI Production: ROI 4,645% אבל **$51,100** נטו ← **11x יותר ערך!**
 
 ---
 

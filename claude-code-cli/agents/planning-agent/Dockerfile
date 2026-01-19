@@ -23,15 +23,15 @@ RUN npm install -g @sentry/mcp-server@latest \
 WORKDIR /app
 
 # Copy requirements first for better caching
-COPY requirements.txt .
+COPY agents/planning-agent/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY worker.py .
-COPY skills/ ./skills/
+COPY agents/planning-agent/worker.py .
+COPY agents/planning-agent/skills/ ./skills/
 
 # Copy shared utilities
-COPY ../../shared /app/shared
+COPY shared /shared
 
 # Create workspace directory
 RUN mkdir -p /workspace

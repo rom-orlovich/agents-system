@@ -2,7 +2,7 @@
 
 from typing import Optional
 from github import Github, GithubException
-from .config import settings
+from config import settings
 
 
 class GitHubClient:
