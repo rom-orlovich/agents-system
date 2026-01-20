@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 import logging
+from starlette.exceptions import HTTPException
 
 # Configure logging
 logging.basicConfig(
@@ -76,6 +77,24 @@ async def get_metrics():
     """Prometheus metrics endpoint."""
     from fastapi.responses import PlainTextResponse
     return PlainTextResponse(metrics.get_metrics())
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handler for HTTP exceptions."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
+
+
+@app.exception_handler(RecursionError)
+async def recursion_error_handler(request: Request, exc: RecursionError):
+    """Handler for recursion errors."""
+    print(f"CRITICAL: RecursionError detected: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error - recursion detected"}
+    )
 
 
 @app.exception_handler(Exception)

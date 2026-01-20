@@ -143,6 +143,12 @@ Error: TypeError: Cannot read property 'id' of undefined
 | Stack trace missing | Use error message and code search |
 | Access denied | Report permission issue |
 
+## Headless Environment Support
+
+If you are running in a cloud environment without browser access:
+- **GitHub MCP**: Uses HTTP Bearer token authentication (via `GITHUB_TOKEN`). No browser needed.
+
+
 ## Important
 
 - **Be thorough** - read the actual code, don't guess

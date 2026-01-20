@@ -346,12 +346,13 @@
 
         async function fetchData() {
             try {
-                let tasksUrl = '/api/tasks';
-                let statsUrl = '/api/stats';
+                const timestamp = new Date().getTime();
+                let tasksUrl = `/api/tasks?_t=${timestamp}`;
+                let statsUrl = `/api/stats?_t=${timestamp}`;
                 
                 if (currentAccount) {
-                    tasksUrl += `?account_id=${encodeURIComponent(currentAccount)}`;
-                    statsUrl += `?account_id=${encodeURIComponent(currentAccount)}`;
+                    tasksUrl += `&account_id=${encodeURIComponent(currentAccount)}`;
+                    statsUrl += `&account_id=${encodeURIComponent(currentAccount)}`;
                 }
 
                 const [tasksRes, statsRes] = await Promise.all([
