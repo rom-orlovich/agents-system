@@ -18,20 +18,23 @@ make env                      # Create/edit .env file
 # Development
 make up                       # Start all services (docker-compose up -d)
 make down                     # Stop all services
+make restart                  # Fast restart (stop + up)
+make rebuild                  # Rebuild Docker images (Run after updating pyproject.toml)
 make logs                     # View all container logs
-make ngrok                    # Expose port 8000 for webhooks
-
-# Testing
+make tunnel                   # Expose port 8000 for webhooks via ngrok
 make test                     # Run pytest tests
-pytest tests/ -v              # Run tests directly
-
-# Cleanup
 make clean                    # Remove volumes and images
 
 # Individual service logs
 cd infrastructure/docker && docker-compose logs -f planning-agent
 cd infrastructure/docker && docker-compose logs -f executor-agent
 cd infrastructure/docker && docker-compose logs -f webhook-server
+
+# Agent Commands (GitHub/Slack)
+- `@agent approve` : Approve plan execution
+- `@agent reject [reason]` : Reject plan
+- `@agent improve <feedback>` : Request changes to plan
+- `@agent status` : Check task status
 ```
 
 ## Architecture
@@ -128,9 +131,34 @@ Configured in `infrastructure/docker/mcp.json`:
 2. Create `SKILL.md` with frontmatter and instructions
 3. Worker auto-discovers skills at runtime
 
-## Code Style
+## Code Style & Guidelines
 
-- Python 3.11+, Black formatter (line-length=100)
-- Ruff linter, mypy for type checking
-- Async/await patterns throughout
-- Structured logging via `shared/logging_utils.py`
+1. **Package Management**:
+   - ALWAY use `uv` for Python dependencies.
+   - Dependencies are in `pyproject.toml`.
+   - **NO** `requirements.txt` files allowed.
+   - Dockerfiles use `uv pip install .`.
+
+2. **Data Models**:
+   - Use **Pydantic** models (v2) for all data structures (see `shared/models.py`).
+   - Avoid raw dictionaries for complex data.
+
+3. **Dashboard**:
+   - Dashboard is a Go binary (`services/dashboard`).
+   - Frontend is vanilla HTML/JS in `services/dashboard/static`.
+
+4. **Testing**:
+   - `pytest` for Python tests (Python 3.11+, line-length=100).
+   - TDD validation is strictly enforced by the Executor Agent.
+   - Use Ruff linter and mypy for type checking.
+
+5. **Patterns**:
+   - Async/await patterns throughout.
+   - Structured logging via `shared/logging_utils.py`.
+
+## 🐛 Troubleshooting
+
+- **Streaming Limit Error**: Check `shared/claude_runner.py` for buffer limit handling.
+- **Redis Error**: Verify `hset` vs `hmset` usage in `shared/task_queue.py`.
+- **Webhook Issues**: Use `make tunnel` and check ngrok inspector.
+- **Dependency Issues**: Run `make rebuild` to refresh `uv` environment in Docker.
