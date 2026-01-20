@@ -1,4 +1,7 @@
-"""Sentry webhook routes."""
+"""Sentry webhook routes.
+
+Handles Sentry webhooks and creates typed SentryTask objects for processing.
+"""
 
 import sys
 from pathlib import Path
@@ -8,7 +11,7 @@ import logging
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from shared.config import settings
-from shared.models import TaskSource
+from shared.models import SentryTask
 from shared.task_queue import RedisQueue
 
 router = APIRouter()
@@ -45,16 +48,21 @@ async def sentry_webhook(request: Request):
     # 2. Extract our custom 'repository' tag
     repository = tags.get("repository", "unknown/repo")
 
-    # 3. Create the task data for the queue
-    task_data = {
-        "source": TaskSource.SENTRY.value,
-        "description": event_data.get("message") or payload.get("title") or "Sentry error",
-        "sentry_issue_id": payload.get("id"),
-        "repository": repository
-    }
+    # 3. Create the typed task
+    task = SentryTask(
+        sentry_issue_id=str(payload.get("id", "")),
+        description=event_data.get("message") or payload.get("title") or "Sentry error",
+        repository=repository
+    )
 
-    # Add to planning queue
-    task_id = await queue.push(settings.PLANNING_QUEUE, task_data)
+    # Adding to planning queue
+    task_id = await queue.push_task(settings.PLANNING_QUEUE, task)
+
+    # Store mapping for Jira enrichment later
+    sentry_issue_id = str(payload.get("id", ""))
+    if sentry_issue_id and repository:
+        await queue.store_sentry_repo_mapping(sentry_issue_id, repository)
+        print(f"💾 Stored mapping: {sentry_issue_id} -> {repository}")
 
     print(f"📥 Sentry task queued: {task_id} for repo: {repository}")
 

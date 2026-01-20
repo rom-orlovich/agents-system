@@ -22,7 +22,7 @@ from typing import Dict, List, Optional
 import yaml
 import logging
 
-from ..types import CommandDefinition, CommandParameter
+from ..models import CommandDefinition, CommandParameter
 from ..enums import Platform
 
 logger = logging.getLogger("command_loader")

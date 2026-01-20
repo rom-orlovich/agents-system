@@ -6,6 +6,13 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 
 # Add shared module to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -36,6 +43,13 @@ app.include_router(jira.router, prefix="/webhooks/jira", tags=["Jira"])
 app.include_router(sentry.router, prefix="/webhooks/sentry", tags=["Sentry"])
 app.include_router(github.router, prefix="/webhooks/github", tags=["GitHub"])
 app.include_router(slack.router, prefix="/webhooks/slack", tags=["Slack"])
+
+
+@app.on_event("startup")
+async def startup_event():
+    print("Registered routes:")
+    for route in app.routes:
+        print(f"  {route.path} [{route.methods}]")
 
 
 @app.get("/")

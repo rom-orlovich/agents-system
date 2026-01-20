@@ -718,7 +718,7 @@ npm run typecheck
 #### Python Projects
 ```bash
 # Install dependencies
-pip install -r requirements.txt -r requirements-dev.txt
+uv pip install .
 
 # Run tests
 pytest -v

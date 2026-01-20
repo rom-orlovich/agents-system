@@ -13,11 +13,11 @@ This is the Planning Agent for the AI Bug Fixer system. When you run in this con
 - `get_sentry_event` - Get full stack trace and context
 
 ### GitHub MCP
-- `search_code` - Search for code across repositories
-- `get_file_contents` - Read file contents
+- `search_repositories` - Search for code across repositories
+- `read_file` - Read file contents
 - `create_branch` - Create a new branch
 - `create_pull_request` - Open a PR
-- `create_or_update_file` - Add files to a branch
+- `push_files` - Add files to a branch
 - `add_issue_comment` - Comment on PRs
 
 ### Atlassian/Jira MCP
@@ -36,17 +36,29 @@ Based on the task context provided, execute one of these workflows:
 
 When a Jira ticket is created from Sentry:
 
-1. **Notify Jira** - Add comment: "🤖 AI Agent started analysis..."
-2. **Fetch Sentry Details** - Get full error info, stack trace
-3. **Discover Files** - Search GitHub for affected code
-4. **Analyze Root Cause** - Read code, understand the issue
-5. **Create Fix Plan** - Generate PLAN.md with TDD approach
-6. **Update Jira** - Enrich ticket with analysis
-7. **Create Draft PR** - Open PR with PLAN.md for approval
+1. **Fetch Sentry Details** - Get full error info, stack trace
+2. **Discover Files** - Search GitHub for affected code
+3. **Analyze Root Cause** - Read code, understand the issue
+4. **Create Fix Plan** - Generate PLAN.md with TDD approach
+5. **Update Jira** - Enrich ticket with analysis
+6. **Create Draft PR** - Open PR with PLAN.md for approval
 
 Output: Report the PR URL
 
-### 2. Discovery (source: sentry, action: discover)
+
+### 2. Sentry Analysis (source: sentry, action: analyze)
+
+When a Sentry alert is received directly (and no Jira ticket exists yet OR we want to create one):
+
+1. **Analyze Error** - Read the stack trace and error message
+2. **Discover Files** - Search for relevant code in the repository
+3. **Draft Fix Plan** - Create a PLAN.md with the fix strategy
+4. **Create/Update Jira** - If a Jira ticket exists (check context), update it. If not, create one.
+5. **Create Draft PR** - Open a PR with the fix plan
+
+Output: Report the PR URL
+
+### 3. Discovery (source: sentry, action: discover)
 
 When analyzing an error to find the affected code:
 
@@ -126,3 +138,4 @@ When a developer comments on a PR requesting changes:
 3. **TDD approach** - Plan tests before implementation
 4. **Report PR URL** - Always output the created PR URL
 5. **Low confidence = ask** - If unsure, request clarification
+6. **Use `uv`** - Always use `uv` instead of `pip` for Python package management.

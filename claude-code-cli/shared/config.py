@@ -22,18 +22,16 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_MAX_CONNECTIONS: int = 10
-
-    # PostgreSQL
     DATABASE_URL: str = "postgresql://aiagent:localdev@localhost:5432/aiagent"
-    DATABASE_POOL_SIZE: int = 5
-    DATABASE_MAX_OVERFLOW: int = 10
+
+
 
     # Queue Names
     PLANNING_QUEUE: str = "planning_queue"
     EXECUTION_QUEUE: str = "execution_queue"
 
     # GitHub
-    GITHUB_TOKEN: str
+    GITHUB_TOKEN: Optional[str] = None
     GITHUB_ORG: Optional[str] = None
     GITHUB_WEBHOOK_SECRET: Optional[str] = None
 
@@ -51,21 +49,29 @@ class Settings(BaseSettings):
     # Slack
     SLACK_BOT_TOKEN: Optional[str] = None
     SLACK_SIGNING_SECRET: Optional[str] = None
+    SLACK_WORKSPACE_DOMAIN: Optional[str] = None
     SLACK_CHANNEL_AGENTS: str = "#ai-agents"
     SLACK_CHANNEL_ERRORS: str = "#ai-errors"
 
     # Claude
     CLAUDE_CONFIG_DIR: str = os.path.expanduser("~/.claude")
+    
+    # Claude Model Selection
+    # Planning/Discovery uses Opus 4.5 for better reasoning and analysis
+    CLAUDE_PLANNING_MODEL: str = "claude-opus-4-5-20251101"
+    # Coding/Execution uses Sonnet 4.5 for faster, cost-effective implementation
+    CLAUDE_CODING_MODEL: str = "claude-sonnet-4-5-20250929"
 
     # Agent Configuration
     PLANNING_AGENT_TIMEOUT: int = 300  # 5 minutes
     EXECUTOR_AGENT_TIMEOUT: int = 600  # 10 minutes
+    MAX_BUDGET_USD: float = 1000.0  # Effectiveness disabled as per user request
 
     # Workspace
     WORKSPACE_PATH: str = "/workspace"
 
     # Dashboard
-    DASHBOARD_URL: str = "http://localhost:3000"
+    DASHBOARD_URL: str = "http://localhost:8080"
 
     # API
     API_HOST: str = "0.0.0.0"

@@ -18,7 +18,7 @@ import os
 from typing import List
 from pathlib import Path
 
-from .types import BotConfiguration, QueueConfiguration, TimeoutConfiguration
+from .models import BotConfiguration, QueueConfiguration, TimeoutConfiguration
 
 
 def _parse_list(value: str, separator: str = ",") -> List[str]:
@@ -152,8 +152,7 @@ ANTHROPIC_CLIENT_ID = os.environ.get("ANTHROPIC_CLIENT_ID", "claude-code")
 # Redis
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
-# PostgreSQL
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://aiagent:localdev@localhost:5432/aiagent")
+
 
 # GitHub
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")

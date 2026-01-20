@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Optional, Tuple, List
 import logging
 
-from .types import (
+from .models import (
     GitRepository, 
     GitOperationResult, 
     TestResult,

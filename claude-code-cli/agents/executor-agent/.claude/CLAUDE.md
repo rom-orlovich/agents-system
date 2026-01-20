@@ -10,8 +10,8 @@ This is the Executor Agent for the AI Bug Fixer system. When you run in this con
 ## Your Available MCP Tools
 
 ### GitHub MCP
-- `get_file_contents` - Read file contents
-- `create_or_update_file` - Write file changes
+- `read_file` - Read file contents
+- `push_files` - Write file changes
 - `create_branch` - Create feature branches
 - `create_pull_request` - Open PRs
 - `add_issue_comment` - Comment on PRs
@@ -152,7 +152,6 @@ fix: add null check for user session (PROJ-123)
 ---
 
 ## Important Rules
-
 1. **NEVER skip the RED phase** - Always start with a failing test
 2. **Keep changes minimal** in GREEN phase
 3. **Run tests after EVERY change**
@@ -160,3 +159,6 @@ fix: add null check for user session (PROJ-123)
 5. **Use specific file staging** - Never `git add .`
 6. **Include issue key in commit messages**
 7. **Report PR URL when complete**
+8. **NEVER "cheat" the pipeline**: Do not modify build scripts (package.json, Makefile), test configurations (lint-staged, husky hooks), or CI/CD pipelines just to bypass failures. Fix the underlying code or tests.
+9. **NO NEW PRs FOR EXISTING WORK**: If you are working on an existing PR (provided in the context), push to its branch. NEVER create a second PR unless explicitly asked to.
+10. **Use `uv`**: Always use `uv` instead of `pip` for Python package management.

@@ -1,5 +1,8 @@
 FROM python:3.11-slim
 
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
@@ -7,6 +10,12 @@ RUN apt-get update && apt-get install -y \
     docker.io \
     build-essential \
     sudo \
+    jq \
+    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && apt-get update \
+    && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js
@@ -27,21 +36,22 @@ RUN useradd -m -s /bin/bash claude \
 
 WORKDIR /app
 
-# Copy requirements and install
-COPY agents/executor-agent/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy pyproject.toml and install dependencies
+COPY pyproject.toml .
+RUN uv pip install --no-cache --system -r pyproject.toml
 
 # Copy application code
 COPY agents/executor-agent/worker.py .
 COPY agents/executor-agent/skills/ ./skills/
 COPY agents/executor-agent/.claude/ ./.claude/
 COPY agents/executor-agent/entrypoint.sh .
-
 # Copy shared utilities
 COPY shared /shared
 
-# Create directories and set permissions
+# Create directories, configure permissions, and setup status line hook
 RUN mkdir -p /workspace /home/claude/.claude \
+    && echo '{"statusLine": {"type": "command", "command": "/shared/scripts/status_monitor.py"}}' > /home/claude/.claude/settings.json \
+    && chmod +x /shared/scripts/status_monitor.py \
     && chown -R claude:claude /app /workspace /home/claude \
     && chmod +x entrypoint.sh
 

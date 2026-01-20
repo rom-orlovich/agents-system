@@ -56,6 +56,28 @@ services:
       postgres:
         condition: service_healthy
 
+  # Dashboard
+  dashboard:
+    build:
+      context: ../..
+      dockerfile: services/dashboard/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://aiagent:localdev@postgres:5432/aiagent
+      - MAX_BUDGET_USD=${MAX_BUDGET_USD:-1000.0}
+      - JIRA_URL=${JIRA_URL:-}
+    volumes:
+      - ../../services/dashboard/static:/app/static
+      - ../../services/dashboard/main.py:/app/main.py
+      - ../../shared:/shared
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
   # Planning Agent
   planning-agent:
     build:
@@ -81,9 +103,9 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      # Hybrid Architecture: Mount entire host config to share auth & MCP state
-      - ${HOME}/.claude:/home/claude/.claude
-      - ${HOME}/.claude.json:/home/claude/.claude.json
+      # Hybrid Architecture: Mount host config read-only to share auth & MCP state safely
+      - ${HOME}/.claude:/host_claude_config:ro
+      - ${HOME}/.claude.json:/host_claude.json:ro
       # Mount project's specific MCP config (overrides for the agent)
       - ./mcp.json:/app/.claude/mcp.json:ro
       - workspace:/workspace
@@ -105,9 +127,9 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      # Hybrid Architecture: Mount entire host config to share auth & MCP state
-      - ${HOME}/.claude:/home/claude/.claude
-      - ${HOME}/.claude.json:/home/claude/.claude.json
+      # Hybrid Architecture: Mount host config read-only to share auth & MCP state safely
+      - ${HOME}/.claude:/host_claude_config:ro
+      - ${HOME}/.claude.json:/host_claude.json:ro
       - workspace:/workspace
       - /var/run/docker.sock:/var/run/docker.sock
 

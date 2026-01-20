@@ -11,22 +11,31 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+import re
 
 # Add shared module to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from shared.config import settings
-from shared.models import TaskStatus
+from shared.models import (
+    GitRepository,
+    AnyTask,
+    JiraTask,
+    SentryTask,
+    GitHubTask,
+    SlackTask,
+)
 from shared.task_queue import RedisQueue
+from shared.enums import TaskStatus, TaskSource
 from shared.slack_client import SlackClient
 from shared.metrics import metrics
 from shared.logging_utils import get_logger
 from shared.token_manager import TokenManager
 from shared.git_utils import GitUtils
-from shared.types import GitRepository
-from shared.enums import TokenStatus
-from shared.constants import TIMEOUT_CONFIG
 from shared.claude_runner import run_claude_streaming, extract_pr_url
+
+from shared.claude_runner import run_claude_streaming, extract_pr_url
+from shared.database import save_task_to_db
 
 logger = get_logger("planning-agent")
 
@@ -79,23 +88,41 @@ class PlanningAgentWorker:
                 if poll_count % 10 == 0:
                     logger.debug(f"Polling queue... (poll #{poll_count})")
                 
-                # Wait for task from queue
-                task_data = await self.queue.pop(self.queue_name, timeout=0)
+                # Wait for task from queue (typed)
+                task = await self.queue.pop_task(self.queue_name, timeout=0)
 
-                if task_data:
+                if task:
                     logger.info("=" * 60)
                     logger.info("NEW TASK RECEIVED")
                     logger.info("=" * 60)
-                    logger.info(
-                        "Task details",
-                        task_id=task_data.get("task_id"),
-                        action=task_data.get("action"),
-                        source=task_data.get("source"),
-                        issue_key=task_data.get("issue_key"),
-                        repository=task_data.get("repository"),
-                        sentry_issue_id=task_data.get("sentry_issue_id")
-                    )
-                    await self.process_task(task_data)
+                    
+                    # Log task details based on type
+                    if isinstance(task, JiraTask):
+                        logger.info(
+                            "Task details (Jira)",
+                            task_id=task.task_id,
+                            action=task.action,
+                            source=task.source.value,
+                            issue_key=task.issue_key,
+                            repository=task.repository,
+                            sentry_issue_id=task.sentry_issue_id
+                        )
+                    elif isinstance(task, SentryTask):
+                        logger.info(
+                            "Task details (Sentry)",
+                            task_id=task.task_id,
+                            source=task.source.value,
+                            sentry_issue_id=task.sentry_issue_id,
+                            repository=task.repository
+                        )
+                    else:
+                        logger.info(
+                            "Task details",
+                            task_id=task.task_id,
+                            source=task.source.value
+                        )
+                    
+                    await self.process_task(task)
                     logger.info("=" * 60)
                     logger.info("TASK PROCESSING COMPLETE")
                     logger.info("=" * 60)
@@ -111,14 +138,37 @@ class PlanningAgentWorker:
                 metrics.record_error("planning", "worker_loop")
                 await asyncio.sleep(5)
 
-    async def process_task(self, task_data: dict):
+    async def process_task(self, task: AnyTask):
         """Process a single task - routes to appropriate skill.
 
         Args:
-            task_data: Task data from queue
+            task: Typed task from queue
         """
-        action = task_data.get("action", "default")
-        source = task_data.get("source", "unknown")
+        # Determine task type based on Pydantic model type
+        if isinstance(task, JiraTask):
+            action = task.action
+            source = TaskSource.JIRA.value
+            if action == "enrich" or task.sentry_issue_id:
+                task_type = "jira_enrichment"
+            elif action == "approve":
+                task_type = "execution"
+            else:
+                task_type = "jira_enrichment"
+        elif isinstance(task, SentryTask):
+            action = "analyze"
+            source = TaskSource.SENTRY.value
+            task_type = "sentry_analysis"
+        elif isinstance(task, GitHubTask):
+            action = task.action or "review"
+            source = TaskSource.GITHUB.value
+            if action == "discover":
+                task_type = "discovery"
+            else:
+                task_type = "plan_changes"
+        else:
+            action = "default"
+            source = task.source.value
+            task_type = "jira_enrichment"
         
         logger.info(
             "STEP 1: Routing task to skill",
@@ -126,20 +176,10 @@ class PlanningAgentWorker:
             source=source
         )
         
-        # Route to task type (Claude reads instructions from .claude/CLAUDE.md)
-        if action == "enrich" or source == "jira":
-            task_type = "jira_enrichment"
-        elif action == "plan_changes" or source == "github_comment":
-            task_type = "plan_changes"
-        elif action == "execute":
-            task_type = "execution"
-        else:
-            task_type = "jira_enrichment"
-        
         logger.info(f"STEP 2: Task type: {task_type}")
-        await self.run_task(task_type, task_data)
+        await self.run_task(task_type, task)
 
-    async def run_task(self, task_type: str, task_data: dict):
+    async def run_task(self, task_type: str, task: AnyTask):
         """Run a task using Claude Code CLI with auto-detected skills.
         
         Claude Code automatically loads instructions from .claude/CLAUDE.md
@@ -147,16 +187,16 @@ class PlanningAgentWorker:
         
         Args:
             task_type: Type of task (jira_enrichment, plan_changes, execution)
-            task_data: Task context data
+            task: Typed task from queue
         """
-        task_id = task_data.get("task_id", f"task-{datetime.now().timestamp()}")
+        task_id = task.task_id
         start_time = datetime.now()
         
         logger.info(
             "STEP 3: Starting task execution",
             task_id=task_id,
             task_type=task_type,
-            source=task_data.get("source")
+            source=task.source.value
         )
         metrics.record_task_started("planning")
         
@@ -178,7 +218,7 @@ class PlanningAgentWorker:
             await self.queue.update_task_status(task_id, TaskStatus.DISCOVERING)
             
             # Clone or update repository if specified
-            repository = task_data.get("repository")
+            repository = getattr(task, "repository", None)
             if repository:
                 logger.info(f"STEP 6: Cloning/updating repository: {repository}")
                 repo = GitRepository.from_full_name(repository)
@@ -190,27 +230,43 @@ class PlanningAgentWorker:
             else:
                 logger.info("STEP 6: No repository specified, skipping clone")
             
-            # Build context from task data (Claude reads skills from .claude/CLAUDE.md)
+            # Build context from task (Claude reads skills from .claude/CLAUDE.md)
             logger.info("STEP 7: Building task context")
-            context = self._build_context(task_data)
+            context = self._build_context(task)
             
             # Create task prompt - Claude auto-loads .claude/CLAUDE.md for skill instructions
+            repo_instruction = ""
+            if repository:
+                repo_instruction = f"""**IMPORTANT:** Before starting, change your current directory to: `{self.git.get_repo_path(repo)}`
+
+Use the local repository at the path above for all code operations."""
+
             task_prompt = f"""## Task Type: {task_type}
 
 {context}
 
-Execute the {task_type} workflow as described in your instructions.
+{repo_instruction}
+
+Execute the {task_type} workflow as described in your instructions. 
 Report the PR URL when complete."""
+            
+            logger.info("STEP 8: Task prompt built", prompt_preview=task_prompt[:500] + "...")
             
             # Run Claude Code CLI with streaming output
             logger.info("STEP 8: Invoking Claude Code CLI with streaming (skills auto-detected)")
+            logger.info(f"Using model: {settings.CLAUDE_PLANNING_MODEL} (Opus for planning/discovery)")
             result = await run_claude_streaming(
                 prompt=task_prompt,
                 working_dir=AGENT_DIR,
                 timeout=settings.PLANNING_AGENT_TIMEOUT,
                 allowed_tools="Read,Edit,Bash,mcp__github,mcp__sentry,mcp__atlassian",
                 logger=logger,
-                stream_json=True
+                stream_json=True,
+                model=settings.CLAUDE_PLANNING_MODEL,
+                env={
+                    "CLAUDE_TASK_ID": task_id,
+                    "CLAUDE_ACCOUNT_ID": self.token_manager.get_account_id()
+                }
             )
             
             if result.success:
@@ -223,19 +279,87 @@ Report the PR URL when complete."""
                 
                 # Update status to pending approval
                 logger.info("STEP 11: Updating task status to PENDING_APPROVAL")
+                jira_link = f"{settings.JIRA_URL.rstrip('/')}/browse/{task.issue_key}" if isinstance(task, JiraTask) and settings.JIRA_URL else None
+                
+                # Update task object for persistence
+                if jira_link:
+                    task.jira_url = jira_link
+
                 await self.queue.update_task_status(
                     task_id,
                     TaskStatus.PENDING_APPROVAL,
                     plan=result.output[:5000],
-                    plan_url=pr_url or ""
+                    plan_url=pr_url or "",
+                    cost_usd=result.total_cost_usd,
+                    input_tokens=result.input_tokens,
+                    output_tokens=result.output_tokens,
+                    cache_read_tokens=result.cache_read_tokens,
+                    cache_creation_tokens=result.cache_creation_tokens,
+                    duration_seconds=result.duration_seconds,
+                    pr_url=pr_url,
+                    repository_url=f"https://github.com/{repository}" if repository else None,
+                    jira_url=jira_link
                 )
+
+                # Save to Persistent DB
+                try:
+                    # Get updated task data suitable for DB
+                    db_task_data = {
+                        "task_id": task_id,
+                        "source": task.source.value if hasattr(task.source, "value") else str(task.source),
+                        "status": TaskStatus.PENDING_APPROVAL.value,
+                        "queued_at": task.queued_at,
+                        "updated_at": datetime.utcnow().isoformat(),
+                         # Not technically completed, but this phase is done
+                        "cost_usd": result.total_cost_usd,
+                        "input_tokens": result.input_tokens,
+                        "output_tokens": result.output_tokens,
+                        "cache_read_tokens": result.cache_read_tokens,
+                        "cache_creation_tokens": result.cache_creation_tokens,
+                        "duration_seconds": result.duration_seconds,
+                        "repository": repository,
+                        "pr_url": pr_url,
+                        "issue_key": getattr(task, "issue_key", None) or task.metadata.get("issue_key"),
+                        "account_id": self.token_manager.get_account_id(),
+                        "data": task.model_dump() if hasattr(task, "model_dump") else json.loads(task.json())
+                    }
+                    save_task_to_db(db_task_data)
+                    logger.info("STEP 11.1: Task saved to database")
+                except Exception as dbe:
+                    logger.error(f"Failed to save task to DB: {dbe}")
+
+                # Register PR mapping for bot commands
+                if pr_url and repository:
+                    try:
+                        # Extract PR number from URL
+                        # https://github.com/owner/repo/pull/123
+                        match = re.search(r"/pull/(\d+)", pr_url)
+                        if match:
+                            pr_number = int(match.group(1))
+                            logger.info(f"STEP 11.5: Registering PR #{pr_number} for task {task_id}")
+                            await self.queue.register_pr_task(
+                                pr_url=pr_url,
+                                task_id=task_id,
+                                repository=repository,
+                                pr_number=pr_number
+                            )
+                    except Exception as re_err:
+                        logger.error(f"Failed to register PR task: {re_err}")
                 
                 # Notify Slack
                 logger.info("STEP 12: Sending Slack notification")
-                await self._notify_slack(task_id, task_data, result, pr_url)
+                await self._notify_slack(task_id, task, result, pr_url, result.total_cost_usd)
                 
                 duration = (datetime.now() - start_time).total_seconds()
                 metrics.record_task_completed("planning", "success", duration)
+                metrics.record_usage(
+                    "planning",
+                    result.total_cost_usd or 0,
+                    result.input_tokens,
+                    result.output_tokens,
+                    result.cache_read_tokens,
+                    result.cache_creation_tokens
+                )
                 
                 logger.info(
                     "TASK COMPLETED SUCCESSFULLY",
@@ -268,57 +392,91 @@ Report the PR URL when complete."""
                 TaskStatus.FAILED,
                 error=str(e)
             )
+
+            try:
+                save_task_to_db({
+                    "task_id": task_id,
+                    "source": task.source.value if hasattr(task.source, "value") else str(task.source),
+                    "status": TaskStatus.FAILED.value,
+                    "queued_at": task.queued_at,
+                    "error": str(e),
+                    "repository": getattr(task, "repository", None),
+                    "account_id": self.token_manager.get_account_id(),
+                    "data": task.model_dump() if hasattr(task, "model_dump") else json.loads(task.json())
+                })
+            except Exception as dbe:
+                 logger.error(f"Failed to save failed task to DB: {dbe}")
             await self.slack.send_task_failed(task_id, str(e))
             
             duration = (datetime.now() - start_time).total_seconds()
             metrics.record_task_completed("planning", "failed", duration)
 
-    def _build_context(self, task_data: dict) -> str:
-        """Build context string from task data.
+    def _build_context(self, task: AnyTask) -> str:
+        """Build context string from typed task.
         
         Args:
-            task_data: Task data from queue
+            task: Typed task from queue
             
         Returns:
             Formatted context string
         """
         context_lines = []
         
-        # Add all relevant task fields
-        if task_data.get("issue_key"):
-            context_lines.append(f"**Jira Issue:** {task_data['issue_key']}")
-        if task_data.get("sentry_issue_id"):
-            context_lines.append(f"**Sentry Issue ID:** {task_data['sentry_issue_id']}")
-        if task_data.get("repository"):
-            context_lines.append(f"**Repository:** {task_data['repository']}")
-        if task_data.get("description"):
-            context_lines.append(f"**Description:** {task_data['description']}")
-        if task_data.get("full_description"):
-            context_lines.append(f"\n**Full Description:**\n```\n{task_data['full_description'][:10000]}\n```")
-        if task_data.get("pr_url"):
-            context_lines.append(f"**PR URL:** {task_data['pr_url']}")
-        if task_data.get("comment"):
-            context_lines.append(f"**Comment:** {task_data['comment']}")
+        # Add improvement request if present
+        if getattr(task, "improvement_request", None):
+             context_lines.append(f"## 🔄 IMPROVEMENT REQUEST\nThe user has requested the following improvements to the previous plan/code:\n\n> {task.improvement_request}\n\nPlease address these specific points in your new plan.")
+        
+        # Add fields based on task type
+        if isinstance(task, JiraTask):
+            context_lines.append(f"**Jira Issue:** {task.issue_key}")
+            if task.sentry_issue_id:
+                context_lines.append(f"**Sentry Issue ID:** {task.sentry_issue_id}")
+            if task.repository:
+                context_lines.append(f"**Repository:** {task.repository}")
+            if task.description:
+                context_lines.append(f"**Description:** {task.description}")
+            if task.full_description:
+                context_lines.append(f"\n**Full Description:**\n```\n{task.full_description[:10000]}\n```")
+        
+        elif isinstance(task, SentryTask):
+            context_lines.append(f"**Sentry Issue ID:** {task.sentry_issue_id}")
+            context_lines.append(f"**Repository:** {task.repository}")
+            if task.description:
+                context_lines.append(f"**Description:** {task.description}")
+        
+        elif isinstance(task, GitHubTask):
+            context_lines.append(f"**Repository:** {task.repository}")
+            if task.pr_number:
+                context_lines.append(f"**PR Number:** {task.pr_number}")
+            if task.pr_url:
+                context_lines.append(f"**PR URL:** {task.pr_url}")
+            if task.comment:
+                context_lines.append(f"\n**Task Instructions:**\n{task.comment}")
+        
+        elif isinstance(task, SlackTask):
+            context_lines.append(f"**Channel:** {task.channel}")
+            context_lines.append(f"**User:** {task.user}")
+            context_lines.append(f"**Text:** {task.text}")
         
         return "\n".join(context_lines) if context_lines else "No additional context provided."
 
     async def _notify_slack(
         self,
         task_id: str,
-        task_data: dict,
+        task: AnyTask,
         result,  # ClaudeResult from claude_runner
-        pr_url: Optional[str]
+        pr_url: Optional[str],
+        cost_usd: Optional[float] = None
     ):
         """Send Slack notification about task completion.
         
         Args:
             task_id: Task identifier
-            task_data: Original task data
+            task: Typed task from queue
             result: Claude Code result
             pr_url: PR URL if created
         """
-        repository = task_data.get("repository", "unknown/repo")
-        issue_key = task_data.get("issue_key", "")
+        repository = getattr(task, "repository", None) or "unknown/repo"
         
         if pr_url:
             logger.info(
@@ -332,7 +490,8 @@ Report the PR URL when complete."""
                 repository=repository,
                 risk_level="medium",
                 estimated_minutes=15,
-                pr_url=pr_url
+                pr_url=pr_url,
+                cost_usd=cost_usd
             )
             logger.info("Slack notification sent successfully")
         else:

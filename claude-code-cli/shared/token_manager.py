@@ -38,7 +38,7 @@ try:
 except ImportError:
     HAS_AIOHTTP = False
 
-from .types import OAuthCredentials, TokenRefreshResult
+from .models import OAuthCredentials, TokenRefreshResult
 from .enums import TokenStatus
 from .constants import (
     CREDENTIALS_FILE,
@@ -344,6 +344,18 @@ class TokenManager:
         if self._credentials:
             return self._credentials.access_token
         return None
+
+    def get_account_id(self) -> str:
+        """Get unique account identifier (hash of refresh token).
+        
+        Returns:
+            Account ID string or 'unknown_account'
+        """
+        if self._credentials and self._credentials.refresh_token:
+            import hashlib
+            # Use hash of refresh token as stable account ID
+            return hashlib.sha256(self._credentials.refresh_token.encode()).hexdigest()[:12]
+        return "unknown_account"
     
     # =========================================================================
     # AWS Secrets Manager Integration (Production)
