@@ -4,8 +4,8 @@ import json
 from datetime import datetime
 from typing import Optional, Dict, Any
 import redis.asyncio as redis
-from models import Task, TaskStatus
-from config import settings
+from shared.models import Task, TaskStatus
+from shared.config import settings
 
 
 class RedisQueue:

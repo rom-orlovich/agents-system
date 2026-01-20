@@ -31,11 +31,12 @@ from shared.git_utils import GitUtils
 from shared.types import GitRepository, ClaudeCodeResult
 from shared.enums import TokenStatus
 from shared.constants import TIMEOUT_CONFIG
+from shared.claude_runner import run_claude_streaming, extract_pr_url
 
 logger = get_logger("executor-agent")
 
-# Path to the skills directory
-SKILLS_DIR = Path(__file__).parent / "skills"
+# Agent directory (contains .claude/CLAUDE.md for auto-detection)
+AGENT_DIR = Path(__file__).parent
 
 
 class ExecutorAgentWorker:
@@ -53,13 +54,13 @@ class ExecutorAgentWorker:
         self.token_manager = TokenManager()
         self.git = GitUtils()
         
-        # Log available skills on startup
-        available_skills = [d.name for d in SKILLS_DIR.iterdir() if d.is_dir()]
+        # Verify .claude/CLAUDE.md exists for auto-detection
+        claude_md = AGENT_DIR / ".claude" / "CLAUDE.md"
         logger.info(
             "Worker initialized",
             queue=self.queue_name,
-            skills_dir=str(SKILLS_DIR),
-            available_skills=available_skills
+            agent_dir=str(AGENT_DIR),
+            claude_md_exists=claude_md.exists()
         )
 
     async def run(self):
@@ -71,7 +72,7 @@ class ExecutorAgentWorker:
             "Configuration",
             queue=self.queue_name,
             timeout=settings.EXECUTION_AGENT_TIMEOUT if hasattr(settings, 'EXECUTION_AGENT_TIMEOUT') else 600,
-            skills_dir=str(SKILLS_DIR)
+            agent_dir=str(AGENT_DIR)
         )
 
         poll_count = 0
@@ -173,37 +174,41 @@ class ExecutorAgentWorker:
                 framework=initial_test_result.framework.value
             )
             
-            # Load the skill prompt
-            logger.info("STEP 7: Loading execution skill")
-            skill_prompt = self._load_skill("pr-workflow")
-            if not skill_prompt:
-                # Fallback to tdd-workflow if pr-workflow doesn't exist
-                skill_prompt = self._load_skill("tdd-workflow")
-            
-            if not skill_prompt:
-                raise ValueError("No execution skill found (pr-workflow or tdd-workflow)")
-            
-            # Build context from task data
-            logger.info("STEP 8: Building execution context")
+            # Build execution context (Claude reads TDD workflow from .claude/CLAUDE.md)
+            logger.info("STEP 7: Building execution context")
             context = self._build_context(task_data, initial_test_result)
             
-            # Full prompt = skill instructions + task context
-            full_prompt = f"{skill_prompt}\n\n---\n\n## Execution Context\n\n{context}"
+            # Create task prompt - Claude auto-loads .claude/CLAUDE.md for TDD workflow
+            task_prompt = f"""## Execution Task
+
+{context}
+
+**Repository Path:** {repo_path}
+
+Execute the TDD workflow as described in your instructions.
+Report the PR URL when complete."""
             
-            # Run Claude Code CLI
-            logger.info("STEP 9: Invoking Claude Code CLI")
-            result = await self._run_claude_code(full_prompt, task_id, repo_path)
+            # Run Claude Code CLI with streaming output
+            logger.info("STEP 8: Invoking Claude Code CLI with streaming (TDD from .claude/)")
+            timeout = getattr(settings, 'EXECUTION_AGENT_TIMEOUT', 600)
+            result = await run_claude_streaming(
+                prompt=task_prompt,
+                working_dir=AGENT_DIR,
+                timeout=timeout,
+                allowed_tools="Read,Edit,Write,Bash,mcp__github",
+                logger=logger
+            )
             
-            if result["success"]:
-                logger.info("STEP 10: Claude Code CLI completed successfully")
-                logger.info(f"Output preview: {result['output'][:500]}...")
+            if result.success:
+                logger.info("STEP 9: Claude Code CLI completed successfully")
+                logger.info(f"Duration: {result.duration_seconds:.2f}s")
                 
-                # Extract PR URL from output
-                pr_url = self._extract_pr_url(result["output"])
-                execution_time = f"{(datetime.now() - start_time).total_seconds():.1f}s"
+                # PR URL already extracted by claude_runner
+                pr_url = result.pr_url
+                execution_time = f"{result.duration_seconds:.1f}s"
                 
                 # Update status to completed
-                logger.info("STEP 11: Updating task status to COMPLETED")
+                logger.info("STEP 10: Updating task status to COMPLETED")
                 await self.queue.update_task_status(
                     task_id,
                     TaskStatus.COMPLETED,
@@ -229,7 +234,7 @@ class ExecutorAgentWorker:
                     duration=f"{duration:.2f}s"
                 )
             else:
-                raise Exception(result.get("error", "Claude Code CLI failed"))
+                raise Exception(result.error or "Claude Code CLI failed")
 
         except Exception as e:
             logger.error(
@@ -283,28 +288,6 @@ class ExecutorAgentWorker:
         
         return None
     
-    def _load_skill(self, skill_name: str) -> Optional[str]:
-        """Load a skill's prompt file.
-        
-        Args:
-            skill_name: Name of the skill directory
-            
-        Returns:
-            Skill prompt content or None if not found
-        """
-        skill_dir = SKILLS_DIR / skill_name
-        logger.debug(f"Looking for skill in: {skill_dir}")
-        
-        # Try SKILL.md first, then prompt.md
-        for filename in ["SKILL.md", "prompt.md"]:
-            prompt_file = skill_dir / filename
-            if prompt_file.exists():
-                logger.debug(f"Found skill file: {prompt_file}")
-                return prompt_file.read_text()
-        
-        logger.warning(f"No skill file found in {skill_dir}")
-        return None
-    
     def _build_context(self, task_data: dict, test_result) -> str:
         """Build context string from task data.
         
@@ -351,147 +334,6 @@ class ExecutorAgentWorker:
         lines.append("6. Report the PR URL when complete")
         
         return "\n".join(lines)
-    
-    async def _run_claude_code(
-        self,
-        prompt: str,
-        task_id: str,
-        repo_path: Path
-    ) -> dict:
-        """Run Claude Code CLI with the given prompt.
-        
-        Args:
-            prompt: The full prompt (skill + context)
-            task_id: Task ID for logging
-            repo_path: Path to the cloned repository
-            
-        Returns:
-            Dict with success status and output
-        """
-        try:
-            # Save prompt to file
-            prompt_file = repo_path / ".claude-prompt.md"
-            prompt_file.write_text(prompt)
-            logger.info(f"Prompt saved to: {prompt_file}")
-            
-            # Build Claude Code CLI command
-            cmd = [
-                "claude",
-                "-p",  # Print mode (headless)
-                "--output-format", "json",
-                "--dangerously-skip-permissions",
-                "--allowedTools", "Read,Edit,Write,Bash,mcp__github",
-                "--append-system-prompt-file", str(prompt_file),
-                # The actual task instruction
-                "Execute the implementation plan. "
-                "Run tests locally before pushing. "
-                "Create a PR and report the URL."
-            ]
-            
-            logger.info(
-                "Executing Claude Code CLI",
-                task_id=task_id,
-                cwd=str(repo_path),
-                command=" ".join(cmd[:8]) + "..."
-            )
-            
-            timeout = getattr(settings, 'EXECUTION_AGENT_TIMEOUT', 600)
-            
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=str(repo_path)
-            )
-            
-            logger.info(f"Claude Code CLI process started, PID: {process.pid}")
-
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=timeout
-            )
-            
-            output = stdout.decode("utf-8")
-            error = stderr.decode("utf-8")
-            
-            logger.info(
-                "Claude Code CLI process completed",
-                return_code=process.returncode,
-                stdout_length=len(output),
-                stderr_length=len(error)
-            )
-            
-            if error:
-                logger.warning(f"Claude Code CLI stderr: {error[:1000]}")
-            
-            if process.returncode != 0:
-                logger.error(
-                    "Claude Code CLI exited with error",
-                    task_id=task_id,
-                    return_code=process.returncode,
-                    stderr=error[:500]
-                )
-                return {
-                    "success": False,
-                    "error": error or f"Exit code: {process.returncode}",
-                    "output": output
-                }
-            
-            # Try to parse JSON output
-            try:
-                result_data = json.loads(output)
-                output = result_data.get("result", output)
-            except json.JSONDecodeError:
-                pass
-            
-            return {
-                "success": True,
-                "output": output
-            }
-            
-        except asyncio.TimeoutError:
-            timeout = getattr(settings, 'EXECUTION_AGENT_TIMEOUT', 600)
-            logger.error(
-                "Claude Code CLI TIMEOUT",
-                task_id=task_id,
-                timeout=timeout
-            )
-            return {
-                "success": False,
-                "error": f"Timeout after {timeout}s",
-                "output": ""
-            }
-        except Exception as e:
-            logger.error(
-                "Claude Code CLI EXCEPTION",
-                task_id=task_id,
-                error=str(e)
-            )
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            return {
-                "success": False,
-                "error": str(e),
-                "output": ""
-            }
-    
-    def _extract_pr_url(self, output: str) -> Optional[str]:
-        """Extract GitHub PR URL from Claude's output.
-        
-        Args:
-            output: Claude Code output
-            
-        Returns:
-            PR URL if found
-        """
-        pattern = r"https://github\.com/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/pull/\d+"
-        match = re.search(pattern, output)
-        if match:
-            logger.info(f"Found PR URL in output: {match.group(0)}")
-            return match.group(0)
-        
-        logger.warning("No PR URL found in Claude output")
-        return None
 
 
 async def main():

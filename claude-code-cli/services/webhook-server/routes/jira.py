@@ -121,9 +121,23 @@ async def jira_webhook(request: Request):
         labels = fields.get("labels", [])
         status = fields.get("status", {}).get("name", "")
         
+        assignee_obj = fields.get("assignee") or {}
+        
+        # Log the full assignee object for debugging
+        print(f"DEBUG: Jira Assignee Object: {assignee_obj}")
+      
+        assignee_name = (assignee_obj.get("displayName") or 
+                         assignee_obj.get("name") or 
+                         assignee_obj.get("accountId") or "")
+        
+        bot_username = BOT_CONFIG.jira_username
+        is_assigned_to_bot = (assignee_name.lower() == bot_username.lower() or 
+                              bot_username.lower() in assignee_name.lower())
+
         print(f"📨 Jira webhook received: {webhook_event} for {issue_key}")
         print(f"   Summary: {summary}")
         print(f"   Status: {status}")
+        print(f"   Assignee: '{assignee_name}' (Bot: '{bot_username}', Match: {is_assigned_to_bot})")
         print(f"   Labels: {labels}")
         
         # Detect if this ticket was created by Sentry
@@ -159,32 +173,52 @@ async def jira_webhook(request: Request):
                         "issue_key": issue_key
                     }
         
-        # CASE 2: Sentry-created ticket - trigger enrichment
-        if webhook_event == "jira:issue_created" and is_sentry_ticket:
-            print(f"🔗 Detected Sentry-created ticket: {sentry_issue_id}")
+        # CASE 2: Sentry-created ticket or assigned to bot - trigger enrichment
+        if (webhook_event == "jira:issue_created" and (is_sentry_ticket or is_assigned_to_bot)) or \
+           (webhook_event == "jira:issue_updated" and is_assigned_to_bot):
             
+            # Check if this was a fresh assignment to the bot
+            is_assignment_event = False
+            if webhook_event == "jira:issue_updated":
+                changelog = payload.get("changelog", {})
+                items = changelog.get("items", [])
+                for item in items:
+                    if item.get("field") == "assignee" and bot_username.lower() in str(item.get("toString", "")).lower():
+                        is_assignment_event = True
+                        break
+            
+            # Only trigger enrichment if it's sentry OR assigned to bot
+            if is_sentry_ticket:
+                print(f"🔗 Detected Sentry ticket: {sentry_issue_id}")
+                action = "enrich"
+                status_msg = "queued_for_enrichment"
+            else:
+                print(f"👤 Ticket assigned to agent: {issue_key}")
+                action = "fix"
+                status_msg = "queued"
+
             task_data = {
                 "source": TaskSource.JIRA.value,
-                "action": "enrich",
+                "action": action,
                 "description": summary,
                 "issue_key": issue_key,
                 "sentry_issue_id": sentry_issue_id,
                 "repository": repository,
-                "full_description": description[:2000]  # Limit size
+                "full_description": description[:10000]
             }
             
             task_id = await queue.push(settings.PLANNING_QUEUE, task_data)
             
-            print(f"📥 Sentry ticket enrichment queued: {task_id} (Issue: {issue_key}, Sentry: {sentry_issue_id})")
+            print(f"📥 Jira task queued: {task_id} (Issue: {issue_key}, Action: {action})")
             
             return {
-                "status": "queued_for_enrichment",
+                "status": status_msg,
                 "task_id": task_id,
                 "issue_key": issue_key,
                 "sentry_issue_id": sentry_issue_id
             }
         
-        # CASE 3: Manual AI-Fix request (via label)
+        # CASE 3: Manual AI-Fix request (via label) - fallback
         if webhook_event == "jira:issue_created" and "AI-Fix" in labels:
             task_data = {
                 "source": TaskSource.JIRA.value,
@@ -196,7 +230,7 @@ async def jira_webhook(request: Request):
             
             task_id = await queue.push(settings.PLANNING_QUEUE, task_data)
             
-            print(f"📥 Manual AI-Fix queued: {task_id} (Issue: {issue_key})")
+            print(f"📥 Manual AI-Fix (via label) queued: {task_id} (Issue: {issue_key})")
             
             return {
                 "status": "queued",

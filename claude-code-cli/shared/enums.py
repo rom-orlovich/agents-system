@@ -14,6 +14,7 @@ class TaskStatus(str, Enum):
     Inherits from str to allow JSON serialization and string comparison.
     """
     PENDING = "pending"
+    QUEUED = "queued"  # Added from models.py
     DISCOVERING = "discovering"
     PLANNING = "planning"
     PENDING_APPROVAL = "pending_approval"
@@ -44,6 +45,14 @@ class TaskSource(str, Enum):
     SENTRY = "sentry"
     MANUAL = "manual"
     API = "api"
+    DASHBOARD = "dashboard"  # Added from models.py
+
+
+class RiskLevel(str, Enum):
+    """Risk level for a task or change."""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
 
 
 class TokenStatus(str, Enum):

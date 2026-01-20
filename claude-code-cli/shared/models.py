@@ -1,39 +1,11 @@
 """Data models for the AI Agent System."""
 
 from datetime import datetime
-from enum import Enum
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
-
-class TaskStatus(str, Enum):
-    """Task status enum."""
-    QUEUED = "queued"
-    DISCOVERING = "discovering"
-    PLANNING = "planning"
-    PENDING_APPROVAL = "pending_approval"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-    EXECUTING = "executing"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-class TaskSource(str, Enum):
-    """Task source enum."""
-    SENTRY = "sentry"
-    JIRA = "jira"
-    SLACK = "slack"
-    GITHUB = "github"
-    MANUAL = "manual"
-    DASHBOARD = "dashboard"
-
-
-class RiskLevel(str, Enum):
-    """Risk level enum."""
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
+# Import enums from canonical source
+from .enums import TaskStatus, TaskSource, RiskLevel
 
 
 class DiscoveryResult(BaseModel):

@@ -19,7 +19,8 @@ import asyncio
 from typing import Optional, Callable, Awaitable, Dict, Any
 import logging
 
-from ..types import ParsedCommand, CommandResult, Task, TaskContext
+from ..types import ParsedCommand, CommandResult, TaskContext
+from ..models import Task
 from ..enums import CommandType, TaskStatus, TaskSource, Platform
 from ..constants import QUEUE_CONFIG
 from .parser import CommandParser

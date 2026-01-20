@@ -34,6 +34,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY agents/executor-agent/worker.py .
 COPY agents/executor-agent/skills/ ./skills/
+COPY agents/executor-agent/.claude/ ./.claude/
 COPY agents/executor-agent/entrypoint.sh .
 
 # Copy shared utilities
@@ -52,6 +53,7 @@ RUN su claude -c 'git config --global user.email "ai-agent@company.com"' \
 ENV PYTHONUNBUFFERED=1
 ENV CLAUDE_CONFIG_DIR=/home/claude/.claude
 ENV HOME=/home/claude
+ENV PYTHONPATH=/
 
 # Switch to non-root user
 USER claude

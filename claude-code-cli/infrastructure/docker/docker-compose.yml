@@ -81,12 +81,11 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      # Mount OAuth credentials
-      - ${HOME}/.claude/.credentials.json:/home/claude/.claude/.credentials.json:ro
-      # Mount MCP config for tool access
-      - ./mcp.json:/home/claude/.claude/mcp.json:ro
-      # Mount skills for lazy loading
-      - ${HOME}/.claude/skills:/home/claude/.claude/skills:ro
+      # Hybrid Architecture: Mount entire host config to share auth & MCP state
+      - ${HOME}/.claude:/home/claude/.claude
+      - ${HOME}/.claude.json:/home/claude/.claude.json
+      # Mount project's specific MCP config (overrides for the agent)
+      - ./mcp.json:/app/.claude/mcp.json:ro
       - workspace:/workspace
       - /var/run/docker.sock:/var/run/docker.sock
 
@@ -106,12 +105,9 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      # Mount OAuth credentials
-      - ${HOME}/.claude/.credentials.json:/home/claude/.claude/.credentials.json:ro
-      # Mount MCP config
-      - ./mcp.json:/home/claude/.claude/mcp.json:ro
-      # Mount skills
-      - ${HOME}/.claude/skills:/home/claude/.claude/skills:ro
+      # Hybrid Architecture: Mount entire host config to share auth & MCP state
+      - ${HOME}/.claude:/home/claude/.claude
+      - ${HOME}/.claude.json:/home/claude/.claude.json
       - workspace:/workspace
       - /var/run/docker.sock:/var/run/docker.sock
 

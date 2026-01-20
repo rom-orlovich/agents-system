@@ -18,7 +18,9 @@ RUN npm install -g @anthropic-ai/claude-code
 
 # Install MCP servers
 RUN npm install -g @sentry/mcp-server@latest \
-    @modelcontextprotocol/server-filesystem
+    @modelcontextprotocol/server-filesystem \
+    @modelcontextprotocol/server-github \
+    mcp-remote@latest
 
 # Create non-root user for Claude CLI (required for --dangerously-skip-permissions)
 RUN useradd -m -s /bin/bash claude \
@@ -35,6 +37,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY agents/planning-agent/worker.py .
 COPY agents/planning-agent/skills/ ./skills/
+COPY agents/planning-agent/.claude/ ./.claude/
 COPY agents/planning-agent/entrypoint.sh .
 
 # Copy shared utilities
@@ -49,6 +52,7 @@ RUN mkdir -p /workspace /home/claude/.claude \
 ENV PYTHONUNBUFFERED=1
 ENV CLAUDE_CONFIG_DIR=/home/claude/.claude
 ENV HOME=/home/claude
+ENV PYTHONPATH=/
 
 # Switch to non-root user
 USER claude
