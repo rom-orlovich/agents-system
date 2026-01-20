@@ -17,6 +17,12 @@ The fix plan has been approved. You must:
 4. Commit all changes to the PR branch
 5. Update the PR status and notify completion
 
+## Cloud & Headless Support
+
+When running in cloud environments without a browser or local Docker access:
+- **GitHub MCP**: Configured via HTTP with a Personal Access Token (`GITHUB_TOKEN`) to support headless authentication.
+
+
 ## MCP Tools to Use
 
 ### GitHub MCP
@@ -28,7 +34,7 @@ The fix plan has been approved. You must:
 ### Sentry MCP (if available)
 - `resolve_issue` - Mark the Sentry issue as resolved after fix is merged
 
-### Atlassian/Jira MCP
+### Jira API (Direct)
 - `update_issue` - Update Jira ticket status
 - `add_comment` - Add implementation details to Jira
 

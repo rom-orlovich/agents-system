@@ -3,7 +3,7 @@ import sys
 import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,8 +35,9 @@ async def startup():
     init_db()
 
 @app.get("/api/tasks")
-async def get_tasks(account_id: Optional[str] = None):
+async def get_tasks(response: Response, account_id: Optional[str] = None):
     """Get all tasks for the dashboard, optionally filtered by account_id."""
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     # Get Redis tasks (active/recent)
     try:
         redis_tasks_list = await queue.get_all_tasks()
@@ -108,10 +109,11 @@ async def get_tasks(account_id: Optional[str] = None):
     return sorted(merged_tasks, key=lambda x: x.get("updated_at") or x.get("queued_at") or "", reverse=True)
 
 @app.get("/api/stats")
-async def get_stats(account_id: Optional[str] = None):
+async def get_stats(response: Response, account_id: Optional[str] = None):
     """Get aggregated stats."""
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     # Get all tasks first to calculate available accounts
-    all_tasks = await get_tasks(account_id=None)
+    all_tasks = await get_tasks(response=response, account_id=None)
     
     # Per-account/session stats (calculated from all tasks)
     account_stats = {}

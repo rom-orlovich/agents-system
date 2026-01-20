@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, Request, HTTPException
 import logging
+import httpx
+import base64
 
 # Add shared module to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
@@ -217,6 +219,11 @@ async def jira_webhook(request: Request):
             
             print(f"📥 Jira task queued: {task_id} (Issue: {issue_key}, Action: {action})")
             
+            # Post comment to Jira if assigned to bot
+            if is_assigned_to_bot:
+                await post_jira_comment(issue_key, "🤖 AI Agent has identified this ticket and started the planning phase.")
+
+            
             return {
                 "status": status_msg,
                 "task_id": task_id,
@@ -256,6 +263,51 @@ async def jira_webhook(request: Request):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+async def post_jira_comment(issue_key: str, message: str):
+    """Post a comment to a Jira issue."""
+    if not (settings.JIRA_URL and settings.JIRA_EMAIL and settings.JIRA_API_TOKEN):
+        print(f"⚠️ Jira not configured, skipping comment on {issue_key}")
+        return
+
+    url = f"{settings.JIRA_URL}/rest/api/3/issue/{issue_key}/comment"
+    
+    auth_str = f"{settings.JIRA_EMAIL}:{settings.JIRA_API_TOKEN}"
+    auth_bytes = auth_str.encode("ascii")
+    base64_auth = base64.b64encode(auth_bytes).decode("ascii")
+    
+    headers = {
+        "Authorization": f"Basic {base64_auth}",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    
+    payload = {
+        "body": {
+            "type": "doc",
+            "version": 1,
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [
+                        {
+                            "text": message,
+                            "type": "text"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, json=payload, timeout=10.0)
+            response.raise_for_status()
+            print(f"✅ Posted comment on Jira ticket {issue_key}")
+    except Exception as e:
+        print(f"❌ Failed to post Jira comment: {e}")
 
 
 @router.get("/test")
