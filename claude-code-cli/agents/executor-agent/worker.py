@@ -162,12 +162,26 @@ class ExecutorAgentWorker:
             logger.info(f"STEP 5: Cloning/updating repository")
             repo = GitRepository.from_full_name(repository)
             clone_result = await self.git.clone_repository(repo)
-            
+
             if not clone_result.success:
                 raise Exception(f"Failed to clone repository: {clone_result.error}")
-            
+
             repo_path = self.git.get_repo_path(repo)
             logger.info(f"Repository ready at: {repo_path}")
+
+            # Read project's CLAUDE.md if it exists (NEW!)
+            logger.info("STEP 5.5: Checking for project CLAUDE.md")
+            project_rules = None
+            project_claude_md = Path(repo_path) / "CLAUDE.md"
+            if project_claude_md.exists():
+                try:
+                    with open(project_claude_md, 'r') as f:
+                        project_rules = f.read()
+                    logger.info(f"Found project CLAUDE.md ({len(project_rules)} chars)")
+                except Exception as e:
+                    logger.warning(f"Failed to read project CLAUDE.md: {e}")
+            else:
+                logger.info("No project CLAUDE.md found")
             
             # Run initial tests (TDD - tests should fail or pass first)
             logger.info("STEP 6: Running initial tests (TDD baseline)")
@@ -181,7 +195,7 @@ class ExecutorAgentWorker:
             
             # Build execution context (Claude reads TDD workflow from .claude/CLAUDE.md)
             logger.info("STEP 7: Building execution context")
-            context = self._build_context(task, initial_test_result)
+            context = self._build_context(task, initial_test_result, project_rules)
             
             # Create task prompt - Claude auto-loads .claude/CLAUDE.md for TDD workflow
             task_prompt = f"""## Execution Task
@@ -394,17 +408,27 @@ Report the PR URL when complete."""
         
         return None
     
-    def _build_context(self, task: AnyTask, test_result) -> str:
+    def _build_context(self, task: AnyTask, test_result, project_rules: Optional[str] = None) -> str:
         """Build context string from typed task.
-        
+
         Args:
             task: Typed task from queue
             test_result: Initial test run results
-            
+            project_rules: Optional project-specific rules from CLAUDE.md
+
         Returns:
             Formatted context string
         """
         lines = []
+
+        # Add project-specific rules if available
+        if project_rules:
+            lines.append("## Project-Specific Rules (from repository CLAUDE.md)")
+            lines.append("```")
+            lines.append(project_rules)
+            lines.append("```")
+            lines.append("\n**IMPORTANT:** Follow these project-specific rules and conventions.")
+            lines.append("")
         
         # Repository info
         repository = getattr(task, "repository", None)

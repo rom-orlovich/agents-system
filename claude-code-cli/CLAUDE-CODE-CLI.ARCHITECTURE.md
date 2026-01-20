@@ -78,33 +78,142 @@ Executor Agent:
 
 ```
 claude-code-cli/
+├── pyproject.toml               # Python dependencies (uv)
+├── Makefile                     # Build and deployment
+├── docker-compose.yml           # Docker orchestration
+├── .env.example                 # Environment template
+│
+├── README.md
+├── ARCHITECTURE.md              # This file
+├── BUSINESS-LOGIC.md            # Flow diagrams and business rules
+│
+├── config/                      # Configuration
+│   ├── __init__.py
+│   ├── settings.py              # Pydantic Settings (from shared/config.py)
+│   └── constants.py             # Static constants
+│
+├── models/                      # Data Models (Pydantic v2)
+│   ├── __init__.py
+│   ├── tasks.py                 # BaseTask, JiraTask, SentryTask, GitHubTask
+│   ├── git.py                   # GitRepository, GitOperationResult
+│   ├── auth.py                  # OAuthCredentials
+│   ├── commands.py              # Command models
+│   └── results.py               # TestResult, LintResult
+│
+├── types/                       # Type definitions
+│   ├── __init__.py
+│   └── enums.py                 # TaskStatus, TaskSource, Platform, etc.
+│
+├── clients/                     # External service clients
+│   ├── __init__.py
+│   ├── redis_queue.py           # Task queue operations (from shared/task_queue.py)
+│   └── database.py              # PostgreSQL operations (from shared/database.py)
+│
+├── utils/                       # Shared utilities
+│   ├── __init__.py
+│   ├── claude.py                # Claude CLI runner (from shared/claude_runner.py)
+│   ├── token.py                 # OAuth token manager (from shared/token_manager.py)
+│   ├── logging.py               # Logging setup (from shared/logging_utils.py)
+│   └── metrics.py               # Prometheus metrics (from shared/metrics.py)
+│
+├── commands/                    # Bot command system
+│   ├── __init__.py
+│   ├── parser.py                # Command parsing
+│   ├── executor.py              # Command execution
+│   ├── loader.py                # Dynamic loading
+│   └── definitions.yaml         # Command specs
+│
+├── workers/                     # Worker base classes
+│   ├── __init__.py
+│   └── base.py                  # BaseAgentWorker
+│
 ├── agents/
 │   ├── planning-agent/          # Analyzes bugs, creates plans
+│   │   ├── Dockerfile
+│   │   ├── entrypoint.sh
 │   │   ├── worker.py            # Queue consumer + Claude CLI invoker
 │   │   └── skills/              # Planning skills (SKILL.md files)
 │   │       ├── discovery/       # Find affected repos/files
+│   │       │   ├── SKILL.md
+│   │       │   └── scripts/
+│   │       │       ├── github_search.py
+│   │       │       └── sentry_client.py
 │   │       ├── jira-enrichment/ # Enrich Jira tickets
+│   │       │   ├── SKILL.md
+│   │       │   └── scripts/
+│   │       │       └── jira_client.py
 │   │       ├── plan-changes/    # Handle PR feedback
-│   │       └── execution/       # Execute approved plans
+│   │       │   └── SKILL.md
+│   │       ├── execution/       # Execute approved plans
+│   │       │   └── SKILL.md
+│   │       └── notifications/   # NEW: Send Slack notifications
+│   │           ├── SKILL.md
+│   │           └── scripts/
+│   │               └── slack_client.py
 │   │
 │   └── executor-agent/          # Implements fixes
+│       ├── Dockerfile
+│       ├── entrypoint.sh
 │       ├── worker.py            # TDD workflow executor
 │       └── skills/              # Execution skills
 │           ├── git-operations/  # Git workflow
+│           │   ├── SKILL.md
+│           │   └── scripts/
+│           │       └── git_utils.py
 │           ├── tdd-workflow/    # RED-GREEN-REFACTOR
+│           │   ├── SKILL.md
+│           │   └── scripts/
+│           │       └── test_runner.py
 │           ├── execution/       # Main orchestration
-│           └── code-review/     # Self-review checks
+│           │   └── SKILL.md
+│           ├── code-review/     # Self-review checks
+│           │   ├── SKILL.md
+│           │   └── scripts/
+│           │       └── lint_runner.py
+│           └── github-pr/       # NEW: GitHub PR operations
+│               ├── SKILL.md
+│               └── scripts/
+│                   └── github_client.py
 │
-├── services/webhook-server/     # FastAPI webhook receiver
-│   ├── main.py
-│   └── routes/                  # GitHub, Jira, Slack, Sentry
+├── services/
+│   ├── webhook-server/          # FastAPI webhook receiver
+│   │   ├── main.py
+│   │   ├── Dockerfile
+│   │   └── routes/
+│   │       ├── github.py
+│   │       ├── jira.py
+│   │       ├── sentry.py
+│   │       └── slack.py
+│   │
+│   └── dashboard/               # Real-time task dashboard
+│       ├── main.py
+│       ├── Dockerfile
+│       └── static/
+│           └── index.html
 │
-├── shared/                      # Shared utilities
-│   ├── models.py                # Pydantic task models
-│   ├── task_queue.py            # Redis queue operations
-│   ├── commands/                # Bot command system
-│   ├── claude_runner.py         # Claude CLI wrapper
-│   └── ...                      # Config, logging, metrics
+├── scripts/                     # Production scripts
+│   ├── refresh_token.py
+│   ├── create_task.py
+│   ├── requeue_task.py
+│   └── health-check.sh
+│
+├── scripts/dev/                 # Development scripts
+│   ├── seed_db.py
+│   └── demo_approval_flow.py
+│
+├── tests/                       # Test suite
+│   ├── conftest.py
+│   ├── unit/
+│   │   ├── test_commands.py
+│   │   ├── test_models.py
+│   │   ├── test_queue.py
+│   │   ├── test_business_logic.py
+│   │   ├── test_planning_flow.py
+│   │   ├── test_executor_flow.py
+│   │   └── test_approval_flow.py
+│   └── integration/
+│       ├── test_webhooks.py
+│       └── test_workers.py
 │
 └── infrastructure/docker/
     ├── docker-compose.yml       # Local development
@@ -153,25 +262,27 @@ MCP servers provide tool access to agents. Configuration in `infrastructure/dock
 
 ## 🎯 Skills System
 
-Skills are modular instructions for agents, defined in `SKILL.md` files with YAML frontmatter.
+Skills are modular instructions for agents, defined in `SKILL.md` files with optional `scripts/` directories containing Python utilities that enhance skill capabilities beyond MCP tools.
 
 ### Planning Agent Skills
 
-| Skill | Purpose | MCP Tools |
-|-------|---------|-----------|
-| **discovery** | Find affected repos and files | GitHub (search_code) |
-| **jira-enrichment** | Enrich Jira tickets with analysis | Sentry, GitHub, Atlassian |
-| **plan-changes** | Update plans based on feedback | GitHub (get_pr, add_comment) |
-| **execution** | Execute approved fix plans | All MCPs |
+| Skill | Purpose | Scripts | MCP Tools |
+|-------|---------|---------|-----------|
+| **discovery** | Find affected repos and files | `github_search.py`, `sentry_client.py` | GitHub (search_code) |
+| **jira-enrichment** | Enrich Jira tickets with analysis | `jira_client.py`, `sentry_fetcher.py` | Sentry, GitHub, Atlassian |
+| **plan-changes** | Update plans based on feedback | - | GitHub (get_pr, add_comment) |
+| **notifications** | Send Slack notifications | `slack_client.py` | - |
+| **execution** | Execute approved fix plans | - | All MCPs |
 
 ### Executor Agent Skills
 
-| Skill | Purpose | Actions |
-|-------|---------|---------|
-| **git-operations** | Git workflow (clone, branch, commit, push) | Git commands |
-| **tdd-workflow** | RED → GREEN → REFACTOR cycle | Test execution |
-| **execution** | Main orchestration | Coordinates all skills |
-| **code-review** | Self-review before commit | Linting, type checking |
+| Skill | Purpose | Scripts | Actions |
+|-------|---------|---------|---------|
+| **git-operations** | Git workflow (clone, branch, commit, push) | `git_utils.py` | Git commands |
+| **tdd-workflow** | RED → GREEN → REFACTOR cycle | `test_runner.py` | Test execution |
+| **execution** | Main orchestration | - | Coordinates all skills |
+| **code-review** | Self-review before commit | `lint_runner.py` | Linting, type checking |
+| **github-pr** | GitHub PR operations | `github_client.py`, `pr_creator.py` | GitHub (create_pr, update_pr) |
 
 ### Skill Format
 

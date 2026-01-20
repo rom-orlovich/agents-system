@@ -219,12 +219,28 @@ class PlanningAgentWorker:
             
             # Clone or update repository if specified
             repository = getattr(task, "repository", None)
+            project_rules = None
+            working_dir = AGENT_DIR
             if repository:
                 logger.info(f"STEP 6: Cloning/updating repository: {repository}")
                 repo = GitRepository.from_full_name(repository)
                 clone_result = await self.git.clone_repository(repo)
                 if clone_result.success:
-                    logger.info(f"Repository ready at: {self.git.get_repo_path(repo)}")
+                    working_dir = Path(self.git.get_repo_path(repo))
+                    logger.info(f"Repository ready at: {working_dir}")
+
+                    # Read project's CLAUDE.md if it exists (NEW!)
+                    logger.info("STEP 6.5: Checking for project CLAUDE.md")
+                    project_claude_md = working_dir / "CLAUDE.md"
+                    if project_claude_md.exists():
+                        try:
+                            with open(project_claude_md, 'r') as f:
+                                project_rules = f.read()
+                            logger.info(f"Found project CLAUDE.md ({len(project_rules)} chars)")
+                        except Exception as e:
+                            logger.warning(f"Failed to read project CLAUDE.md: {e}")
+                    else:
+                        logger.info("No project CLAUDE.md found")
                 else:
                     logger.warning("Failed to clone repository", error=clone_result.error)
             else:
@@ -237,17 +253,30 @@ class PlanningAgentWorker:
             # Create task prompt - Claude auto-loads .claude/CLAUDE.md for skill instructions
             repo_instruction = ""
             if repository:
-                repo_instruction = f"""**IMPORTANT:** Before starting, change your current directory to: `{self.git.get_repo_path(repo)}`
+                repo_instruction = f"""**IMPORTANT:** Before starting, change your current directory to: `{working_dir}`
 
 Use the local repository at the path above for all code operations."""
+
+            # Include project-specific rules if found
+            project_rules_section = ""
+            if project_rules:
+                project_rules_section = f"""
+
+## Project-Specific Rules (from repository CLAUDE.md)
+
+```
+{project_rules}
+```
+
+**IMPORTANT:** Follow these project-specific rules and conventions when creating plans and making changes."""
 
             task_prompt = f"""## Task Type: {task_type}
 
 {context}
 
-{repo_instruction}
+{repo_instruction}{project_rules_section}
 
-Execute the {task_type} workflow as described in your instructions. 
+Execute the {task_type} workflow as described in your instructions.
 Report the PR URL when complete."""
             
             logger.info("STEP 8: Task prompt built", prompt_preview=task_prompt[:500] + "...")
