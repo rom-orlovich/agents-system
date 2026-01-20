@@ -10,7 +10,7 @@ import hmac
 import hashlib
 from typing import Optional
 
-from config import settings
+from shared.config import settings
 
 
 def validate_webhook_signature(payload: bytes, signature: str) -> bool:

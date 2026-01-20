@@ -3,7 +3,7 @@
 from typing import Optional, Dict, Any, List
 from slack_sdk.web.async_client import AsyncWebClient
 from slack_sdk.errors import SlackApiError
-from config import settings
+from shared.config import settings
 
 
 class SlackClient:

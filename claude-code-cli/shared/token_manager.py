@@ -118,6 +118,11 @@ class TokenManager:
             with open(self.credentials_path, "r") as f:
                 data = json.load(f)
             
+            # Handle nested claudeAiOauth structure (Claude CLI v2.x format)
+            if "claudeAiOauth" in data:
+                data = data["claudeAiOauth"]
+                logger.debug("Using nested claudeAiOauth credentials format")
+            
             # Handle both camelCase and snake_case
             if "accessToken" in data:
                 self._credentials = OAuthCredentials.from_dict(data)

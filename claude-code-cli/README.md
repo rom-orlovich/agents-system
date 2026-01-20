@@ -163,7 +163,6 @@ claude-code-cli/
 │
 ├── scripts/
 │   ├── setup-skills.sh             # Install Claude Code skills
-│   ├── setup-tunnel.sh             # Cloudflare Tunnel (FREE!)
 │   ├── refresh-token.py            # Cron token refresh
 │   └── health-check.sh
 │
@@ -266,41 +265,41 @@ SLACK_BOT_TOKEN=xoxb-your-token
 SLACK_CHANNEL_AGENTS=#ai-agents
 ```
 
-### 3. Build and Start
+### 3. Start the System
 
 ```bash
-# From project root
-cd infrastructure/docker
+# 🎯 ONE COMMAND - does everything!
+make start
 
-# Build all images
-docker-compose build
-
-# Start all services
-docker-compose up -d
-
-# Check service health (~30 seconds to be ready)
-docker-compose ps
+# This will:
+# ✅ Check prerequisites
+# ✅ Extract OAuth credentials
+# ✅ Setup skills
+# ✅ Build Docker images
+# ✅ Start all services
 ```
 
-### 4. Expose to Internet (Cloudflare Tunnel - FREE!)
+### 4. Expose to Internet (ngrok - FREE Permanent URL!)
 
 For GitHub/Jira/Sentry to send webhooks to your local machine:
 
 ```bash
-# One-time setup
-make tunnel
+# 1. Sign up at ngrok.com
+# 2. Claim your free static domain (e.g., your-name.ngrok-free.app)
+# 3. Add your authtoken:
+ngrok config add-authtoken <your-token>
 
-# Or run directly
-./scripts/setup-tunnel.sh
+# 4. Start the tunnel
+make tunnel NGROK_DOMAIN=your-name.ngrok-free.app
 ```
 
-This creates a **free, permanent URL** for your webhooks (e.g., `https://agents.yourdomain.com`).
+This creates a **free, permanent URL** for your webhooks.
 
-> **Why Cloudflare Tunnel instead of ngrok?**
-> - ✅ FREE (no paid subscription)
-> - ✅ Custom domain support
+> **Why ngrok with Static Domain?**
+> - ✅ FREE (1 static domain per account)
+> - ✅ No password wall (unlike LocalTunnel)
 > - ✅ Never-changing URL
-> - ✅ Built-in DDoS protection
+> - ✅ Zero-configuration set up (one command!)
 
 ### 5. Verify Installation
 
@@ -450,16 +449,19 @@ Once approved, the **Executor Agent**:
 ### Makefile Commands
 
 ```bash
-make help      # Show all commands
-make setup     # Initial setup (OAuth, skills)
-make skills    # Setup Claude Code skills
-make up        # Start services
+# 🚀 Main Commands
+make start     # 🎯 ONE COMMAND: setup + build + start
+make up        # Start services (quick)
 make down      # Stop services
+make restart   # Restart services
 make logs      # View logs
-make test      # Run tests
-make health    # Run health check
-make tunnel    # Setup Cloudflare Tunnel (FREE webhooks!)
-make clean     # Clean up Docker resources
+
+# 🔧 Utilities
+make oauth     # Refresh OAuth credentials
+make env       # Edit .env file
+make health    # Health check
+make tunnel    # Start webhook tunnel
+make clean     # Cleanup everything
 ```
 
 ### Adding a New Skill

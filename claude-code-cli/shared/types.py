@@ -161,6 +161,8 @@ class TokenRefreshResult:
 # =============================================================================
 # TASK TYPES
 # =============================================================================
+# NOTE: The main Task model is defined in shared/models.py (Pydantic).
+# TaskContext is kept here for lightweight context passing.
 
 @dataclass
 class TaskContext:
@@ -182,82 +184,6 @@ class TaskContext:
     pr_url: Optional[str] = None
     branch: Optional[str] = None
     sentry_issue_id: Optional[str] = None
-
-
-@dataclass
-class Task:
-    """A task in the system.
-    
-    Attributes:
-        task_id: Unique identifier
-        status: Current status
-        source: What triggered this task
-        context: Task context information
-        created_at: When task was created
-        updated_at: Last update time
-        discovery_result: Result from discovery phase
-        plan: Generated plan
-        execution_result: Result from execution
-        error: Error message if failed
-    """
-    task_id: str
-    status: TaskStatus
-    source: TaskSource
-    context: TaskContext
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
-    discovery_result: Optional[Dict[str, Any]] = None
-    plan: Optional[str] = None
-    execution_result: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization."""
-        return {
-            "task_id": self.task_id,
-            "status": self.status.value,
-            "source": self.source.value,
-            "context": {
-                "task_id": self.context.task_id,
-                "repository": self.context.repository,
-                "issue_key": self.context.issue_key,
-                "pr_number": self.context.pr_number,
-                "pr_url": self.context.pr_url,
-                "branch": self.context.branch,
-                "sentry_issue_id": self.context.sentry_issue_id,
-            },
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat(),
-            "discovery_result": self.discovery_result,
-            "plan": self.plan,
-            "execution_result": self.execution_result,
-            "error": self.error,
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Task":
-        """Create from dictionary."""
-        context_data = data.get("context", {})
-        return cls(
-            task_id=data.get("task_id", ""),
-            status=TaskStatus(data.get("status", "pending")),
-            source=TaskSource(data.get("source", "manual")),
-            context=TaskContext(
-                task_id=context_data.get("task_id", data.get("task_id", "")),
-                repository=context_data.get("repository"),
-                issue_key=context_data.get("issue_key"),
-                pr_number=context_data.get("pr_number"),
-                pr_url=context_data.get("pr_url"),
-                branch=context_data.get("branch"),
-                sentry_issue_id=context_data.get("sentry_issue_id"),
-            ),
-            created_at=datetime.fromisoformat(data["created_at"]) if "created_at" in data else datetime.utcnow(),
-            updated_at=datetime.fromisoformat(data["updated_at"]) if "updated_at" in data else datetime.utcnow(),
-            discovery_result=data.get("discovery_result"),
-            plan=data.get("plan"),
-            execution_result=data.get("execution_result"),
-            error=data.get("error"),
-        )
 
 
 # =============================================================================
