@@ -26,7 +26,7 @@ import re
 from typing import Optional, List, Dict, Any
 import logging
 
-from ..types import ParsedCommand, CommandDefinition
+from ..models import ParsedCommand, CommandDefinition
 from ..enums import CommandType, Platform
 from ..constants import BOT_CONFIG
 from .loader import get_loader

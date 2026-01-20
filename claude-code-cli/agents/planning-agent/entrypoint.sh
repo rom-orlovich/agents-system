@@ -10,6 +10,24 @@ fi
 # =============================================================================
 # OAuth Token Auto-Refresh
 # =============================================================================
+# =============================================================================
+# OAuth Token Auto-Refresh
+# =============================================================================
+# Sync credentials from host mount (Hybrid Architecture)
+if [ -d "/host_claude_config" ]; then
+    echo "🔐 Syncing credentials from host..."
+    mkdir -p /home/claude/.claude
+    cp -r /host_claude_config/. /home/claude/.claude/ 2>/dev/null || true
+fi
+
+if [ -f "/host_claude.json" ]; then
+    cp /host_claude.json /home/claude/.claude.json 2>/dev/null || true
+fi
+
+# Enforce status line settings
+echo '{"statusLine": {"type": "command", "command": "/shared/scripts/status_monitor.py"}}' > /home/claude/.claude/settings.json
+chown -R claude:claude /home/claude 2>/dev/null || true
+
 # Uses TokenManager to check and auto-refresh expired tokens before CLI test
 
 echo "🔐 Checking Claude OAuth credentials (with auto-refresh)..."

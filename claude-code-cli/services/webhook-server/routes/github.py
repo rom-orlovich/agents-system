@@ -6,7 +6,9 @@ Handles GitHub webhooks including:
 - Issue events
 """
 
+import json
 import sys
+import urllib.parse
 from pathlib import Path
 from fastapi import APIRouter, Request, HTTPException
 import logging
@@ -14,9 +16,9 @@ import logging
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from shared.config import settings
-from shared.models import TaskStatus
+from shared.models import TaskStatus, GitHubTask
 from shared.task_queue import RedisQueue
-from shared.github_client import validate_webhook_signature
+from shared.github_client import validate_webhook_signature, GitHubClient
 from shared.commands import CommandParser
 from shared.commands.executor import CommandExecutor
 from shared.enums import Platform
@@ -25,9 +27,17 @@ from shared.constants import BOT_CONFIG
 router = APIRouter()
 queue = RedisQueue()
 command_parser = CommandParser()
-command_executor = CommandExecutor(redis=queue)
+github_client = GitHubClient()
+command_executor = CommandExecutor(redis=queue, github=github_client)
+
 
 logger = logging.getLogger("github-webhook")
+# Use the root logger's configuration if already set up
+if not logger.handlers and not logging.getLogger().handlers:
+    logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+    logger.addHandler(handler)
 
 
 async def verify_github_signature(request: Request) -> bytes:
@@ -51,11 +61,11 @@ async def verify_github_signature(request: Request) -> bytes:
     return payload
 
 
-def extract_task_id_from_pr(pr_number: int, repository: str) -> str:
-    """Extract task ID from PR.
+async def get_task_id_for_pr(pr_number: int, repository: str) -> str:
+    """Look up task ID from PR using Redis.
     
-    In production, this would look up the task from the PR URL or body.
-    For now, we use a simple format.
+    First tries to find an existing task linked to this PR.
+    Falls back to a generated ID if no task is found.
     
     Args:
         pr_number: PR number
@@ -64,10 +74,19 @@ def extract_task_id_from_pr(pr_number: int, repository: str) -> str:
     Returns:
         Task ID string
     """
-    # TODO: Look up actual task from database/redis by PR URL
-    return f"task-{pr_number}"
+    # Try to find existing task by PR
+    task_id = await queue.get_task_id_by_pr(pr_number, repository)
+    
+    if task_id:
+        logger.info(f"Found existing task {task_id} for PR #{pr_number}")
+        return task_id
+    
+    # Fall back to generated ID
+    logger.debug(f"No task found for PR #{pr_number}, using generated ID")
+    return f"pr-{repository.replace('/', '-')}-{pr_number}"
 
 
+@router.post("")
 @router.post("/")
 async def github_webhook(request: Request):
     """Handle GitHub webhook events.
@@ -77,17 +96,45 @@ async def github_webhook(request: Request):
     - pull_request_review: Review approvals
     - push: CI status updates
     """
-    # Validate webhook signature for security
-    await verify_github_signature(request)
+    # Validate webhook signature for security (skip in dev if no secret configured)
+    print(f"DEBUG: Processing GitHub webhook. Secret configured: {bool(settings.GITHUB_WEBHOOK_SECRET)}", flush=True)
     
-    payload = await request.json()
+    if settings.GITHUB_WEBHOOK_SECRET:
+        raw_payload = await verify_github_signature(request)
+    else:
+        logger.warning("GITHUB_WEBHOOK_SECRET not configured - skipping signature verification")
+        print("DEBUG: Skipping signature verification", flush=True)
+        raw_payload = await request.body()
+    
+    logger.info(f"Received payload size: {len(raw_payload)} bytes")
+    print(f"DEBUG: Payload received, size: {len(raw_payload)}", flush=True)
+
+    try:
+        # Decode bytes to string first
+        payload_str = raw_payload.decode('utf-8')
+        
+        # Handle form-encoded payload (application/x-www-form-urlencoded)
+        if payload_str.startswith("payload="):
+            payload_str = urllib.parse.unquote_plus(payload_str[8:])  # Remove 'payload=' prefix
+            
+        payload = json.loads(payload_str)
+    except Exception as e:
+        logger.error(f"Failed to decode JSON payload: {e}")
+        logger.debug(f"Raw payload sample: {raw_payload[:100]}")
+        return {"status": "error", "reason": "invalid json"}
     event_type = request.headers.get("X-GitHub-Event", "unknown")
     
     logger.info(f"GitHub webhook received: {event_type}")
     
-    # Handle PR comments for bot commands
+    # Handle PR comments for bot commands (only new comments, not edits)
     if "comment" in payload and "issue" in payload:
-        return await handle_pr_comment(payload)
+        action = payload.get("action", "")
+        print(f"DEBUG: Comment action: {action}", flush=True)
+        if action == "created":
+            return await handle_pr_comment(payload)
+        else:
+            logger.debug(f"Ignoring comment action: {action}")
+            return {"status": "ignored", "reason": f"comment action: {action}"}
     
     # Handle PR review events
     if event_type == "pull_request_review":
@@ -116,10 +163,6 @@ async def handle_pr_comment(payload: dict):
     comment_id = payload["comment"].get("id")
     pr_url = payload["issue"].get("html_url", "")
     
-    logger.info(
-        f"PR comment from @{comment_author}: {comment_body[:100]}..."
-    )
-    
     # Check if this mentions the bot
     mentions_bot = any(
         tag.lower() in comment_body.lower() 
@@ -127,11 +170,24 @@ async def handle_pr_comment(payload: dict):
     )
     
     if not mentions_bot:
-        logger.debug("Comment doesn't mention bot, ignoring")
         return {"status": "ignored", "reason": "no bot mention"}
     
-    # Extract task ID from PR
-    task_id = extract_task_id_from_pr(pr_number, repo_full_name)
+    logger.info(
+        f"PR comment from @{comment_author}: {comment_body[:100]}..."
+    )
+
+    # 1. Acknowledge immediately with "eyes" reaction
+    if comment_id:
+        owner, repo = repo_full_name.split("/")
+        await github_client.add_reaction(
+            owner=owner,
+            repo=repo,
+            comment_id=comment_id,
+            reaction="eyes"
+        )
+
+    # Look up task ID from Redis (async)
+    task_id = await get_task_id_for_pr(pr_number, repo_full_name)
     
     # Build context for command parser
     context = {
@@ -141,6 +197,8 @@ async def handle_pr_comment(payload: dict):
         "author": comment_author,
         "pr_url": pr_url,
         "task_id": task_id,
+        "pr_title": payload["issue"].get("title", ""),
+        "pr_body": payload["issue"].get("body", ""),
     }
     
     # Parse the command
@@ -156,28 +214,34 @@ async def handle_pr_comment(payload: dict):
     
     logger.info(
         f"Parsed command: {parsed.command_name}",
-        command_type=parsed.command_type.value,
-        args=parsed.args
+        extra={"command_type": parsed.command_type.value, "command_args": parsed.args}
     )
     
     # Execute the command
     result = await command_executor.execute(parsed)
     
-    logger.info(
-        f"Command executed: {parsed.command_name}",
-        success=result.success,
-        should_reply=result.should_reply
-    )
+    logger.info(f"Command executed: {parsed.command_name} - success: {result.success}")
     
-    # TODO: Post result as PR comment if result.should_reply
-    # This would use GitHub API to post a comment:
-    # if result.should_reply:
-    #     await github_client.post_comment(
-    #         owner=repo_full_name.split("/")[0],
-    #         repo=repo_full_name.split("/")[1],
-    #         issue_number=pr_number,
-    #         body=result.message
-    #     )
+    # Post comment if specifically requested (e.g. results)
+    if result.should_reply:
+        owner, repo = repo_full_name.split("/")
+        await github_client.post_comment(
+            owner=owner,
+            repo=repo,
+            issue_number=pr_number,
+            body=result.message
+        )
+
+    # 2. Add final reaction based on result
+    if comment_id:
+        owner, repo = repo_full_name.split("/")
+        final_reaction = result.reaction or ("rocket" if result.success else "confused")
+        await github_client.add_reaction(
+            owner=owner,
+            repo=repo,
+            comment_id=comment_id,
+            reaction=final_reaction
+        )
     
     return {
         "status": "executed",
@@ -208,12 +272,21 @@ async def handle_pr_review(payload: dict):
     logger.info(f"PR review from @{reviewer}: {state}")
     
     if state == "approved":
-        task_id = extract_task_id_from_pr(pr_number, repo_full_name)
+        task_id = await get_task_id_for_pr(pr_number, repo_full_name)
         task_data = await queue.get_task(task_id)
         
         if task_data:
             await queue.update_task_status(task_id, TaskStatus.APPROVED)
-            await queue.push(settings.EXECUTION_QUEUE, task_data)
+            
+            # Create typed task for execution queue
+            pr_url = payload.get("pull_request", {}).get("html_url", "")
+            exec_task = GitHubTask(
+                repository=repo_full_name,
+                pr_number=pr_number,
+                pr_url=pr_url,
+                action="approved"
+            )
+            await queue.push_task(settings.EXECUTION_QUEUE, exec_task)
             
             logger.info(f"Task {task_id} approved via PR review")
             

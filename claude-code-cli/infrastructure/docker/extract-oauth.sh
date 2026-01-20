@@ -44,7 +44,7 @@ mkdir -p "$(dirname "$CREDS_FILE")"
 
 # Write credentials to file
 echo "$CREDS" > "$CREDS_FILE"
-chmod 600 "$CREDS_FILE"
+chmod 644 "$CREDS_FILE"
 
 echo "✅ Credentials extracted to: $CREDS_FILE"
 echo ""

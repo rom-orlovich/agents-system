@@ -1,109 +1,52 @@
-# 🤖 Claude Code CLI - Production AI Agent System
+# 🤖 Claude Code CLI - AI Agent System
 
-> **Enterprise-grade autonomous bug fixing powered by Claude Code CLI**
+> **Autonomous bug fixing powered by Claude Code CLI and MCP**
 
-A production-ready implementation of a two-agent system (Planning + Executor) that autonomously fixes bugs, writes tests, and creates pull requests - built on Claude Code CLI and designed to scale from local development to cloud deployment.
-
----
-
-## ✨ What Makes This Different?
-
-Unlike the POC version (`claude-code-cli-poc/`), this system is designed for **production deployment**:
-
-| Feature | This System | POC Version |
-|---------|-------------|-------------|
-| **Target** | Production (50+ devs) | Local testing |
-| **Scaling** | Auto-scaling workers | Fixed containers |
-| **Infrastructure** | Kubernetes + AWS | Docker Compose only |
-| **Capacity** | 580 tasks/month | 65 tasks/month |
-| **Cost** | ~$1,100/month | ~$136/month |
-| **ROI** | 4,329% (50 devs) | Proof of value |
+A two-agent system (Planning + Executor) that autonomously analyzes bugs, creates fix plans, and implements solutions with TDD workflow - all using Claude Code CLI with Model Context Protocol (MCP) integrations.
 
 ---
 
-## 🎯 Quick Overview
+## 🎯 What It Does
 
-This system automates the entire bug-fixing workflow:
+Automates the complete bug-fixing workflow:
 
 ```
-1. Sentry Alert → 2. Planning Agent → 3. Human Approval → 4. Executor Agent → 5. PR Created
-   (Error)          (Analyze + Plan)    (@agent approve)   (Fix + Test)       (Ready!)
+Sentry/Jira → Planning Agent → Human Approval → Executor Agent → PR Ready
+  (Error)     (Analyze+Plan)   (@agent approve)   (Fix+Test)      (Review)
 ```
 
-### What It Does
-
-✅ **Analyzes** error reports from Sentry  
-✅ **Identifies** affected repositories and files  
-✅ **Plans** TDD-based fixes (tests first!)  
-✅ **Waits** for human approval  
-✅ **Implements** fixes following the plan  
-✅ **Runs** all tests to verify  
-✅ **Creates** pull requests ready for review  
-✅ **Updates** Jira tickets and Slack notifications  
+**Key Features:**
+- 🔍 Analyzes errors from Sentry/Jira
+- 📂 Discovers affected repositories and files  
+- 📝 Creates TDD-based fix plans
+- ⏸️ Waits for human approval
+- ✅ Implements fixes with tests
+- 🔄 Creates pull requests
+- 📢 Updates Jira and Slack  
 
 ---
 
 ## 🏗️ Architecture
 
-### Two-Agent Design
-
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                  │
-│  📊 TRIGGERS                                                     │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐           │
-│  │ Sentry  │  │  Jira   │  │  Slack  │  │Dashboard│           │
-│  │ Webhook │  │ Webhook │  │ Command │  │   UI    │           │
-│  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘           │
-│       └────────────┴────────────┴─────────────┘                │
-│                         │                                       │
-│                         ▼                                       │
-│              ┌─────────────────────┐                            │
-│              │  Webhook Server     │                            │
-│              │  (FastAPI)          │                            │
-│              └──────────┬──────────┘                            │
-│                         │                                       │
-│                         ▼                                       │
-│              ┌─────────────────────┐                            │
-│              │  Redis Queue        │                            │
-│              │  • planning_queue   │                            │
-│              │  • execution_queue  │                            │
-│              └──────────┬──────────┘                            │
-│                         │                                       │
-│       ┌─────────────────┴─────────────────┐                    │
-│       │                                   │                    │
-│       ▼                                   ▼                    │
-│  ┌─────────────────┐             ┌─────────────────┐          │
-│  │ Planning Agent  │             │ Executor Agent  │          │
-│  │                 │             │  (Auto-scaling) │          │
-│  │ • Discovery     │──Plan.md──▶ │ • TDD Workflow  │          │
-│  │ • Analysis      │             │ • Git Ops       │          │
-│  │ • Planning      │             │ • Testing       │          │
-│  └────────┬────────┘             └────────┬────────┘          │
-│           │                               │                    │
-│           └───────────┬───────────────────┘                    │
-│                       │                                        │
-│                       ▼                                        │
-│            ┌────────────────────┐                              │
-│            │   MCP Servers      │                              │
-│            │  • GitHub          │                              │
-│            │  • Atlassian/Jira  │                              │
-│            │  • Sentry          │                              │
-│            │  • Filesystem      │                              │
-│            └────────────────────┘                              │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+Webhooks → Webhook Server → Redis Queue → Agents → MCP Tools
+(Trigger)    (FastAPI)      (planning/     (Claude   (GitHub/
+                            execution)      Code)    Jira/etc)
+                                              ↓
+                                          Dashboard
+                                          (Status/Metrics)
 ```
 
 ### Components
 
 | Component | Purpose | Technology |
-|-----------|---------|-----------:|
-| **Planning Agent** | Analyzes bugs, creates execution plans | Claude Code CLI + MCP |
-| **Executor Agent** | Implements fixes following TDD | Claude Code CLI + MCP |
-| **Webhook Server** | Receives triggers from external services | FastAPI |
-| **Queue System** | Distributes tasks between agents | Redis |
-| **Database** | Stores task state and history | PostgreSQL |
+|-----------|---------|------------|
+| **Planning Agent** | Analyzes bugs, creates fix plans | Claude Code CLI + MCP |
+| **Executor Agent** | Implements fixes with TDD | Claude Code CLI + MCP |
+| **Webhook Server** | Receives webhooks from Sentry/Jira/GitHub | FastAPI |
+| **Dashboard**      | Real-time status, metrics, and session data | Go + HTML/JS |
+| **Redis Queue** | Task distribution between agents | Redis |
+| **MCP Servers** | Tool access (GitHub, Jira, Sentry) | Official MCP servers |
 
 ---
 
@@ -112,73 +55,34 @@ This system automates the entire bug-fixing workflow:
 ```
 claude-code-cli/
 ├── agents/
-│   ├── planning-agent/
-│   │   ├── Dockerfile
-│   │   ├── worker.py               # Queue consumer & Claude CLI invoker
-│   │   ├── requirements.txt
-│   │   └── skills/
-│   │       ├── discovery/SKILL.md
-│   │       ├── execution/SKILL.md
-│   │       ├── jira-enrichment/
-│   │       └── plan-changes/SKILL.md
-│   │
-│   └── executor-agent/
-│       ├── Dockerfile
-│       ├── worker.py               # TDD workflow executor
-│       ├── requirements.txt
-│       └── skills/
-│           ├── code-review/SKILL.md
-│           ├── git-operations/SKILL.md
-│           └── tdd-workflow/SKILL.md
+│   ├── planning-agent/          # Analyzes bugs, creates plans
+│   │   ├── worker.py            # Queue consumer
+│   │   └── skills/              # Planning skills (discovery, jira-enrichment, etc)
+│   └── executor-agent/          # Implements fixes
+│       ├── worker.py            # TDD executor
+│       └── skills/              # Execution skills (git-ops, tdd-workflow, etc)
+│
+│   └── dashboard/               # Real-time dashboard
+│       ├── main.go              # Go server
+│       └── static/              # Frontend assets
 │
 ├── services/
-│   └── webhook-server/
-│       ├── Dockerfile
-│       ├── main.py                 # FastAPI app
-│       ├── requirements.txt
-│       └── routes/
-│           ├── github.py           # Supports @agent commands
-│           ├── jira.py
-│           └── slack.py
+│   └── webhook-server/          # FastAPI webhook receiver
+│       ├── main.py
+│       └── routes/              # GitHub, Jira, Slack, Sentry webhooks
 │
-├── shared/
-│   ├── enums.py                    # TokenStatus, TaskStatus, CommandType
-│   ├── types.py                    # OAuthCredentials, Task, ParsedCommand
-│   ├── constants.py                # BOT_CONFIG, QUEUE_CONFIG
-│   ├── token_manager.py            # OAuth refresh + AWS sync
-│   ├── git_utils.py                # Async git operations
-│   ├── commands/                   # Bot command system
-│   │   ├── definitions.yaml        # All 17 commands
-│   │   ├── loader.py
-│   │   ├── parser.py
-│   │   └── executor.py
-│   ├── config.py
-│   ├── database.py
-│   ├── github_client.py
-│   ├── logging_utils.py
-│   ├── metrics.py
-│   ├── models.py
-│   ├── slack_client.py
-│   └── task_queue.py
+├── shared/                      # Shared utilities
+│   ├── models.py                # Pydantic task models
+│   ├── task_queue.py            # Redis queue operations
+│   ├── commands/                # Bot command system (@agent approve, etc)
+│   └── ...                      # Config, logging, metrics, etc
 │
-├── scripts/
-│   ├── setup-skills.sh             # Install Claude Code skills
-│   ├── refresh-token.py            # Cron token refresh
-│   └── health-check.sh
+├── infrastructure/docker/
+│   ├── docker-compose.yml       # Local development
+│   ├── mcp.json                 # MCP server configuration
+│   └── extract-oauth.sh         # OAuth credential extraction
 │
-├── infrastructure/
-│   └── docker/
-│       ├── docker-compose.yml
-│       ├── mcp.json                # MCP servers config
-│       ├── extract-oauth.sh
-│       └── .env.example
-│
-├── tests/
-│   └── test_commands.py
-│
-├── Makefile
-├── pyproject.toml
-└── README.md
+└── scripts/                     # Setup and maintenance scripts
 ```
 
 ---
@@ -187,188 +91,82 @@ claude-code-cli/
 
 ### Prerequisites
 
-Before you begin, ensure you have:
+- Docker 20+ and Docker Compose 2+
+- Node.js 20+ (for MCP servers)
+- Python 3.12+ (managed via `uv`)
+- `uv` package manager (optional, for local dev)
+- Claude Pro/Teams subscription **OR** `ANTHROPIC_API_KEY`
+- GitHub Personal Access Token
+- (Optional) Jira API Token, Sentry Auth Token, Slack Bot Token
 
-- ✅ Docker 20+ and Docker Compose 2+
-- ✅ Node.js 20+ (for MCP servers)
-- ✅ Claude Pro/Teams subscription **OR** ANTHROPIC_API_KEY
-- ✅ GitHub Personal Access Token
-- ✅ Jira API Token (optional)
-- ✅ Sentry Auth Token (optional)
+### Setup
 
-### 1. Install Claude CLI
-
+**1. Install Claude CLI**
 ```bash
-# Install globally
 npm install -g @anthropic-ai/claude-code
-
-# Authenticate (required for agents to work)
-claude login
+claude login  # Authenticate
 ```
 
-### 2. Configure Authentication
-
-You have two options for authenticating Claude Code CLI in Docker:
-
-#### Option A: OAuth (Recommended - Use Your Subscription)
-
-If you have a Claude Pro or Teams subscription, you can use OAuth credentials:
-
+**2. Configure Environment**
 ```bash
-# Login on your host machine (one-time)
-claude login
-
-# The credentials are automatically mounted into Docker containers
-# See infrastructure/docker/OAUTH-SETUP.md for details
-```
-
-> **See [OAUTH-SETUP.md](./infrastructure/docker/OAUTH-SETUP.md)** for detailed OAuth configuration, including cloud deployment with multiple machines.
-
-#### Option B: API Key
-
-If you prefer using an API key from console.anthropic.com:
-
-```bash
-# Add to infrastructure/docker/.env
-ANTHROPIC_API_KEY=sk-ant-api03-xxxxx
-```
-
-### 3. Configure Environment
-
-```bash
-# Copy example environment file
 cp infrastructure/docker/.env.example infrastructure/docker/.env
-
-# Edit with your credentials
-nano infrastructure/docker/.env
+# Edit .env with your tokens
 ```
 
 Required variables:
 ```bash
-# Anthropic (optional if using OAuth)
-ANTHROPIC_API_KEY=sk-ant-xxx
-
-# GitHub (required)
 GITHUB_TOKEN=ghp_your_token_here
 
-# Jira (optional)
+# Optional (if not using OAuth)
+ANTHROPIC_API_KEY=sk-ant-xxx
+
+# Optional integrations
 JIRA_URL=https://yourcompany.atlassian.net
 JIRA_EMAIL=you@company.com
 JIRA_API_TOKEN=your_token
-
-# Sentry (optional)
 SENTRY_AUTH_TOKEN=your_token
-SENTRY_HOST=sentry.io
-
-# Slack (optional)
 SLACK_BOT_TOKEN=xoxb-your-token
-SLACK_CHANNEL_AGENTS=#ai-agents
 ```
 
-### 3. Start the System
-
+**3. Start the System**
 ```bash
-# 🎯 ONE COMMAND - does everything!
-make start
-
-# This will:
-# ✅ Check prerequisites
-# ✅ Extract OAuth credentials
-# ✅ Setup skills
-# ✅ Build Docker images
-# ✅ Start all services
+make start  # Builds images, extracts OAuth, starts services
 ```
 
-### 4. Expose to Internet (ngrok - FREE Permanent URL!)
-
-For GitHub/Jira/Sentry to send webhooks to your local machine:
-
+**4. Expose Webhooks (ngrok)**
 ```bash
-# 1. Sign up at ngrok.com
-# 2. Claim your free static domain (e.g., your-name.ngrok-free.app)
-# 3. Add your authtoken:
-ngrok config add-authtoken <your-token>
-
-# 4. Start the tunnel
+# Get free static domain at ngrok.com
 make tunnel NGROK_DOMAIN=your-name.ngrok-free.app
 ```
 
-This creates a **free, permanent URL** for your webhooks.
-
-> **Why ngrok with Static Domain?**
-> - ✅ FREE (1 static domain per account)
-> - ✅ No password wall (unlike LocalTunnel)
-> - ✅ Never-changing URL
-> - ✅ Zero-configuration set up (one command!)
-
-### 5. Verify Installation
-
+**5. Verify**
 ```bash
-# Check service health
 curl http://localhost:8000/health
-# Expected: {"status":"healthy","service":"webhook-server"}
-
-# Full health check
-make health
+# Expected: {"status":"healthy"}
 ```
+
+> **OAuth vs API Key**: If you have Claude Pro/Teams, use OAuth (free with subscription). Otherwise, set `ANTHROPIC_API_KEY`. See [OAUTH-SETUP.md](./infrastructure/docker/OAUTH-SETUP.md) for details.
 
 ---
 
-## 📖 Usage
+## � Usage
 
 ### Triggering Tasks
 
-#### Via Jira Webhook (Automatic)
+**Via Jira Webhook** (Automatic)
+When Sentry creates a Jira ticket, the system automatically analyzes and creates a fix plan.
 
-When Sentry creates a Jira ticket (via Sentry-Jira integration), the system automatically:
-1. Receives the Jira webhook
-2. Enriches the ticket with error analysis
-3. Creates a draft PR with fix plan
+**Via GitHub Comment**
+Comment `@agent approve` on any PR to trigger execution.
 
-#### Via GitHub Comment
-
-Comment on any PR with `@agent approve` to trigger the execution phase.
-
-#### Via Slack (If configured)
-
-```bash
-/agent run Fix null pointer exception in authentication service
+**Via Slack** (If configured)
 ```
-
-### Monitoring Tasks
-
-#### Logs
-
-```bash
-# View all logs
-docker-compose logs -f
-
-# Planning agent only
-docker-compose logs -f planning-agent
-
-# Executor agent only
-docker-compose logs -f executor-agent
-
-# Webhook server
-docker-compose logs -f webhook-server
+/agent run Fix null pointer exception in auth service
 ```
-
-### Approving Plans
-
-After the Planning Agent creates a plan, you'll receive notifications via:
-
-1. **GitHub**: Draft PR with PLAN.md
-2. **Slack**: Message with "Approve" button (if configured)
-
-**To approve**:
-
-**GitHub**: Comment `@agent approve` on the PR
-
-**Slack**: Click the "✅ Approve" button or type `@agent approve`
 
 ### Bot Commands
 
-The system supports 17+ commands:
+Supported commands (use in GitHub PR comments or Slack):
 
 | Command | Description |
 |---------|-------------|
@@ -376,71 +174,63 @@ The system supports 17+ commands:
 | `@agent reject [reason]` | Reject with optional reason |
 | `@agent improve <feedback>` | Request plan improvements |
 | `@agent status` | Check task status |
-| `@agent help` | Show all commands |
 | `@agent ci-status` | Check CI/CD status |
 | `@agent ci-logs` | Get failure logs |
 | `@agent retry-ci` | Re-run failed CI jobs |
-| `@agent ask <question>` | Ask about the codebase |
-| `@agent explain <file>` | Explain what code does |
-| `@agent find <pattern>` | Search in codebase |
+| `@agent help` | Show all commands |
 
-Aliases work too: `@agent lgtm` = `@agent approve`
+Aliases: `@agent lgtm` = `@agent approve`
+
+### Monitoring
+
+**View Logs**
+```bash
+docker-compose logs -f              # All services
+docker-compose logs -f planning-agent
+docker-compose logs -f executor-agent
+```
+
+**Check Metrics**
+```bash
+curl http://localhost:8000/metrics  # Prometheus metrics
+```
+
+**View Dashboard**
+Open `http://localhost:8080` to see real-time task status, session metrics, and costs.
+```
 
 ---
 
-## 🎯 How It Works
+## ⚙️ How It Works
 
-### Phase 1: Discovery & Planning
+### Phase 1: Planning
 
-When a task arrives, the **Planning Agent**:
+The **Planning Agent**:
+1. Analyzes the error/ticket
+2. Searches GitHub for relevant code
+3. Analyzes Sentry stack traces (if applicable)
+4. Creates a TDD execution plan (PLAN.md)
+5. Opens a draft PR and notifies via Slack
 
-1. **Analyzes** the error/ticket
-2. **Searches** GitHub for relevant code
-3. **Identifies** affected repositories and files
-4. **Analyzes** Sentry stack traces (if applicable)
-5. **Creates** a TDD execution plan
-6. **Generates** PLAN.md with step-by-step instructions
-7. **Opens** a draft PR on GitHub
-8. **Sends** Slack notification for approval
+**Skills**: `discovery`, `jira-enrichment`, `plan-changes`
 
-**Skills Used**:
-- `discovery/` - Find repo and files
-- `jira-enrichment/` - Parse Jira tickets with Sentry links
-- `plan-changes/` - Handle PR feedback
+### Phase 2: Approval
 
-### Phase 2: Human Approval
-
-The system **waits** for a human to review and approve the plan.
-
-**What to check**:
-- ✅ Correct repository identified?
-- ✅ Files make sense?
-- ✅ Plan approach is sound?
-- ✅ Risk level acceptable?
-
-If plan looks good → **Approve**
-If plan needs changes → **Reject** with feedback
+Human reviews the plan and either:
+- ✅ **Approves** → Task moves to execution queue
+- ❌ **Rejects** → Provides feedback for plan revision
 
 ### Phase 3: Execution
 
-Once approved, the **Executor Agent**:
+The **Executor Agent**:
+1. Clones repository and creates branch
+2. Writes failing tests (RED)
+3. Implements the fix (GREEN)
+4. Runs all tests to verify
+5. Commits and pushes to PR
+6. Updates Jira and Slack
 
-1. **Clones** the repository
-2. **Creates** a feature branch
-3. **Writes** failing tests (RED phase)
-4. **Verifies** tests fail
-5. **Implements** the fix (GREEN phase)
-6. **Runs** all tests to verify
-7. **Commits** changes with clear messages
-8. **Pushes** to the PR branch
-9. **Updates** Jira ticket
-10. **Sends** Slack notification
-
-**Skills Used**:
-- `git-operations/` - Git workflow
-- `tdd-workflow/` - RED → GREEN → REFACTOR
-- `execution/` - Orchestrate implementation
-- `code-review/` - Self-review checks
+**Skills**: `git-operations`, `tdd-workflow`, `execution`, `code-review`
 
 ---
 
@@ -454,6 +244,7 @@ make start     # 🎯 ONE COMMAND: setup + build + start
 make up        # Start services (quick)
 make down      # Stop services
 make restart   # Restart services
+make rebuild   # Rebuild images (use if you changed deps)
 make logs      # View logs
 
 # 🔧 Utilities
@@ -543,216 +334,83 @@ The `GITHUB_TOOLSETS` environment variable enables CI monitoring:
 
 ---
 
-## 🌐 Production Deployment
-
-### AWS EKS Deployment
-
-#### 1. Setup Infrastructure
-
-```bash
-cd infrastructure/terraform
-
-# Initialize Terraform
-terraform init
-
-# Review plan
-terraform plan -var-file=environments/prod/terraform.tfvars
-
-# Apply (creates VPC, EKS, RDS, ElastiCache, EFS)
-terraform apply -var-file=environments/prod/terraform.tfvars
-```
-
-#### 2. Deploy to Kubernetes
-
-```bash
-# Configure kubectl
-aws eks update-kubeconfig --name ai-agent-prod --region us-east-1
-
-# Create namespace and resources
-kubectl apply -f infrastructure/kubernetes/namespace.yaml
-kubectl apply -f infrastructure/kubernetes/secrets.yaml
-kubectl apply -f infrastructure/kubernetes/configmap.yaml
-
-# Deploy agents and services
-kubectl apply -f infrastructure/kubernetes/planning-agent/
-kubectl apply -f infrastructure/kubernetes/executor-agent/
-kubectl apply -f infrastructure/kubernetes/webhook-server/
-
-# Deploy ingress
-kubectl apply -f infrastructure/kubernetes/ingress.yaml
-```
-
-### Production Configuration
-
-**Auto-scaling** (Executor Agent):
-- Min replicas: 2
-- Max replicas: 8
-- Scale metric: Redis queue length > 2
-
-**Resources** (per pod):
-- Planning Agent: 2 vCPU, 4GB RAM
-- Executor Agent: 4 vCPU, 8GB RAM
-
-**Monthly Cost** (~$1,100):
-- Claude Teams: $750 (5 seats)
-- AWS Infrastructure: $350
-
----
-
 ## 📊 Monitoring
 
-### Metrics Exposed
-
-```
-http://localhost:8000/metrics
-```
-
-Available metrics:
-- `ai_agent_tasks_started_total` - Tasks started by agent
+**Prometheus Metrics** (`http://localhost:8000/metrics`):
+- `ai_agent_tasks_started_total` - Tasks started
 - `ai_agent_tasks_completed_total` - Tasks completed (success/failed)
-- `ai_agent_task_duration_seconds` - Task execution time
-- `ai_agent_queue_length` - Current queue size
+- `ai_agent_task_duration_seconds` - Execution time
+- `ai_agent_queue_length` - Queue size
 - `ai_agent_errors_total` - Errors by type
 
 ---
 
 ## 🔐 Security
 
-### Secrets Management
+**Secrets**: Stored in `.env` file (gitignored)
 
-**Local Development**: `.env` file (gitignored)
-
-**Production**: Kubernetes Secrets
-```bash
-kubectl create secret generic ai-agent-secrets \
-  --from-literal=GITHUB_TOKEN=ghp_xxx \
-  --from-literal=JIRA_API_TOKEN=xxx \
-  --from-literal=SENTRY_AUTH_TOKEN=xxx \
-  --from-literal=SLACK_BOT_TOKEN=xoxb-xxx \
-  -n ai-agent-system
-```
-
-### Webhook Security
-
-All webhooks validate signatures:
-- **GitHub**: HMAC-SHA256
-- **Jira**: Secret token + IP allowlist
-- **Sentry**: Secret token
+**Webhook Validation**:
+- GitHub: HMAC-SHA256 signature
+- Jira: Secret token + IP allowlist
+- Sentry: Secret token
 
 ---
 
 ## 🐛 Troubleshooting
 
-### Common Issues
-
-#### "Claude CLI not authenticated"
-
+**Claude CLI not authenticated**
 ```bash
-# Re-authenticate
-claude login
-
-# Verify
-claude --version
+claude login && claude --version
 ```
 
-#### "MCP server not found"
-
+**MCP server not found**
 ```bash
-# Verify Docker is running
-docker ps
-
-# Pull GitHub MCP image
 docker pull ghcr.io/github/github-mcp-server
-
-# Verify npm packages
 npm list -g | grep mcp
 ```
 
-#### "Queue not processing tasks"
-
+**Queue not processing**
 ```bash
-# Check Redis connection
-docker-compose exec redis redis-cli ping
-
-# Check agent logs
 docker-compose logs planning-agent
-docker-compose logs executor-agent
-
-# Restart agents
 docker-compose restart planning-agent executor-agent
 ```
 
-#### "Webhook not receiving events"
-
+**Webhook not receiving events**
 ```bash
-# Test locally
 curl -X POST http://localhost:8000/webhooks/jira \
-  -H "Content-Type: application/json" \
-  -d '{"test":"data"}'
-
-# Check webhook server logs
+  -H "Content-Type: application/json" -d '{"test":"data"}'
 docker-compose logs webhook-server
 ```
 
 ---
 
-## 📚 Documentation
+## 📚 Resources
 
-- **[Architecture Guide](./CLAUDE-CODE-CLI.ARCHITECTURE.md)** - Detailed system design
-- **[OAuth Setup Guide](./infrastructure/docker/OAUTH-SETUP.md)** - Use Claude subscription in Docker (no API key needed)
-- **[Planning Agent Skills](./agents/planning-agent/skills/)** - Skill documentation
-- **[Executor Agent Skills](./agents/executor-agent/skills/)** - Skill documentation
-
-### External Resources
-
+- [Architecture Guide](./CLAUDE-CODE-CLI.ARCHITECTURE.md) - Detailed system design
+- [OAuth Setup](./infrastructure/docker/OAUTH-SETUP.md) - Use Claude subscription in Docker
 - [Claude Code CLI Docs](https://docs.anthropic.com/claude/docs/claude-code)
 - [MCP Protocol](https://modelcontextprotocol.io)
 - [GitHub MCP Server](https://github.com/github/github-mcp-server)
-- [Sentry MCP Server](https://docs.sentry.io/product/integrations/integration-platform/mcp/)
-- [Atlassian MCP](https://mcp.atlassian.com)
 
 ---
 
 ## 🗺️ Roadmap
 
-### ✅ Completed (v1.0)
+**Completed**:
+- ✅ Two-agent architecture with MCP
+- ✅ Bot commands (`@agent approve`, etc.)
+- ✅ OAuth token management
+- ✅ Skills system with lazy loading
+- ✅ TDD workflow enforcement
+- ✅ CI/CD monitoring
 
-- [x] Two-agent architecture
-- [x] Official MCP integrations (GitHub, Jira, Sentry)
-- [x] Local Docker Compose setup
-- [x] TDD workflow enforcement
-- [x] Human-in-the-loop approval
-- [x] Slack notifications
-- [x] Jira ticket enrichment
+**Planned**:
+- 🔮 Learning from past fixes (RAG)
+- 🔮 Security vulnerability scanning
+- 🔮 Performance profiling
+- 🔮 Cost tracking per task
 
-### ✅ Completed (v1.1 - Latest!)
 
-- [x] **Bot Commands** - 17+ commands (`@agent approve`, `@agent ci-status`, etc.)
-- [x] **Token Management** - OAuth refresh, AWS Secrets sync
-- [x] **Cloudflare Tunnel** - FREE persistent webhook URLs
-- [x] **Skills System** - Lazy loading (98% token savings)
-- [x] **CI Monitoring** - GitHub Actions status, logs, retry
-- [x] **Real TDD Workflow** - Tests before push!
-
-### 🔮 Planned (v2.0)
-
-- [ ] Learning from past fixes (RAG)
-- [ ] Security vulnerability scanning
-- [ ] Performance profiling integration
-- [ ] Cost tracking per task
-
----
-
-## 💰 ROI Summary
-
-| Metric | Value |
-|--------|-------|
-| Monthly Cost | ~$1,100 |
-| Tasks/Month (with approval) | 580 |
-| Success Rate | 75% (industry benchmark) |
-| Hours Saved/Month | 812 |
-| Monthly Savings | $48,720 |
-| **ROI** | **4,329%** |
 
 ---
 

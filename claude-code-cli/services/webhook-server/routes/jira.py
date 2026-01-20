@@ -1,18 +1,20 @@
-"""Jira webhook routes."""
+"""Jira webhook routes.
+
+Handles Jira webhooks and creates typed JiraTask objects for processing.
+"""
 
 import sys
 import re
 from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, Request, HTTPException
-from pydantic import BaseModel
 import logging
 
 # Add shared module to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from shared.config import settings
-from shared.models import TaskSource
+from shared.models import JiraTask
 from shared.task_queue import RedisQueue
 from shared.constants import BOT_CONFIG
 
@@ -147,6 +149,12 @@ async def jira_webhook(request: Request):
         # Extract repository if available
         repository = extract_repository_from_description(description)
         
+        # If repository not in description, try to look up from Sentry mapping
+        if not repository and sentry_issue_id:
+            repository = await queue.get_repository_by_sentry_issue(sentry_issue_id)
+            if repository:
+                print(f"🔍 Found repository in Redis mapping: {repository}")
+        
         # CASE 1: Ticket transitioned to "Approved" - trigger execution
         if webhook_event == "jira:issue_updated" and status.lower() in ["approved", "in progress"]:
             # Check if this is an approval transition
@@ -157,15 +165,14 @@ async def jira_webhook(request: Request):
                 if item.get("field") == "status" and item.get("toString", "").lower() in ["approved", "in progress"]:
                     print(f"✅ Ticket {issue_key} approved via Jira status transition")
                     
-                    task_data = {
-                        "source": TaskSource.JIRA.value,
-                        "action": "approve",
-                        "issue_key": issue_key,
-                        "sentry_issue_id": sentry_issue_id,
-                        "repository": repository
-                    }
+                    task = JiraTask(
+                        action="approve",
+                        issue_key=issue_key,
+                        sentry_issue_id=sentry_issue_id,
+                        repository=repository
+                    )
                     
-                    task_id = await queue.push(settings.EXECUTION_QUEUE, task_data)
+                    task_id = await queue.push_task(settings.EXECUTION_QUEUE, task)
                     
                     return {
                         "status": "approved",
@@ -197,17 +204,16 @@ async def jira_webhook(request: Request):
                 action = "fix"
                 status_msg = "queued"
 
-            task_data = {
-                "source": TaskSource.JIRA.value,
-                "action": action,
-                "description": summary,
-                "issue_key": issue_key,
-                "sentry_issue_id": sentry_issue_id,
-                "repository": repository,
-                "full_description": description[:10000]
-            }
+            task = JiraTask(
+                action=action,  # type: ignore  # action is validated by Pydantic
+                issue_key=issue_key,
+                description=summary,
+                sentry_issue_id=sentry_issue_id,
+                repository=repository,
+                full_description=description[:10000]
+            )
             
-            task_id = await queue.push(settings.PLANNING_QUEUE, task_data)
+            task_id = await queue.push_task(settings.PLANNING_QUEUE, task)
             
             print(f"📥 Jira task queued: {task_id} (Issue: {issue_key}, Action: {action})")
             
@@ -220,15 +226,14 @@ async def jira_webhook(request: Request):
         
         # CASE 3: Manual AI-Fix request (via label) - fallback
         if webhook_event == "jira:issue_created" and "AI-Fix" in labels:
-            task_data = {
-                "source": TaskSource.JIRA.value,
-                "action": "fix",
-                "description": summary,
-                "issue_key": issue_key,
-                "repository": repository
-            }
+            task = JiraTask(
+                action="fix",
+                issue_key=issue_key,
+                description=summary,
+                repository=repository
+            )
             
-            task_id = await queue.push(settings.PLANNING_QUEUE, task_data)
+            task_id = await queue.push_task(settings.PLANNING_QUEUE, task)
             
             print(f"📥 Manual AI-Fix (via label) queued: {task_id} (Issue: {issue_key})")
             
