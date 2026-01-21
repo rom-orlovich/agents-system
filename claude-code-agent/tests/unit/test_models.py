@@ -125,8 +125,8 @@ class TestClaudeCredentials:
         # Valid credentials
         future_time = int((datetime.utcnow().timestamp() + 7200) * 1000)  # 2 hours from now
         creds = ClaudeCredentials(
-            access_token="token123",
-            refresh_token="refresh123",
+            access_token="token123456789",
+            refresh_token="refresh123456789",
             expires_at=future_time,
         )
         assert creds.get_status() == AuthStatus.VALID
@@ -136,8 +136,8 @@ class TestClaudeCredentials:
         # Expired credentials
         past_time = int((datetime.utcnow().timestamp() - 3600) * 1000)  # 1 hour ago
         expired_creds = ClaudeCredentials(
-            access_token="token123",
-            refresh_token="refresh123",
+            access_token="token123456789",
+            refresh_token="refresh123456789",
             expires_at=past_time,
         )
         assert expired_creds.is_expired

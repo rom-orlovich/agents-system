@@ -156,12 +156,12 @@ class Task(BaseModel):
     def validate_status_transitions(self) -> "Task":
         """Ensure valid status transitions."""
         if self.status == TaskStatus.RUNNING and self.started_at is None:
-            self.started_at = datetime.utcnow()
+            object.__setattr__(self, "started_at", datetime.utcnow())
         if self.status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED):
             if self.completed_at is None:
-                self.completed_at = datetime.utcnow()
+                object.__setattr__(self, "completed_at", datetime.utcnow())
             if self.started_at and self.completed_at:
-                self.duration_seconds = (self.completed_at - self.started_at).total_seconds()
+                object.__setattr__(self, "duration_seconds", (self.completed_at - self.started_at).total_seconds())
         return self
 
     def can_transition_to(self, new_status: TaskStatus) -> bool:
