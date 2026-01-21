@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Machine Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <h1>🤖 Claude Machine Dashboard</h1>
+            <div class="user-info">
+                <span id="machine-status" class="status-badge">●</span>
+                <span id="machine-id">claude-agent-001</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Status Panel -->
+            <section class="panel status-panel">
+                <h2>Machine Status</h2>
+                <div class="stats">
+                    <div class="stat">
+                        <span class="label">Queue Length</span>
+                        <span id="queue-length" class="value">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Active Sessions</span>
+                        <span id="active-sessions" class="value">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Connections</span>
+                        <span id="connections" class="value">0</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Active Tasks -->
+            <section class="panel tasks-panel">
+                <h2>Active Tasks</h2>
+                <div id="tasks-list" class="tasks-list">
+                    <p class="empty-state">No active tasks</p>
+                </div>
+            </section>
+
+            <!-- Chat Panel -->
+            <section class="panel chat-panel">
+                <h2>Chat with Brain</h2>
+                <div id="chat-messages" class="chat-messages">
+                    <p class="welcome-message">Welcome! Send a message to interact with the Brain.</p>
+                </div>
+                <div class="chat-input">
+                    <input type="text" id="chat-input" placeholder="Type a message...">
+                    <button id="send-button">Send</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Task Detail Modal -->
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="hideModal()">&times;</span>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
