@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    container_name: claude-code-agent
+    ports:
+      - "8000:8000"
+    environment:
+      - MACHINE_ID=${MACHINE_ID:-claude-agent-001}
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=sqlite+aiosqlite:////data/db/machine.db
+      - MAX_CONCURRENT_TASKS=${MAX_CONCURRENT_TASKS:-5}
+      - TASK_TIMEOUT_SECONDS=${TASK_TIMEOUT_SECONDS:-3600}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_JSON=${LOG_JSON:-true}
+    volumes:
+      - machine_data:/data
+      - ./agents:/app/agents:ro
+      - ./skills:/app/skills:ro
+      - ./.claude:/app/.claude:ro
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - claude-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: claude-agent-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - claude-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  machine_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  claude-network:
+    driver: bridge
