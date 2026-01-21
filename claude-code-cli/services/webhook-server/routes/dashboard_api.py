@@ -74,12 +74,19 @@ async def get_tasks(
     Returns:
         Dict with list of tasks
     """
-    # TODO: Implement actual filtering in RedisQueue
-    # For now, return placeholder
+    # Get tasks with filters from RedisQueue
+    tasks = await queue.get_tasks_by_filter(
+        agent=agent,
+        status=status,
+        source=source.value if source else None,
+        start_date=start_date,
+        end_date=end_date,
+        limit=limit
+    )
 
     return {
-        "tasks": [],
-        "total": 0,
+        "tasks": tasks,
+        "total": len(tasks),
         "filters": {
             "agent": agent,
             "status": status.value if status else None,

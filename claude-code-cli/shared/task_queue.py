@@ -175,6 +175,96 @@ class RedisQueue:
 
         return tasks
 
+    async def get_tasks_by_filter(
+        self,
+        agent: Optional[str] = None,
+        status: Optional[TaskStatus] = None,
+        source: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        limit: int = 50
+    ) -> list[Dict[str, Any]]:
+        """Get tasks with advanced filtering.
+
+        Args:
+            agent: Filter by agent name
+            status: Filter by task status
+            source: Filter by task source
+            start_date: Filter tasks created after this date
+            end_date: Filter tasks created before this date
+            limit: Maximum number of tasks to return
+
+        Returns:
+            List of task data matching filters
+        """
+        await self.connect()
+
+        # Get all task keys
+        task_keys = []
+        async for key in self.redis.scan_iter("tasks:*"):
+            task_keys.append(key)
+
+        tasks = []
+        for key in task_keys:
+            task_data = await self.redis.hgetall(key)
+            if not task_data:
+                continue
+
+            # Parse JSON data
+            if "data" in task_data:
+                parsed_data = json.loads(task_data["data"])
+                task_data.update(parsed_data)
+
+            # Apply filters
+            # Filter by status
+            if status is not None:
+                task_status = task_data.get("status")
+                expected_status = status.value if isinstance(status, TaskStatus) else status
+                if task_status != expected_status:
+                    continue
+
+            # Filter by agent
+            if agent is not None:
+                task_agent = task_data.get("agent_name") or task_data.get("agent")
+                if task_agent != agent:
+                    continue
+
+            # Filter by source
+            if source is not None:
+                task_source = task_data.get("source")
+                if task_source != source:
+                    continue
+
+            # Filter by start_date
+            if start_date is not None:
+                created_at_str = task_data.get("created_at") or task_data.get("queued_at")
+                if created_at_str:
+                    try:
+                        created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                        if created_at < start_date:
+                            continue
+                    except (ValueError, AttributeError):
+                        continue
+
+            # Filter by end_date
+            if end_date is not None:
+                created_at_str = task_data.get("created_at") or task_data.get("queued_at")
+                if created_at_str:
+                    try:
+                        created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+                        if created_at > end_date:
+                            continue
+                    except (ValueError, AttributeError):
+                        continue
+
+            tasks.append(task_data)
+
+            # Respect limit
+            if len(tasks) >= limit:
+                break
+
+        return tasks
+
     async def delete_task(self, task_id: str) -> None:
         """Delete task data.
 
