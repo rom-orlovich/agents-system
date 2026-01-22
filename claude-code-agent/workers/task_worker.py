@@ -237,17 +237,33 @@ class TaskWorker:
                 await session.commit()
 
     def _get_agent_dir(self, agent_name: str | None) -> Path:
-        """Get directory for agent."""
+        """
+        Get directory for agent.
+
+        Priority:
+        1. User-uploaded agents in /data/config/agents (PERSISTED)
+        2. Built-in agents in /app/agents (read-only from image)
+        3. Brain (default)
+        """
         if not agent_name or agent_name == "brain":
             return settings.app_dir
 
-        agent_dir = settings.agents_dir / agent_name
-        if agent_dir.exists():
-            return agent_dir
+        # Check user-uploaded agents FIRST (persisted in /data volume)
+        user_agent_dir = settings.user_agents_dir / agent_name
+        if user_agent_dir.exists():
+            logger.debug("Using user-uploaded agent", agent_name=agent_name)
+            return user_agent_dir
+
+        # Fall back to built-in agents (from Docker image)
+        builtin_agent_dir = settings.agents_dir / agent_name
+        if builtin_agent_dir.exists():
+            logger.debug("Using built-in agent", agent_name=agent_name)
+            return builtin_agent_dir
 
         logger.warning(
-            "Agent directory not found, using brain",
+            "Agent directory not found in user or built-in directories, using brain",
             agent_name=agent_name,
-            agent_dir=str(agent_dir)
+            user_dir=str(user_agent_dir),
+            builtin_dir=str(builtin_agent_dir)
         )
         return settings.app_dir
