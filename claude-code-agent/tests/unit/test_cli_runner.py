@@ -8,6 +8,24 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from core.cli_runner import run_claude_cli, CLIResult
 
 
+class MockAsyncIterator:
+    """Mock async iterator for subprocess stdout."""
+
+    def __init__(self, lines):
+        self.lines = lines
+        self.index = 0
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if self.index >= len(self.lines):
+            raise StopAsyncIteration
+        line = self.lines[self.index]
+        self.index += 1
+        return line
+
+
 @pytest.mark.asyncio
 async def test_cli_runner_success():
     """Test successful CLI execution."""
@@ -16,7 +34,6 @@ async def test_cli_runner_success():
     # Mock subprocess that outputs JSON
     mock_proc = AsyncMock()
     mock_proc.returncode = 0
-    mock_proc.stdout = AsyncMock()
 
     # Simulate CLI output
     output_lines = [
@@ -25,11 +42,7 @@ async def test_cli_runner_success():
         b'{"type": "result", "cost_usd": 0.05, "input_tokens": 100, "output_tokens": 50}\n',
     ]
 
-    async def mock_readline_iter():
-        for line in output_lines:
-            yield line
-
-    mock_proc.stdout.__aiter__.return_value = mock_readline_iter()
+    mock_proc.stdout = MockAsyncIterator(output_lines)
     mock_proc.wait = AsyncMock()
 
     with patch('asyncio.create_subprocess_exec', return_value=mock_proc):
@@ -66,16 +79,18 @@ async def test_cli_runner_timeout():
     # Mock subprocess that never completes
     mock_proc = AsyncMock()
     mock_proc.returncode = None
-    mock_proc.stdout = AsyncMock()
     mock_proc.kill = MagicMock()
 
-    async def mock_readline_iter():
-        # Simulate infinite output
-        while True:
-            await asyncio.sleep(0.1)
-            yield b'{"type": "content", "content": "..."}\n'
+    # Infinite async iterator
+    class InfiniteIterator:
+        def __aiter__(self):
+            return self
 
-    mock_proc.stdout.__aiter__.return_value = mock_readline_iter()
+        async def __anext__(self):
+            await asyncio.sleep(0.1)
+            return b'{"type": "content", "content": "..."}\n'
+
+    mock_proc.stdout = InfiniteIterator()
 
     with patch('asyncio.create_subprocess_exec', return_value=mock_proc):
         result = await run_claude_cli(
@@ -99,12 +114,9 @@ async def test_cli_runner_process_error():
     # Mock subprocess that fails
     mock_proc = AsyncMock()
     mock_proc.returncode = 1
-    mock_proc.stdout = AsyncMock()
 
-    async def mock_readline_iter():
-        yield b'{"type": "content", "content": "Error occurred"}\n'
-
-    mock_proc.stdout.__aiter__.return_value = mock_readline_iter()
+    output_lines = [b'{"type": "content", "content": "Error occurred"}\n']
+    mock_proc.stdout = MockAsyncIterator(output_lines)
     mock_proc.wait = AsyncMock()
 
     with patch('asyncio.create_subprocess_exec', return_value=mock_proc):
@@ -128,7 +140,6 @@ async def test_cli_runner_json_parsing():
 
     mock_proc = AsyncMock()
     mock_proc.returncode = 0
-    mock_proc.stdout = AsyncMock()
 
     # Mix of JSON and plain text
     output_lines = [
@@ -137,11 +148,7 @@ async def test_cli_runner_json_parsing():
         b'{"type": "result", "cost_usd": 0.01, "input_tokens": 10, "output_tokens": 5}\n',
     ]
 
-    async def mock_readline_iter():
-        for line in output_lines:
-            yield line
-
-    mock_proc.stdout.__aiter__.return_value = mock_readline_iter()
+    mock_proc.stdout = MockAsyncIterator(output_lines)
     mock_proc.wait = AsyncMock()
 
     with patch('asyncio.create_subprocess_exec', return_value=mock_proc):
