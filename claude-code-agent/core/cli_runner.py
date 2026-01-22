@@ -28,11 +28,12 @@ async def run_claude_cli(
     output_queue: asyncio.Queue,
     task_id: str = "",
     timeout_seconds: int = 3600,
+    model: Optional[str] = None,
+    allowed_tools: Optional[str] = None,
+    agents: Optional[str] = None,
 ) -> CLIResult:
     """
     Execute Claude Code CLI in headless mode.
-
-    This is the actual subprocess execution - same as today's implementation.
 
     Args:
         prompt: The task prompt to send to Claude
@@ -40,9 +41,15 @@ async def run_claude_cli(
         output_queue: Queue to stream output chunks to
         task_id: Task ID for monitoring
         timeout_seconds: Maximum execution time
+        model: Optional model name (e.g., "opus", "sonnet")
+        allowed_tools: Comma-separated list of allowed tools (e.g., "Read,Edit,Bash")
+        agents: JSON string defining sub-agents for the session
 
     Returns:
         CLIResult with output, cost, and token counts
+
+    References:
+        https://code.claude.com/docs/en/sub-agents
     """
 
     # Build the command (matching official Claude CLI documentation)
@@ -51,9 +58,22 @@ async def run_claude_cli(
         "-p",                         # Print mode (headless) - NOT --print!
         "--output-format", "json",    # JSON output for parsing
         "--dangerously-skip-permissions",  # Skip permission prompts
-        "--",                         # Separator between flags and prompt
-        prompt,                       # The prompt/task
     ]
+
+    # Add optional model
+    if model:
+        cmd.extend(["--model", model])
+
+    # Add allowed tools (pre-approved permissions for headless mode)
+    if allowed_tools:
+        cmd.extend(["--allowedTools", allowed_tools])
+
+    # Add sub-agents definition (JSON)
+    if agents:
+        cmd.extend(["--agents", agents])
+
+    # Separator and prompt
+    cmd.extend(["--", prompt])
 
     logger.info("Starting Claude CLI", task_id=task_id, working_dir=str(working_dir))
 

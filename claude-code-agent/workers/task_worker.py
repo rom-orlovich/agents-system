@@ -139,7 +139,7 @@ class TaskWorker:
             # Create output queue
             output_queue = asyncio.Queue()
 
-            # Start CLI runner
+            # Start CLI runner with full configuration
             cli_task = asyncio.create_task(
                 run_claude_cli(
                     prompt=task_db.input_message,
@@ -147,6 +147,9 @@ class TaskWorker:
                     output_queue=output_queue,
                     task_id=task_id,
                     timeout_seconds=settings.task_timeout_seconds,
+                    model=settings.default_model,  # Optional model selection
+                    allowed_tools=settings.default_allowed_tools,  # Pre-approved tools
+                    agents=None,  # TODO: Load from agent configuration
                 )
             )
 

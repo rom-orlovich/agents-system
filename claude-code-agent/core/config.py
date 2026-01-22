@@ -44,6 +44,16 @@ class Settings(BaseSettings):
     github_webhook_secret: str | None = None
     jira_webhook_secret: str | None = None
 
+    # Storage Backend (for cloud deployment)
+    storage_backend: str = "local"  # "local", "s3", or "postgresql"
+    s3_bucket: str | None = None
+    s3_prefix: str = "claude-agent"
+
+    # Claude CLI Configuration
+    default_model: str | None = None  # e.g., "opus", "sonnet" (None = CLI default)
+    default_allowed_tools: str = "Read,Edit,Bash,Glob,Grep,Write"  # Pre-approved tools
+    enable_subagents: bool = True  # Enable sub-agent execution
+
     @property
     def agents_dir(self) -> Path:
         """Directory containing BUILT-IN sub-agents (read-only from image)."""
