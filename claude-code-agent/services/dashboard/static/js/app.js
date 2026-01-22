@@ -23,8 +23,20 @@ class DashboardApp {
         this.init();
     }
 
+    showNotification(message, type = 'success') {
+        const notification = document.createElement('div');
+        notification.className = `notification ${type} show`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+
     generateSessionId() {
-        return 'session-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        return 'session-' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     }
 
     async init() {
@@ -321,10 +333,13 @@ class DashboardApp {
                     datasets: [{
                         label: 'Cost (USD)',
                         data: data.costs,
-                        borderColor: 'rgb(75, 192, 192)',
-                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: '#CCFF00', /* Acid Green */
+                        backgroundColor: 'rgba(204, 255, 0, 0.1)',
                         fill: true,
-                        tension: 0.1
+                        tension: 0.3,
+                        borderWidth: 2,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#CCFF00'
                     }]
                 },
                 options: {
@@ -363,13 +378,14 @@ class DashboardApp {
                     datasets: [{
                         data: data.costs,
                         backgroundColor: [
-                            'rgba(255, 99, 132, 0.8)',
-                            'rgba(54, 162, 235, 0.8)',
-                            'rgba(255, 206, 86, 0.8)',
-                            'rgba(75, 192, 192, 0.8)',
-                            'rgba(153, 102, 255, 0.8)',
-                            'rgba(255, 159, 64, 0.8)'
-                        ]
+                            '#CCFF00', /* Acid Green */
+                            '#00F0FF', /* Cyber Cyan */
+                            '#FF3366', /* Neon Red */
+                            '#00FF99', /* Success Green */
+                            '#9CA3AF', /* Muted Slate */
+                            '#4B5563'  /* Dark Slate */
+                        ],
+                        borderWidth: 0
                     }]
                 },
                 options: {
@@ -388,6 +404,26 @@ class DashboardApp {
             });
         } catch (error) {
             console.error('Failed to load subagent costs chart:', error);
+        }
+    }
+
+    async loadSubagents() {
+        try {
+            const response = await fetch('/api/agents');
+            const agents = await response.json();
+            const select = document.getElementById('filter-subagent');
+            if (!select) return;
+
+            // Keep "All Subagents" option
+            select.innerHTML = '<option value="">All Subagents</option>';
+            agents.forEach(agent => {
+                const option = document.createElement('option');
+                option.value = agent.name;
+                option.textContent = agent.name.charAt(0).toUpperCase() + agent.name.slice(1);
+                select.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Failed to load subagents:', error);
         }
     }
 
@@ -463,33 +499,28 @@ class DashboardApp {
     }
 
     // Credentials Management
-    async showCredentials() {
+    async showCredentials(event) {
         // Load status first to check if we should show the modal
         try {
             const response = await fetch('/api/credentials/status');
             const data = await response.json();
 
-            // Only show modal if:
-            // 1. CLI is unavailable, OR
-            // 2. Credentials are expired, OR
-            // 3. Rate limited, OR
-            // 4. User explicitly wants to see it (always show on button click)
+            // If user clicked the button (event is present and trusted), always show
+            const isClick = event && event.isTrusted;
+
             const shouldShow = !data.cli_available ||
                 data.status === 'expired' ||
                 data.status === 'rate_limited' ||
                 data.status === 'cli_unavailable';
 
-            if (shouldShow || event?.isTrusted) {
-                // Show modal if there's an issue OR user clicked the button
+            if (shouldShow || isClick) {
                 document.getElementById('credentials-modal').classList.remove('hidden');
                 await this.loadCredentialStatus();
             } else if (data.status === 'valid') {
-                // If credentials are valid, just show a success message
-                alert(`✅ Credentials are valid!\n\nAccount: ${data.account_email}\nExpires: ${new Date(data.expires_at).toLocaleString()}`);
+                this.showNotification(`✅ Credentials are valid!\n\nAccount: ${data.account_email}\nExpires: ${new Date(data.expires_at).toLocaleString()}`);
             }
         } catch (error) {
             console.error('Failed to check credentials:', error);
-            // On error, show the modal
             document.getElementById('credentials-modal').classList.remove('hidden');
             await this.loadCredentialStatus();
         }
@@ -528,7 +559,7 @@ class DashboardApp {
         const file = fileInput.files[0];
 
         if (!file) {
-            alert('Please select a file');
+            this.showNotification('Please select a file', 'error');
             return;
         }
 
@@ -544,15 +575,15 @@ class DashboardApp {
             const data = await response.json();
 
             if (response.ok) {
-                alert('Credentials uploaded successfully!');
+                this.showNotification('Credentials uploaded successfully!');
                 await this.loadCredentialStatus();
                 fileInput.value = '';
             } else {
-                alert(`Upload failed: ${data.detail || 'Unknown error'}`);
+                this.showNotification(`Upload failed: ${data.detail || 'Unknown error'}`, 'error');
             }
         } catch (error) {
             console.error('Failed to upload credentials:', error);
-            alert('Upload failed: Network error');
+            this.showNotification('Upload failed: Network error', 'error');
         }
     }
 
@@ -569,14 +600,11 @@ class DashboardApp {
 
     switchRegistryTab(tab) {
         document.querySelectorAll('.registry-tab-btn').forEach(btn => {
-            btn.classList.remove('active');
+            btn.classList.toggle('active', btn.textContent.toLowerCase().includes(tab));
         });
         document.querySelectorAll('.registry-content').forEach(content => {
-            content.classList.remove('active');
+            content.classList.toggle('active', content.id === `registry-${tab}`);
         });
-
-        event.target.classList.add('active');
-        document.getElementById(`registry-${tab}`).classList.add('active');
     }
 
     async loadSkills() {
@@ -650,7 +678,7 @@ class DashboardApp {
         const files = filesInput.files;
 
         if (!name || files.length === 0) {
-            alert('Please provide skill name and files');
+            this.showNotification('Please provide skill name and files', 'error');
             return;
         }
 
@@ -670,16 +698,16 @@ class DashboardApp {
             const data = await response.json();
 
             if (response.ok) {
-                alert('Skill uploaded successfully!');
+                this.showNotification('Skill uploaded successfully!');
                 this.hideSkillUpload();
                 await this.loadSkills();
                 document.getElementById('skill-upload-form').reset();
             } else {
-                alert(`Upload failed: ${data.detail || 'Unknown error'}`);
+                this.showNotification(`Upload failed: ${data.detail || 'Unknown error'}`, 'error');
             }
         } catch (error) {
             console.error('Failed to upload skill:', error);
-            alert('Upload failed: Network error');
+            this.showNotification('Upload failed: Network error', 'error');
         }
     }
 
@@ -696,14 +724,14 @@ class DashboardApp {
             const data = await response.json();
 
             if (response.ok) {
-                alert('Skill deleted successfully!');
+                this.showNotification('Skill deleted successfully!');
                 await this.loadSkills();
             } else {
-                alert(`Delete failed: ${data.detail || 'Unknown error'}`);
+                this.showNotification(`Delete failed: ${data.detail || 'Unknown error'}`, 'error');
             }
         } catch (error) {
             console.error('Failed to delete skill:', error);
-            alert('Delete failed: Network error');
+            this.showNotification('Delete failed: Network error', 'error');
         }
     }
 
@@ -741,16 +769,16 @@ class DashboardApp {
             const data = await response.json();
 
             if (response.ok) {
-                alert('Agent uploaded successfully!');
+                this.showNotification('Agent uploaded successfully!');
                 this.hideAgentUpload();
                 await this.loadAgents();
                 document.getElementById('agent-upload-form').reset();
             } else {
-                alert(`Upload failed: ${data.detail || 'Unknown error'}`);
+                this.showNotification(`Upload failed: ${data.detail || 'Unknown error'}`, 'error');
             }
         } catch (error) {
             console.error('Failed to upload agent:', error);
-            alert('Upload failed: Network error');
+            this.showNotification('Upload failed: Network error', 'error');
         }
     }
 
@@ -767,14 +795,14 @@ class DashboardApp {
             const data = await response.json();
 
             if (response.ok) {
-                alert('Agent deleted successfully!');
+                this.showNotification('Agent deleted successfully!');
                 await this.loadAgents();
             } else {
-                alert(`Delete failed: ${data.detail || 'Unknown error'}`);
+                this.showNotification(`Delete failed: ${data.detail || 'Unknown error'}`, 'error');
             }
         } catch (error) {
             console.error('Failed to delete agent:', error);
-            alert('Delete failed: Network error');
+            this.showNotification('Delete failed: Network error', 'error');
         }
     }
 
@@ -893,23 +921,30 @@ class DashboardApp {
 
             const isRunning = task.status === 'running';
 
+            document.getElementById('modal').classList.add('brutalist');
             document.getElementById('modal-body').innerHTML = `
-                <h3>Task: ${task.task_id}</h3>
-                <p><strong>Agent:</strong> ${task.assigned_agent}</p>
-                <p><strong>Status:</strong> <span class="status-badge status-${task.status}">${task.status}</span></p>
-                <p><strong>Cost:</strong> $${(task.cost_usd || 0).toFixed(4)}</p>
-                <p><strong>Tokens:</strong> ${task.input_tokens || 0} in / ${task.output_tokens || 0} out</p>
-                <p><strong>Created:</strong> ${new Date(task.created_at).toLocaleString()}</p>
-                ${task.completed_at ? `<p><strong>Completed:</strong> ${new Date(task.completed_at).toLocaleString()}</p>` : ''}
-                <h4>Input:</h4>
-                <div class="task-input">${task.input_message || 'N/A'}</div>
-                <h4>Logs: ${isRunning ? '<span class="live-indicator">🔴 LIVE</span>' : ''}</h4>
-                <div class="logs-controls">
-                    <button onclick="app.refreshTaskLogs('${taskId}')" class="refresh-btn-small">🔄 Refresh Logs</button>
-                    ${isRunning ? '<span class="auto-refresh-notice">Auto-refreshing every 2s</span>' : ''}
+                <div class="log-viewer-brutalist">
+                    <div class="log-viewer-header">
+                        <span>TASK_ID: ${task.task_id}</span>
+                        ${isRunning ? '<div class="live-indicator"><span></span> LIVE_PULSE</div>' : '<span>STATUS: ' + task.status.toUpperCase() + '</span>'}
+                    </div>
+                    
+                    <div class="log-viewer-meta">
+                        <div class="meta-item"><strong>AGENT</strong> ${task.assigned_agent}</div>
+                        <div class="meta-item"><strong>COST</strong> $${(task.cost_usd || 0).toFixed(4)}</div>
+                        <div class="meta-item"><strong>TOKENS</strong> ${task.input_tokens || 0} IN / ${task.output_tokens || 0} OUT</div>
+                        <div class="meta-item"><strong>CREATED</strong> ${new Date(task.created_at).toLocaleString()}</div>
+                    </div>
+
+                    <div class="log-container" id="task-logs-${taskId}">
+                        <div class="empty-state">INITIALIZING_LOG_STREAM...</div>
+                    </div>
+
+                    <div class="logs-controls">
+                        <button onclick="app.refreshTaskLogs('${taskId}')" class="refresh-btn">REFRESH_PULSE</button>
+                        ${isRunning ? '<span class="auto-refresh-notice">Auto-sync active (2s)</span>' : ''}
+                    </div>
                 </div>
-                <div class="task-logs" id="task-logs-${taskId}">Loading logs...</div>
-                ${task.error ? `<h4>Error:</h4><div class="task-error">${task.error}</div>` : ''}
             `;
             document.getElementById('modal').classList.remove('hidden');
 
@@ -932,7 +967,18 @@ class DashboardApp {
 
             const logsElement = document.getElementById(`task-logs-${taskId}`);
             if (logsElement) {
-                logsElement.innerHTML = `<pre>${data.output || 'No logs available'}</pre>`;
+                const logs = data.output || 'No logs available';
+                const lines = logs.split('\n');
+
+                // Keep performance in mind for huge log files
+                const html = lines.map((line, index) => `
+                    <div class="log-line" style="animation-delay: ${Math.min(index * 20, 500)}ms">
+                        <span class="line-number">${index + 1}</span>
+                        <span class="line-content">${this.escapeHtml(line)}</span>
+                    </div>
+                `).join('');
+
+                logsElement.innerHTML = html;
                 // Auto-scroll to bottom
                 logsElement.scrollTop = logsElement.scrollHeight;
             }
@@ -940,9 +986,15 @@ class DashboardApp {
             console.error('Failed to refresh task logs:', error);
             const logsElement = document.getElementById(`task-logs-${taskId}`);
             if (logsElement) {
-                logsElement.innerHTML = '<p class="error">Failed to load logs</p>';
+                logsElement.innerHTML = '<div class="error-state">CONNECTION_ERROR: FAILED_TO_FETCH_LOGS</div>';
             }
         }
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     startTaskLogsPolling(taskId) {
@@ -1359,4 +1411,4 @@ class DashboardApp {
 }
 
 // Initialize app
-const app = new DashboardApp();
+window.app = new DashboardApp();

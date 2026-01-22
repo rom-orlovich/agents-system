@@ -49,6 +49,8 @@ async def get_credential_status() -> CredentialStatusResponse:
     """Check credential and CLI status."""
     
     # 1. Check if Claude CLI is available
+    cli_available = False
+    cli_version = None
     try:
         result = subprocess.run(
             ["claude", "--version"],
@@ -56,88 +58,60 @@ async def get_credential_status() -> CredentialStatusResponse:
             timeout=5,
             text=True
         )
-        cli_available = result.returncode == 0
-        cli_version = result.stdout.strip() if cli_available else None
+        if result.returncode == 0:
+            cli_available = True
+            cli_version = result.stdout.strip()
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        return CredentialStatusResponse(
-            status=CredentialStatus.CLI_UNAVAILABLE,
-            message="Claude CLI not found in container",
-            cli_available=False,
-        )
-    
-    # 2. Try to check if CLI can actually connect (test auth)
-    try:
-        auth_check = subprocess.run(
-            ["claude", "auth", "status"],
-            capture_output=True,
-            timeout=5,
-            text=True
-        )
-        
-        # If auth status succeeds, CLI is connected
-        if auth_check.returncode == 0:
-            # Parse output to get account info
-            output = auth_check.stdout
-            # CLI is authenticated, return valid status
-            return CredentialStatusResponse(
-                status=CredentialStatus.VALID,
-                message="Claude CLI is authenticated and ready",
-                cli_available=True,
-                cli_version=cli_version,
-                account_email="Connected via CLI",  # CLI doesn't expose email easily
-            )
-    except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
-    
-    # 3. Check if credentials file exists (fallback)
+
+    # 2. Check if credentials file exists
     creds_path = settings.credentials_path
-    if not creds_path.exists():
-        return CredentialStatusResponse(
-            status=CredentialStatus.MISSING,
-            message="Credentials file not found. Please upload claude.json",
-            cli_available=True,
-            cli_version=cli_version,
-        )
+    file_exists = creds_path.exists()
     
-    # 4. Parse and validate credentials file
-    try:
-        creds_data = json.loads(creds_path.read_text())
-        creds = ClaudeCredentials(**creds_data)
-        
-        if creds.is_expired:
+    if file_exists:
+        try:
+            creds_data = json.loads(creds_path.read_text())
+            creds = ClaudeCredentials(**creds_data)
+            
+            status = CredentialStatus.VALID
+            message = "Credentials valid"
+            
+            if creds.is_expired:
+                status = CredentialStatus.EXPIRED
+                message = "Credentials expired"
+            elif creds.needs_refresh:
+                status = CredentialStatus.REFRESH_NEEDED
+                message = "Credentials expiring soon"
+                
             return CredentialStatusResponse(
-                status=CredentialStatus.EXPIRED,
-                message="Credentials expired",
-                cli_available=True,
+                status=status,
+                message=message,
+                cli_available=cli_available,
                 cli_version=cli_version,
+                expires_at=creds.expires_at_datetime.isoformat() if hasattr(creds, 'expires_at_datetime') else None,
+                account_email=creds.email if hasattr(creds, 'email') else None,
+                account_id=creds.user_id if hasattr(creds, 'user_id') else None,
             )
-        
-        if creds.needs_refresh:
-            return CredentialStatusResponse(
-                status=CredentialStatus.REFRESH_NEEDED,
-                message="Credentials expiring soon",
-                cli_available=True,
-                cli_version=cli_version,
-                expires_at=creds.expires_at_datetime.isoformat(),
-            )
-        
+        except Exception as e:
+            logger.error("credential_validation_error", error=str(e))
+            # Fall through if file is corrupt but CLI exists
+    
+    # 3. Handle CLI-only state or Missing state
+    if cli_available:
         return CredentialStatusResponse(
             status=CredentialStatus.VALID,
-            message="Credentials valid",
+            message="Claude Code is connected via CLI",
             cli_available=True,
             cli_version=cli_version,
-            expires_at=creds.expires_at_datetime.isoformat(),
-            account_email=creds.email,
-            account_id=creds.user_id,
+            account_email="Connected (CLI System)",
         )
-    except Exception as e:
-        logger.error("credential_validation_error", error=str(e))
-        return CredentialStatusResponse(
-            status=CredentialStatus.MISSING,
-            message=f"Invalid credentials file: {str(e)}",
-            cli_available=True,
-            cli_version=cli_version,
-        )
+    
+    return CredentialStatusResponse(
+        status=CredentialStatus.MISSING,
+        message="Credentials file not found. Please upload claude.json or install Claude Code.",
+        cli_available=False,
+    )
+
 
 
 @router.post("/upload")

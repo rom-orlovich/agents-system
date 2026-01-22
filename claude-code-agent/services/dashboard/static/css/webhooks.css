@@ -1,344 +1,118 @@
-/* =============================================================================
-   Webhook Status & Monitoring Styles
-   ============================================================================= */
+/* Industrial Brutalist Webhooks Styles */
 
-/* Webhook Status Section */
-
-.webhook-status {
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-size: 0.875rem;
-    font-weight: 500;
-}
-
-.webhook-status.enabled {
-    background: #d4edda;
-    color: #155724;
-}
-
-.webhook-status.disabled {
-    background: #f8d7da;
-    color: #721c24;
-}
-
-/* Webhook Styles */
-
-.webhooks-list {
+.webhook-stats {
     display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1.5rem;
-    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    margin-bottom: 2rem;
 }
 
-.webhook-card {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
+.webhook-urls-section {
+    background: #080808;
+    border: 1px solid var(--border);
     padding: 1.5rem;
-    transition: all 0.2s;
+    margin-bottom: 2rem;
 }
 
-.webhook-card:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    transform: translateY(-2px);
+.webhook-urls-section h3 {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
 }
 
-.webhook-header {
+#webhook-urls-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.webhook-url-card {
+    background: #111;
+    border: 1px solid var(--border);
+    padding: 1rem;
+}
+
+.webhook-url-card:hover {
+    border-color: var(--primary);
+}
+
+.webhook-name {
+    font-family: var(--font-display);
+    font-weight: 800;
+    text-transform: uppercase;
+    color: white;
+}
+
+.webhook-badge {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    background: #222;
+}
+
+.webhook-badge.builtin { color: var(--secondary); }
+.webhook-badge.custom { color: var(--primary); }
+
+.url-row {
+    margin-top: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #e0e0e0;
 }
 
-.webhook-header h3 {
-    font-size: 1.25rem;
-    color: #2c3e50;
-    margin: 0;
+.url-row code {
+    color: var(--primary);
+    background: #000;
+    word-break: break-all;
+    white-space: pre-wrap;
+    padding: 2px 4px;
 }
 
-.webhook-status {
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-size: 0.875rem;
-    font-weight: 500;
-}
-
-.webhook-status.enabled {
-    background: #d4edda;
-    color: #155724;
-}
-
-.webhook-status.disabled {
-    background: #f8d7da;
-    color: #721c24;
-}
-
-.webhook-info {
-    margin-bottom: 1rem;
-}
-
-.webhook-info p {
-    margin: 0.5rem 0;
-    font-size: 0.95rem;
-    color: #555;
-}
-
-.webhook-info code {
-    background: #f8f9fa;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.875rem;
-    color: #e83e8c;
-}
-
-.webhook-actions {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 1rem;
-}
-
-.btn-sm {
-    padding: 0.5rem 1rem;
-    border: 1px solid #e0e0e0;
-    background: white;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.875rem;
-    transition: all 0.2s;
-}
-
-.btn-sm:hover {
-    background: #f8f9fa;
-    border-color: #3498db;
-}
-
-.btn-sm.btn-danger {
-    color: #dc3545;
-    border-color: #dc3545;
-}
-
-.btn-sm.btn-danger:hover {
-    background: #dc3545;
+.copy-btn {
+    background: #222;
+    border: 1px solid var(--border);
     color: white;
-}
-
-/* Webhook Create Modal */
-.webhook-command {
-    background: #f8f9fa;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
-}
-
-.webhook-command h4 {
-    margin-top: 0;
-    margin-bottom: 1rem;
-    color: #2c3e50;
-}
-
-.form-group {
-    margin-bottom: 1rem;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: #555;
-}
-
-.form-group input[type="text"],
-.form-group input[type="password"],
-.form-group select,
-.form-group textarea {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
-    font-size: 0.95rem;
-    font-family: inherit;
-}
-
-.form-group textarea {
-    min-height: 80px;
-    resize: vertical;
-}
-
-.form-group input[type="checkbox"] {
-    margin-right: 0.5rem;
-}
-
-.add-btn {
-    padding: 0.75rem 1.5rem;
-    background: #28a745;
-    color: white;
-    border: none;
-    border-radius: 4px;
+    padding: 4px 10px;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
     cursor: pointer;
-    font-size: 0.95rem;
-    margin-top: 1rem;
+    transition: var(--transition);
+    border-radius: 2px;
 }
 
-.add-btn:hover {
-    background: #218838;
-}
+.copy-btn:hover { background: var(--primary); color: #000; border-color: var(--primary); }
 
-.create-btn {
-    padding: 0.75rem 1.5rem;
-    background: #3498db;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.95rem;
-}
-
-.create-btn:hover {
-    background: #2980b9;
-}
-
-.cancel-btn {
-    padding: 0.75rem 1.5rem;
-    background: #6c757d;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.95rem;
-}
-
-.cancel-btn:hover {
-    background: #5a6268;
-}
-
-.form-actions {
-    display: flex;
-    gap: 1rem;
-    margin-top: 2rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid #e0e0e0;
-}
-
-.command-detail {
-    background: #f8f9fa;
-    border-left: 3px solid #3498db;
-    padding: 1rem;
-    margin-bottom: 1rem;
-}
-
-.command-detail p {
-    margin: 0.5rem 0;
-}
-
-.command-detail code {
-    background: white;
-    padding: 0.25rem 0.5rem;
-    border-radius: 3px;
-    font-size: 0.875rem;
-}
-
-.empty-state {
-    text-align: center;
-    color: #999;
-    padding: 3rem;
-    font-size: 1.1rem;
-}
-
-/* Webhook Events */
 .event-item {
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 6px;
+    background: #0d0d0d;
+    border: 1px solid var(--border);
     padding: 1rem;
     margin-bottom: 0.75rem;
-    transition: all 0.2s;
-}
-
-.event-item:hover {
-    background: #f8f9fa;
-    border-color: #3498db;
-    box-shadow: 0 2px 8px rgba(52, 152, 219, 0.1);
-    transform: translateX(4px);
-}
-
-.event-header {
-    display: flex;
-    gap: 1rem;
+    display: grid;
+    grid-template-columns: 100px 1fr 150px;
     align-items: center;
-    margin-bottom: 0.5rem;
 }
+
+.event-item:hover { border-color: var(--primary); }
 
 .event-provider {
-    background: #3498db;
-    color: white;
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    background: #222;
+    padding: 2px 6px;
+    text-align: center;
 }
 
 .event-type {
-    color: #555;
-    font-weight: 500;
-    font-size: 0.875rem;
+    font-weight: 700;
+    color: white;
+    font-family: var(--font-mono);
 }
 
 .event-time {
-    margin-left: auto;
-    color: #999;
-    font-size: 0.75rem;
-}
-
-.event-details {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    font-size: 0.875rem;
-    color: #666;
-}
-
-.event-details span {
-    display: inline-flex;
-    align-items: center;
-}
-
-.event-details a {
-    color: #3498db;
-    text-decoration: none;
-}
-
-.event-details a:hover {
-    text-decoration: underline;
-}
-
-.no-task {
-    color: #999;
-    font-style: italic;
-}
-
-.badge {
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.badge.success {
-    background: #d4edda;
-    color: #155724;
-}
-
-.badge.pending {
-    background: #fff3cd;
-    color: #856404;
-}
-
-/* Modal improvements */
-.modal-content.large {
-    max-width: 800px;
-    max-height: 90vh;
-    overflow-y: auto;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-align: right;
 }
