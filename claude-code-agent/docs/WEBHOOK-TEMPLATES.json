@@ -1,0 +1,147 @@
+{
+    "templates": [
+        {
+            "name": "GitHub - Issue Created",
+            "provider": "github",
+            "description": "Automatically create tasks when GitHub issues are opened",
+            "commands": [
+                {
+                    "trigger": "issues.opened",
+                    "action": "create_task",
+                    "agent": "planning",
+                    "template": "New GitHub issue: {{issue.title}}\n\nRepository: {{repository.full_name}}\nAuthor: {{issue.user.login}}\nLabels: {{issue.labels|map(attribute='name')|join(', ')}}\n\n{{issue.body}}\n\nPlease analyze this issue and create a plan to resolve it."
+                }
+            ]
+        },
+        {
+            "name": "GitHub - PR Review",
+            "provider": "github",
+            "description": "Review pull requests automatically",
+            "commands": [
+                {
+                    "trigger": "pull_request.opened",
+                    "action": "create_task",
+                    "agent": "executor",
+                    "template": "Review pull request: {{pull_request.title}}\n\nRepository: {{repository.full_name}}\nAuthor: {{pull_request.user.login}}\nBranch: {{pull_request.head.ref}} → {{pull_request.base.ref}}\nFiles changed: {{pull_request.changed_files}}\n\n{{pull_request.body}}\n\nPlease review this PR for:\n1. Code quality and best practices\n2. Security vulnerabilities\n3. Test coverage\n4. Documentation"
+                }
+            ]
+        },
+        {
+            "name": "GitHub - CI/CD",
+            "provider": "github",
+            "description": "Run tests on push to main branch",
+            "commands": [
+                {
+                    "trigger": "push",
+                    "action": "create_task",
+                    "agent": "executor",
+                    "template": "New push to {{ref}}\n\nRepository: {{repository.full_name}}\nPusher: {{pusher.name}}\nCommits: {{commits|length}}\n\nLatest commit:\n{{head_commit.message}}\n\nPlease run tests and report results."
+                }
+            ]
+        },
+        {
+            "name": "Jira - Issue Created",
+            "provider": "jira",
+            "description": "Create tasks for new Jira issues",
+            "commands": [
+                {
+                    "trigger": "jira:issue_created",
+                    "action": "create_task",
+                    "agent": "planning",
+                    "template": "New Jira issue: {{issue.key}} - {{issue.fields.summary}}\n\nType: {{issue.fields.issuetype.name}}\nPriority: {{issue.fields.priority.name}}\nReporter: {{issue.fields.reporter.displayName}}\nAssignee: {{issue.fields.assignee.displayName if issue.fields.assignee else 'Unassigned'}}\n\nDescription:\n{{issue.fields.description}}\n\nPlease analyze and create implementation plan."
+                }
+            ]
+        },
+        {
+            "name": "Jira - Issue Updated",
+            "provider": "jira",
+            "description": "Track Jira issue updates",
+            "commands": [
+                {
+                    "trigger": "jira:issue_updated",
+                    "action": "create_task",
+                    "agent": "brain",
+                    "template": "Jira issue updated: {{issue.key}}\n\nChanges: {{changelog.items|map(attribute='field')|join(', ')}}\nUpdated by: {{user.displayName}}\n\nPlease review the changes and update related tasks if needed."
+                }
+            ]
+        },
+        {
+            "name": "Slack - Slash Command",
+            "provider": "slack",
+            "description": "Respond to Slack slash commands",
+            "commands": [
+                {
+                    "trigger": "slash_command",
+                    "action": "respond",
+                    "agent": "brain",
+                    "template": "Slack command from @{{user_name}} in #{{channel_name}}:\n\n{{text}}"
+                }
+            ]
+        },
+        {
+            "name": "Slack - App Mention",
+            "provider": "slack",
+            "description": "Respond when bot is mentioned",
+            "commands": [
+                {
+                    "trigger": "app_mention",
+                    "action": "respond",
+                    "agent": "brain",
+                    "template": "@{{event.user}} mentioned the bot in #{{event.channel}}:\n\n{{event.text}}"
+                }
+            ]
+        },
+        {
+            "name": "GitLab - Merge Request",
+            "provider": "gitlab",
+            "description": "Review GitLab merge requests",
+            "commands": [
+                {
+                    "trigger": "merge_request",
+                    "action": "create_task",
+                    "agent": "executor",
+                    "template": "GitLab merge request: {{object_attributes.title}}\n\nProject: {{project.name}}\nAuthor: {{user.name}}\nSource: {{object_attributes.source_branch}} → {{object_attributes.target_branch}}\n\n{{object_attributes.description}}\n\nPlease review this merge request."
+                }
+            ]
+        },
+        {
+            "name": "GitLab - Pipeline Failed",
+            "provider": "gitlab",
+            "description": "Alert on pipeline failures",
+            "commands": [
+                {
+                    "trigger": "pipeline",
+                    "action": "create_task",
+                    "agent": "executor",
+                    "template": "Pipeline {{object_attributes.status}} for {{project.name}}\n\nBranch: {{object_attributes.ref}}\nCommit: {{commit.message}}\nAuthor: {{commit.author.name}}\n\nPlease investigate the pipeline failure."
+                }
+            ]
+        },
+        {
+            "name": "Bitbucket - PR Created",
+            "provider": "bitbucket",
+            "description": "Review Bitbucket pull requests",
+            "commands": [
+                {
+                    "trigger": "pullrequest:created",
+                    "action": "create_task",
+                    "agent": "executor",
+                    "template": "Bitbucket PR: {{pullrequest.title}}\n\nRepository: {{repository.full_name}}\nAuthor: {{actor.display_name}}\nSource: {{pullrequest.source.branch.name}} → {{pullrequest.destination.branch.name}}\n\n{{pullrequest.description}}\n\nPlease review this pull request."
+                }
+            ]
+        },
+        {
+            "name": "Generic - Custom Event",
+            "provider": "generic",
+            "description": "Handle custom webhook events",
+            "commands": [
+                {
+                    "trigger": "custom.event",
+                    "action": "create_task",
+                    "agent": "brain",
+                    "template": "Custom event received:\n\nEvent Type: {{event_type}}\nSource: {{source}}\n\nPayload:\n{{payload}}"
+                }
+            ]
+        }
+    ]
+}

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from core.database import get_session as get_db_session
-from core.database.models import TaskDB, SessionDB
+from core.database.models import TaskDB, SessionDB, WebhookEventDB, WebhookConfigDB
 from core.database.redis_client import redis_client
 from shared import (
     Task,
@@ -220,6 +220,32 @@ async def get_task(
     }
 
 
+@router.get("/tasks/{task_id}/logs")
+async def get_task_logs(
+    task_id: str,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Get task logs/output stream."""
+    result = await db.execute(
+        select(TaskDB).where(TaskDB.task_id == task_id)
+    )
+    task = result.scalar_one_or_none()
+
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # Try to get live output from Redis first (for running tasks)
+    redis_output = await redis_client.get_output(task_id)
+    
+    return {
+        "task_id": task.task_id,
+        "status": task.status,
+        "output": redis_output or task.output_stream or "",
+        "error": task.error,
+        "is_live": task.status == TaskStatus.RUNNING,
+    }
+
+
 @router.post("/tasks/{task_id}/stop")
 async def stop_task(
     task_id: str,
@@ -259,9 +285,13 @@ async def stop_task(
 async def chat_with_brain(
     message: ChatMessage,
     session_id: str,
+    conversation_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db_session)
 ):
-    """Send chat message to Brain."""
+    """Send chat message to Brain with conversation context support."""
+    from core.database.models import ConversationDB, ConversationMessageDB
+    import json
+    
     # Create or get session
     result = await db.execute(
         select(SessionDB).where(SessionDB.session_id == session_id)
@@ -279,6 +309,36 @@ async def chat_with_brain(
         db.add(session_db)
         await db.commit()
 
+    # Handle conversation context
+    conversation = None
+    conversation_context = ""
+    
+    if conversation_id:
+        # Get existing conversation
+        conv_result = await db.execute(
+            select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
+        )
+        conversation = conv_result.scalar_one_or_none()
+        
+        if conversation:
+            # Get recent messages for context (last 20 messages)
+            msg_result = await db.execute(
+                select(ConversationMessageDB)
+                .where(ConversationMessageDB.conversation_id == conversation_id)
+                .order_by(ConversationMessageDB.created_at.desc())
+                .limit(20)
+            )
+            recent_messages = list(reversed(msg_result.scalars().all()))
+            
+            if recent_messages:
+                conversation_context = "\n\n## Previous Conversation Context:\n"
+                for msg in recent_messages:
+                    conversation_context += f"**{msg.role.capitalize()}**: {msg.content[:500]}\n"
+                conversation_context += "\n## Current Message:\n"
+    
+    # Build input message with context
+    full_input_message = conversation_context + message.message if conversation_context else message.message
+    
     # Create task
     task_id = f"task-{uuid.uuid4().hex[:12]}"
     task_db = TaskDB(
@@ -288,22 +348,43 @@ async def chat_with_brain(
         assigned_agent="brain",
         agent_type=AgentType.PLANNING,
         status=TaskStatus.QUEUED,
-        input_message=message.message,
+        input_message=full_input_message,
         source="dashboard",
+        source_metadata=json.dumps({
+            "conversation_id": conversation_id,
+            "has_context": bool(conversation_context)
+        }) if conversation_id else "{}",
     )
     db.add(task_db)
     await db.commit()
+    
+    # Add user message to conversation
+    if conversation:
+        user_msg_id = f"msg-{uuid.uuid4().hex[:12]}"
+        user_message = ConversationMessageDB(
+            message_id=user_msg_id,
+            conversation_id=conversation_id,
+            role="user",
+            content=message.message,
+            task_id=task_id,
+        )
+        db.add(user_message)
+        conversation.updated_at = datetime.utcnow()
+        await db.commit()
 
     # Push to queue
     await redis_client.push_task(task_id)
     await redis_client.add_session_task(session_id, task_id)
 
-    logger.info("Chat message queued", task_id=task_id, session_id=session_id)
+    logger.info("Chat message queued", task_id=task_id, session_id=session_id, conversation_id=conversation_id)
 
     return APIResponse(
         success=True,
         message="Task created",
-        data={"task_id": task_id}
+        data={
+            "task_id": task_id,
+            "conversation_id": conversation_id,
+        }
     )
 
 
@@ -328,14 +409,132 @@ async def list_agents():
 
 
 @router.get("/webhooks")
-async def list_webhooks():
+async def list_webhooks(db: AsyncSession = Depends(get_db_session)):
     """List configured webhooks."""
-    # TODO: Load from registry
-    return [
+    # Get custom webhooks from database
+    result = await db.execute(select(WebhookConfigDB))
+    custom_webhooks = result.scalars().all()
+    
+    # Built-in webhooks
+    builtin_webhooks = [
         {
             "name": "github",
+            "provider": "github",
             "endpoint": "/webhooks/github",
-            "source": "github",
             "is_builtin": True,
+            "enabled": True,
+        },
+        {
+            "name": "jira",
+            "provider": "jira",
+            "endpoint": "/webhooks/jira",
+            "is_builtin": True,
+            "enabled": True,
+        },
+        {
+            "name": "sentry",
+            "provider": "sentry",
+            "endpoint": "/webhooks/sentry",
+            "is_builtin": True,
+            "enabled": True,
         },
     ]
+    
+    # Add custom webhooks
+    for webhook in custom_webhooks:
+        builtin_webhooks.append({
+            "name": webhook.name,
+            "provider": webhook.provider,
+            "endpoint": webhook.endpoint,
+            "is_builtin": False,
+            "enabled": webhook.enabled,
+        })
+    
+    return builtin_webhooks
+
+
+@router.get("/webhooks/events")
+async def list_webhook_events(
+    db: AsyncSession = Depends(get_db_session),
+    webhook_id: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200)
+):
+    """List recent webhook events."""
+    query = select(WebhookEventDB).order_by(WebhookEventDB.created_at.desc()).limit(limit)
+    
+    if webhook_id:
+        query = query.where(WebhookEventDB.webhook_id == webhook_id)
+    
+    result = await db.execute(query)
+    events = result.scalars().all()
+    
+    return [
+        {
+            "event_id": event.event_id,
+            "webhook_id": event.webhook_id,
+            "provider": event.provider,
+            "event_type": event.event_type,
+            "task_id": event.task_id,
+            "matched_command": event.matched_command,
+            "response_sent": event.response_sent,
+            "created_at": event.created_at.isoformat(),
+        }
+        for event in events
+    ]
+
+
+@router.get("/webhooks/events/{event_id}")
+async def get_webhook_event(
+    event_id: str,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Get detailed webhook event logs including payload."""
+    result = await db.execute(
+        select(WebhookEventDB).where(WebhookEventDB.event_id == event_id)
+    )
+    event = result.scalar_one_or_none()
+    
+    if not event:
+        raise HTTPException(status_code=404, detail="Webhook event not found")
+    
+    return {
+        "event_id": event.event_id,
+        "webhook_id": event.webhook_id,
+        "provider": event.provider,
+        "event_type": event.event_type,
+        "payload": event.payload_json,
+        "matched_command": event.matched_command,
+        "task_id": event.task_id,
+        "response_sent": event.response_sent,
+        "created_at": event.created_at.isoformat(),
+    }
+
+
+@router.get("/webhooks/stats")
+async def get_webhook_stats(db: AsyncSession = Depends(get_db_session)):
+    """Get webhook statistics."""
+    # Count total webhooks
+    total_query = select(func.count()).select_from(WebhookConfigDB)
+    total = (await db.execute(total_query)).scalar() or 0
+    
+    # Count active webhooks
+    active_query = select(func.count()).select_from(WebhookConfigDB).where(WebhookConfigDB.enabled == True)
+    active = (await db.execute(active_query)).scalar() or 0
+    
+    # Count events by webhook
+    events_query = select(
+        WebhookEventDB.webhook_id,
+        func.count(WebhookEventDB.event_id).label("count")
+    ).group_by(WebhookEventDB.webhook_id)
+    events_result = await db.execute(events_query)
+    events_by_webhook = {row[0]: row[1] for row in events_result}
+    
+    # Add built-in webhooks to total
+    total += 3  # github, jira, sentry
+    active += 3
+    
+    return {
+        "total_webhooks": total,
+        "active_webhooks": active,
+        "events_by_webhook": events_by_webhook,
+    }

@@ -28,11 +28,16 @@ class DashboardApp {
     }
 
     async init() {
-        await this.loadStatus();
-        await this.loadAnalyticsSummary();
-        this.connectWebSocket();
         this.setupEventListeners();
+        await this.connectWebSocket();
+        await this.loadStatus();
         this.startStatusPolling();
+        this.loadSubagents();
+
+        // Initialize conversation manager when available
+        if (typeof conversationManager !== 'undefined') {
+            await conversationManager.init();
+        }
     }
 
     async loadStatus() {
@@ -68,6 +73,12 @@ class DashboardApp {
         setInterval(() => {
             this.loadStatus();
             this.loadAnalyticsSummary();
+
+            // Auto-refresh webhook events if on webhooks tab
+            if (this.currentTab === 'webhooks') {
+                this.loadWebhookEvents();
+                this.loadWebhookStatus();
+            }
         }, 5000);
     }
 
@@ -142,13 +153,28 @@ class DashboardApp {
         }
     }
 
-    completeTask(taskId, result, cost) {
+    async completeTask(taskId, result, cost) {
         const task = this.tasks.get(taskId);
         if (task) {
             task.status = 'completed';
             task.result = result;
             task.cost = cost;
             this.renderTasks();
+
+            // Add to conversation if tracked
+            if (this.taskConversationMap && this.taskConversationMap.has(taskId)) {
+                const conversationId = this.taskConversationMap.get(taskId);
+                if (typeof conversationManager !== 'undefined') {
+                    const fullResponse = result
+                        ? `${result}\n\n✅ Task completed! Cost: $${cost.toFixed(4)}`
+                        : `✅ Task completed! Cost: $${cost.toFixed(4)}`;
+                    await conversationManager.addAssistantMessage(fullResponse, taskId);
+                    this.taskConversationMap.delete(taskId);
+                    return;
+                }
+            }
+
+            // Fallback to old behavior
             if (result) {
                 this.addChatMessage('assistant', result);
             }
@@ -259,6 +285,13 @@ class DashboardApp {
     async switchTab(tabName) {
         this.currentTab = tabName;
 
+        if (tabName === 'webhooks') {
+            await this.refreshWebhookStatus();
+        } else if (tabName === 'analytics') {
+            await this.loadDailyCostsChart();
+            await this.loadSubagentCostsChart();
+        }
+
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('active');
         });
@@ -268,20 +301,6 @@ class DashboardApp {
             content.classList.remove('active');
         });
         document.getElementById(`tab-${tabName}`).classList.add('active');
-
-        if (tabName === 'analytics') {
-            await this.loadAnalytics();
-        } else if (tabName === 'tasks') {
-            await this.loadTaskHistory();
-        } else if (tabName === 'webhooks') {
-            await this.loadWebhooks();
-        }
-    }
-
-    // Analytics Charts
-    async loadAnalyticsCharts() {
-        await this.loadDailyCostsChart();
-        await this.loadSubagentCostsChart();
     }
 
     async loadDailyCostsChart() {
@@ -445,8 +464,35 @@ class DashboardApp {
 
     // Credentials Management
     async showCredentials() {
-        document.getElementById('credentials-modal').classList.remove('hidden');
-        await this.loadCredentialStatus();
+        // Load status first to check if we should show the modal
+        try {
+            const response = await fetch('/api/credentials/status');
+            const data = await response.json();
+
+            // Only show modal if:
+            // 1. CLI is unavailable, OR
+            // 2. Credentials are expired, OR
+            // 3. Rate limited, OR
+            // 4. User explicitly wants to see it (always show on button click)
+            const shouldShow = !data.cli_available ||
+                data.status === 'expired' ||
+                data.status === 'rate_limited' ||
+                data.status === 'cli_unavailable';
+
+            if (shouldShow || event?.isTrusted) {
+                // Show modal if there's an issue OR user clicked the button
+                document.getElementById('credentials-modal').classList.remove('hidden');
+                await this.loadCredentialStatus();
+            } else if (data.status === 'valid') {
+                // If credentials are valid, just show a success message
+                alert(`✅ Credentials are valid!\n\nAccount: ${data.account_email}\nExpires: ${new Date(data.expires_at).toLocaleString()}`);
+            }
+        } catch (error) {
+            console.error('Failed to check credentials:', error);
+            // On error, show the modal
+            document.getElementById('credentials-modal').classList.remove('hidden');
+            await this.loadCredentialStatus();
+        }
     }
 
     hideCredentials() {
@@ -739,11 +785,23 @@ class DashboardApp {
 
         if (!message) return;
 
-        this.addChatMessage('user', message);
+        // Use conversation manager if available
+        let conversationId = null;
+        if (typeof conversationManager !== 'undefined') {
+            conversationId = await conversationManager.sendMessage(message);
+            if (!conversationId) return; // Conversation manager will show error
+        } else {
+            this.addChatMessage('user', message);
+        }
+
         input.value = '';
 
         try {
-            const response = await fetch(`/api/chat?session_id=${this.sessionId}`, {
+            const url = conversationId
+                ? `/api/chat?session_id=${this.sessionId}&conversation_id=${conversationId}`
+                : `/api/chat?session_id=${this.sessionId}`;
+
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -758,7 +816,6 @@ class DashboardApp {
 
             if (data.success) {
                 const taskId = data.data.task_id;
-                this.addChatMessage('assistant', `Task created: ${taskId}`);
 
                 this.tasks.set(taskId, {
                     id: taskId,
@@ -768,13 +825,36 @@ class DashboardApp {
                     cost: 0
                 });
                 this.renderTasks();
+
+                // Track task for conversation updates
+                if (conversationId && typeof conversationManager !== 'undefined') {
+                    this.trackTaskForConversation(taskId, conversationId);
+                }
             } else {
-                this.addChatMessage('assistant', `Error: ${data.message}`);
+                const errorMsg = `Error: ${data.message}`;
+                if (typeof conversationManager !== 'undefined' && conversationId) {
+                    await conversationManager.addAssistantMessage(errorMsg, null);
+                } else {
+                    this.addChatMessage('assistant', errorMsg);
+                }
             }
         } catch (error) {
             console.error('Failed to send message:', error);
-            this.addChatMessage('assistant', 'Failed to send message');
+            const errorMsg = 'Failed to send message';
+            if (typeof conversationManager !== 'undefined' && conversationId) {
+                await conversationManager.addAssistantMessage(errorMsg, null);
+            } else {
+                this.addChatMessage('assistant', errorMsg);
+            }
         }
+    }
+
+    trackTaskForConversation(taskId, conversationId) {
+        // Store mapping for when task completes
+        if (!this.taskConversationMap) {
+            this.taskConversationMap = new Map();
+        }
+        this.taskConversationMap.set(taskId, conversationId);
     }
 
     addChatMessage(role, content) {
@@ -811,28 +891,258 @@ class DashboardApp {
             const response = await fetch(`/api/tasks/${taskId}`);
             const task = await response.json();
 
+            const isRunning = task.status === 'running';
+
             document.getElementById('modal-body').innerHTML = `
                 <h3>Task: ${task.task_id}</h3>
                 <p><strong>Agent:</strong> ${task.assigned_agent}</p>
-                <p><strong>Status:</strong> ${task.status}</p>
+                <p><strong>Status:</strong> <span class="status-badge status-${task.status}">${task.status}</span></p>
                 <p><strong>Cost:</strong> $${(task.cost_usd || 0).toFixed(4)}</p>
                 <p><strong>Tokens:</strong> ${task.input_tokens || 0} in / ${task.output_tokens || 0} out</p>
                 <p><strong>Created:</strong> ${new Date(task.created_at).toLocaleString()}</p>
                 ${task.completed_at ? `<p><strong>Completed:</strong> ${new Date(task.completed_at).toLocaleString()}</p>` : ''}
                 <h4>Input:</h4>
                 <div class="task-input">${task.input_message || 'N/A'}</div>
-                <h4>Output:</h4>
-                <div class="task-output" id="task-output-${taskId}">${task.output_stream || 'N/A'}</div>
+                <h4>Logs: ${isRunning ? '<span class="live-indicator">🔴 LIVE</span>' : ''}</h4>
+                <div class="logs-controls">
+                    <button onclick="app.refreshTaskLogs('${taskId}')" class="refresh-btn-small">🔄 Refresh Logs</button>
+                    ${isRunning ? '<span class="auto-refresh-notice">Auto-refreshing every 2s</span>' : ''}
+                </div>
+                <div class="task-logs" id="task-logs-${taskId}">Loading logs...</div>
                 ${task.error ? `<h4>Error:</h4><div class="task-error">${task.error}</div>` : ''}
             `;
             document.getElementById('modal').classList.remove('hidden');
+
+            // Load logs
+            await this.refreshTaskLogs(taskId);
+
+            // Auto-refresh logs for running tasks
+            if (isRunning) {
+                this.startTaskLogsPolling(taskId);
+            }
         } catch (error) {
             console.error('Failed to load task:', error);
         }
     }
 
+    async refreshTaskLogs(taskId) {
+        try {
+            const response = await fetch(`/api/tasks/${taskId}/logs`);
+            const data = await response.json();
+
+            const logsElement = document.getElementById(`task-logs-${taskId}`);
+            if (logsElement) {
+                logsElement.innerHTML = `<pre>${data.output || 'No logs available'}</pre>`;
+                // Auto-scroll to bottom
+                logsElement.scrollTop = logsElement.scrollHeight;
+            }
+        } catch (error) {
+            console.error('Failed to refresh task logs:', error);
+            const logsElement = document.getElementById(`task-logs-${taskId}`);
+            if (logsElement) {
+                logsElement.innerHTML = '<p class="error">Failed to load logs</p>';
+            }
+        }
+    }
+
+    startTaskLogsPolling(taskId) {
+        // Clear any existing interval
+        if (this.logsPollingInterval) {
+            clearInterval(this.logsPollingInterval);
+        }
+
+        // Poll every 2 seconds
+        this.logsPollingInterval = setInterval(async () => {
+            const logsElement = document.getElementById(`task-logs-${taskId}`);
+            if (!logsElement) {
+                // Modal closed, stop polling
+                clearInterval(this.logsPollingInterval);
+                this.logsPollingInterval = null;
+                return;
+            }
+
+            await this.refreshTaskLogs(taskId);
+        }, 2000);
+    }
+
     hideModal() {
         document.getElementById('modal').classList.add('hidden');
+
+        // Stop logs polling if active
+        if (this.logsPollingInterval) {
+            clearInterval(this.logsPollingInterval);
+            this.logsPollingInterval = null;
+        }
+    }
+
+    // Webhook Status & Monitoring
+    async refreshWebhookStatus() {
+        await this.loadWebhookStatus();
+        await this.loadWebhooks();
+        await this.loadWebhookEvents();
+    }
+
+    async loadWebhookStatus() {
+        try {
+            const statsResponse = await fetch('/api/webhooks/stats');
+            const stats = await statsResponse.json();
+
+            const webhooksResponse = await fetch('/api/webhooks');
+            const webhooks = await webhooksResponse.json();
+
+            // Fetch webhook status to get public domain
+            const statusResponse = await fetch('/api/webhooks-status');
+            const statusData = await statusResponse.json();
+            const publicDomain = statusData.data?.public_domain || null;
+
+            // Update stats
+            document.getElementById('total-webhooks').textContent = stats.total_webhooks || 0;
+            document.getElementById('active-webhooks').textContent = stats.active_webhooks || 0;
+
+            // Display public domain or warning
+            if (publicDomain) {
+                document.getElementById('webhook-domain').textContent = publicDomain;
+            } else {
+                document.getElementById('webhook-domain').innerHTML = '<span style="color: #e74c3c;">Not Set - Add WEBHOOK_PUBLIC_DOMAIN to .env</span>';
+            }
+
+            // Display webhook URLs
+            const urlsList = document.getElementById('webhook-urls-list');
+
+            if (webhooks.length === 0) {
+                urlsList.innerHTML = '<div class="empty-state">No webhooks available</div>';
+                return;
+            }
+
+            urlsList.innerHTML = webhooks.map(webhook => {
+                const publicUrl = publicDomain ? `https://${publicDomain}${webhook.endpoint}` : `http://localhost:8000${webhook.endpoint}`;
+                const eventCount = stats.events_by_webhook[webhook.name] || 0;
+
+                return `
+                <div class="webhook-url-card ${webhook.enabled === false ? 'disabled' : ''}">
+                    <div class="webhook-url-header">
+                        <span class="webhook-name">${webhook.name}</span>
+                        <span class="webhook-badge ${webhook.is_builtin ? 'builtin' : 'custom'}">${webhook.is_builtin ? 'Built-in' : 'Custom'}</span>
+                        ${webhook.enabled === false ? '<span class="webhook-badge disabled">disabled</span>' : ''}
+                    </div>
+                    <div class="webhook-url-content">
+                        <div class="url-row">
+                            <strong>Provider:</strong> <span>${webhook.provider}</span>
+                        </div>
+                        <div class="url-row">
+                            <strong>Endpoint:</strong>
+                            <code>${webhook.endpoint}</code>
+                        </div>
+                        <div class="url-row">
+                            <strong>Public URL:</strong>
+                            <code class="public-url">${publicUrl}</code>
+                            <button onclick="app.copyToClipboard('${publicUrl}')" class="copy-btn">📋 Copy</button>
+                        </div>
+                        <div class="url-row">
+                            <strong>Events Received:</strong> <span class="event-count">${eventCount}</span>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+
+        } catch (error) {
+            console.error('Failed to load webhook status:', error);
+        }
+    }
+
+    async loadWebhookEvents() {
+        try {
+            const response = await fetch('/api/webhooks/events?limit=50');
+            const events = await response.json();
+
+            const eventsList = document.getElementById('webhook-events-list');
+
+            if (!events || events.length === 0) {
+                eventsList.innerHTML = '<div class="empty-state">No recent events</div>';
+                return;
+            }
+
+            eventsList.innerHTML = events.map(event => {
+                const timeAgo = this.getTimeAgo(new Date(event.created_at));
+                return `
+                <div class="event-item" onclick="app.viewWebhookEvent('${event.event_id}')" style="cursor: pointer;">
+                    <div class="event-header">
+                        <span class="event-provider">${event.provider}</span>
+                        <span class="event-type">${event.event_type}</span>
+                        <span class="event-time" title="${new Date(event.created_at).toLocaleString()}">${timeAgo}</span>
+                    </div>
+                    <div class="event-details">
+                        <span><strong>Webhook:</strong> ${event.webhook_id}</span>
+                        ${event.matched_command ? `<span><strong>Command:</strong> ${event.matched_command}</span>` : ''}
+                        ${event.task_id ? `<span><strong>Task:</strong> <a href="#" onclick="event.stopPropagation(); app.viewTask('${event.task_id}'); return false;">${event.task_id}</a></span>` : '<span class="no-task">No task created</span>'}
+                        ${event.response_sent ? '<span class="badge success">✓ Processed</span>' : '<span class="badge pending">⏳ Pending</span>'}
+                    </div>
+                </div>
+            `}).join('');
+
+        } catch (error) {
+            console.error('Failed to load webhook events:', error);
+            document.getElementById('webhook-events-list').innerHTML = '<div class="error-state">Failed to load events</div>';
+        }
+    }
+
+    getTimeAgo(date) {
+        const seconds = Math.floor((new Date() - date) / 1000);
+
+        if (seconds < 60) return `${seconds}s ago`;
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        return `${days}d ago`;
+    }
+
+    async refreshWebhookEvents() {
+        await this.loadWebhookEvents();
+    }
+
+    async viewWebhookEvent(eventId) {
+        try {
+            const response = await fetch(`/api/webhooks/events/${eventId}`);
+            const event = await response.json();
+
+            let payload;
+            try {
+                payload = JSON.stringify(JSON.parse(event.payload), null, 2);
+            } catch {
+                payload = event.payload;
+            }
+
+            document.getElementById('modal-body').innerHTML = `
+                <h3>Webhook Event: ${event.event_id}</h3>
+                <p><strong>Provider:</strong> ${event.provider}</p>
+                <p><strong>Event Type:</strong> ${event.event_type}</p>
+                <p><strong>Webhook ID:</strong> ${event.webhook_id}</p>
+                <p><strong>Created:</strong> ${new Date(event.created_at).toLocaleString()}</p>
+                ${event.matched_command ? `<p><strong>Matched Command:</strong> ${event.matched_command}</p>` : '<p><strong>Status:</strong> No command matched</p>'}
+                ${event.task_id ? `<p><strong>Task Created:</strong> <a href="#" onclick="app.viewTask('${event.task_id}'); return false;">${event.task_id}</a></p>` : ''}
+                <p><strong>Response Sent:</strong> ${event.response_sent ? '✓ Yes' : '✗ No'}</p>
+                <h4>Webhook Payload:</h4>
+                <div class="logs-controls">
+                    <button onclick="app.copyToClipboard(\`${payload.replace(/`/g, '\\`')}\`)" class="refresh-btn-small">📋 Copy Payload</button>
+                </div>
+                <div class="task-logs">
+                    <pre>${payload}</pre>
+                </div>
+            `;
+            document.getElementById('modal').classList.remove('hidden');
+        } catch (error) {
+            console.error('Failed to load webhook event:', error);
+        }
+    }
+
+    copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert('Copied to clipboard!');
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+        });
     }
 
     // Webhook Management
@@ -843,7 +1153,7 @@ class DashboardApp {
 
             const container = document.getElementById('webhooks-list');
 
-            if (webhooks.length === 0) {
+            if (!webhooks || webhooks.length === 0) {
                 container.innerHTML = '<p class="empty-state">No webhooks registered. Use "Create Webhook" from the side menu to get started.</p>';
                 return;
             }
@@ -852,22 +1162,27 @@ class DashboardApp {
                 <div class="webhook-card">
                     <div class="webhook-header">
                         <h3>${webhook.name}</h3>
-                        <span class="webhook-status ${webhook.enabled ? 'enabled' : 'disabled'}">
-                            ${webhook.enabled ? '✓ Enabled' : '✗ Disabled'}
-                        </span>
+                        ${webhook.is_builtin ? '<span class="badge">Built-in</span>' : ''}
+                        ${webhook.enabled !== undefined ? `
+                            <span class="webhook-status ${webhook.enabled ? 'enabled' : 'disabled'}">
+                                ${webhook.enabled ? '✓ Enabled' : '✗ Disabled'}
+                            </span>
+                        ` : ''}
                     </div>
                     <div class="webhook-info">
-                        <p><strong>Provider:</strong> ${webhook.provider}</p>
+                        <p><strong>Provider:</strong> ${webhook.provider || webhook.source || 'N/A'}</p>
                         <p><strong>Endpoint:</strong> <code>${webhook.endpoint}</code></p>
-                        <p><strong>Commands:</strong> ${webhook.commands.length}</p>
+                        ${webhook.commands ? `<p><strong>Commands:</strong> ${webhook.commands.length}</p>` : ''}
                     </div>
-                    <div class="webhook-actions">
-                        <button onclick="app.toggleWebhook('${webhook.webhook_id}', ${!webhook.enabled})" class="btn-sm">
-                            ${webhook.enabled ? 'Disable' : 'Enable'}
-                        </button>
-                        <button onclick="app.viewWebhook('${webhook.webhook_id}')" class="btn-sm">View</button>
-                        <button onclick="app.deleteWebhook('${webhook.webhook_id}')" class="btn-sm btn-danger">Delete</button>
-                    </div>
+                    ${!webhook.is_builtin && webhook.webhook_id ? `
+                        <div class="webhook-actions">
+                            <button onclick="app.toggleWebhook('${webhook.webhook_id}', ${!webhook.enabled})" class="btn-sm">
+                                ${webhook.enabled ? 'Disable' : 'Enable'}
+                            </button>
+                            <button onclick="app.viewWebhook('${webhook.webhook_id}')" class="btn-sm">View</button>
+                            <button onclick="app.deleteWebhook('${webhook.webhook_id}')" class="btn-sm btn-danger">Delete</button>
+                        </div>
+                    ` : ''}
                 </div>
             `).join('');
         } catch (error) {

@@ -1,8 +1,12 @@
-.PHONY: help start install dev test test-unit test-integration test-e2e test-cov test-all lint format type-check clean build up down logs restart ps db-shell redis-cli run-local shell init health oauth env rebuild
+.PHONY: help start install dev test test-unit test-integration test-e2e test-cov test-all lint format type-check clean clean-all build up down logs restart ps db-shell redis-cli run-local shell init health oauth env rebuild tunnel
 
 # Load environment variables if they exist
 -include .env
 export
+
+# ngrok static domain - set this in your CLI or .env!
+# Example: NGROK_DOMAIN=unabating-unoverdrawn-veronique.ngrok-free.dev
+NGROK_DOMAIN ?= unabating-unoverdrawn-veronique.ngrok-free.dev
 
 # =============================================================================
 # HELP
@@ -47,8 +51,10 @@ help:
 	@echo "  make oauth     - Extract OAuth credentials"
 	@echo "  make env       - Edit .env file"
 	@echo "  make health    - Health check"
-	@echo "  make clean     - Cleanup everything"
-	@echo "  make rebuild   - Full rebuild (down + clean + build + up)"
+	@echo "  make tunnel    - 📡 Setup webhook tunnel (ngrok/cloudflared)"
+	@echo "  make clean     - Clean build cache (preserves data)"
+	@echo "  make clean-all - ⚠️  Clean everything including data volumes"
+	@echo "  make rebuild   - Full rebuild (preserves data volumes)"
 	@echo ""
 
 # =============================================================================
@@ -216,11 +222,48 @@ build:
 	@echo "🔨 Building Docker containers..."
 	@docker-compose build
 
-rebuild: down clean build up
+rebuild: down build up
 	@echo "✅ Rebuild complete"
+	@echo "💾 Data volumes preserved"
+
+tunnel:
+	@command -v ngrok >/dev/null 2>&1 || { echo "📦 Installing ngrok via Homebrew..."; brew install ngrok; }
+	@if [ -z "$(NGROK_DOMAIN)" ]; then \
+		echo "❌ NGROK_DOMAIN is not set!"; \
+		echo "Please set it: make tunnel NGROK_DOMAIN=your-name.ngrok-free.dev"; \
+		echo "Or add it to your .env: NGROK_DOMAIN=your-name.ngrok-free.dev"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "🌐 Webhook URLs (Permanent!):"
+	@echo "  GitHub:  https://$(NGROK_DOMAIN)/webhooks/github"
+	@echo "  Jira:    https://$(NGROK_DOMAIN)/webhooks/jira"
+	@echo "  Sentry:  https://$(NGROK_DOMAIN)/webhooks/sentry"
+	@echo "  Slack:   https://$(NGROK_DOMAIN)/webhooks/slack"
+	@echo "  GitLab:  https://$(NGROK_DOMAIN)/webhooks/gitlab"
+	@echo "  Custom:  https://$(NGROK_DOMAIN)/webhooks/custom/{id}"
+	@echo ""
+	@echo "💡 Dashboard will show these URLs automatically"
+	@echo "📖 WEBHOOK_PUBLIC_DOMAIN is set to: $(NGROK_DOMAIN)"
+	@echo ""
+	@ngrok http --url https://$(NGROK_DOMAIN) 8000
 
 clean:
-	@echo "🧹 Cleaning up..."
+	@echo "🧹 Cleaning build cache..."
+	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	@rm -rf .pytest_cache 2>/dev/null || true
+	@rm -rf .coverage 2>/dev/null || true
+	@rm -rf htmlcov 2>/dev/null || true
+	@rm -rf .mypy_cache 2>/dev/null || true
+	@rm -rf .ruff_cache 2>/dev/null || true
+	@echo "✅ Build cache cleaned (data volumes preserved)"
+
+clean-all:
+	@echo "⚠️  WARNING: This will delete ALL data including tasks, webhooks, and credentials!"
+	@echo "Press Ctrl+C to cancel, or wait 5 seconds to continue..."
+	@sleep 5
+	@echo "🧹 Cleaning everything including data volumes..."
 	@docker-compose down -v --remove-orphans 2>/dev/null || true
 	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
@@ -229,7 +272,7 @@ clean:
 	@rm -rf htmlcov 2>/dev/null || true
 	@rm -rf .mypy_cache 2>/dev/null || true
 	@rm -rf .ruff_cache 2>/dev/null || true
-	@echo "✅ Cleaned"
+	@echo "✅ Everything cleaned (including data volumes)"
 
 # =============================================================================
 # 🗄️ DATABASE COMMANDS

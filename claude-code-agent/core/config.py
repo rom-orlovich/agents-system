@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     # Webhook Security
     github_webhook_secret: str | None = None
     jira_webhook_secret: str | None = None
+    
+    # Webhook Public Domain (for displaying URLs)
+    webhook_public_domain: str | None = None  # e.g., "abc123.ngrok.io" or "webhooks.yourdomain.com"
 
     # Storage Backend (for cloud deployment)
     storage_backend: str = "local"  # "local", "s3", or "postgresql"
@@ -54,11 +57,17 @@ class Settings(BaseSettings):
     default_model: str | None = None  # e.g., "opus", "sonnet" (None = CLI default)
     default_allowed_tools: str = "Read,Edit,Bash,Glob,Grep,Write"  # Pre-approved tools
     enable_subagents: bool = True  # Enable sub-agent execution
+    
+    # Model Configuration by Agent Type
+    claude_model_planning: str = "claude-opus-4-5-20251101"      # Complex tasks, thinking, planning
+    claude_model_brain: str = "claude-opus-4-5-20251101"         # Brain agent for orchestration
+    claude_model_executor: str = "claude-sonnet-4-5-20250929"    # Execution, faster tasks
+    claude_default_model: str = "claude-sonnet-4-5-20250929"     # Default fallback model
 
     @property
     def agents_dir(self) -> Path:
-        """Directory containing BUILT-IN sub-agents (read-only from image)."""
-        return self.app_dir / "agents"
+        """Directory containing BUILT-IN sub-agents (in .claude/agents/)."""
+        return self.app_dir / ".claude" / "agents"
 
     @property
     def user_agents_dir(self) -> Path:
@@ -67,8 +76,8 @@ class Settings(BaseSettings):
 
     @property
     def skills_dir(self) -> Path:
-        """Directory containing BUILT-IN brain skills (read-only from image)."""
-        return self.app_dir / "skills"
+        """Directory containing BUILT-IN skills (in .claude/skills/)."""
+        return self.app_dir / ".claude" / "skills"
 
     @property
     def user_skills_dir(self) -> Path:
@@ -84,6 +93,27 @@ class Settings(BaseSettings):
     def registry_dir(self) -> Path:
         """Directory containing registry files (persisted in /data volume)."""
         return self.data_dir / "registry"
+    
+    def get_model_for_agent(self, agent_type: str) -> str:
+        """
+        Get the appropriate Claude model for a given agent type.
+        
+        Args:
+            agent_type: Agent type (planning, executor, brain)
+            
+        Returns:
+            Model name (e.g., "opus-4", "sonnet-4")
+        """
+        agent_type_lower = agent_type.lower()
+        
+        if agent_type_lower == "planning":
+            return self.claude_model_planning
+        elif agent_type_lower == "executor":
+            return self.claude_model_executor
+        elif agent_type_lower == "brain":
+            return self.claude_model_brain
+        else:
+            return self.claude_default_model
 
 
 # Global settings instance

@@ -150,23 +150,21 @@ class TaskWorker:
             # Create output queue
             output_queue = asyncio.Queue()
 
-            # Start CLI runner with full configuration
-            cli_task = asyncio.create_task(
-                run_claude_cli(
-                    prompt=task_db.input_message,
-                    working_dir=agent_dir,
-                    output_queue=output_queue,
-                    task_id=task_id,
-                    timeout_seconds=settings.task_timeout_seconds,
-                    model=settings.default_model,  # Optional model selection
-                    allowed_tools=settings.default_allowed_tools,  # Pre-approved tools
-                    agents=subagents_json,  # ✅ Load from configuration
-                )
+            # Get appropriate model for agent type
+            model = settings.get_model_for_agent(task_db.assigned_agent)
+            
+            logger.info(
+                "selected_model_for_task",
+                task_id=task_id,
+                agent=task_db.assigned_agent,
+                model=model
             )
-
+            
             # Stream output to WebSocket and accumulate
             output_chunks = []
-            try:
+            
+            async def stream_output():
+                """Read from queue and stream to WebSocket/Redis."""
                 while True:
                     chunk = await output_queue.get()
                     if chunk is None:  # End of stream
@@ -183,8 +181,21 @@ class TaskWorker:
                     # Append to Redis
                     await redis_client.append_output(task_id, chunk)
 
-                # Wait for CLI to complete
-                result = await cli_task
+            # Execute CLI and stream output concurrently
+            try:
+                result, _ = await asyncio.gather(
+                    run_claude_cli(
+                        prompt=task_db.input_message,
+                        working_dir=agent_dir,
+                        output_queue=output_queue,
+                        task_id=task_id,
+                        timeout_seconds=settings.task_timeout_seconds,
+                        model=model,
+                        allowed_tools=settings.default_allowed_tools,
+                        agents=subagents_json,
+                    ),
+                    stream_output()
+                )
 
                 # Update task with result
                 task_db.output_stream = "".join(output_chunks)
@@ -252,11 +263,15 @@ class TaskWorker:
 
     def _get_agent_dir(self, agent_name: str | None) -> Path:
         """
-        Get directory for agent.
-
+        Get the directory for a given agent.
+        
+        Note: Sub-agents (planning, executor, orchestration) are now defined in 
+        .claude/agents/*.md and invoked natively by Claude Code. This method 
+        primarily handles user-uploaded custom agents.
+        
         Priority:
-        1. User-uploaded agents in /data/config/agents (PERSISTED)
-        2. Built-in agents in /app/agents (read-only from image)
+        1. User-uploaded agents in /data/config/agents (persisted)
+        2. Built-in sub-agents in .claude/agents/*.md (native Claude Code)
         3. Brain (default)
         """
         if not agent_name or agent_name == "brain":
@@ -268,16 +283,17 @@ class TaskWorker:
             logger.debug("Using user-uploaded agent", agent_name=agent_name)
             return user_agent_dir
 
-        # Fall back to built-in agents (from Docker image)
-        builtin_agent_dir = settings.agents_dir / agent_name
-        if builtin_agent_dir.exists():
-            logger.debug("Using built-in agent", agent_name=agent_name)
-            return builtin_agent_dir
+        # Check if it's a built-in sub-agent defined in .claude/agents/*.md
+        builtin_subagent_file = settings.agents_dir / f"{agent_name}.md"
+        if builtin_subagent_file.exists():
+            logger.debug("Using built-in sub-agent (native Claude Code)", agent_name=agent_name)
+            # Return app_dir - Claude Code will use the .claude/agents/*.md file
+            return settings.app_dir
 
         logger.warning(
-            "Agent directory not found in user or built-in directories, using brain",
+            "Agent not found in user or built-in directories, using brain",
             agent_name=agent_name,
             user_dir=str(user_agent_dir),
-            builtin_dir=str(builtin_agent_dir)
+            builtin_subagent=str(builtin_subagent_file)
         )
         return settings.app_dir

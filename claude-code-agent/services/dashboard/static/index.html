@@ -6,6 +6,7 @@
     <title>Claude Machine Dashboard</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/webhooks.css">
+    <link rel="stylesheet" href="/static/css/conversations.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -169,26 +170,92 @@
 
             <!-- Webhooks Tab -->
             <div id="tab-webhooks" class="tab-content">
-                <section class="panel webhooks-panel">
-                    <h2>Webhooks</h2>
-                    <div id="webhooks-list" class="webhooks-list">
-                        <p class="empty-state">No webhooks registered. Use "Create Webhook" from the side menu to get started.</p>
+                <!-- Webhook Status Overview -->
+                <section class="webhook-status-section">
+                    <div class="status-header">
+                        <h2>📡 Webhook Status</h2>
+                        <button onclick="app.refreshWebhookStatus()" class="refresh-btn">🔄 Refresh</button>
+                    </div>
+                    
+                    <div class="webhook-stats">
+                        <div class="stat-card">
+                            <div class="stat-value" id="total-webhooks">0</div>
+                            <div class="stat-label">Total Webhooks</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="active-webhooks">0</div>
+                            <div class="stat-label">Active</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="webhook-domain">Not Set</div>
+                            <div class="stat-label">Public Domain</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Available Webhook URLs -->
+                    <div class="webhook-urls-section">
+                        <h3>🔗 Available Webhook URLs</h3>
+                        <div id="webhook-urls-list"></div>
+                    </div>
+                </section>
+                
+                <!-- Webhook List -->
+                <section class="webhooks-section">
+                    <div class="webhooks-header">
+                        <h2>Configured Webhooks</h2>
+                    </div>
+                    
+                    <div id="webhooks-list" class="webhooks-grid">
+                        <div class="empty-state">
+                            <p>No webhooks configured</p>
+                            <p class="hint">Click "Create Webhook" in the side menu to add your first webhook</p>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Recent Webhook Events -->
+                <section class="webhook-events-section">
+                    <div class="events-header">
+                        <h3>📋 Recent Webhook Events</h3>
+                        <button onclick="app.refreshWebhookEvents()" class="refresh-btn-small">🔄</button>
+                    </div>
+                    <div id="webhook-events-list" class="events-list">
+                        <div class="empty-state">No recent events</div>
                     </div>
                 </section>
             </div>
 
             <!-- Chat Tab -->
             <div id="tab-chat" class="tab-content">
-                <section class="panel chat-panel">
-                    <h2>Chat with Brain</h2>
-                    <div id="chat-messages" class="chat-messages">
-                        <p class="welcome-message">Welcome! Send a message to interact with the Brain.</p>
-                    </div>
-                    <div class="chat-input">
-                        <input type="text" id="chat-input" placeholder="Type a message...">
-                        <button id="send-button">Send</button>
-                    </div>
-                </section>
+                <div class="chat-container">
+                    <!-- Conversation Sidebar (Inbox) -->
+                    <aside class="conversation-sidebar">
+                        <div class="conversation-sidebar-header">
+                            <h3>💬 Conversations</h3>
+                            <button id="new-conversation-btn" class="icon-btn" title="New Conversation">➕</button>
+                        </div>
+                        <div id="conversation-list" class="conversation-list">
+                            <div class="empty-state">Loading conversations...</div>
+                        </div>
+                    </aside>
+
+                    <!-- Chat Panel -->
+                    <section class="panel chat-panel">
+                        <div class="chat-header">
+                            <h2 id="current-conversation-title">Select a conversation</h2>
+                            <div class="chat-header-actions">
+                                <button id="clear-history-btn" class="icon-btn" title="Clear History">🗑️</button>
+                            </div>
+                        </div>
+                        <div id="chat-messages" class="chat-messages">
+                            <p class="welcome-message">Select a conversation or create a new one to get started.</p>
+                        </div>
+                        <div class="chat-input">
+                            <input type="text" id="chat-input" placeholder="Type a message..." disabled>
+                            <button id="send-button" disabled>Send</button>
+                        </div>
+                    </section>
+                </div>
             </div>
         </main>
         </div>
@@ -328,6 +395,7 @@
         </div>
     </div>
 
-    <script src="/static/js/app.js?v=2"></script>
+    <script src="/static/js/conversations.js?v=1"></script>
+    <script src="/static/js/app.js?v=3"></script>
 </body>
 </html>

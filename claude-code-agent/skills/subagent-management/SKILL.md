@@ -21,13 +21,13 @@ Use this skill when the user wants to:
 ## Available Agents
 
 ### Planning Agent
-- **Location:** `/app/agents/planning/`
+- **Location:** `.claude/agents/planning.md`
 - **Purpose:** Analyze bugs and create fix plans
 - **Skills:** discovery, jira-enrichment, plan-creation
 - **Use when:** User asks for analysis, planning, or understanding of issues
 
 ### Executor Agent
-- **Location:** `/app/agents/executor/`
+- **Location:** `.claude/agents/executor.md`
 - **Purpose:** Implement code changes and fixes
 - **Skills:** code-implementation, tdd-workflow, pr-management
 - **Use when:** User asks for code changes, bug fixes, or feature implementation
