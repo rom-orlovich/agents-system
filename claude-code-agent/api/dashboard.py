@@ -41,10 +41,10 @@ async def get_status(request: Request):
 @router.get("/sessions/{session_id}")
 async def get_session(
     session_id: str,
-    session: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_session)
 ):
     """Get session details."""
-    result = await session.execute(
+    result = await db.execute(
         select(SessionDB).where(SessionDB.session_id == session_id)
     )
     session_db = result.scalar_one_or_none()
@@ -64,7 +64,7 @@ async def get_session(
 
 @router.get("/tasks")
 async def list_tasks(
-    session: AsyncSession = Depends(get_session),
+    db: AsyncSession = Depends(get_session),
     session_id: Optional[str] = Query(default=None),
     status: Optional[str] = Query(default=None),
     limit: int = Query(default=50)
@@ -77,7 +77,7 @@ async def list_tasks(
     if status:
         query = query.where(TaskDB.status == status)
 
-    result = await session.execute(query)
+    result = await db.execute(query)
     tasks = result.scalars().all()
 
     return [
@@ -98,10 +98,10 @@ async def list_tasks(
 @router.get("/tasks/{task_id}")
 async def get_task(
     task_id: str,
-    session: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_session)
 ):
     """Get task details."""
-    result = await session.execute(
+    result = await db.execute(
         select(TaskDB).where(TaskDB.task_id == task_id)
     )
     task = result.scalar_one_or_none()
@@ -134,10 +134,10 @@ async def get_task(
 @router.post("/tasks/{task_id}/stop")
 async def stop_task(
     task_id: str,
-    session: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_session)
 ):
     """Stop a running task."""
-    result = await session.execute(
+    result = await db.execute(
         select(TaskDB).where(TaskDB.task_id == task_id)
     )
     task = result.scalar_one_or_none()
@@ -153,7 +153,7 @@ async def stop_task(
 
     # Update status
     task.status = TaskStatus.CANCELLED
-    await session.commit()
+    await db.commit()
 
     # Update Redis
     await redis_client.set_task_status(task_id, TaskStatus.CANCELLED)
@@ -170,11 +170,11 @@ async def stop_task(
 async def chat_with_brain(
     message: ChatMessage,
     session_id: str,
-    session: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_session)
 ):
     """Send chat message to Brain."""
     # Create or get session
-    result = await session.execute(
+    result = await db.execute(
         select(SessionDB).where(SessionDB.session_id == session_id)
     )
     session_db = result.scalar_one_or_none()
@@ -187,8 +187,8 @@ async def chat_with_brain(
             machine_id="claude-agent-001",
             connected_at=datetime.utcnow(),
         )
-        session.add(session_db)
-        await session.commit()
+        db.add(session_db)
+        await db.commit()
 
     # Create task
     task_id = f"task-{uuid.uuid4().hex[:12]}"
@@ -202,8 +202,8 @@ async def chat_with_brain(
         input_message=message.message,
         source="dashboard",
     )
-    session.add(task_db)
-    await session.commit()
+    db.add(task_db)
+    await db.commit()
 
     # Push to queue
     await redis_client.push_task(task_id)

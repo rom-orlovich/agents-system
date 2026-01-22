@@ -19,7 +19,7 @@ router = APIRouter()
 @router.post("/github")
 async def github_webhook(
     request: Request,
-    session: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_session)
 ):
     """Handle GitHub webhooks."""
     try:
@@ -30,11 +30,11 @@ async def github_webhook(
 
         # Handle different event types
         if event_type == "issue_comment":
-            return await handle_issue_comment(payload, session)
+            return await handle_issue_comment(payload, db)
         elif event_type == "pull_request":
-            return await handle_pull_request(payload, session)
+            return await handle_pull_request(payload, db)
         elif event_type == "issues":
-            return await handle_issue(payload, session)
+            return await handle_issue(payload, db)
         else:
             logger.info("unhandled_github_event", event_type=event_type)
             return {"status": "ignored", "event": event_type}
@@ -44,7 +44,7 @@ async def github_webhook(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def handle_issue_comment(payload: dict, session: AsyncSession):
+async def handle_issue_comment(payload: dict, db: AsyncSession):
     """Handle issue comment event."""
     action = payload.get("action")
     comment = payload.get("comment", {})
@@ -65,7 +65,7 @@ async def handle_issue_comment(payload: dict, session: AsyncSession):
             machine_id="claude-agent-001",
             connected_at=datetime.utcnow(),
         )
-        session.add(session_db)
+        db.add(session_db)
 
         # Create task
         task_db = TaskDB(
@@ -84,20 +84,20 @@ async def handle_issue_comment(payload: dict, session: AsyncSession):
                 "comment_id": comment.get("id"),
             }),
         )
-        session.add(task_db)
-        await session.commit()
+        db.add(task_db)
+        await db.commit()
 
         # Push to queue
         await redis_client.push_task(task_id)
 
-        logger.info("Task created from GitHub comment", task_id=task_id)
+        logger.info("task_created_from_github_comment", task_id=task_id)
 
         return {"status": "task_created", "task_id": task_id}
 
     return {"status": "no_action"}
 
 
-async def handle_pull_request(payload: dict, session: AsyncSession):
+async def handle_pull_request(payload: dict, db: AsyncSession):
     """Handle pull request event."""
     action = payload.get("action")
     pr = payload.get("pull_request", {})
@@ -112,7 +112,7 @@ async def handle_pull_request(payload: dict, session: AsyncSession):
     return {"status": "received", "action": action}
 
 
-async def handle_issue(payload: dict, session: AsyncSession):
+async def handle_issue(payload: dict, db: AsyncSession):
     """Handle issue event."""
     action = payload.get("action")
     issue = payload.get("issue", {})
@@ -129,7 +129,7 @@ async def handle_issue(payload: dict, session: AsyncSession):
             machine_id="claude-agent-001",
             connected_at=datetime.utcnow(),
         )
-        session.add(session_db)
+        db.add(session_db)
 
         # Create task
         task_db = TaskDB(
@@ -148,13 +148,13 @@ async def handle_issue(payload: dict, session: AsyncSession):
                 "issue_number": issue.get("number"),
             }),
         )
-        session.add(task_db)
-        await session.commit()
+        db.add(task_db)
+        await db.commit()
 
         # Push to queue
         await redis_client.push_task(task_id)
 
-        logger.info("Task created from GitHub issue", task_id=task_id)
+        logger.info("task_created_from_github_issue", task_id=task_id)
 
         return {"status": "task_created", "task_id": task_id}
 
