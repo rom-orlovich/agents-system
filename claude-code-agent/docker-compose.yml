@@ -19,6 +19,10 @@ services:
       - ./agents:/app/agents:ro
       - ./skills:/app/skills:ro
       - ./.claude:/app/.claude:ro
+      - ./services/dashboard/static:/app/services/dashboard/static:ro
+      # Mount Claude OAuth credentials from host machine (extracted via extract-oauth.sh)
+      # Read-write required for Claude CLI debug logs and cache
+      - ~/.claude:/home/claude/.claude
     depends_on:
       - redis
     restart: unless-stopped

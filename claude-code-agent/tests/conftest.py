@@ -1,10 +1,15 @@
 """Pytest fixtures for all tests."""
 
+import os
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+
+# Set test database URL before importing main
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+os.environ["REDIS_URL"] = "redis://localhost:6379/0"
 
 from main import app
 from core.database.models import Base

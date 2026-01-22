@@ -39,7 +39,7 @@ async def test_cli_runner_success():
     output_lines = [
         b'{"type": "content", "content": "Hello"}\n',
         b'{"type": "content", "content": " World"}\n',
-        b'{"type": "result", "cost_usd": 0.05, "input_tokens": 100, "output_tokens": 50}\n',
+        b'{"type": "result", "cost_usd": 0.05, "usage": {"input_tokens": 100, "output_tokens": 50}}\n',
     ]
 
     mock_proc.stdout = MockAsyncIterator(output_lines)

@@ -1,75 +1,261 @@
-.PHONY: help install dev test lint format clean build up down logs restart
+.PHONY: help start install dev test test-unit test-integration test-e2e test-cov test-all lint format type-check clean build up down logs restart ps db-shell redis-cli run-local shell init health oauth env rebuild
 
-help: ## Show this help message
-	@echo 'Usage: make [target]'
-	@echo ''
-	@echo 'Available targets:'
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+# Load environment variables if they exist
+-include .env
+export
 
-install: ## Install dependencies with uv
-	uv sync
+# =============================================================================
+# HELP
+# =============================================================================
 
-dev: ## Install dev dependencies
-	uv sync --all-extras
+help:
+	@echo ""
+	@echo "╔══════════════════════════════════════════════════════════════╗"
+	@echo "║        🤖 Claude Code Agent System                           ║"
+	@echo "╚══════════════════════════════════════════════════════════════╝"
+	@echo ""
+	@echo "🚀 MAIN COMMANDS"
+	@echo "───────────────────────────────────────────────────────────────"
+	@echo "  make start     - 🎯 Setup + Build + Start (one command!)"
+	@echo "  make up        - Start services"
+	@echo "  make down      - Stop services"
+	@echo "  make restart   - Restart services"
+	@echo "  make logs      - View logs"
+	@echo ""
+	@echo "🧪 TESTING"
+	@echo "───────────────────────────────────────────────────────────────"
+	@echo "  make test      - Run all tests"
+	@echo "  make test-unit - Run unit tests only"
+	@echo "  make test-integration - Run integration tests"
+	@echo "  make test-e2e  - Run end-to-end tests"
+	@echo "  make test-fake - Run fake CLI tests (no API calls)"
+	@echo "  make test-real - Run real CLI tests (requires auth)"
+	@echo "  make test-cov  - Run tests with coverage report"
+	@echo "  make test-all  - Run all test suites sequentially"
+	@echo ""
+	@echo "🔧 DEVELOPMENT"
+	@echo "───────────────────────────────────────────────────────────────"
+	@echo "  make install   - Install dependencies"
+	@echo "  make dev       - Install dev dependencies"
+	@echo "  make lint      - Run linting"
+	@echo "  make format    - Format code"
+	@echo "  make type-check - Run type checking"
+	@echo "  make run-local - Run locally (no Docker)"
+	@echo ""
+	@echo "🔧 UTILITIES"
+	@echo "───────────────────────────────────────────────────────────────"
+	@echo "  make oauth     - Extract OAuth credentials"
+	@echo "  make env       - Edit .env file"
+	@echo "  make health    - Health check"
+	@echo "  make clean     - Cleanup everything"
+	@echo "  make rebuild   - Full rebuild (down + clean + build + up)"
+	@echo ""
 
-test: ## Run tests
-	uv run pytest tests/ -v
+# =============================================================================
+# 🚀 MAIN COMMANDS
+# =============================================================================
 
-test-cov: ## Run tests with coverage
-	uv run pytest tests/ -v --cov=. --cov-report=html --cov-report=term
+# 🎯 ONE COMMAND TO RULE THEM ALL
+start:
+	@echo ""
+	@echo "╔══════════════════════════════════════════════════════════════╗"
+	@echo "║        🚀 Starting Claude Code Agent System                  ║"
+	@echo "╚══════════════════════════════════════════════════════════════╝"
+	@echo ""
+	@# Prerequisites
+	@echo "📋 Checking prerequisites..."
+	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker required. Get it from https://docker.com"; exit 1; }
+	@command -v uv >/dev/null 2>&1 || { echo "❌ uv required. Install: curl -LsSf https://astral.sh/uv/install.sh | sh"; exit 1; }
+	@echo "✅ Prerequisites OK"
+	@echo ""
+	@# Environment
+	@test -f .env || { echo "📄 Creating .env..."; cp .env.example .env; }
+	@# OAuth (optional - will use API key if this fails)
+	@echo "🔑 Checking Claude CLI credentials..."
+	@test -d ~/.claude && echo "✅ Claude CLI configured" || echo "⚠️  Claude CLI not configured (will use API key if set in .env)"
+	@echo ""
+	@# Build & Start
+	@echo "🔨 Building containers..."
+	@docker-compose build --quiet
+	@echo "🚀 Starting services..."
+	@docker-compose up -d
+	@sleep 5
+	@echo ""
+	@echo "╔══════════════════════════════════════════════════════════════╗"
+	@echo "║        ✅ System Ready!                                      ║"
+	@echo "╠══════════════════════════════════════════════════════════════╣"
+	@echo "║  🔗 API:       http://localhost:8000                         ║"
+	@echo "║  📊 Dashboard: http://localhost:8000/dashboard               ║"
+	@echo "║  💚 Health:    http://localhost:8000/health                  ║"
+	@echo "║  🔌 WebSocket: ws://localhost:8000/ws                        ║"
+	@echo "╚══════════════════════════════════════════════════════════════╝"
+	@echo ""
+	@echo "  make logs    - View logs"`
+	@echo "  make health  - Check system health"
+	@echo "  make test    - Run tests"
+	@echo ""
 
-lint: ## Run linting
-	uv run ruff check .
+up:
+	@echo "🚀 Starting services..."
+	@docker-compose up -d
+	@sleep 3
+	@echo "✅ Running at http://localhost:8000"
 
-format: ## Format code
-	uv run ruff format .
+down:
+	@echo "🛑 Stopping services..."
+	@docker-compose down
+	@echo "✅ Stopped"
 
-type-check: ## Run type checking
-	uv run mypy .
+restart: down up
 
-clean: ## Clean build artifacts
-	find . -type d -name __pycache__ -exec rm -rf {} +
-	find . -type f -name "*.pyc" -delete
-	rm -rf .pytest_cache
-	rm -rf .coverage
-	rm -rf htmlcov
-	rm -rf .mypy_cache
+logs:
+	@docker-compose logs -f
 
-# Docker commands
-build: ## Build Docker containers
-	docker-compose build
+ps:
+	@docker-compose ps
 
-up: ## Start services
-	docker-compose up -d
+# =============================================================================
+# 🧪 TESTING
+# =============================================================================
 
-down: ## Stop services
-	docker-compose down
+test:
+	@echo "🧪 Running all tests..."
+	@uv run pytest tests/ -v
 
-logs: ## View logs
-	docker-compose logs -f
+test-unit:
+	@echo "🧪 Running unit tests..."
+	@uv run pytest tests/unit/ -v
 
-restart: ## Restart services
-	docker-compose restart
+test-integration:
+	@echo "🧪 Running integration tests..."
+	@uv run pytest tests/integration/ -v
 
-ps: ## Show running containers
-	docker-compose ps
+test-e2e:
+	@echo "🧪 Running end-to-end tests..."
+	@uv run pytest tests/e2e/ -v
 
-# Database commands
-db-shell: ## Open SQLite shell
-	docker-compose exec app sqlite3 /data/db/machine.db
+test-fake:
+	@echo "🧪 Running fake CLI tests (no API calls)..."
+	@uv run pytest tests/integration/ -v -m fake_cli
 
-redis-cli: ## Open Redis CLI
-	docker-compose exec redis redis-cli
+test-real:
+	@echo "🧪 Running real CLI tests (requires auth, makes API calls)..."
+	@uv run pytest tests/integration/ -v -m real_cli
 
-# Development
-run-local: ## Run locally (no Docker)
-	uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+test-cov:
+	@echo "🧪 Running tests with coverage..."
+	@uv run pytest tests/ -v --cov=. --cov-report=html --cov-report=term
+	@echo ""
+	@echo "📊 Coverage report generated: htmlcov/index.html"
 
-shell: ## Open shell in container
-	docker-compose exec app /bin/bash
+test-all:
+	@echo "🧪 Running complete test suite..."
+	@echo ""
+	@echo "1️⃣ Unit Tests"
+	@echo "───────────────────────────────────────────────────────────────"
+	@uv run pytest tests/unit/ -v || true
+	@echo ""
+	@echo "2️⃣ Integration Tests"
+	@echo "───────────────────────────────────────────────────────────────"
+	@uv run pytest tests/integration/ -v || true
+	@echo ""
+	@echo "3️⃣ End-to-End Tests"
+	@echo "───────────────────────────────────────────────────────────────"
+	@uv run pytest tests/e2e/ -v || true
+	@echo ""
+	@echo "✅ Test suite complete"
 
-# Initialization
-init: ## Initialize project (first time setup)
-	cp .env.example .env
-	uv sync
-	@echo "Project initialized! Edit .env and run 'make up'"
+# =============================================================================
+# 🔧 DEVELOPMENT
+# =============================================================================
+
+install:
+	@echo "📦 Installing dependencies..."
+	@uv sync
+	@echo "✅ Dependencies installed"
+
+dev:
+	@echo "📦 Installing dev dependencies..."
+	@uv sync --all-extras
+	@echo "✅ Dev dependencies installed"
+
+lint:
+	@echo "🔍 Running linter..."
+	@uv run ruff check .
+
+format:
+	@echo "✨ Formatting code..."
+	@uv run ruff format .
+
+type-check:
+	@echo "🔍 Running type checker..."
+	@uv run mypy .
+
+run-local:
+	@echo "🚀 Running locally (no Docker)..."
+	@uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# =============================================================================
+# 🔧 UTILITIES
+# =============================================================================
+
+oauth:
+	@echo "🔑 Checking Claude CLI OAuth..."
+	@test -d ~/.claude && echo "✅ Claude CLI configured at ~/.claude" || echo "❌ Run 'claude login' first"
+	@test -f ~/.claude/config.json && echo "✅ Config found" || echo "⚠️  No config.json"
+
+env:
+	@test -f .env || cp .env.example .env
+	@nano .env
+
+health:
+	@echo "💚 Checking system health..."
+	@curl -s http://localhost:8000/health | python3 -m json.tool || echo "❌ Service not responding"
+
+build:
+	@echo "🔨 Building Docker containers..."
+	@docker-compose build
+
+rebuild: down clean build up
+	@echo "✅ Rebuild complete"
+
+clean:
+	@echo "🧹 Cleaning up..."
+	@docker-compose down -v --remove-orphans 2>/dev/null || true
+	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	@rm -rf .pytest_cache 2>/dev/null || true
+	@rm -rf .coverage 2>/dev/null || true
+	@rm -rf htmlcov 2>/dev/null || true
+	@rm -rf .mypy_cache 2>/dev/null || true
+	@rm -rf .ruff_cache 2>/dev/null || true
+	@echo "✅ Cleaned"
+
+# =============================================================================
+# 🗄️ DATABASE COMMANDS
+# =============================================================================
+
+db-shell:
+	@docker-compose exec app sqlite3 /data/db/machine.db
+
+redis-cli:
+	@docker-compose exec redis redis-cli
+
+shell:
+	@docker-compose exec app /bin/bash
+
+# =============================================================================
+# 🎬 INITIALIZATION
+# =============================================================================
+
+init:
+	@echo "🎬 Initializing project..."
+	@test -f .env || cp .env.example .env
+	@uv sync
+	@echo ""
+	@echo "✅ Project initialized!"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Edit .env with your configuration"
+	@echo "  2. Run 'make start' to launch the system"
+	@echo ""

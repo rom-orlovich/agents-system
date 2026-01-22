@@ -1,7 +1,7 @@
 """WebSocket endpoint for real-time updates."""
 
 import json
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import structlog
 
 from shared import ChatMessage, TaskStopMessage, UserInputMessage
@@ -12,9 +12,9 @@ router = APIRouter()
 
 
 @router.websocket("/ws/{session_id}")
-async def websocket_endpoint(websocket: WebSocket, session_id: str, request: Request):
+async def websocket_endpoint(websocket: WebSocket, session_id: str):
     """WebSocket connection for real-time updates."""
-    ws_hub = request.app.state.ws_hub
+    ws_hub = websocket.app.state.ws_hub
 
     await ws_hub.connect(websocket, session_id)
 
