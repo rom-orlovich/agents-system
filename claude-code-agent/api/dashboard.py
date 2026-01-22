@@ -65,9 +65,9 @@ async def get_session(
 @router.get("/tasks")
 async def list_tasks(
     session: AsyncSession = Depends(get_session),
-    session_id: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
-    limit: int = Query(50)
+    session_id: Optional[str] = Query(default=None),
+    status: Optional[str] = Query(default=None),
+    limit: int = Query(default=50)
 ):
     """List tasks with optional filters."""
     query = select(TaskDB).order_by(TaskDB.created_at.desc()).limit(limit)
