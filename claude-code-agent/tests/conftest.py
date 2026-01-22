@@ -11,6 +11,22 @@ from core.database.models import Base
 from core.database import get_session
 from shared import Task, TaskStatus, AgentType
 
+# Import CLI testing fixtures
+from tests.fixtures.cli_fixtures import (
+    fake_claude_cli,
+    fake_cli_success,
+    fake_cli_error,
+    fake_cli_timeout,
+    fake_cli_auth_error,
+    fake_cli_malformed,
+    fake_cli_streaming,
+    real_claude_cli,
+    cli_test_workspace,
+    dry_run_mode,
+    pytest_configure,
+    pytest_collection_modifyitems,
+)
+
 
 @pytest.fixture(scope="session")
 def event_loop():
