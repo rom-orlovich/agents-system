@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #3b82f6;
+  --color-secondary: #60a5fa;
+  --color-cta: #f97316;
+  --color-background-app: #f8fafc;
+  --color-text-main: #1e293b;
+
+  /* Dark Mode Palette */
+  --color-dark-bg: #020617;
+  --color-dark-panel: rgba(15, 23, 42, 0.8);
+  --color-dark-border: rgba(51, 65, 85, 0.4);
+  --color-dark-text: #f1f5f9;
+
+  --font-heading: "Orbitron", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "Fira Code", monospace;
+
+  --animate-pulse-glow: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-blink: blink 1s step-end infinite;
+
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      opacity: 1;
+      filter: drop-shadow(0 0 5px var(--color-primary));
+    }
+    50% {
+      opacity: 0.7;
+      filter: drop-shadow(0 0 15px var(--color-primary));
+    }
+  }
+
+  @keyframes blink {
+    from,
+    to {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-background-app text-text-main font-body transition-colors duration-300;
+  }
+  .dark body {
+    @apply bg-dark-bg text-dark-text;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading uppercase tracking-wider;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply backdrop-blur-md bg-white/70 dark:bg-slate-900/70 border border-white/20 dark:border-slate-700/30 shadow-xl;
+  }
+
+  .panel {
+    @apply bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-dark-border shadow-sm p-4 relative transition-all duration-300 overflow-hidden;
+  }
+
+  .panel::before {
+    content: attr(data-label);
+    @apply absolute -top-3 left-4 bg-white dark:bg-slate-900 px-2 text-[10px] font-heading text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-dark-border;
+  }
+
+  .btn-primary {
+    @apply bg-cta text-white px-4 py-2 font-heading transition-all duration-200 hover:opacity-90 active:scale-95 cursor-pointer;
+  }
+
+  .monitoring-grid {
+    @apply fixed inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.08] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px];
+  }
+}

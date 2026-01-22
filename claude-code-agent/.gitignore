@@ -84,4 +84,5 @@ Thumbs.db
 
 # Claude CLI
 .claude_history
+/node_modules
 .agent

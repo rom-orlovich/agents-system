@@ -54,27 +54,32 @@ class ConversationManager {
             return;
         }
 
-        listContainer.innerHTML = this.conversations.map(conv => `
-            <div class="conversation-item ${conv.conversation_id === this.currentConversationId ? 'active' : ''}" 
-                 data-id="${conv.conversation_id}"
-                 onclick="conversationManager.selectConversation('${conv.conversation_id}')">
-                <div class="conversation-header">
-                    <span class="conversation-title">${this.escapeHtml(conv.title)}</span>
-                    <span class="conversation-count">${conv.message_count}</span>
+        listContainer.innerHTML = this.conversations.map(conv => {
+            const isActive = conv.conversation_id === this.currentConversationId;
+            return `
+                <div class="conversation-item ${isActive ? 'active' : ''}" 
+                     data-id="${conv.conversation_id}"
+                     onclick="conversationManager.selectConversation('${conv.conversation_id}')">
+                    <div class="conversation-body">
+                        <div class="conversation-header">
+                            <span class="conversation-title">${this.escapeHtml(conv.title)}</span>
+                            <span class="conversation-count">${conv.message_count}</span>
+                        </div>
+                        <div class="conversation-meta">
+                            <span class="conversation-date">${this.formatDate(conv.updated_at)}</span>
+                        </div>
+                    </div>
+                    <div class="conversation-actions">
+                        <button class="action-btn" onclick="event.stopPropagation(); conversationManager.renameConversation('${conv.conversation_id}')" title="Rename">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                        </button>
+                        <button class="action-btn delete" onclick="event.stopPropagation(); conversationManager.deleteConversation('${conv.conversation_id}')" title="Delete">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                        </button>
+                    </div>
                 </div>
-                <div class="conversation-meta">
-                    <span class="conversation-date">${this.formatDate(conv.updated_at)}</span>
-                </div>
-                <div class="conversation-actions">
-                    <button class="icon-btn" onclick="event.stopPropagation(); conversationManager.renameConversation('${conv.conversation_id}')" title="Rename">
-                        ✏️
-                    </button>
-                    <button class="icon-btn" onclick="event.stopPropagation(); conversationManager.deleteConversation('${conv.conversation_id}')" title="Delete">
-                        🗑️
-                    </button>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     async selectConversation(conversationId) {
@@ -130,7 +135,7 @@ class ConversationManager {
                         <span class="message-time">${this.formatTime(msg.created_at)}</span>
                     </div>
                     <div class="message-content">${this.formatMessageContent(msg.content)}</div>
-                    ${msg.task_id ? `<div class="message-task-link"><a href="#" onclick="app.showTaskDetails('${msg.task_id}'); return false;">View Task: ${msg.task_id}</a></div>` : ''}
+                    ${msg.task_id ? `<div class="message-task-link"><a href="#" onclick="app.viewTask('${msg.task_id}'); return false;">View Task: ${msg.task_id}</a></div>` : ''}
                 </div>
             `;
         }).join('');
@@ -153,7 +158,10 @@ class ConversationManager {
                 })
             });
 
-            if (!response.ok) throw new Error('Failed to create conversation');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || 'Failed to create conversation');
+            }
 
             const newConv = await response.json();
             this.conversations.unshift(newConv);
@@ -163,7 +171,7 @@ class ConversationManager {
             this.showSuccess('Conversation created successfully');
         } catch (error) {
             console.error('Error creating conversation:', error);
-            this.showError('Failed to create conversation');
+            this.showError(`Failed to create: ${error.message}`);
         }
     }
 
@@ -221,6 +229,8 @@ class ConversationManager {
                 } else {
                     this.disableChatInput();
                     document.getElementById('chat-messages').innerHTML = '<p class="welcome-message">No conversations. Create a new one to get started!</p>';
+                    const titleEl = document.getElementById('current-conversation-title');
+                    if (titleEl) titleEl.textContent = 'Select Channel';
                 }
             }
 
@@ -243,7 +253,10 @@ class ConversationManager {
                 method: 'POST'
             });
 
-            if (!response.ok) throw new Error('Failed to clear conversation');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || 'Failed to clear conversation');
+            }
 
             this.currentMessages = [];
             this.renderMessages();
@@ -255,10 +268,10 @@ class ConversationManager {
                 this.renderConversationList();
             }
 
-            this.showSuccess('Conversation history cleared');
+            this.showSuccess('History cleared');
         } catch (error) {
             console.error('Error clearing conversation:', error);
-            this.showError('Failed to clear conversation');
+            this.showError(`Clear failed: ${error.message}`);
         }
     }
 
