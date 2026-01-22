@@ -46,22 +46,32 @@ class Settings(BaseSettings):
 
     @property
     def agents_dir(self) -> Path:
-        """Directory containing sub-agents."""
+        """Directory containing BUILT-IN sub-agents (read-only from image)."""
         return self.app_dir / "agents"
 
     @property
+    def user_agents_dir(self) -> Path:
+        """Directory for USER-UPLOADED agents (persisted in /data volume)."""
+        return self.data_dir / "config" / "agents"
+
+    @property
     def skills_dir(self) -> Path:
-        """Directory containing brain skills."""
+        """Directory containing BUILT-IN brain skills (read-only from image)."""
         return self.app_dir / "skills"
 
     @property
+    def user_skills_dir(self) -> Path:
+        """Directory for USER-UPLOADED skills (persisted in /data volume)."""
+        return self.data_dir / "config" / "skills"
+
+    @property
     def credentials_path(self) -> Path:
-        """Path to credentials file."""
+        """Path to credentials file (persisted in /data volume)."""
         return self.data_dir / "credentials" / "claude.json"
 
     @property
     def registry_dir(self) -> Path:
-        """Directory containing registry files."""
+        """Directory containing registry files (persisted in /data volume)."""
         return self.data_dir / "registry"
 
 

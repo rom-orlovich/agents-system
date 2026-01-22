@@ -45,12 +45,14 @@ async def run_claude_cli(
         CLIResult with output, cost, and token counts
     """
 
-    # Build the command (matching POC implementation)
+    # Build the command (matching official Claude CLI documentation)
     cmd = [
         "claude",
+        "-p",                         # Print mode (headless) - NOT --print!
+        "--output-format", "json",    # JSON output for parsing
         "--dangerously-skip-permissions",  # Skip permission prompts
-        "--print",                    # Headless mode - no interactive UI
-        prompt,                       # The prompt/task (direct argument, no -p flag)
+        "--",                         # Separator between flags and prompt
+        prompt,                       # The prompt/task
     ]
 
     logger.info("Starting Claude CLI", task_id=task_id, working_dir=str(working_dir))
