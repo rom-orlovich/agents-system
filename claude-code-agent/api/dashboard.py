@@ -1,7 +1,7 @@
 """Dashboard API endpoints."""
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Annotated
 import uuid
 
 from fastapi import APIRouter, HTTPException, Depends, Request, Query
