@@ -10,7 +10,7 @@ import structlog
 
 from core.config import settings
 from core.database import get_session as get_db_session
-from core.database.models import TaskDB, SessionDB
+from core.database.models import TaskDB, SessionDB, WebhookEventDB
 from core.database.redis_client import redis_client
 from core.github_client import github_client
 from shared import TaskStatus, AgentType
@@ -70,25 +70,50 @@ async def github_webhook(
 
     Security: Verifies X-Hub-Signature-256 header against configured secret.
     """
+    import json
+    event_id = f"event-{uuid.uuid4().hex[:12]}"
+    
     try:
         payload = await request.json()
         event_type = request.headers.get("X-GitHub-Event", "unknown")
 
-        logger.info("github_webhook_received", event_type=event_type)
+        logger.info("github_webhook_received", event_type=event_type, event_id=event_id)
+
+        # Log webhook event
+        webhook_event = WebhookEventDB(
+            event_id=event_id,
+            webhook_id="github",
+            provider="github",
+            event_type=event_type,
+            payload_json=json.dumps(payload),
+            response_sent=False,
+        )
+        db.add(webhook_event)
+        await db.commit()
 
         # Handle different event types
+        result = None
         if event_type == "issue_comment":
-            return await handle_issue_comment(payload, db)
+            result = await handle_issue_comment(payload, db)
         elif event_type == "pull_request":
-            return await handle_pull_request(payload, db)
+            result = await handle_pull_request(payload, db)
         elif event_type == "issues":
-            return await handle_issue(payload, db)
+            result = await handle_issue(payload, db)
         else:
             logger.info("unhandled_github_event", event_type=event_type)
-            return {"status": "ignored", "event": event_type}
+            result = {"status": "ignored", "event": event_type}
+        
+        # Update event with task_id if created
+        if result and result.get("task_id"):
+            webhook_event.task_id = result["task_id"]
+            webhook_event.matched_command = "auto"
+            webhook_event.response_sent = True
+            await db.commit()
+        
+        return result
 
     except Exception as e:
-        logger.error("github_webhook_error", error_message=str(e))
+        logger.error("github_webhook_error", error_message=str(e), event_id=event_id)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -348,16 +373,120 @@ async def handle_issue(payload: dict, db: AsyncSession):
 
 
 @router.post("/jira")
-async def jira_webhook(request: Request):
+async def jira_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db_session)
+):
     """Handle Jira webhooks."""
-    payload = await request.json()
-    logger.info("jira_webhook_received", webhook_event=payload.get("webhookEvent"))
-    return {"status": "received"}
+    import json
+    event_id = f"event-{uuid.uuid4().hex[:12]}"
+    
+    try:
+        payload = await request.json()
+        webhook_event = payload.get("webhookEvent", "unknown")
+        
+        logger.info("jira_webhook_received", webhook_event=webhook_event, event_id=event_id)
+        
+        # Log webhook event
+        event_log = WebhookEventDB(
+            event_id=event_id,
+            webhook_id="jira",
+            provider="jira",
+            event_type=webhook_event,
+            payload_json=json.dumps(payload),
+            response_sent=False,
+        )
+        db.add(event_log)
+        await db.commit()
+        
+        # Handle issue events
+        if webhook_event in ["jira:issue_created", "jira:issue_updated"]:
+            issue = payload.get("issue", {})
+            issue_key = issue.get("key")
+            issue_summary = issue.get("fields", {}).get("summary", "")
+            issue_description = issue.get("fields", {}).get("description", "")
+            
+            # Create task for planning agent
+            task_id = f"task-{uuid.uuid4().hex[:12]}"
+            
+            # Create webhook session
+            webhook_session_id = f"webhook-{uuid.uuid4().hex[:12]}"
+            session_db = SessionDB(
+                session_id=webhook_session_id,
+                user_id="jira-webhook",
+                machine_id="claude-agent-001",
+                connected_at=datetime.utcnow(),
+            )
+            db.add(session_db)
+            
+            # Create task
+            task_db = TaskDB(
+                task_id=task_id,
+                session_id=webhook_session_id,
+                user_id="jira-webhook",
+                assigned_agent="planning",
+                agent_type=AgentType.PLANNING,
+                status=TaskStatus.QUEUED,
+                input_message=f"Jira Issue {issue_key}: {issue_summary}\n\n{issue_description}",
+                source="webhook",
+                source_metadata=str({
+                    "provider": "jira",
+                    "event": webhook_event,
+                    "issue_key": issue_key,
+                }),
+            )
+            db.add(task_db)
+            await db.commit()
+            
+            # Push to queue
+            await redis_client.push_task(task_id)
+            
+            # Update event log
+            event_log.task_id = task_id
+            event_log.matched_command = "auto"
+            event_log.response_sent = True
+            await db.commit()
+            
+            logger.info("task_created_from_jira", task_id=task_id, issue_key=issue_key)
+            
+            return {"status": "task_created", "task_id": task_id}
+        
+        return {"status": "received"}
+        
+    except Exception as e:
+        logger.error("jira_webhook_error", error_message=str(e), event_id=event_id)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/sentry")
-async def sentry_webhook(request: Request):
+async def sentry_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db_session)
+):
     """Handle Sentry webhooks."""
-    payload = await request.json()
-    logger.info("sentry_webhook_received")
-    return {"status": "received"}
+    import json
+    event_id = f"event-{uuid.uuid4().hex[:12]}"
+    
+    try:
+        payload = await request.json()
+        action = payload.get("action", "unknown")
+        
+        logger.info("sentry_webhook_received", action=action, event_id=event_id)
+        
+        # Log webhook event
+        event_log = WebhookEventDB(
+            event_id=event_id,
+            webhook_id="sentry",
+            provider="sentry",
+            event_type=action,
+            payload_json=json.dumps(payload),
+            response_sent=False,
+        )
+        db.add(event_log)
+        await db.commit()
+        
+        return {"status": "received"}
+        
+    except Exception as e:
+        logger.error("sentry_webhook_error", error_message=str(e), event_id=event_id)
+        raise HTTPException(status_code=500, detail=str(e))

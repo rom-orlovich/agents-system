@@ -127,3 +127,35 @@ class WebhookEventDB(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     webhook = relationship("WebhookConfigDB", back_populates="events")
+
+
+class ConversationDB(Base):
+    """Conversation database model for managing chat history."""
+    __tablename__ = "conversations"
+    
+    conversation_id = Column(String(255), primary_key=True)
+    user_id = Column(String(255), nullable=False, index=True)
+    title = Column(String(500), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    is_archived = Column(Boolean, default=False, nullable=False)
+    metadata_json = Column(Text, default="{}", nullable=False)  # JSON for additional metadata
+    
+    # Relationships
+    messages = relationship("ConversationMessageDB", back_populates="conversation", cascade="all, delete-orphan", order_by="ConversationMessageDB.created_at")
+
+
+class ConversationMessageDB(Base):
+    """Conversation message database model."""
+    __tablename__ = "conversation_messages"
+    
+    message_id = Column(String(255), primary_key=True)
+    conversation_id = Column(String(255), ForeignKey("conversations.conversation_id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String(50), nullable=False)  # user, assistant, system
+    content = Column(Text, nullable=False)
+    task_id = Column(String(255), nullable=True)  # Link to task if this message created a task
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    metadata_json = Column(Text, default="{}", nullable=False)  # JSON for tokens, cost, etc.
+    
+    # Relationships
+    conversation = relationship("ConversationDB", back_populates="messages")

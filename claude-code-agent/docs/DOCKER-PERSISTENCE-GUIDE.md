@@ -116,9 +116,11 @@ def _get_agent_dir(self, agent_name: str | None) -> Path:
         return user_agent_dir  # ✅ WILL PERSIST
 
     # Priority 2: Check built-in agents (from image)
-    builtin_agent_dir = settings.agents_dir / agent_name  # /app/agents/planning
+    # Note: Sub-agents are now defined in .claude/agents/ as .md files
+    # Claude Code handles sub-agent invocation natively
+    builtin_agent_dir = settings.agents_dir / agent_name  # Legacy support
     if builtin_agent_dir.exists():
-        return builtin_agent_dir  # ❌ READ-ONLY
+        return builtin_agent_dir  # ❌ READ-ONLY (deprecated)
 
     # Priority 3: Default to brain
     return settings.app_dir  # /app

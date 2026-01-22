@@ -65,7 +65,31 @@ async def get_credential_status() -> CredentialStatusResponse:
             cli_available=False,
         )
     
-    # 2. Check if credentials file exists
+    # 2. Try to check if CLI can actually connect (test auth)
+    try:
+        auth_check = subprocess.run(
+            ["claude", "auth", "status"],
+            capture_output=True,
+            timeout=5,
+            text=True
+        )
+        
+        # If auth status succeeds, CLI is connected
+        if auth_check.returncode == 0:
+            # Parse output to get account info
+            output = auth_check.stdout
+            # CLI is authenticated, return valid status
+            return CredentialStatusResponse(
+                status=CredentialStatus.VALID,
+                message="Claude CLI is authenticated and ready",
+                cli_available=True,
+                cli_version=cli_version,
+                account_email="Connected via CLI",  # CLI doesn't expose email easily
+            )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    
+    # 3. Check if credentials file exists (fallback)
     creds_path = settings.credentials_path
     if not creds_path.exists():
         return CredentialStatusResponse(
@@ -75,7 +99,7 @@ async def get_credential_status() -> CredentialStatusResponse:
             cli_version=cli_version,
         )
     
-    # 3. Parse and validate credentials
+    # 4. Parse and validate credentials file
     try:
         creds_data = json.loads(creds_path.read_text())
         creds = ClaudeCredentials(**creds_data)

@@ -79,10 +79,12 @@ User: "Show me all webhook events"
 ### **Directory Structure**
 
 ```
-agents/orchestration/
-├── .claude/
-│   └── CLAUDE.md           # Agent instructions
-└── skills/
+.claude/agents/
+├── orchestration.md        # Orchestration sub-agent definition
+├── planning.md             # Planning sub-agent definition
+└── executor.md             # Executor sub-agent definition
+
+agents/orchestration/skills/
     ├── webhook-management/
     │   ├── SKILL.md
     │   └── scripts/
@@ -103,7 +105,7 @@ agents/orchestration/
             └── query_events.py
 ```
 
-### **File: `agents/orchestration/.claude/CLAUDE.md`**
+### **File: `.claude/agents/orchestration.md`**
 
 ```markdown
 # Orchestration Agent
@@ -418,9 +420,9 @@ Results aggregated and reported
 ## Implementation Checklist
 
 ### **Phase 1: Create Orchestration Agent**
-- [ ] Create `agents/orchestration/.claude/CLAUDE.md`
-- [ ] Define orchestration responsibilities
-- [ ] Document available skills
+- [x] Create `.claude/agents/orchestration.md`
+- [x] Define orchestration responsibilities
+- [x] Document available skills
 
 ### **Phase 2: Create Skills**
 - [ ] webhook-management skill

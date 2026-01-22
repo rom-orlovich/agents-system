@@ -29,8 +29,7 @@ A self-managing machine where FastAPI runs as a daemon and Claude Code CLI is sp
 │   ┌─────────────────────────────────────────────────────┐    │
 │   │     Claude Code CLI (ON-DEMAND - spawn per task)    │    │
 │   │   • Brain: /app/                                     │    │
-│   │   • Planning: /app/agents/planning/                 │    │
-│   │   • Executor: /app/agents/executor/                 │    │
+│   │   • Agents: .claude/agents/*.md                      │    │
 │   └─────────────────────────────────────────────────────┘    │
 │                                                               │
 └──────────────────────────────────────────────────────────────┘
@@ -39,9 +38,9 @@ A self-managing machine where FastAPI runs as a daemon and Claude Code CLI is sp
 ## Features
 
 - 🧠 **Brain Orchestrator**: Main Claude CLI instance that manages sub-agents
+- 💬 **Persistent Conversations**: Inbox-style UI with context awareness
+- 📡 **Unified Webhooks**: Fully configurable GitHub, Jira, Slack integration
 - 🔄 **Dynamic Sub-Agents**: Planning and Executor agents spawned on-demand
-- 📡 **Webhook Integration**: GitHub, Jira, Sentry webhook support
-- 💬 **Conversational Dashboard**: Real-time WebSocket-based UI
 - 📊 **Cost Tracking**: Per-task and per-session cost monitoring
 - 🗄️ **Dual Storage**: Redis (queue/cache) + SQLite (persistence)
 - 🔌 **Extensible**: Create webhooks, agents, and skills dynamically
@@ -52,6 +51,7 @@ A self-managing machine where FastAPI runs as a daemon and Claude Code CLI is sp
 
 - Docker & Docker Compose
 - Git
+- `uv` package manager (recommended for local development)
 
 ### Installation
 
@@ -122,24 +122,18 @@ make restart
 
 ```
 claude-code-agent/
-├── .claude/                    # Brain CLAUDE.md
-├── agents/                     # Sub-agents
-│   ├── planning/               # Planning agent
-│   │   ├── .claude/CLAUDE.md
-│   │   └── skills/
-│   └── executor/               # Executor agent
-│       ├── .claude/CLAUDE.md
-│       └── skills/
+├── .claude/                    # Brain instructions
+│   └── agents/                 # Sub-agent definitions (.md)
 ├── api/                        # FastAPI routes
 │   ├── dashboard.py            # Dashboard API
+│   ├── conversations.py        # Conversation management
 │   ├── websocket.py            # WebSocket endpoint
 │   └── webhooks.py             # Webhook handlers
 ├── core/                       # Core logic
 │   ├── config.py               # Configuration
 │   ├── cli_runner.py           # Claude CLI executor
-│   ├── background_manager.py   # Task manager
+│   ├── webhook_engine.py       # Webhook processing logic
 │   ├── websocket_hub.py        # WebSocket manager
-│   ├── registry.py             # Registry pattern
 │   └── database/               # Database layer
 ├── shared/                     # Shared models
 │   └── machine_models.py       # Pydantic models
@@ -147,22 +141,13 @@ claude-code-agent/
 │   └── task_worker.py          # Task processor
 ├── services/                   # Services
 │   └── dashboard/              # Dashboard frontend
-│       └── static/             # HTML/CSS/JS
 ├── skills/                     # Brain skills
 ├── tests/                      # Test suite
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/
-├── data/                       # Persistent data
-│   ├── db/                     # SQLite database
-│   ├── config/                 # Configurations
-│   ├── credentials/            # Auth credentials
-│   └── registry/               # Entity registry
+├── data/                       # Persistent data (mapped to /data)
 ├── main.py                     # Application entry
 ├── pyproject.toml              # Dependencies
 ├── Dockerfile                  # Container image
-├── docker-compose.yml          # Multi-container setup
-└── Makefile                    # Convenience commands
+└── docker-compose.yml          # Multi-container setup
 ```
 
 ## Core Components
@@ -183,13 +168,13 @@ The Brain is the main Claude CLI instance that:
 - Analyzes bugs and issues
 - Creates fix plans (PLAN.md)
 - Does NOT implement code
-- **Location**: `/app/agents/planning/`
+- **Location**: `.claude/agents/planning.md`
 
 #### Executor Agent
 - Implements code changes
 - Runs tests and builds
 - Creates pull requests
-- **Location**: `/app/agents/executor/`
+- **Location**: `.claude/agents/executor.md`
 
 ### 3. Task Worker
 

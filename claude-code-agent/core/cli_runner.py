@@ -96,7 +96,7 @@ async def run_claude_cli(
 
     try:
         # Stream stdout in real-time
-        async def read_stream():
+        async def read_stdout():
             nonlocal cost_usd, input_tokens, output_tokens
 
             if not process.stdout:
@@ -136,8 +136,26 @@ async def run_claude_cli(
                     accumulated_output.append(line_str)
                     await output_queue.put(line_str)
 
-        # Run with timeout
-        await asyncio.wait_for(read_stream(), timeout=timeout_seconds)
+        # Stream stderr (subagent logs, diagnostics)
+        async def read_stderr():
+            if not process.stderr:
+                return
+
+            async for line in process.stderr:
+                line_str = line.decode().strip()
+                if not line_str:
+                    continue
+
+                # Prefix stderr with [LOG] for visibility
+                log_line = f"[LOG] {line_str}"
+                accumulated_output.append(log_line + "\n")
+                await output_queue.put(log_line + "\n")
+
+        # Run both streams concurrently with timeout
+        await asyncio.wait_for(
+            asyncio.gather(read_stdout(), read_stderr()),
+            timeout=timeout_seconds
+        )
         await process.wait()
 
         # Signal end of stream

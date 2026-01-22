@@ -236,20 +236,32 @@ async def list_agents() -> List[AgentInfo]:
     """List all available agents (builtin + user)."""
     agents = []
     
-    # Builtin agents
-    builtin_agents_dir = Path("/app/agents")
+    # Builtin sub-agents from .claude/agents/*.md
+    builtin_agents_dir = settings.agents_dir
     if builtin_agents_dir.exists():
-        for agent_dir in builtin_agents_dir.iterdir():
-            if agent_dir.is_dir() and (agent_dir / ".claude").exists():
-                claude_dir = agent_dir / ".claude"
-                description = _extract_agent_description(claude_dir)
+        for agent_file in builtin_agents_dir.glob("*.md"):
+            # Extract description from frontmatter
+            try:
+                content = agent_file.read_text()
+                description = ""
+                if content.startswith("---"):
+                    parts = content.split("---", 2)
+                    if len(parts) >= 3:
+                        frontmatter = parts[1]
+                        for line in frontmatter.split("\n"):
+                            if line.startswith("description:"):
+                                description = line.split(":", 1)[1].strip()
+                                break
+                
                 agents.append(AgentInfo(
-                    name=agent_dir.name,
-                    agent_type=agent_dir.name,
-                    description=description,
+                    name=agent_file.stem,
+                    agent_type=agent_file.stem,
+                    description=description or f"{agent_file.stem} sub-agent",
                     is_builtin=True,
-                    path=str(agent_dir),
+                    path=str(agent_file),
                 ))
+            except Exception:
+                pass
     
     # User agents
     user_agents_dir = settings.user_agents_dir
