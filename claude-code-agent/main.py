@@ -15,7 +15,7 @@ from core import (
 )
 from core.database import init_db
 from core.database.redis_client import redis_client
-from api import dashboard, websocket, webhooks, credentials, analytics, registry
+from api import dashboard, websocket, webhooks, webhooks_management, webhooks_dynamic, credentials, analytics, registry
 from workers.task_worker import TaskWorker
 
 # Setup logging
@@ -83,7 +83,9 @@ app.include_router(dashboard.router, prefix="/api", tags=["dashboard"])
 app.include_router(credentials.router, prefix="/api", tags=["credentials"])
 app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(registry.router, prefix="/api", tags=["registry"])
+app.include_router(webhooks_management.router, prefix="/api", tags=["webhook-management"])
 app.include_router(websocket.router, tags=["websocket"])
+app.include_router(webhooks_dynamic.router, prefix="/webhooks", tags=["webhooks-dynamic"])
 app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
 
 # Serve static files (dashboard frontend)

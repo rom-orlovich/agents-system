@@ -221,25 +221,66 @@ POST   /api/webhooks/{id}/respond   - Send response
 
 ## Brain Agent Capabilities
 
-The Brain can autonomously create webhooks by:
+### **Full Autonomous Webhook Management**
 
-1. **Creating webhook config files** in `/data/config/webhooks/`
-2. **Using the API** to register webhooks
-3. **Writing command mappings** based on requirements
+The Brain agent has **complete control** over webhook lifecycle:
 
-### **Example: Brain Creates Webhook**
-
-User asks:
+#### **1. Create Webhooks**
 ```
-Create a webhook for GitHub that automatically creates planning tasks 
-when issues are labeled "urgent"
+User: "Create a webhook for GitHub that creates planning tasks when issues are labeled urgent"
+
+Brain:
+1. Calls POST /api/webhooks with configuration
+2. Writes backup to /data/config/webhooks/github-urgent-issues.json
+3. Returns webhook endpoint URL to user
 ```
 
-Brain executes:
+#### **2. Modify Webhooks**
+```
+User: "Update the GitHub webhook to also handle pull requests"
+
+Brain:
+1. Calls GET /api/webhooks to find webhook
+2. Calls PUT /api/webhooks/{id} to add PR command
+3. Updates config file
+```
+
+#### **3. Delete Webhooks**
+```
+User: "Remove the Slack webhook, we don't use it anymore"
+
+Brain:
+1. Calls GET /api/webhooks to find Slack webhook
+2. Calls DELETE /api/webhooks/{id}
+3. Removes config file
+```
+
+#### **4. Manage Commands**
+```
+User: "Add a command to the Jira webhook to ask me before creating tasks"
+
+Brain:
+1. Calls POST /api/webhooks/{id}/commands
+2. Adds command with action="ask"
+3. Updates config
+```
+
+#### **5. Monitor Webhooks**
+```
+User: "Show me all webhook events from today"
+
+Brain:
+1. Calls GET /api/webhooks/events?date=today
+2. Analyzes event logs
+3. Reports activity summary
+```
+
+### **Brain Webhook Creation Methods**
+
+**Method 1: Direct API Call (Preferred)**
 ```python
-# Brain uses Write tool to create:
-/data/config/webhooks/github-urgent-issues.json
-
+# Brain calls API endpoint
+POST /api/webhooks
 {
   "name": "GitHub Urgent Issues",
   "provider": "github",
@@ -254,9 +295,29 @@ Brain executes:
 }
 ```
 
-Then calls API:
-```bash
-POST /api/webhooks
+**Method 2: Config File + API Registration**
+```python
+# 1. Brain uses Write tool to create config
+/data/config/webhooks/github-urgent-issues.json
+
+# 2. Brain calls API to register
+POST /api/webhooks/import
+{
+  "config_path": "/data/config/webhooks/github-urgent-issues.json"
+}
+```
+
+**Method 3: Fully Autonomous**
+```
+User: "Set up webhooks for our entire GitHub organization"
+
+Brain autonomously:
+1. Analyzes organization structure
+2. Creates multiple webhooks (issues, PRs, releases)
+3. Configures command mappings
+4. Sets up notification rules
+5. Tests each webhook
+6. Reports completion with endpoint URLs
 ```
 
 ---

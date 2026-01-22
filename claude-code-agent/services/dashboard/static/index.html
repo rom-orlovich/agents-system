@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Claude Machine Dashboard</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/webhooks.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -13,8 +14,6 @@
         <header class="header">
             <h1>🤖 Claude Machine Dashboard</h1>
             <div class="header-actions">
-                <button id="credentials-btn" class="header-btn" onclick="app.showCredentials()">🔑 Credentials</button>
-                <button id="registry-btn" class="header-btn" onclick="app.showRegistry()">📦 Registry</button>
                 <div class="user-info">
                     <span id="machine-status" class="status-badge">●</span>
                     <span id="machine-id">claude-agent-001</span>
@@ -22,16 +21,44 @@
             </div>
         </header>
 
-        <!-- Navigation Tabs -->
-        <nav class="nav-tabs">
-            <button class="tab-btn active" data-tab="overview" onclick="app.switchTab('overview')">Overview</button>
-            <button class="tab-btn" data-tab="analytics" onclick="app.switchTab('analytics')">Analytics</button>
-            <button class="tab-btn" data-tab="tasks" onclick="app.switchTab('tasks')">Task History</button>
-            <button class="tab-btn" data-tab="chat" onclick="app.switchTab('chat')">Chat</button>
-        </nav>
+        <div class="dashboard-container">
+            <!-- Side Menu -->
+            <aside class="side-menu">
+                <nav class="side-nav">
+                    <button class="tab-btn active" data-tab="overview" onclick="app.switchTab('overview')">
+                        <span class="icon">📊</span> Overview
+                    </button>
+                    <button class="tab-btn" data-tab="analytics" onclick="app.switchTab('analytics')">
+                        <span class="icon">📈</span> Analytics
+                    </button>
+                    <button class="tab-btn" data-tab="tasks" onclick="app.switchTab('tasks')">
+                        <span class="icon">📋</span> Task History
+                    </button>
+                    <button class="tab-btn" data-tab="webhooks" onclick="app.switchTab('webhooks')">
+                        <span class="icon">📡</span> Webhooks
+                    </button>
+                    <button class="tab-btn" data-tab="chat" onclick="app.switchTab('chat')">
+                        <span class="icon">💬</span> Chat
+                    </button>
+                </nav>
+                
+                <div class="side-menu-divider"></div>
+                
+                <div class="side-menu-actions">
+                    <button class="side-menu-btn" onclick="app.showWebhookCreate()">
+                        <span class="icon">➕</span> Create Webhook
+                    </button>
+                    <button class="side-menu-btn" onclick="app.showCredentials()">
+                        <span class="icon">🔑</span> Credentials
+                    </button>
+                    <button class="side-menu-btn" onclick="app.showRegistry()">
+                        <span class="icon">📦</span> Registry
+                    </button>
+                </div>
+            </aside>
 
-        <!-- Main Content -->
-        <main class="main-content">
+            <!-- Main Content -->
+            <main class="main-content">
             <!-- Overview Tab -->
             <div id="tab-overview" class="tab-content active">
                 <!-- Status Panel -->
@@ -140,6 +167,16 @@
                 </section>
             </div>
 
+            <!-- Webhooks Tab -->
+            <div id="tab-webhooks" class="tab-content">
+                <section class="panel webhooks-panel">
+                    <h2>Webhooks</h2>
+                    <div id="webhooks-list" class="webhooks-list">
+                        <p class="empty-state">No webhooks registered. Use "Create Webhook" from the side menu to get started.</p>
+                    </div>
+                </section>
+            </div>
+
             <!-- Chat Tab -->
             <div id="tab-chat" class="tab-content">
                 <section class="panel chat-panel">
@@ -154,6 +191,7 @@
                 </section>
             </div>
         </main>
+        </div>
     </div>
 
     <!-- Credentials Modal -->
@@ -237,6 +275,47 @@
                     <small>Select the agent folder or individual files</small>
                 </div>
                 <button type="submit" class="upload-btn">Upload Agent</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Webhook Create Modal -->
+    <div id="webhook-create-modal" class="modal hidden">
+        <div class="modal-content large">
+            <span class="close" onclick="app.hideWebhookCreate()">&times;</span>
+            <h2>Create Webhook</h2>
+            <form id="webhook-create-form">
+                <div class="form-group">
+                    <label>Webhook Name:</label>
+                    <input type="text" id="webhook-name" required placeholder="GitHub Issues Tracker">
+                </div>
+                <div class="form-group">
+                    <label>Provider:</label>
+                    <select id="webhook-provider" required>
+                        <option value="github">GitHub</option>
+                        <option value="jira">Jira</option>
+                        <option value="slack">Slack</option>
+                        <option value="sentry">Sentry</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Secret (optional):</label>
+                    <input type="password" id="webhook-secret" placeholder="Webhook secret for signature verification">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="webhook-enabled" checked>
+                        Enabled
+                    </label>
+                </div>
+                <h3>Commands</h3>
+                <div id="webhook-commands-list"></div>
+                <button type="button" onclick="app.addWebhookCommand()" class="add-btn">+ Add Command</button>
+                <div class="form-actions">
+                    <button type="submit" class="create-btn">Create Webhook</button>
+                    <button type="button" onclick="app.hideWebhookCreate()" class="cancel-btn">Cancel</button>
+                </div>
             </form>
         </div>
     </div>

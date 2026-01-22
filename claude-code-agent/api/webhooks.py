@@ -12,11 +12,22 @@ from core.config import settings
 from core.database import get_session as get_db_session
 from core.database.models import TaskDB, SessionDB
 from core.database.redis_client import redis_client
+from core.github_client import github_client
 from shared import TaskStatus, AgentType
 
 logger = structlog.get_logger()
 
 router = APIRouter()
+
+
+def extract_repo_info(payload: dict) -> tuple[str, str]:
+    """Extract repository owner and name from GitHub payload."""
+    repo = payload.get("repository", {})
+    full_name = repo.get("full_name", "")
+    if "/" in full_name:
+        owner, name = full_name.split("/", 1)
+        return owner, name
+    return "", ""
 
 
 async def verify_github_signature(request: Request, x_hub_signature_256: str | None = Header(None)):
@@ -86,8 +97,12 @@ async def handle_issue_comment(payload: dict, db: AsyncSession):
     action = payload.get("action")
     comment = payload.get("comment", {})
     issue = payload.get("issue", {})
-
     comment_body = comment.get("body", "")
+    comment_id = comment.get("id")
+    issue_number = issue.get("number")
+
+    # Extract repo info
+    repo_owner, repo_name = extract_repo_info(payload)
 
     # Check for @agent command
     if "@agent" in comment_body:
@@ -112,13 +127,15 @@ async def handle_issue_comment(payload: dict, db: AsyncSession):
             assigned_agent="planning",
             agent_type=AgentType.PLANNING,
             status=TaskStatus.QUEUED,
-            input_message=f"GitHub Issue #{issue.get('number')}: {comment_body}",
+            input_message=f"GitHub Issue #{issue_number}: {comment_body}",
             source="webhook",
             source_metadata=str({
                 "provider": "github",
                 "event": "issue_comment",
-                "issue_number": issue.get("number"),
-                "comment_id": comment.get("id"),
+                "issue_number": issue_number,
+                "comment_id": comment_id,
+                "repo_owner": repo_owner,
+                "repo_name": repo_name,
             }),
         )
         db.add(task_db)
@@ -129,6 +146,34 @@ async def handle_issue_comment(payload: dict, db: AsyncSession):
 
         logger.info("task_created_from_github_comment", task_id=task_id)
 
+        # Post acknowledgment comment back to GitHub
+        try:
+            if repo_owner and repo_name:
+                # Add reaction to original comment
+                await github_client.add_reaction(
+                    repo_owner,
+                    repo_name,
+                    comment_id,
+                    "eyes"
+                )
+                
+                # Post acknowledgment comment
+                ack_message = (
+                    f"👋 I've received your request and created task `{task_id}`.\n\n"
+                    f"I'll analyze this and get back to you shortly!"
+                )
+                await github_client.post_issue_comment(
+                    repo_owner,
+                    repo_name,
+                    issue_number,
+                    ack_message
+                )
+                
+                logger.info("github_acknowledgment_posted", task_id=task_id)
+        except Exception as e:
+            logger.error("failed_to_post_github_comment", error=str(e))
+            # Don't fail the webhook if comment posting fails
+
         return {"status": "task_created", "task_id": task_id}
 
     return {"status": "no_action"}
@@ -138,14 +183,82 @@ async def handle_pull_request(payload: dict, db: AsyncSession):
     """Handle pull request event."""
     action = payload.get("action")
     pr = payload.get("pull_request", {})
+    pr_number = pr.get("number")
+    pr_title = pr.get("title")
+    pr_body = pr.get("body", "")
+
+    # Extract repo info
+    repo_owner, repo_name = extract_repo_info(payload)
 
     logger.info(
         "pull_request_event_received",
         action=action,
-        pr_number=pr.get("number")
+        pr_number=pr_number
     )
 
-    # TODO: Implement PR handling logic
+    # Handle PR opened event
+    if action == "opened":
+        task_id = f"task-{uuid.uuid4().hex[:12]}"
+
+        # Create webhook session
+        webhook_session_id = f"webhook-{uuid.uuid4().hex[:12]}"
+        session_db = SessionDB(
+            session_id=webhook_session_id,
+            user_id="github-webhook",
+            machine_id="claude-agent-001",
+            connected_at=datetime.utcnow(),
+        )
+        db.add(session_db)
+
+        # Create task for executor agent to review PR
+        task_db = TaskDB(
+            task_id=task_id,
+            session_id=webhook_session_id,
+            user_id="github-webhook",
+            assigned_agent="executor",
+            agent_type=AgentType.EXECUTOR,
+            status=TaskStatus.QUEUED,
+            input_message=f"Review PR: {pr_title}\n\n{pr_body}",
+            source="webhook",
+            source_metadata=str({
+                "provider": "github",
+                "event": "pull_request",
+                "action": "opened",
+                "pr_number": pr_number,
+                "repo_owner": repo_owner,
+                "repo_name": repo_name,
+            }),
+        )
+        db.add(task_db)
+        await db.commit()
+
+        # Push to queue
+        await redis_client.push_task(task_id)
+
+        logger.info("task_created_from_pr", task_id=task_id)
+
+        # Post acknowledgment comment
+        try:
+            if repo_owner and repo_name:
+                ack_message = (
+                    f"🔍 **PR Review Started**\n\n"
+                    f"I've created task `{task_id}` to review this pull request.\n\n"
+                    f"I'll analyze the changes and provide feedback. "
+                    f"Mention me with `@agent` for specific questions!"
+                )
+                await github_client.post_pr_comment(
+                    repo_owner,
+                    repo_name,
+                    pr_number,
+                    ack_message
+                )
+                
+                logger.info("github_pr_acknowledged", task_id=task_id)
+        except Exception as e:
+            logger.error("failed_to_acknowledge_pr", error=str(e))
+
+        return {"status": "task_created", "task_id": task_id}
+
     return {"status": "received", "action": action}
 
 
@@ -153,6 +266,12 @@ async def handle_issue(payload: dict, db: AsyncSession):
     """Handle issue event."""
     action = payload.get("action")
     issue = payload.get("issue", {})
+    issue_number = issue.get("number")
+    issue_title = issue.get("title")
+    issue_body = issue.get("body", "")
+
+    # Extract repo info
+    repo_owner, repo_name = extract_repo_info(payload)
 
     # Auto-create planning task for new issues
     if action == "opened":
@@ -176,13 +295,15 @@ async def handle_issue(payload: dict, db: AsyncSession):
             assigned_agent="planning",
             agent_type=AgentType.PLANNING,
             status=TaskStatus.QUEUED,
-            input_message=f"Analyze issue: {issue.get('title')}\n\n{issue.get('body', '')}",
+            input_message=f"Analyze issue: {issue_title}\n\n{issue_body}",
             source="webhook",
             source_metadata=str({
                 "provider": "github",
                 "event": "issues",
                 "action": "opened",
-                "issue_number": issue.get("number"),
+                "issue_number": issue_number,
+                "repo_owner": repo_owner,
+                "repo_name": repo_name,
             }),
         )
         db.add(task_db)
@@ -192,6 +313,34 @@ async def handle_issue(payload: dict, db: AsyncSession):
         await redis_client.push_task(task_id)
 
         logger.info("task_created_from_github_issue", task_id=task_id)
+
+        # Post acknowledgment comment
+        try:
+            if repo_owner and repo_name:
+                ack_message = (
+                    f"🤖 **Automated Analysis Started**\n\n"
+                    f"I've created task `{task_id}` to analyze this issue.\n\n"
+                    f"I'll review the details and provide insights shortly. "
+                    f"Feel free to mention me with `@agent` if you have specific questions!"
+                )
+                await github_client.post_issue_comment(
+                    repo_owner,
+                    repo_name,
+                    issue_number,
+                    ack_message
+                )
+                
+                # Add label to track bot-processed issues
+                await github_client.update_issue_labels(
+                    repo_owner,
+                    repo_name,
+                    issue_number,
+                    ["bot-processing"]
+                )
+                
+                logger.info("github_issue_acknowledged", task_id=task_id)
+        except Exception as e:
+            logger.error("failed_to_acknowledge_issue", error=str(e))
 
         return {"status": "task_created", "task_id": task_id}
 

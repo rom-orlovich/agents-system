@@ -244,31 +244,37 @@ class DashboardApp {
                 this.uploadAgent();
             };
         }
+
+        // Webhook create form
+        const webhookForm = document.getElementById('webhook-create-form');
+        if (webhookForm) {
+            webhookForm.onsubmit = (e) => {
+                e.preventDefault();
+                this.createWebhook(e);
+            };
+        }
     }
 
     // Tab Switching
-    switchTab(tabName) {
+    async switchTab(tabName) {
         this.currentTab = tabName;
 
-        // Update tab buttons
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('active');
-            if (btn.dataset.tab === tabName) {
-                btn.classList.add('active');
-            }
         });
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
 
-        // Update tab content
         document.querySelectorAll('.tab-content').forEach(content => {
             content.classList.remove('active');
         });
         document.getElementById(`tab-${tabName}`).classList.add('active');
 
-        // Load data for specific tabs
         if (tabName === 'analytics') {
-            this.loadAnalyticsCharts();
+            await this.loadAnalytics();
         } else if (tabName === 'tasks') {
-            this.refreshTaskTable();
+            await this.loadTaskHistory();
+        } else if (tabName === 'webhooks') {
+            await this.loadWebhooks();
         }
     }
 
@@ -460,6 +466,8 @@ class DashboardApp {
                     <strong>Status:</strong> ${data.status.toUpperCase()}<br>
                     <strong>Message:</strong> ${data.message}<br>
                     ${data.cli_available ? `<strong>CLI Version:</strong> ${data.cli_version || 'Unknown'}<br>` : ''}
+                    ${data.account_email ? `<strong>Account:</strong> ${data.account_email}<br>` : ''}
+                    ${data.account_id ? `<strong>User ID:</strong> ${data.account_id}<br>` : ''}
                     ${data.expires_at ? `<strong>Expires:</strong> ${new Date(data.expires_at).toLocaleString()}` : ''}
                 </div>
             `;
@@ -825,6 +833,213 @@ class DashboardApp {
 
     hideModal() {
         document.getElementById('modal').classList.add('hidden');
+    }
+
+    // Webhook Management
+    async loadWebhooks() {
+        try {
+            const response = await fetch('/api/webhooks');
+            const webhooks = await response.json();
+
+            const container = document.getElementById('webhooks-list');
+
+            if (webhooks.length === 0) {
+                container.innerHTML = '<p class="empty-state">No webhooks registered. Use "Create Webhook" from the side menu to get started.</p>';
+                return;
+            }
+
+            container.innerHTML = webhooks.map(webhook => `
+                <div class="webhook-card">
+                    <div class="webhook-header">
+                        <h3>${webhook.name}</h3>
+                        <span class="webhook-status ${webhook.enabled ? 'enabled' : 'disabled'}">
+                            ${webhook.enabled ? '✓ Enabled' : '✗ Disabled'}
+                        </span>
+                    </div>
+                    <div class="webhook-info">
+                        <p><strong>Provider:</strong> ${webhook.provider}</p>
+                        <p><strong>Endpoint:</strong> <code>${webhook.endpoint}</code></p>
+                        <p><strong>Commands:</strong> ${webhook.commands.length}</p>
+                    </div>
+                    <div class="webhook-actions">
+                        <button onclick="app.toggleWebhook('${webhook.webhook_id}', ${!webhook.enabled})" class="btn-sm">
+                            ${webhook.enabled ? 'Disable' : 'Enable'}
+                        </button>
+                        <button onclick="app.viewWebhook('${webhook.webhook_id}')" class="btn-sm">View</button>
+                        <button onclick="app.deleteWebhook('${webhook.webhook_id}')" class="btn-sm btn-danger">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Failed to load webhooks:', error);
+        }
+    }
+
+    showWebhookCreate() {
+        document.getElementById('webhook-create-modal').classList.remove('hidden');
+        document.getElementById('webhook-commands-list').innerHTML = '';
+        this.addWebhookCommand();
+    }
+
+    hideWebhookCreate() {
+        document.getElementById('webhook-create-modal').classList.add('hidden');
+        document.getElementById('webhook-create-form').reset();
+    }
+
+    addWebhookCommand() {
+        const container = document.getElementById('webhook-commands-list');
+        const commandId = Date.now();
+
+        const commandHtml = `
+            <div class="webhook-command" data-command-id="${commandId}">
+                <h4>Command ${container.children.length + 1}</h4>
+                <div class="form-group">
+                    <label>Trigger (event type):</label>
+                    <input type="text" class="cmd-trigger" placeholder="issues.opened" required>
+                </div>
+                <div class="form-group">
+                    <label>Action:</label>
+                    <select class="cmd-action" required>
+                        <option value="create_task">Create Task</option>
+                        <option value="comment">Comment</option>
+                        <option value="ask">Ask</option>
+                        <option value="respond">Respond</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Agent:</label>
+                    <select class="cmd-agent">
+                        <option value="planning">Planning</option>
+                        <option value="executor">Executor</option>
+                        <option value="brain">Brain</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Template:</label>
+                    <textarea class="cmd-template" placeholder="New issue: {{issue.title}}" required></textarea>
+                </div>
+                <button type="button" onclick="app.removeWebhookCommand(${commandId})" class="btn-sm btn-danger">Remove Command</button>
+            </div>
+        `;
+
+        container.insertAdjacentHTML('beforeend', commandHtml);
+    }
+
+    removeWebhookCommand(commandId) {
+        const command = document.querySelector(`[data-command-id="${commandId}"]`);
+        if (command) {
+            command.remove();
+        }
+    }
+
+    async createWebhook(event) {
+        event.preventDefault();
+
+        const name = document.getElementById('webhook-name').value;
+        const provider = document.getElementById('webhook-provider').value;
+        const secret = document.getElementById('webhook-secret').value;
+        const enabled = document.getElementById('webhook-enabled').checked;
+
+        const commandElements = document.querySelectorAll('.webhook-command');
+        const commands = Array.from(commandElements).map(cmd => ({
+            trigger: cmd.querySelector('.cmd-trigger').value,
+            action: cmd.querySelector('.cmd-action').value,
+            agent: cmd.querySelector('.cmd-agent').value,
+            template: cmd.querySelector('.cmd-template').value
+        }));
+
+        try {
+            const response = await fetch('/api/webhooks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name,
+                    provider,
+                    secret: secret || undefined,
+                    enabled,
+                    commands
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                alert(`Webhook created successfully!\n\nEndpoint: ${data.data.endpoint}`);
+                this.hideWebhookCreate();
+                if (this.currentTab === 'webhooks') {
+                    await this.loadWebhooks();
+                }
+            } else {
+                alert(`Failed to create webhook: ${data.detail || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('Failed to create webhook:', error);
+            alert('Failed to create webhook: Network error');
+        }
+    }
+
+    async toggleWebhook(webhookId, enable) {
+        try {
+            const endpoint = enable ? 'enable' : 'disable';
+            const response = await fetch(`/api/webhooks/${webhookId}/${endpoint}`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                await this.loadWebhooks();
+            }
+        } catch (error) {
+            console.error('Failed to toggle webhook:', error);
+        }
+    }
+
+    async deleteWebhook(webhookId) {
+        if (!confirm('Are you sure you want to delete this webhook?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/webhooks/${webhookId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                await this.loadWebhooks();
+            }
+        } catch (error) {
+            console.error('Failed to delete webhook:', error);
+        }
+    }
+
+    async viewWebhook(webhookId) {
+        try {
+            const response = await fetch(`/api/webhooks/${webhookId}`);
+            const webhook = await response.json();
+
+            const commandsHtml = webhook.commands.map(cmd => `
+                <div class="command-detail">
+                    <p><strong>Trigger:</strong> ${cmd.trigger}</p>
+                    <p><strong>Action:</strong> ${cmd.action}</p>
+                    <p><strong>Agent:</strong> ${cmd.agent || 'N/A'}</p>
+                    <p><strong>Template:</strong> <code>${cmd.template}</code></p>
+                </div>
+            `).join('');
+
+            document.getElementById('modal-body').innerHTML = `
+                <h3>${webhook.name}</h3>
+                <p><strong>Provider:</strong> ${webhook.provider}</p>
+                <p><strong>Endpoint:</strong> <code>${webhook.endpoint}</code></p>
+                <p><strong>Status:</strong> ${webhook.enabled ? '✓ Enabled' : '✗ Disabled'}</p>
+                <p><strong>Created:</strong> ${new Date(webhook.created_at).toLocaleString()}</p>
+                <h4>Commands (${webhook.commands.length})</h4>
+                ${commandsHtml || '<p>No commands configured</p>'}
+            `;
+            document.getElementById('modal').classList.remove('hidden');
+        } catch (error) {
+            console.error('Failed to load webhook:', error);
+        }
     }
 }
 
