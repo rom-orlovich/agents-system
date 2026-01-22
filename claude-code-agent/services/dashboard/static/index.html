@@ -5,69 +5,250 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Claude Machine Dashboard</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <div id="app">
         <!-- Header -->
         <header class="header">
             <h1>🤖 Claude Machine Dashboard</h1>
-            <div class="user-info">
-                <span id="machine-status" class="status-badge">●</span>
-                <span id="machine-id">claude-agent-001</span>
+            <div class="header-actions">
+                <button id="credentials-btn" class="header-btn" onclick="app.showCredentials()">🔑 Credentials</button>
+                <button id="registry-btn" class="header-btn" onclick="app.showRegistry()">📦 Registry</button>
+                <div class="user-info">
+                    <span id="machine-status" class="status-badge">●</span>
+                    <span id="machine-id">claude-agent-001</span>
+                </div>
             </div>
         </header>
 
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs">
+            <button class="tab-btn active" data-tab="overview" onclick="app.switchTab('overview')">Overview</button>
+            <button class="tab-btn" data-tab="analytics" onclick="app.switchTab('analytics')">Analytics</button>
+            <button class="tab-btn" data-tab="tasks" onclick="app.switchTab('tasks')">Task History</button>
+            <button class="tab-btn" data-tab="chat" onclick="app.switchTab('chat')">Chat</button>
+        </nav>
+
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Status Panel -->
-            <section class="panel status-panel">
-                <h2>Machine Status</h2>
-                <div class="stats">
-                    <div class="stat">
-                        <span class="label">Queue Length</span>
-                        <span id="queue-length" class="value">0</span>
+            <!-- Overview Tab -->
+            <div id="tab-overview" class="tab-content active">
+                <!-- Status Panel -->
+                <section class="panel status-panel">
+                    <h2>Machine Status</h2>
+                    <div class="stats">
+                        <div class="stat">
+                            <span class="label">Queue Length</span>
+                            <span id="queue-length" class="value">0</span>
+                        </div>
+                        <div class="stat">
+                            <span class="label">Active Sessions</span>
+                            <span id="active-sessions" class="value">0</span>
+                        </div>
+                        <div class="stat">
+                            <span class="label">Connections</span>
+                            <span id="connections" class="value">0</span>
+                        </div>
+                        <div class="stat">
+                            <span class="label">Today's Cost</span>
+                            <span id="today-cost" class="value">$0.00</span>
+                        </div>
                     </div>
-                    <div class="stat">
-                        <span class="label">Active Sessions</span>
-                        <span id="active-sessions" class="value">0</span>
-                    </div>
-                    <div class="stat">
-                        <span class="label">Connections</span>
-                        <span id="connections" class="value">0</span>
-                    </div>
-                </div>
-            </section>
+                </section>
 
-            <!-- Active Tasks -->
-            <section class="panel tasks-panel">
-                <h2>Active Tasks</h2>
-                <div id="tasks-list" class="tasks-list">
-                    <p class="empty-state">No active tasks</p>
-                </div>
-            </section>
+                <!-- Active Tasks -->
+                <section class="panel tasks-panel">
+                    <h2>Active Tasks</h2>
+                    <div id="tasks-list" class="tasks-list">
+                        <p class="empty-state">No active tasks</p>
+                    </div>
+                </section>
 
-            <!-- Chat Panel -->
-            <section class="panel chat-panel">
-                <h2>Chat with Brain</h2>
-                <div id="chat-messages" class="chat-messages">
-                    <p class="welcome-message">Welcome! Send a message to interact with the Brain.</p>
-                </div>
-                <div class="chat-input">
-                    <input type="text" id="chat-input" placeholder="Type a message...">
-                    <button id="send-button">Send</button>
-                </div>
-            </section>
+                <!-- Quick Stats -->
+                <section class="panel quick-stats-panel">
+                    <h2>Quick Stats</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="total-tasks">0</div>
+                            <div class="stat-label">Total Tasks</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="total-cost">$0.00</div>
+                            <div class="stat-label">Total Cost</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Analytics Tab -->
+            <div id="tab-analytics" class="tab-content">
+                <section class="panel chart-panel">
+                    <h2>Daily Cost Trend (Last 30 Days)</h2>
+                    <canvas id="daily-costs-chart"></canvas>
+                </section>
+
+                <section class="panel chart-panel">
+                    <h2>Cost by Subagent</h2>
+                    <canvas id="subagent-costs-chart"></canvas>
+                </section>
+            </div>
+
+            <!-- Tasks Tab -->
+            <div id="tab-tasks" class="tab-content">
+                <section class="panel tasks-table-panel">
+                    <h2>Task History</h2>
+                    <div class="table-controls">
+                        <div class="table-filters">
+                            <input type="text" id="filter-session" placeholder="Filter by session...">
+                            <select id="filter-status">
+                                <option value="">All Status</option>
+                                <option value="completed">Completed</option>
+                                <option value="failed">Failed</option>
+                                <option value="running">Running</option>
+                                <option value="queued">Queued</option>
+                            </select>
+                            <select id="filter-subagent">
+                                <option value="">All Subagents</option>
+                            </select>
+                        </div>
+                        <button onclick="app.refreshTaskTable()" class="refresh-btn">🔄 Refresh</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="tasks-table">
+                            <thead>
+                                <tr>
+                                    <th data-sort="task_id" onclick="app.sortTable('task_id')">Task ID</th>
+                                    <th data-sort="session_id" onclick="app.sortTable('session_id')">Session</th>
+                                    <th data-sort="assigned_agent" onclick="app.sortTable('assigned_agent')">Subagent</th>
+                                    <th data-sort="status" onclick="app.sortTable('status')">Status</th>
+                                    <th data-sort="cost_usd" onclick="app.sortTable('cost_usd')">Cost</th>
+                                    <th data-sort="duration_seconds" onclick="app.sortTable('duration_seconds')">Duration</th>
+                                    <th data-sort="created_at" onclick="app.sortTable('created_at')">Created</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tasks-table-body">
+                                <tr><td colspan="7" class="empty-state">No tasks found</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-pagination">
+                        <button onclick="app.prevPage()" id="prev-page-btn">← Previous</button>
+                        <span id="page-info">Page 1 of 1</span>
+                        <button onclick="app.nextPage()" id="next-page-btn">Next →</button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Chat Tab -->
+            <div id="tab-chat" class="tab-content">
+                <section class="panel chat-panel">
+                    <h2>Chat with Brain</h2>
+                    <div id="chat-messages" class="chat-messages">
+                        <p class="welcome-message">Welcome! Send a message to interact with the Brain.</p>
+                    </div>
+                    <div class="chat-input">
+                        <input type="text" id="chat-input" placeholder="Type a message...">
+                        <button id="send-button">Send</button>
+                    </div>
+                </section>
+            </div>
         </main>
+    </div>
+
+    <!-- Credentials Modal -->
+    <div id="credentials-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="app.hideCredentials()">&times;</span>
+            <h2>🔑 Credential Management</h2>
+            <div id="credentials-body">
+                <div class="credential-status">
+                    <h3>Status</h3>
+                    <div id="cred-status-display">Loading...</div>
+                </div>
+                <div class="credential-upload">
+                    <h3>Upload Credentials</h3>
+                    <p>Upload your <code>claude.json</code> credentials file</p>
+                    <input type="file" id="cred-file-input" accept=".json">
+                    <button onclick="app.uploadCredentials()" class="upload-btn">Upload</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registry Modal -->
+    <div id="registry-modal" class="modal hidden">
+        <div class="modal-content large">
+            <span class="close" onclick="app.hideRegistry()">&times;</span>
+            <h2>📦 Skills & Agents Registry</h2>
+            <div class="registry-tabs">
+                <button class="registry-tab-btn active" onclick="app.switchRegistryTab('skills')">Skills</button>
+                <button class="registry-tab-btn" onclick="app.switchRegistryTab('agents')">Agents</button>
+            </div>
+            <div id="registry-skills" class="registry-content active">
+                <div class="registry-header">
+                    <h3>Skills</h3>
+                    <button onclick="app.showSkillUpload()" class="upload-btn">+ Upload Skill</button>
+                </div>
+                <div id="skills-list" class="registry-list">Loading...</div>
+            </div>
+            <div id="registry-agents" class="registry-content">
+                <div class="registry-header">
+                    <h3>Agents</h3>
+                    <button onclick="app.showAgentUpload()" class="upload-btn">+ Upload Agent</button>
+                </div>
+                <div id="agents-list" class="registry-list">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skill Upload Modal -->
+    <div id="skill-upload-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="app.hideSkillUpload()">&times;</span>
+            <h2>Upload Skill</h2>
+            <form id="skill-upload-form">
+                <div class="form-group">
+                    <label>Skill Name:</label>
+                    <input type="text" id="skill-name" required placeholder="my-skill">
+                </div>
+                <div class="form-group">
+                    <label>Files (must include SKILL.md):</label>
+                    <input type="file" id="skill-files" multiple required>
+                </div>
+                <button type="submit" class="upload-btn">Upload Skill</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Agent Upload Modal -->
+    <div id="agent-upload-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="app.hideAgentUpload()">&times;</span>
+            <h2>Upload Agent</h2>
+            <form id="agent-upload-form">
+                <div class="form-group">
+                    <label>Agent Name:</label>
+                    <input type="text" id="agent-name" required placeholder="my-agent">
+                </div>
+                <div class="form-group">
+                    <label>Files (must include .claude/CLAUDE.md or CLAUDE.md):</label>
+                    <input type="file" id="agent-files" multiple required webkitdirectory directory>
+                    <small>Select the agent folder or individual files</small>
+                </div>
+                <button type="submit" class="upload-btn">Upload Agent</button>
+            </form>
+        </div>
     </div>
 
     <!-- Task Detail Modal -->
     <div id="modal" class="modal hidden">
         <div class="modal-content">
-            <span class="close" onclick="hideModal()">&times;</span>
+            <span class="close" onclick="app.hideModal()">&times;</span>
             <div id="modal-body"></div>
         </div>
     </div>
 
-    <script src="/static/js/app.js"></script>
+    <script src="/static/js/app.js?v=2"></script>
 </body>
 </html>

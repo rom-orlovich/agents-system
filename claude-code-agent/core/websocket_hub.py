@@ -39,7 +39,7 @@ class WebSocketHub:
 
         for ws in connections:
             try:
-                await ws.send_json(message.model_dump())
+                await ws.send_json(message.model_dump(mode='json'))
             except Exception as e:
                 logger.warning(
                     "Failed to send to WebSocket",

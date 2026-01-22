@@ -119,9 +119,17 @@ async def run_claude_cli(
 
                     elif data.get("type") == "result":
                         # Final result with metrics
-                        cost_usd = data.get("cost_usd", 0.0)
-                        input_tokens = data.get("input_tokens", 0)
-                        output_tokens = data.get("output_tokens", 0)
+                        # Claude CLI uses total_cost_usd and nested usage object
+                        cost_usd = data.get("total_cost_usd", data.get("cost_usd", 0.0))
+                        usage = data.get("usage", {})
+                        input_tokens = usage.get("input_tokens", 0)
+                        output_tokens = usage.get("output_tokens", 0)
+
+                        # Also extract the result text if available
+                        result_text = data.get("result", "")
+                        if result_text:
+                            accumulated_output.append(result_text)
+                            await output_queue.put(result_text)
 
                 except json.JSONDecodeError:
                     # Plain text output

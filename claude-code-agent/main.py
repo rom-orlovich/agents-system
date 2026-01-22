@@ -15,7 +15,7 @@ from core import (
 )
 from core.database import init_db
 from core.database.redis_client import redis_client
-from api import dashboard, websocket, webhooks
+from api import dashboard, websocket, webhooks, credentials, analytics, registry
 from workers.task_worker import TaskWorker
 
 # Setup logging
@@ -80,6 +80,9 @@ app.add_middleware(
 
 # Include routers
 app.include_router(dashboard.router, prefix="/api", tags=["dashboard"])
+app.include_router(credentials.router, prefix="/api", tags=["credentials"])
+app.include_router(analytics.router, prefix="/api", tags=["analytics"])
+app.include_router(registry.router, prefix="/api", tags=["registry"])
 app.include_router(websocket.router, tags=["websocket"])
 app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
 
