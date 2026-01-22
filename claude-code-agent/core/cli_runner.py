@@ -45,13 +45,12 @@ async def run_claude_cli(
         CLIResult with output, cost, and token counts
     """
 
-    # Build the command
+    # Build the command (matching POC implementation)
     cmd = [
         "claude",
-        "--print",                    # Headless mode - no interactive UI
-        "--output-format", "json",    # JSON output for parsing
         "--dangerously-skip-permissions",  # Skip permission prompts
-        "-p", prompt,                 # The prompt/task
+        "--print",                    # Headless mode - no interactive UI
+        prompt,                       # The prompt/task (direct argument, no -p flag)
     ]
 
     logger.info("Starting Claude CLI", task_id=task_id, working_dir=str(working_dir))
@@ -133,6 +132,7 @@ async def run_claude_cli(
     except asyncio.TimeoutError:
         logger.error("Claude CLI timeout", task_id=task_id, timeout=timeout_seconds)
         process.kill()
+        await process.wait()  # ✅ CRITICAL: Wait for zombie cleanup
         await output_queue.put(None)
         return CLIResult(
             success=False,
@@ -146,6 +146,7 @@ async def run_claude_cli(
         logger.error("Claude CLI error", task_id=task_id, error=str(e))
         if process.returncode is None:
             process.kill()
+            await process.wait()  # ✅ CRITICAL: Wait for zombie cleanup
         await output_queue.put(None)
         return CLIResult(
             success=False,
