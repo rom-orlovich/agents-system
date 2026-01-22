@@ -12,12 +12,6 @@ from core import (
     settings,
     setup_logging,
     WebSocketHub,
-    AgentError,
-    AuthenticationError,
-    TaskError,
-    agent_error_handler,
-    auth_error_handler,
-    task_error_handler,
 )
 from core.database import init_db
 from core.database.redis_client import redis_client
@@ -83,11 +77,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Exception handlers
-app.add_exception_handler(AgentError, agent_error_handler)
-app.add_exception_handler(AuthenticationError, auth_error_handler)
-app.add_exception_handler(TaskError, task_error_handler)
 
 # Include routers
 app.include_router(dashboard.router, prefix="/api", tags=["dashboard"])
