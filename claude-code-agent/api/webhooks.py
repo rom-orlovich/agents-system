@@ -26,7 +26,7 @@ async def github_webhook(
         payload = await request.json()
         event_type = request.headers.get("X-GitHub-Event", "unknown")
 
-        logger.info("GitHub webhook received", event=event_type)
+        logger.info("github_webhook_received", event_type=event_type)
 
         # Handle different event types
         if event_type == "issue_comment":
@@ -36,11 +36,11 @@ async def github_webhook(
         elif event_type == "issues":
             return await handle_issue(payload, session)
         else:
-            logger.info("Unhandled GitHub event", event=event_type)
+            logger.info("unhandled_github_event", event_type=event_type)
             return {"status": "ignored", "event": event_type}
 
     except Exception as e:
-        logger.error("GitHub webhook error", error=str(e))
+        logger.error("github_webhook_error", error_message=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -103,7 +103,7 @@ async def handle_pull_request(payload: dict, session: AsyncSession):
     pr = payload.get("pull_request", {})
 
     logger.info(
-        "Pull request event",
+        "pull_request_event_received",
         action=action,
         pr_number=pr.get("number")
     )
@@ -165,7 +165,7 @@ async def handle_issue(payload: dict, session: AsyncSession):
 async def jira_webhook(request: Request):
     """Handle Jira webhooks."""
     payload = await request.json()
-    logger.info("Jira webhook received", event=payload.get("webhookEvent"))
+    logger.info("jira_webhook_received", webhook_event=payload.get("webhookEvent"))
     return {"status": "received"}
 
 
@@ -173,5 +173,5 @@ async def jira_webhook(request: Request):
 async def sentry_webhook(request: Request):
     """Handle Sentry webhooks."""
     payload = await request.json()
-    logger.info("Sentry webhook received")
+    logger.info("sentry_webhook_received")
     return {"status": "received"}

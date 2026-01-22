@@ -111,7 +111,12 @@ async def root():
 @app.get("/api/health")
 async def health():
     """Health check endpoint."""
-    queue_length = await redis_client.queue_length()
+    try:
+        queue_length = await redis_client.queue_length()
+    except Exception:
+        # Graceful degradation if Redis is down
+        queue_length = -1
+
     return {
         "status": "healthy",
         "machine_id": settings.machine_id,

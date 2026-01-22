@@ -1,10 +1,10 @@
 """Dashboard API endpoints."""
 
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 import uuid
 
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -64,10 +64,10 @@ async def get_session(
 
 @router.get("/tasks")
 async def list_tasks(
-    session_id: str | None = None,
-    status: str | None = None,
-    limit: int = 50,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
+    session_id: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    limit: int = Query(50)
 ):
     """List tasks with optional filters."""
     query = select(TaskDB).order_by(TaskDB.created_at.desc()).limit(limit)
