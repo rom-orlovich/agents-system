@@ -75,3 +75,55 @@ class EntityDB(Base):
     config = Column(Text, nullable=False)  # JSON serialized Pydantic model
     is_builtin = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class WebhookConfigDB(Base):
+    """Webhook configuration database model."""
+    __tablename__ = "webhook_configs"
+    
+    webhook_id = Column(String(255), primary_key=True)
+    name = Column(String(255), nullable=False)
+    provider = Column(String(50), nullable=False)
+    endpoint = Column(String(500), nullable=False)
+    secret = Column(String(500), nullable=True)
+    enabled = Column(Boolean, default=True, nullable=False)
+    config_json = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_by = Column(String(255), nullable=False)
+    updated_at = Column(DateTime, nullable=True, onupdate=datetime.utcnow)
+    
+    commands = relationship("WebhookCommandDB", back_populates="webhook", cascade="all, delete-orphan")
+    events = relationship("WebhookEventDB", back_populates="webhook", cascade="all, delete-orphan")
+
+
+class WebhookCommandDB(Base):
+    """Webhook command database model."""
+    __tablename__ = "webhook_commands"
+    
+    command_id = Column(String(255), primary_key=True)
+    webhook_id = Column(String(255), ForeignKey("webhook_configs.webhook_id", ondelete="CASCADE"), nullable=False)
+    trigger = Column(String(255), nullable=False)
+    action = Column(String(50), nullable=False)
+    agent = Column(String(255), nullable=True)
+    template = Column(Text, nullable=False)
+    conditions_json = Column(Text, nullable=True)
+    priority = Column(Integer, default=0, nullable=False)
+    
+    webhook = relationship("WebhookConfigDB", back_populates="commands")
+
+
+class WebhookEventDB(Base):
+    """Webhook event log database model."""
+    __tablename__ = "webhook_events"
+    
+    event_id = Column(String(255), primary_key=True)
+    webhook_id = Column(String(255), ForeignKey("webhook_configs.webhook_id", ondelete="CASCADE"), nullable=False)
+    provider = Column(String(50), nullable=False)
+    event_type = Column(String(255), nullable=False)
+    payload_json = Column(Text, nullable=False)
+    matched_command = Column(String(255), nullable=True)
+    task_id = Column(String(255), nullable=True)
+    response_sent = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    webhook = relationship("WebhookConfigDB", back_populates="events")

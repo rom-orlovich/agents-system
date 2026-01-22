@@ -1,0 +1,231 @@
+/* Webhook Styles */
+
+.webhooks-list {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+}
+
+.webhook-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1.5rem;
+    transition: all 0.2s;
+}
+
+.webhook-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.webhook-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.webhook-header h3 {
+    font-size: 1.25rem;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.webhook-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.webhook-status.enabled {
+    background: #d4edda;
+    color: #155724;
+}
+
+.webhook-status.disabled {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.webhook-info {
+    margin-bottom: 1rem;
+}
+
+.webhook-info p {
+    margin: 0.5rem 0;
+    font-size: 0.95rem;
+    color: #555;
+}
+
+.webhook-info code {
+    background: #f8f9fa;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    color: #e83e8c;
+}
+
+.webhook-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.btn-sm {
+    padding: 0.5rem 1rem;
+    border: 1px solid #e0e0e0;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+}
+
+.btn-sm:hover {
+    background: #f8f9fa;
+    border-color: #3498db;
+}
+
+.btn-sm.btn-danger {
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-sm.btn-danger:hover {
+    background: #dc3545;
+    color: white;
+}
+
+/* Webhook Create Modal */
+.webhook-command {
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.webhook-command h4 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: #2c3e50;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: #555;
+}
+
+.form-group input[type="text"],
+.form-group input[type="password"],
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    font-family: inherit;
+}
+
+.form-group textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.form-group input[type="checkbox"] {
+    margin-right: 0.5rem;
+}
+
+.add-btn {
+    padding: 0.75rem 1.5rem;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    margin-top: 1rem;
+}
+
+.add-btn:hover {
+    background: #218838;
+}
+
+.create-btn {
+    padding: 0.75rem 1.5rem;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.95rem;
+}
+
+.create-btn:hover {
+    background: #2980b9;
+}
+
+.cancel-btn {
+    padding: 0.75rem 1.5rem;
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.95rem;
+}
+
+.cancel-btn:hover {
+    background: #5a6268;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e0e0e0;
+}
+
+.command-detail {
+    background: #f8f9fa;
+    border-left: 3px solid #3498db;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.command-detail p {
+    margin: 0.5rem 0;
+}
+
+.command-detail code {
+    background: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.875rem;
+}
+
+.empty-state {
+    text-align: center;
+    color: #999;
+    padding: 3rem;
+    font-size: 1.1rem;
+}
+
+/* Modal improvements */
+.modal-content.large {
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
