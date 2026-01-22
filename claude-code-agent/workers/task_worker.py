@@ -5,6 +5,7 @@ from pathlib import Path
 import structlog
 
 from core import settings, run_claude_cli
+from core.subagent_config import load_subagent_config, get_default_subagents
 from core.database import async_session_factory
 from core.database.models import TaskDB
 from core.database.redis_client import redis_client
@@ -136,6 +137,16 @@ class TaskWorker:
             # Determine agent directory
             agent_dir = self._get_agent_dir(task_db.assigned_agent)
 
+            # Load sub-agent configuration (if enabled)
+            subagents_json = None
+            if settings.enable_subagents:
+                # Try to load from agent directory
+                subagents_json = load_subagent_config(agent_dir)
+                # Fall back to default sub-agents if not found
+                if not subagents_json:
+                    subagents_json = get_default_subagents()
+                    logger.debug("Using default sub-agent configuration")
+
             # Create output queue
             output_queue = asyncio.Queue()
 
@@ -149,7 +160,7 @@ class TaskWorker:
                     timeout_seconds=settings.task_timeout_seconds,
                     model=settings.default_model,  # Optional model selection
                     allowed_tools=settings.default_allowed_tools,  # Pre-approved tools
-                    agents=None,  # TODO: Load from agent configuration
+                    agents=subagents_json,  # ✅ Load from configuration
                 )
             )
 
