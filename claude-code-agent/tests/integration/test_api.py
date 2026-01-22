@@ -33,6 +33,8 @@ async def test_status_endpoint(client: AsyncClient):
 async def test_list_tasks_endpoint(client: AsyncClient):
     """List tasks endpoint returns task list."""
     response = await client.get("/api/tasks")
+    if response.status_code != 200:
+        print(f"Response: {response.status_code} - {response.text}")
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
