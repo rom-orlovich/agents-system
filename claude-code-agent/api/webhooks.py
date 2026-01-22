@@ -1,12 +1,15 @@
 """Webhook endpoints."""
 
+import hmac
+import hashlib
 import uuid
 from datetime import datetime
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, Request, HTTPException, Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
 
-from core.database import get_session
+from core.config import settings
+from core.database import get_session as get_db_session
 from core.database.models import TaskDB, SessionDB
 from core.database.redis_client import redis_client
 from shared import TaskStatus, AgentType
@@ -16,12 +19,46 @@ logger = structlog.get_logger()
 router = APIRouter()
 
 
+async def verify_github_signature(request: Request, x_hub_signature_256: str | None = Header(None)):
+    """Verify GitHub webhook HMAC signature."""
+    if not settings.github_webhook_secret:
+        # If no secret configured, skip verification (development mode)
+        logger.warning("github_webhook_secret_not_configured", warning="Skipping HMAC verification")
+        return
+
+    if not x_hub_signature_256:
+        logger.error("github_webhook_missing_signature")
+        raise HTTPException(status_code=401, detail="Missing X-Hub-Signature-256 header")
+
+    # Read body for HMAC calculation
+    body = await request.body()
+
+    # Calculate expected signature
+    expected = hmac.new(
+        settings.github_webhook_secret.encode(),
+        body,
+        hashlib.sha256,
+    ).hexdigest()
+
+    # Verify signature (constant-time comparison)
+    if not hmac.compare_digest(f"sha256={expected}", x_hub_signature_256):
+        logger.error("github_webhook_invalid_signature")
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
+
+    logger.debug("github_webhook_signature_verified")
+
+
 @router.post("/github")
 async def github_webhook(
     request: Request,
-    db: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_db_session),
+    _: None = Depends(verify_github_signature)
 ):
-    """Handle GitHub webhooks."""
+    """
+    Handle GitHub webhooks with HMAC signature verification.
+
+    Security: Verifies X-Hub-Signature-256 header against configured secret.
+    """
     try:
         payload = await request.json()
         event_type = request.headers.get("X-GitHub-Event", "unknown")

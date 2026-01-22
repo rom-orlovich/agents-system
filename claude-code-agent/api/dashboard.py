@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database import get_session
+from core.database import get_session as get_db_session
 from core.database.models import TaskDB, SessionDB
 from core.database.redis_client import redis_client
 from shared import (
@@ -39,9 +39,9 @@ async def get_status(request: Request):
 
 
 @router.get("/sessions/{session_id}")
-async def get_session(
+async def get_session_by_id(
     session_id: str,
-    db: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_db_session)
 ):
     """Get session details."""
     result = await db.execute(
@@ -64,7 +64,7 @@ async def get_session(
 
 @router.get("/tasks")
 async def list_tasks(
-    db: AsyncSession = Depends(get_session),
+    db: AsyncSession = Depends(get_db_session),
     session_id: str | None = Query(None),
     status: str | None = Query(None),
     limit: int = Query(50)
@@ -98,7 +98,7 @@ async def list_tasks(
 @router.get("/tasks/{task_id}")
 async def get_task(
     task_id: str,
-    db: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_db_session)
 ):
     """Get task details."""
     result = await db.execute(
@@ -134,7 +134,7 @@ async def get_task(
 @router.post("/tasks/{task_id}/stop")
 async def stop_task(
     task_id: str,
-    db: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_db_session)
 ):
     """Stop a running task."""
     result = await db.execute(
@@ -170,7 +170,7 @@ async def stop_task(
 async def chat_with_brain(
     message: ChatMessage,
     session_id: str,
-    db: AsyncSession = Depends(get_session)
+    db: AsyncSession = Depends(get_db_session)
 ):
     """Send chat message to Brain."""
     # Create or get session

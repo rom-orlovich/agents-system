@@ -16,16 +16,28 @@ logger = structlog.get_logger()
 
 
 class TaskWorker:
-    """Processes tasks from Redis queue."""
+    """Processes tasks from Redis queue with concurrent execution."""
 
     def __init__(self, ws_hub: WebSocketHub):
         self.ws_hub = ws_hub
         self.running = False
+        # Semaphore to limit concurrent tasks
+        self.semaphore = asyncio.Semaphore(settings.max_concurrent_tasks)
+        # Track active tasks for graceful shutdown
+        self.active_tasks: set[asyncio.Task] = set()
 
     async def run(self) -> None:
-        """Main worker loop."""
+        """
+        Main worker loop - processes tasks concurrently up to max_concurrent_tasks limit.
+
+        Each task is launched in parallel without blocking the queue popping.
+        The semaphore ensures we don't exceed the concurrency limit.
+        """
         self.running = True
-        logger.info("Task worker started")
+        logger.info(
+            "Task worker started",
+            max_concurrent_tasks=settings.max_concurrent_tasks
+        )
 
         while self.running:
             try:
@@ -33,8 +45,17 @@ class TaskWorker:
                 task_id = await redis_client.pop_task(timeout=5)
 
                 if task_id:
-                    logger.info("Processing task", task_id=task_id)
-                    await self._process_task(task_id)
+                    logger.info("Queueing task for processing", task_id=task_id)
+
+                    # ✅ Launch task concurrently (don't await)
+                    task = asyncio.create_task(self._process_with_semaphore(task_id))
+
+                    # Track active tasks
+                    self.active_tasks.add(task)
+
+                    # Remove from set when done (auto-cleanup)
+                    task.add_done_callback(self.active_tasks.discard)
+
                 else:
                     # No task available, continue loop
                     await asyncio.sleep(1)
@@ -46,8 +67,51 @@ class TaskWorker:
         logger.info("Task worker stopped")
 
     async def stop(self) -> None:
-        """Stop the worker."""
+        """Stop the worker gracefully."""
+        logger.info("Stopping task worker")
         self.running = False
+
+    async def wait_for_active_tasks(self, timeout: int = 30) -> None:
+        """
+        Wait for all active tasks to complete (for graceful shutdown).
+
+        Args:
+            timeout: Maximum seconds to wait for tasks to complete
+        """
+        if not self.active_tasks:
+            return
+
+        logger.info(
+            "Waiting for active tasks to complete",
+            active_count=len(self.active_tasks),
+            timeout=timeout
+        )
+
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*self.active_tasks, return_exceptions=True),
+                timeout=timeout
+            )
+            logger.info("All active tasks completed")
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Active tasks did not complete in time",
+                remaining=len(self.active_tasks)
+            )
+
+    async def _process_with_semaphore(self, task_id: str) -> None:
+        """
+        Process task with semaphore-controlled concurrency.
+
+        This ensures max_concurrent_tasks limit is respected.
+        """
+        async with self.semaphore:
+            logger.debug(
+                "Task acquired semaphore slot",
+                task_id=task_id,
+                active_tasks=settings.max_concurrent_tasks - self.semaphore._value
+            )
+            await self._process_task(task_id)
 
     async def _process_task(self, task_id: str) -> None:
         """Process a single task."""
@@ -62,12 +126,12 @@ class TaskWorker:
                 logger.error("Task not found in database", task_id=task_id)
                 return
 
-            # Update status to running
+            # ✅ Update Redis first (fast ~1ms) to minimize inconsistency window
+            await redis_client.set_task_status(task_id, TaskStatus.RUNNING)
+
+            # Then update database (slow ~10-100ms)
             task_db.status = TaskStatus.RUNNING
             await session.commit()
-
-            # Update Redis status
-            await redis_client.set_task_status(task_id, TaskStatus.RUNNING)
 
             # Determine agent directory
             agent_dir = self._get_agent_dir(task_db.assigned_agent)
@@ -115,9 +179,12 @@ class TaskWorker:
                 task_db.output_tokens = result.output_tokens
 
                 if result.success:
+                    # ✅ Update Redis first (fast)
+                    await redis_client.set_task_status(task_id, TaskStatus.COMPLETED)
+
+                    # Then update database
                     task_db.status = TaskStatus.COMPLETED
                     task_db.result = result.output
-                    await redis_client.set_task_status(task_id, TaskStatus.COMPLETED)
 
                     # Send completion message
                     await self.ws_hub.send_to_session(
@@ -129,9 +196,12 @@ class TaskWorker:
                         )
                     )
                 else:
+                    # ✅ Update Redis first (fast)
+                    await redis_client.set_task_status(task_id, TaskStatus.FAILED)
+
+                    # Then update database
                     task_db.status = TaskStatus.FAILED
                     task_db.error = result.error
-                    await redis_client.set_task_status(task_id, TaskStatus.FAILED)
 
                     # Send failure message
                     await self.ws_hub.send_to_session(
@@ -150,9 +220,13 @@ class TaskWorker:
 
             except Exception as e:
                 logger.error("Task processing error", task_id=task_id, error=str(e))
+
+                # ✅ Update Redis first (fast)
+                await redis_client.set_task_status(task_id, TaskStatus.FAILED)
+
+                # Then update database
                 task_db.status = TaskStatus.FAILED
                 task_db.error = str(e)
-                await redis_client.set_task_status(task_id, TaskStatus.FAILED)
 
                 # Send failure message
                 await self.ws_hub.send_to_session(

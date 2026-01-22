@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["*"]
 
+    # Webhook Security
+    github_webhook_secret: str | None = None
+    jira_webhook_secret: str | None = None
+
     @property
     def agents_dir(self) -> Path:
         """Directory containing sub-agents."""
