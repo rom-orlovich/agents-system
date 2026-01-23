@@ -51,6 +51,22 @@ export function OverviewFeature() {
         />
       </section>
 
+      <section
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        data-label="OAUTH_USAGE"
+      >
+        <StatCard
+          label="OAUTH_SESSION_USAGE"
+          value={`${metrics.oauth_session_percentage.toFixed(1)}%`}
+          icon={Activity}
+        />
+        <StatCard
+          label="OAUTH_WEEKLY_USAGE"
+          value={`${metrics.oauth_weekly_percentage.toFixed(1)}%`}
+          icon={Activity}
+        />
+      </section>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <section className="lg:col-span-2 panel" data-label="LIVE_PROCESSES">
           <div className="space-y-4">
