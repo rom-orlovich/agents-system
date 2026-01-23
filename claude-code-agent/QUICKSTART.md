@@ -370,7 +370,7 @@ make up
 - **README.md**: Complete documentation
 - **docs/CONVERSATION-QUICKSTART.md**: Conversation management guide
 - **docs/WEBHOOK-SETUP.md**: Webhook configuration guide
-- **docs/TDD-APPROACH.md**: Test-driven development workflow
+- **docs/TDD-METHODOLOGY.md**: Test-driven development methodology guide
 - **.claude/CLAUDE.md**: Main brain configuration
 - **.claude/agents/*.md**: Agent definitions
 - **.claude/skills/*/SKILL.md**: Skill documentation

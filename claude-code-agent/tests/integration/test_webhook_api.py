@@ -2,6 +2,7 @@
 
 import pytest
 import json
+import uuid
 from datetime import datetime, timedelta
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +11,6 @@ from core.database.models import WebhookConfigDB, WebhookCommandDB
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 class TestWebhookAPI:
     """Test webhook management API endpoints."""
     
@@ -178,8 +178,9 @@ class TestWebhookAPI:
     
     async def test_enable_webhook(self, client: AsyncClient):
         """Enable a disabled webhook."""
+        unique_name = f"Test Webhook Enable {uuid.uuid4().hex[:8]}"
         create_response = await client.post("/api/webhooks", json={
-            "name": "Test Webhook",
+            "name": unique_name,
             "provider": "github",
             "enabled": False,
             "commands": []
@@ -197,8 +198,9 @@ class TestWebhookAPI:
     
     async def test_disable_webhook(self, client: AsyncClient):
         """Disable an enabled webhook."""
+        unique_name = f"Test Webhook Disable {uuid.uuid4().hex[:8]}"
         create_response = await client.post("/api/webhooks", json={
-            "name": "Test Webhook",
+            "name": unique_name,
             "provider": "github",
             "commands": []
         })
@@ -215,14 +217,14 @@ class TestWebhookAPI:
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 class TestWebhookCommandAPI:
     """Test webhook command management API endpoints."""
     
     async def test_add_command_to_webhook(self, client: AsyncClient):
         """Add command to existing webhook."""
+        unique_name = f"Test Webhook Add Cmd {uuid.uuid4().hex[:8]}"
         create_response = await client.post("/api/webhooks", json={
-            "name": "Test Webhook",
+            "name": unique_name,
             "provider": "github",
             "commands": []
         })
@@ -253,8 +255,9 @@ class TestWebhookCommandAPI:
     
     async def test_add_command_with_conditions(self, client: AsyncClient):
         """Add command with trigger conditions."""
+        unique_name = f"Test Webhook Conditions {uuid.uuid4().hex[:8]}"
         create_response = await client.post("/api/webhooks", json={
-            "name": "Test Webhook",
+            "name": unique_name,
             "provider": "github",
             "commands": []
         })
@@ -277,8 +280,9 @@ class TestWebhookCommandAPI:
     
     async def test_list_commands(self, client: AsyncClient):
         """List all commands for a webhook."""
+        unique_name = f"Test Webhook List {uuid.uuid4().hex[:8]}"
         create_response = await client.post("/api/webhooks", json={
-            "name": "Test Webhook",
+            "name": unique_name,
             "provider": "github",
             "commands": [
                 {
@@ -304,8 +308,9 @@ class TestWebhookCommandAPI:
     
     async def test_update_command(self, client: AsyncClient):
         """Update existing command."""
+        unique_name = f"Test Webhook Update Cmd {uuid.uuid4().hex[:8]}"
         create_response = await client.post("/api/webhooks", json={
-            "name": "Test Webhook",
+            "name": unique_name,
             "provider": "github",
             "commands": [
                 {
@@ -345,8 +350,9 @@ class TestWebhookCommandAPI:
     
     async def test_delete_command(self, client: AsyncClient):
         """Delete command from webhook."""
+        unique_name = f"Test Webhook Delete Cmd {uuid.uuid4().hex[:8]}"
         create_response = await client.post("/api/webhooks", json={
-            "name": "Test Webhook",
+            "name": unique_name,
             "provider": "github",
             "commands": [
                 {

@@ -7,8 +7,6 @@ import uuid
 
 class TestGitHubIntegrationAgent:
     """Test GitHub integration agent capabilities."""
-    
-    @pytest.mark.asyncio
     async def test_github_agent_can_list_issues(self, client, redis_mock):
         """
         REQUIREMENT: GitHub agent should be able to list issues via gh CLI.
@@ -27,8 +25,6 @@ class TestGitHubIntegrationAgent:
         assert response.status_code == 200
         data = response.json()["data"]
         assert data["agent_type"] == "github-integrator"
-    
-    @pytest.mark.asyncio
     async def test_github_agent_can_create_pr(self, client, redis_mock):
         """
         REQUIREMENT: GitHub agent should be able to create PRs via gh CLI.
@@ -44,8 +40,6 @@ class TestGitHubIntegrationAgent:
         })
         
         assert response.status_code == 200
-    
-    @pytest.mark.asyncio
     async def test_github_agent_can_review_pr(self, client, redis_mock):
         """
         REQUIREMENT: GitHub agent should be able to review PRs.
@@ -61,8 +55,6 @@ class TestGitHubIntegrationAgent:
         })
         
         assert response.status_code == 200
-    
-    @pytest.mark.asyncio
     async def test_github_agent_requires_token(self, client):
         """
         REQUIREMENT: GitHub agent should require GITHUB_TOKEN environment variable.
@@ -76,8 +68,6 @@ class TestGitHubIntegrationAgent:
 
 class TestJiraIntegrationAgent:
     """Test Jira integration agent capabilities."""
-    
-    @pytest.mark.asyncio
     async def test_jira_agent_can_list_issues(self, client, redis_mock):
         """
         REQUIREMENT: Jira agent should be able to list issues via jira-cli.
@@ -95,8 +85,6 @@ class TestJiraIntegrationAgent:
         assert response.status_code == 200
         data = response.json()["data"]
         assert data["agent_type"] == "jira-integrator"
-    
-    @pytest.mark.asyncio
     async def test_jira_agent_can_create_issue(self, client, redis_mock):
         """
         REQUIREMENT: Jira agent should be able to create issues.
@@ -112,8 +100,6 @@ class TestJiraIntegrationAgent:
         })
         
         assert response.status_code == 200
-    
-    @pytest.mark.asyncio
     async def test_jira_agent_can_transition_issue(self, client, redis_mock):
         """
         REQUIREMENT: Jira agent should be able to transition issues.
@@ -133,8 +119,6 @@ class TestJiraIntegrationAgent:
 
 class TestSlackIntegrationAgent:
     """Test Slack integration agent capabilities."""
-    
-    @pytest.mark.asyncio
     async def test_slack_agent_can_send_message(self, client, redis_mock):
         """
         REQUIREMENT: Slack agent should be able to send messages.
@@ -152,8 +136,6 @@ class TestSlackIntegrationAgent:
         assert response.status_code == 200
         data = response.json()["data"]
         assert data["agent_type"] == "slack-integrator"
-    
-    @pytest.mark.asyncio
     async def test_slack_agent_can_reply_to_thread(self, client, redis_mock):
         """
         REQUIREMENT: Slack agent should be able to reply to threads.
@@ -173,8 +155,6 @@ class TestSlackIntegrationAgent:
 
 class TestSentryIntegrationAgent:
     """Test Sentry integration agent capabilities."""
-    
-    @pytest.mark.asyncio
     async def test_sentry_agent_can_list_errors(self, client, redis_mock):
         """
         REQUIREMENT: Sentry agent should be able to list recent errors.
@@ -192,8 +172,6 @@ class TestSentryIntegrationAgent:
         assert response.status_code == 200
         data = response.json()["data"]
         assert data["agent_type"] == "sentry-integrator"
-    
-    @pytest.mark.asyncio
     async def test_sentry_agent_can_analyze_error_patterns(self, client, redis_mock):
         """
         REQUIREMENT: Sentry agent should be able to analyze error patterns.
@@ -213,8 +191,6 @@ class TestSentryIntegrationAgent:
 
 class TestMultiServiceOrchestration:
     """Test cross-service orchestration workflows."""
-    
-    @pytest.mark.asyncio
     async def test_incident_response_workflow(self, client, redis_mock):
         """
         REQUIREMENT: Should orchestrate incident response across services.
@@ -233,8 +209,6 @@ class TestMultiServiceOrchestration:
         })
         
         assert response.status_code == 200
-    
-    @pytest.mark.asyncio
     async def test_release_coordination_workflow(self, client, redis_mock):
         """
         REQUIREMENT: Should coordinate release across services.
@@ -251,8 +225,6 @@ class TestMultiServiceOrchestration:
         })
         
         assert response.status_code == 200
-    
-    @pytest.mark.asyncio
     async def test_parallel_service_status_check(self, client, redis_mock):
         """
         REQUIREMENT: Should check status across all services in parallel.

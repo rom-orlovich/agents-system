@@ -8,8 +8,6 @@ import uuid
 
 class TestCostTrackingFlow:
     """Test cost tracking business requirements."""
-    
-    @pytest.mark.asyncio
     async def test_task_cost_calculated_from_tokens(self, client, db_session):
         """
         REQUIREMENT: Task cost should be calculated from input/output tokens
@@ -60,8 +58,6 @@ class TestCostTrackingFlow:
         assert data["output_tokens"] == output_tokens
         # Verify cost formula (approximately)
         assert abs(data["cost_usd"] - expected_cost) < 0.01
-    
-    @pytest.mark.asyncio
     async def test_session_cost_aggregates_tasks(self, client, db_session):
         """
         REQUIREMENT: Session total cost should be sum of all task costs.
@@ -104,13 +100,11 @@ class TestCostTrackingFlow:
         assert response.status_code == 200
         data = response.json()
         assert abs(data["total_cost_usd"] - total_cost) < 0.001
-    
-    @pytest.mark.asyncio
     async def test_daily_cost_aggregation(self, client, db_session):
         """
         REQUIREMENT: Analytics should show daily cost breakdown.
         """
-        response = await client.get("/api/analytics/costs/daily?days=7")
+        response = await client.get("/api/analytics/costs/histogram?days=7&granularity=day")
         
         assert response.status_code == 200
         data = response.json()
@@ -120,8 +114,6 @@ class TestCostTrackingFlow:
 
 class TestSessionStatusFlow:
     """Test session status business requirements."""
-    
-    @pytest.mark.asyncio
     async def test_session_shows_active_status(self, client, db_session, redis_mock):
         """
         REQUIREMENT: Active sessions should show 'active' status
@@ -148,8 +140,6 @@ class TestSessionStatusFlow:
         data = response.json()
         assert "status" in data
         assert data["status"] in ["active", "idle", "disconnected"]
-    
-    @pytest.mark.asyncio
     async def test_session_reset_clears_context(self, client, db_session):
         """
         REQUIREMENT: Resetting a session should clear conversation
@@ -198,8 +188,6 @@ class TestSessionStatusFlow:
         session_response = await client.get(f"/api/v2/sessions/{session_id}")
         assert session_response.status_code == 200
         assert session_response.json()["total_cost_usd"] == original_cost
-    
-    @pytest.mark.asyncio
     async def test_weekly_session_summary(self, client, db_session):
         """
         REQUIREMENT: Should provide weekly session summary with
@@ -218,8 +206,6 @@ class TestSessionStatusFlow:
 
 class TestSessionDisplayFlow:
     """Test session display business requirements for dashboard."""
-    
-    @pytest.mark.asyncio
     async def test_current_session_status_displayed(self, client, db_session, redis_mock):
         """
         REQUIREMENT: Dashboard should show current session status
@@ -254,8 +240,6 @@ class TestSessionDisplayFlow:
         
         for field in required_fields:
             assert field in data, f"Missing required field: {field}"
-    
-    @pytest.mark.asyncio
     async def test_session_history_shows_weekly(self, client, db_session):
         """
         REQUIREMENT: Session history should show past 7 days
@@ -267,13 +251,11 @@ class TestSessionDisplayFlow:
         history = response.json()
         
         assert "daily" in history or "sessions" in history
-    
-    @pytest.mark.asyncio
     async def test_weekly_chart_data_format(self, client):
         """
         REQUIREMENT: Weekly chart should receive data in Chart.js format.
         """
-        response = await client.get("/api/analytics/costs/daily?days=7")
+        response = await client.get("/api/analytics/costs/histogram?days=7&granularity=day")
         
         assert response.status_code == 200
         data = response.json()

@@ -1,11 +1,11 @@
 import pytest
+import uuid
 from httpx import AsyncClient
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from core.database.models import TaskDB, SessionDB
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 class TestAnalyticsAPI:
     """Integration tests for analytics endpoints."""
     
@@ -21,17 +21,18 @@ class TestAnalyticsAPI:
     
     async def test_analytics_summary_with_tasks(self, client: AsyncClient, db_session):
         """Summary returns correct aggregated data."""
-        # Create session
-        session = SessionDB(session_id="test-sess", user_id="user-1", machine_id="m-1")
+        # Create session with unique ID
+        session_id = f"test-sess-{uuid.uuid4().hex[:8]}"
+        session = SessionDB(session_id=session_id, user_id="user-1", machine_id="m-1")
         db_session.add(session)
         await db_session.flush()
         
         # Create tasks for today
-        today = datetime.utcnow()
+        today = datetime.now(timezone.utc)
         for i in range(3):
             task = TaskDB(
                 task_id=f"today-task-{i}",
-                session_id="test-sess",
+                session_id=session_id,
                 user_id="user-1",
                 agent_type="planning",
                 status="completed",
@@ -46,7 +47,7 @@ class TestAnalyticsAPI:
         for i in range(2):
             task = TaskDB(
                 task_id=f"yesterday-task-{i}",
-                session_id="test-sess",
+                session_id=session_id,
                 user_id="user-1",
                 agent_type="executor",
                 status="completed",
@@ -55,7 +56,7 @@ class TestAnalyticsAPI:
                 created_at=yesterday,
             )
             db_session.add(task)
-        await db_session.commit()
+        await db_session.flush()
         
         response = await client.get("/api/analytics/summary")
         assert response.status_code == 200
@@ -67,19 +68,20 @@ class TestAnalyticsAPI:
     
     async def test_daily_costs_format(self, client: AsyncClient, db_session):
         """Daily costs returns correct format for Chart.js."""
-        # Create session
-        session = SessionDB(session_id="test-sess", user_id="user-1", machine_id="m-1")
+        # Create session with unique ID
+        session_id = f"test-sess-{uuid.uuid4().hex[:8]}"
+        session = SessionDB(session_id=session_id, user_id="user-1", machine_id="m-1")
         db_session.add(session)
         await db_session.flush()
         
         # Create tasks over several days
-        base_date = datetime.utcnow()
+        base_date = datetime.now(timezone.utc)
         for day_offset in range(5):
             date = base_date - timedelta(days=day_offset)
             for i in range(2):
                 task = TaskDB(
                     task_id=f"task-day{day_offset}-{i}",
-                    session_id="test-sess",
+                    session_id=session_id,
                     user_id="user-1",
                     agent_type="planning",
                     status="completed",
@@ -88,9 +90,9 @@ class TestAnalyticsAPI:
                     created_at=date,
                 )
                 db_session.add(task)
-        await db_session.commit()
+        await db_session.flush()
         
-        response = await client.get("/api/analytics/costs/daily?days=7")
+        response = await client.get("/api/analytics/costs/histogram?days=7&granularity=day")
         assert response.status_code == 200
         data = response.json()
         assert "dates" in data
@@ -104,8 +106,9 @@ class TestAnalyticsAPI:
     
     async def test_subagent_costs_format(self, client: AsyncClient, db_session):
         """Subagent costs returns correct format for Chart.js."""
-        # Create session
-        session = SessionDB(session_id="test-sess", user_id="user-1", machine_id="m-1")
+        # Create session with unique ID
+        session_id = f"test-sess-{uuid.uuid4().hex[:8]}"
+        session = SessionDB(session_id=session_id, user_id="user-1", machine_id="m-1")
         db_session.add(session)
         await db_session.flush()
         
@@ -115,7 +118,7 @@ class TestAnalyticsAPI:
             for i in range(2):
                 task = TaskDB(
                     task_id=f"{subagent}-task-{i}",
-                    session_id="test-sess",
+                    session_id=session_id,
                     user_id="user-1",
                     assigned_agent=subagent,
                     agent_type="planning",
@@ -124,7 +127,7 @@ class TestAnalyticsAPI:
                     cost_usd=0.10,
                 )
                 db_session.add(task)
-        await db_session.commit()
+        await db_session.flush()
         
         response = await client.get("/api/analytics/costs/by-subagent")
         assert response.status_code == 200
@@ -139,7 +142,7 @@ class TestAnalyticsAPI:
     
     async def test_daily_costs_empty(self, client: AsyncClient):
         """Daily costs with no data returns empty arrays."""
-        response = await client.get("/api/analytics/costs/daily?days=7")
+        response = await client.get("/api/analytics/costs/histogram?days=7&granularity=day")
         assert response.status_code == 200
         data = response.json()
         assert data["dates"] == []

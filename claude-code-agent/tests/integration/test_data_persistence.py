@@ -8,8 +8,6 @@ import uuid
 
 class TestDataPersistenceFlow:
     """Test data persistence business requirements."""
-    
-    @pytest.mark.asyncio
     async def test_task_persists_to_database(self, client, db_session):
         """
         REQUIREMENT: Tasks should persist to the database.
@@ -43,8 +41,6 @@ class TestDataPersistenceFlow:
         response = await client.get(f"/api/tasks/{task_id}")
         assert response.status_code == 200
         assert response.json()["task_id"] == task_id
-    
-    @pytest.mark.asyncio
     async def test_webhook_config_persists(self, client, db_session):
         """
         REQUIREMENT: Webhook configurations should persist.
@@ -61,8 +57,6 @@ class TestDataPersistenceFlow:
         assert "data" in data
         assert "webhook_id" in data["data"]
         # Webhook was created and persisted to database
-    
-    @pytest.mark.asyncio
     async def test_conversation_history_persists(self, client, db_session):
         """
         REQUIREMENT: Conversation history should persist.
@@ -94,8 +88,6 @@ class TestDataPersistenceFlow:
         # Verify conversation exists via API
         response = await client.get(f"/api/conversations/{conv_id}")
         assert response.status_code == 200
-    
-    @pytest.mark.asyncio
     async def test_subagent_execution_persists(self, client, db_session):
         """
         REQUIREMENT: Subagent executions should persist to database.
@@ -117,8 +109,6 @@ class TestDataPersistenceFlow:
         # Verify via API
         response = await client.get(f"/api/v2/subagents/{execution_id}/context")
         assert response.status_code == 200
-    
-    @pytest.mark.asyncio
     async def test_account_persists(self, client, db_session):
         """
         REQUIREMENT: Account information should persist.
@@ -139,8 +129,6 @@ class TestDataPersistenceFlow:
         response = await client.get(f"/api/v2/accounts/{account_id}")
         assert response.status_code == 200
         assert response.json()["email"] == "persist@example.com"
-    
-    @pytest.mark.asyncio
     async def test_machine_persists(self, client, db_session, redis_mock):
         """
         REQUIREMENT: Machine information should persist.
@@ -168,8 +156,6 @@ class TestDataPersistenceFlow:
 
 class TestRedisRecoveryFlow:
     """Test Redis recovery requirements."""
-    
-    @pytest.mark.asyncio
     async def test_active_subagents_tracked_in_redis(self, client, redis_mock, db_session):
         """
         REQUIREMENT: Active subagents should be tracked in Redis.
@@ -187,8 +173,6 @@ class TestRedisRecoveryFlow:
         
         # Verify Redis tracking was called
         redis_mock.add_active_subagent.assert_called_once()
-    
-    @pytest.mark.asyncio
     async def test_machine_status_tracked_in_redis(self, client, redis_mock, db_session):
         """
         REQUIREMENT: Machine status should be tracked in Redis.
@@ -206,8 +190,6 @@ class TestRedisRecoveryFlow:
         
         # Verify Redis was called
         redis_mock.register_machine.assert_called_once()
-    
-    @pytest.mark.asyncio
     async def test_parallel_group_tracked_in_redis(self, client, redis_mock, db_session):
         """
         REQUIREMENT: Parallel execution groups should be tracked in Redis.
@@ -231,8 +213,6 @@ class TestRedisRecoveryFlow:
 
 class TestDatabaseIntegrityFlow:
     """Test database integrity requirements."""
-    
-    @pytest.mark.asyncio
     async def test_session_task_relationship(self, client, db_session):
         """
         REQUIREMENT: Tasks should be linked to sessions.
@@ -270,8 +250,6 @@ class TestDatabaseIntegrityFlow:
         tasks = result.scalars().all()
         
         assert len(tasks) == 3
-    
-    @pytest.mark.asyncio
     async def test_account_machine_relationship(self, client, db_session):
         """
         REQUIREMENT: Machines should be linked to accounts.

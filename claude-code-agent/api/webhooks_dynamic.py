@@ -4,7 +4,7 @@ import hmac
 import hashlib
 import uuid
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Request, HTTPException, Depends, Header
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -144,7 +144,7 @@ async def dynamic_webhook_receiver(
                 matched_command=None,
                 task_id=None,
                 response_sent=False,
-                created_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc)
             )
             db.add(event_db)
             await db.commit()
@@ -173,7 +173,7 @@ async def dynamic_webhook_receiver(
             matched_command=matched_commands[0].command_id if matched_commands else None,
             task_id=task_ids[0] if task_ids else None,
             response_sent=any(r.get("status") == "sent" for r in results),
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         db.add(event_db)
         await db.commit()

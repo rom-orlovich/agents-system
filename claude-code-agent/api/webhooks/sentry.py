@@ -11,7 +11,7 @@ import hashlib
 import os
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import structlog
 
@@ -30,25 +30,27 @@ router = APIRouter()
 # ✅ Verification function (Sentry webhook ONLY)
 async def verify_sentry_signature(request: Request, body: bytes) -> None:
     """Verify Sentry webhook signature ONLY."""
-    secret = os.getenv("SENTRY_WEBHOOK_SECRET")
-    if not secret:
-        logger.warning("SENTRY_WEBHOOK_SECRET not configured, skipping verification")
-        return
-    
     signature = request.headers.get("Sentry-Hook-Signature", "")
-    if not signature:
-        raise HTTPException(status_code=401, detail="Missing signature header")
+    secret = os.getenv("SENTRY_WEBHOOK_SECRET")
     
-    # Compute expected signature (Sentry uses HMAC-SHA256)
-    expected_signature = hmac.new(
-        secret.encode(),
-        body,
-        hashlib.sha256
-    ).hexdigest()
-    
-    # Compare signatures (constant-time comparison)
-    if not hmac.compare_digest(signature, expected_signature):
-        raise HTTPException(status_code=401, detail="Invalid signature")
+    # If signature header is present, we must verify it
+    if signature:
+        if not secret:
+            raise HTTPException(status_code=401, detail="Webhook secret not configured but signature provided")
+        
+        # Compute expected signature (Sentry uses HMAC-SHA256)
+        expected_signature = hmac.new(
+            secret.encode(),
+            body,
+            hashlib.sha256
+        ).hexdigest()
+        
+        # Compare signatures (constant-time comparison)
+        if not hmac.compare_digest(signature, expected_signature):
+            raise HTTPException(status_code=401, detail="Invalid signature")
+    elif secret:
+        # Secret is configured but no signature provided
+        logger.warning("SENTRY_WEBHOOK_SECRET configured but no signature header provided")
 
 
 # ✅ Immediate response function (Sentry webhook ONLY)
@@ -117,7 +119,7 @@ async def create_sentry_task(
         session_id=webhook_session_id,
         user_id="webhook-system",
         machine_id="claude-agent-001",
-        connected_at=datetime.utcnow(),
+        connected_at=datetime.now(timezone.utc),
     )
     db.add(session_db)
     
@@ -215,7 +217,7 @@ async def sentry_webhook(
             matched_command=command.name,
             task_id=task_id,
             response_sent=immediate_response_sent,
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         db.add(event_db)
         await db.commit()

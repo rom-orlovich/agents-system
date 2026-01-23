@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Depends, Query
@@ -18,6 +18,17 @@ from shared import APIResponse
 logger = structlog.get_logger()
 
 router = APIRouter()
+
+
+def safe_json_loads(json_str: Optional[str]) -> dict:
+    """Safely parse JSON string, returning empty dict on error."""
+    if not json_str:
+        return {}
+    try:
+        return json.loads(json_str)
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.warning("Invalid JSON in metadata_json", error=str(e), json_str=json_str[:100] if json_str else None)
+        return {}
 
 
 class ConversationCreate(BaseModel):
@@ -62,7 +73,7 @@ class MessageResponse(BaseModel):
             content=msg.content,
             task_id=msg.task_id,
             created_at=msg.created_at.isoformat(),
-            metadata=json.loads(msg.metadata_json) if msg.metadata_json else {},
+            metadata=safe_json_loads(msg.metadata_json),
         )
 
 
@@ -76,6 +87,12 @@ class ConversationResponse(BaseModel):
     is_archived: bool
     metadata: dict
     message_count: int
+    # Aggregated metrics
+    total_cost_usd: float = 0.0
+    total_tasks: int = 0
+    total_duration_seconds: float = 0.0
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
 
     @classmethod
     def from_db(cls, conv: ConversationDB, message_count: int = 0) -> "ConversationResponse":
@@ -87,8 +104,13 @@ class ConversationResponse(BaseModel):
             created_at=conv.created_at.isoformat(),
             updated_at=conv.updated_at.isoformat(),
             is_archived=conv.is_archived,
-            metadata=json.loads(conv.metadata_json) if conv.metadata_json else {},
+            metadata=safe_json_loads(conv.metadata_json),
             message_count=message_count,
+            total_cost_usd=conv.total_cost_usd or 0.0,
+            total_tasks=conv.total_tasks or 0,
+            total_duration_seconds=conv.total_duration_seconds or 0.0,
+            started_at=conv.started_at.isoformat() if conv.started_at else None,
+            completed_at=conv.completed_at.isoformat() if conv.completed_at else None,
         )
 
 
@@ -106,7 +128,7 @@ class ConversationDetailResponse(ConversationResponse):
             created_at=conv.created_at.isoformat(),
             updated_at=conv.updated_at.isoformat(),
             is_archived=conv.is_archived,
-            metadata=json.loads(conv.metadata_json) if conv.metadata_json else {},
+            metadata=safe_json_loads(conv.metadata_json),
             message_count=len(conv.messages),
             messages=[MessageResponse.from_db(msg) for msg in conv.messages],
         )
@@ -145,29 +167,48 @@ async def list_conversations(
     offset: int = Query(0, ge=0),
 ):
     """List conversations with optional filters."""
-    query = select(ConversationDB).order_by(ConversationDB.updated_at.desc())
-    
-    if user_id:
-        query = query.where(ConversationDB.user_id == user_id)
-    
-    if not include_archived:
-        query = query.where(ConversationDB.is_archived == False)
-    
-    query = query.offset(offset).limit(limit)
-    
-    result = await db.execute(query)
-    conversations = result.scalars().all()
-    
-    # Get message counts
-    response_list = []
-    for conv in conversations:
-        count_query = select(func.count()).select_from(ConversationMessageDB).where(
-            ConversationMessageDB.conversation_id == conv.conversation_id
-        )
-        count = (await db.execute(count_query)).scalar() or 0
-        response_list.append(ConversationResponse.from_db(conv, message_count=count))
-    
-    return response_list
+    try:
+        query = select(ConversationDB).order_by(ConversationDB.updated_at.desc())
+        
+        if user_id:
+            query = query.where(ConversationDB.user_id == user_id)
+        
+        if not include_archived:
+            query = query.where(ConversationDB.is_archived == False)
+        
+        query = query.offset(offset).limit(limit)
+        
+        result = await db.execute(query)
+        conversations = result.scalars().all()
+        
+        # Get message counts
+        response_list = []
+        for conv in conversations:
+            try:
+                count_query = select(func.count()).select_from(ConversationMessageDB).where(
+                    ConversationMessageDB.conversation_id == conv.conversation_id
+                )
+                count = (await db.execute(count_query)).scalar() or 0
+                response_list.append(ConversationResponse.from_db(conv, message_count=count))
+            except Exception as e:
+                # Log error for individual conversation but continue processing others
+                logger.error(
+                    "Failed to process conversation",
+                    conversation_id=conv.conversation_id,
+                    error=str(e),
+                    exc_info=True
+                )
+                # Skip this conversation or add with empty metadata
+                try:
+                    response_list.append(ConversationResponse.from_db(conv, message_count=0))
+                except Exception:
+                    # If even that fails, skip this conversation entirely
+                    logger.warning("Skipping conversation due to processing error", conversation_id=conv.conversation_id)
+        
+        return response_list
+    except Exception as e:
+        logger.error("Failed to list conversations", error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to load conversations")
 
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationDetailResponse)
@@ -224,7 +265,7 @@ async def update_conversation(
     if data.metadata is not None:
         conversation.metadata_json = json.dumps(data.metadata)
     
-    conversation.updated_at = datetime.utcnow()
+    conversation.updated_at = datetime.now(timezone.utc)
     
     await db.commit()
     await db.refresh(conversation)
@@ -288,7 +329,7 @@ async def clear_conversation_history(
     for msg in messages:
         await db.delete(msg)
     
-    conversation.updated_at = datetime.utcnow()
+    conversation.updated_at = datetime.now(timezone.utc)
     await db.commit()
     
     logger.info("conversation_history_cleared", conversation_id=conversation_id, messages_deleted=len(messages))
@@ -326,7 +367,7 @@ async def add_message(
     )
     
     db.add(message)
-    conversation.updated_at = datetime.utcnow()
+    conversation.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(message)
     
@@ -359,6 +400,56 @@ async def get_messages(
     messages = messages_result.scalars().all()
     
     return [MessageResponse.from_db(msg) for msg in messages]
+
+
+@router.get("/conversations/{conversation_id}/metrics")
+async def get_conversation_metrics(
+    conversation_id: str,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Get aggregated metrics for a conversation."""
+    result = await db.execute(
+        select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
+    )
+    conversation = result.scalar_one_or_none()
+    
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    
+    # Get task breakdown by status
+    task_breakdown_query = select(
+        TaskDB.status,
+        func.count().label("count")
+    ).where(
+        TaskDB.source_metadata.like(f'%"conversation_id": "{conversation_id}"%')
+    ).group_by(TaskDB.status)
+    
+    breakdown_result = await db.execute(task_breakdown_query)
+    breakdown_rows = breakdown_result.all()
+    
+    task_breakdown = {}
+    for row in breakdown_rows:
+        task_breakdown[row.status] = row.count
+    
+    # Calculate average cost per task
+    average_cost_per_task = (
+        conversation.total_cost_usd / conversation.total_tasks
+        if conversation.total_tasks > 0
+        else 0.0
+    )
+    
+    metrics = {
+        "conversation_id": conversation_id,
+        "total_cost_usd": conversation.total_cost_usd or 0.0,
+        "total_tasks": conversation.total_tasks or 0,
+        "total_duration_seconds": conversation.total_duration_seconds or 0.0,
+        "started_at": conversation.started_at.isoformat() if conversation.started_at else None,
+        "completed_at": conversation.completed_at.isoformat() if conversation.completed_at else None,
+        "task_breakdown": task_breakdown,
+        "average_cost_per_task": round(average_cost_per_task, 4),
+    }
+    
+    return metrics
 
 
 @router.get("/conversations/{conversation_id}/context")

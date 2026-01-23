@@ -11,7 +11,7 @@ import hashlib
 import os
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import httpx
 import structlog
@@ -162,7 +162,7 @@ async def create_slack_task(
         session_id=webhook_session_id,
         user_id="webhook-system",
         machine_id="claude-agent-001",
-        connected_at=datetime.utcnow(),
+        connected_at=datetime.now(timezone.utc),
     )
     db.add(session_db)
     
@@ -303,7 +303,7 @@ async def slack_webhook(
                 matched_command=command.name,
                 task_id=task_id,
                 response_sent=immediate_response_sent,
-                created_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc)
             )
             db.add(event_db)
             await db.commit()

@@ -1,15 +1,13 @@
 """Integration tests for multi-account & machine management (Part 8 of TDD Requirements)."""
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock
 import uuid
 
 
 class TestAccountRegistrationFlow:
     """Test account registration business requirements."""
-    
-    @pytest.mark.asyncio
     async def test_credential_upload_registers_account(self, client, db_session):
         """
         REQUIREMENT: When a user uploads credentials, the system should
@@ -19,7 +17,7 @@ class TestAccountRegistrationFlow:
         credential_content = {
             "user_id": f"user-{uuid.uuid4().hex[:8]}",
             "email": "test@example.com",
-            "expires_at": (datetime.utcnow() + timedelta(days=30)).isoformat()
+            "expires_at": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
         }
         
         response = await client.post(
@@ -31,8 +29,6 @@ class TestAccountRegistrationFlow:
         data = response.json()
         assert "account_id" in data
         assert data.get("registered") is True or "account_id" in data
-    
-    @pytest.mark.asyncio
     async def test_credential_upload_updates_existing_account(self, client, db_session):
         """
         REQUIREMENT: Uploading credentials for existing account should update it.
@@ -54,7 +50,7 @@ class TestAccountRegistrationFlow:
         credential_content = {
             "user_id": account_id,
             "email": "new@example.com",
-            "expires_at": (datetime.utcnow() + timedelta(days=30)).isoformat()
+            "expires_at": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
         }
         
         response = await client.post(
@@ -66,8 +62,6 @@ class TestAccountRegistrationFlow:
         # Account should be updated, not created new
         data = response.json()
         assert data.get("account_id") == account_id
-    
-    @pytest.mark.asyncio
     async def test_list_accounts(self, client, db_session):
         """
         REQUIREMENT: Should be able to list all registered accounts.
@@ -89,8 +83,6 @@ class TestAccountRegistrationFlow:
         assert response.status_code == 200
         accounts = response.json().get("accounts", [])
         assert len(accounts) >= 3
-    
-    @pytest.mark.asyncio
     async def test_get_account_details(self, client, db_session):
         """
         REQUIREMENT: Should be able to get account details with machines.
@@ -125,8 +117,6 @@ class TestAccountRegistrationFlow:
 
 class TestMachineManagementFlow:
     """Test machine management business requirements."""
-    
-    @pytest.mark.asyncio
     async def test_register_machine(self, client, redis_mock, db_session):
         """
         REQUIREMENT: Should be able to register a new machine.
@@ -144,8 +134,6 @@ class TestMachineManagementFlow:
         data = response.json()
         assert data["machine_id"] == machine_id
         assert data["status"] == "registered"
-    
-    @pytest.mark.asyncio
     async def test_machine_heartbeat(self, client, redis_mock):
         """
         REQUIREMENT: Machines should be able to send heartbeats.
@@ -158,8 +146,6 @@ class TestMachineManagementFlow:
         
         assert response.status_code == 200
         assert response.json().get("ok") is True
-    
-    @pytest.mark.asyncio
     async def test_link_machine_to_account(self, client, db_session, redis_mock):
         """
         REQUIREMENT: Machines should be linkable to accounts.
@@ -183,8 +169,6 @@ class TestMachineManagementFlow:
         assert response.status_code == 200
         data = response.json()
         assert data.get("linked") is True or data.get("account_id") == account_id
-    
-    @pytest.mark.asyncio
     async def test_list_machines(self, client, db_session, redis_mock):
         """
         REQUIREMENT: Should be able to list all machines.
@@ -207,8 +191,6 @@ class TestMachineManagementFlow:
         assert response.status_code == 200
         machines = response.json().get("machines", [])
         assert len(machines) >= 3
-    
-    @pytest.mark.asyncio
     async def test_machine_status_shows_online_offline(self, client, db_session, redis_mock):
         """
         REQUIREMENT: Machine status should correctly show online/offline.
@@ -220,14 +202,14 @@ class TestMachineManagementFlow:
         machine = MachineDB(
             machine_id=machine_id,
             status="online",
-            last_heartbeat=datetime.utcnow()
+            last_heartbeat=datetime.now(timezone.utc)
         )
         db_session.add(machine)
         await db_session.commit()
         
         redis_mock.get_machine_status = AsyncMock(return_value={
             "status": "online",
-            "heartbeat": datetime.utcnow().isoformat()
+            "heartbeat": datetime.now(timezone.utc).isoformat()
         })
         
         response = await client.get(f"/api/v2/machines/{machine_id}")
@@ -239,8 +221,6 @@ class TestMachineManagementFlow:
 
 class TestAccountMachineUISupport:
     """Test API endpoints needed for dashboard UI."""
-    
-    @pytest.mark.asyncio
     async def test_account_switcher_data(self, client, db_session):
         """
         REQUIREMENT: API should provide data for account switcher component.
@@ -271,8 +251,6 @@ class TestAccountMachineUISupport:
         data = response.json()
         # Should have account info and machines
         assert "account_id" in data or "accounts" in data
-    
-    @pytest.mark.asyncio
     async def test_credential_status_expiring_soon(self, client, db_session):
         """
         REQUIREMENT: Should flag credentials expiring within 7 days.
@@ -286,7 +264,7 @@ class TestAccountMachineUISupport:
             account_id=account_id,
             email="test@example.com",
             credential_status="valid",
-            credential_expires_at=datetime.utcnow() + timedelta(days=3)
+            credential_expires_at=datetime.now(timezone.utc) + timedelta(days=3)
         )
         db_session.add(account)
         await db_session.commit()

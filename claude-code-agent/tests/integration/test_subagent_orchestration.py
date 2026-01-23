@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock, patch
 
 class TestSubagentSpawnFlow:
     """Test subagent spawn business requirements."""
-    
-    @pytest.mark.asyncio
     async def test_spawn_foreground_subagent_becomes_active(self, client, redis_mock):
         """
         REQUIREMENT: When Brain spawns a foreground subagent,
@@ -34,8 +32,6 @@ class TestSubagentSpawnFlow:
         # Verify it's in active list
         active = await client.get("/api/v2/subagents/active")
         assert active.status_code == 200
-    
-    @pytest.mark.asyncio
     async def test_spawn_background_subagent_runs_async(self, client, redis_mock):
         """
         REQUIREMENT: Background subagents should run without blocking
@@ -54,8 +50,6 @@ class TestSubagentSpawnFlow:
         data = response.json()["data"]
         assert data["mode"] == "background"
         assert data["permission_mode"] == "auto-deny"
-    
-    @pytest.mark.asyncio
     async def test_stop_subagent_terminates_and_removes(self, client, redis_mock):
         """
         REQUIREMENT: Stopping a subagent should terminate it
@@ -77,8 +71,6 @@ class TestSubagentSpawnFlow:
         active = await client.get("/api/v2/subagents/active")
         active_list = active.json().get("data", [])
         assert not any(s.get("subagent_id") == subagent_id for s in active_list)
-    
-    @pytest.mark.asyncio
     async def test_max_parallel_subagents_enforced(self, client, redis_mock):
         """
         REQUIREMENT: System should enforce maximum of 10 parallel subagents.
@@ -99,8 +91,6 @@ class TestSubagentSpawnFlow:
 
 class TestParallelExecutionFlow:
     """Test parallel subagent execution requirements."""
-    
-    @pytest.mark.asyncio
     async def test_parallel_group_created(self, client, redis_mock):
         """
         REQUIREMENT: Subagents in a parallel group should be created
@@ -122,8 +112,6 @@ class TestParallelExecutionFlow:
         data = response.json()["data"]
         assert "group_id" in data
         assert data["agent_count"] == 3
-    
-    @pytest.mark.asyncio
     async def test_parallel_results_aggregated(self, client, redis_mock):
         """
         REQUIREMENT: Results from parallel subagents should be
@@ -153,8 +141,6 @@ class TestParallelExecutionFlow:
 
 class TestSubagentContextFlow:
     """Test subagent context sharing requirements."""
-    
-    @pytest.mark.asyncio
     async def test_subagent_receives_conversation_context(self, client, redis_mock, db_session):
         """
         REQUIREMENT: Subagent should receive last 20 messages
@@ -163,7 +149,9 @@ class TestSubagentContextFlow:
         from core.database.models import ConversationDB, ConversationMessageDB
         import uuid
         
-        conv_id = f"conv-{uuid.uuid4().hex[:8]}"
+        # Use unique IDs to avoid collisions when tests run together
+        unique_suffix = uuid.uuid4().hex[:8]
+        conv_id = f"conv-{unique_suffix}"
         
         # Create conversation with 25 messages
         conv = ConversationDB(
@@ -175,7 +163,7 @@ class TestSubagentContextFlow:
         
         for i in range(25):
             msg = ConversationMessageDB(
-                message_id=f"msg-{i}",
+                message_id=f"msg-{unique_suffix}-{i}",
                 conversation_id=conv_id,
                 role="user" if i % 2 == 0 else "assistant",
                 content=f"Message {i}"
@@ -198,8 +186,6 @@ class TestSubagentContextFlow:
         context = await client.get(f"/api/v2/subagents/{subagent_id}/context")
         assert context.status_code == 200
         assert context.json()["message_count"] <= 20
-    
-    @pytest.mark.asyncio
     async def test_subagent_context_isolated_between_tasks(self, client, redis_mock):
         """
         REQUIREMENT: Each subagent's context should be isolated;

@@ -2,13 +2,12 @@ import pytest
 from httpx import AsyncClient
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 class TestCredentialsAPI:
     """Integration tests for credential endpoints."""
     
@@ -34,7 +33,7 @@ class TestCredentialsAPI:
         test_settings = Settings()
         
         with patch('api.credentials.settings', test_settings):
-            future_ts = int((datetime.utcnow() + timedelta(hours=2)).timestamp() * 1000)
+            future_ts = int((datetime.now(timezone.utc) + timedelta(hours=2)).timestamp() * 1000)
             creds_content = json.dumps({
                 "access_token": "valid_access_token_12345",
                 "refresh_token": "valid_refresh_token_12345",
@@ -57,7 +56,7 @@ class TestCredentialsAPI:
         test_settings = Settings()
         
         with patch('api.credentials.settings', test_settings):
-            past_ts = int((datetime.utcnow() - timedelta(hours=1)).timestamp() * 1000)
+            past_ts = int((datetime.now(timezone.utc) - timedelta(hours=1)).timestamp() * 1000)
             creds_content = json.dumps({
                 "access_token": "expired_access_token_12345",
                 "refresh_token": "expired_refresh_token_12345",
@@ -107,7 +106,7 @@ class TestCredentialsAPI:
         creds_path = test_settings.credentials_path
         creds_path.parent.mkdir(parents=True, exist_ok=True)
         
-        future_ts = int((datetime.utcnow() + timedelta(hours=2)).timestamp() * 1000)
+        future_ts = int((datetime.now(timezone.utc) + timedelta(hours=2)).timestamp() * 1000)
         creds_content = {
             "access_token": "valid_access_token_12345",
             "refresh_token": "valid_refresh_token_12345",

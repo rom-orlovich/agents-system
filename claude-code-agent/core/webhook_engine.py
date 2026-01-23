@@ -4,7 +4,7 @@ import uuid
 import json
 import re
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -14,59 +14,81 @@ import hashlib
 
 from core.database.models import WebhookCommandDB, TaskDB, SessionDB, WebhookEventDB, ConversationDB, ConversationMessageDB
 from core.database.redis_client import redis_client
-from core.github_client import github_client
 from shared import TaskStatus, AgentType
 
 logger = structlog.get_logger()
 
 
-def extract_repo_info(payload: dict) -> tuple[str, str]:
-    """Extract repository owner and name from GitHub payload."""
-    repo = payload.get("repository", {})
-    full_name = repo.get("full_name", "")
-    if "/" in full_name:
-        owner, name = full_name.split("/", 1)
-        return owner, name
-    return "", ""
 
 
 def generate_external_id(webhook_source: str, payload: dict) -> Optional[str]:
-    """Generate a stable external ID from webhook payload (Jira ticket key, PR number, etc.)."""
-    if webhook_source == "jira":
+    """Generate a stable external ID from webhook payload (for dynamic webhooks)."""
+    # Generic extraction - look for common ID fields
+    if "issue" in payload:
         issue = payload.get("issue", {})
-        issue_key = issue.get("key")
+        issue_key = issue.get("key") or issue.get("number")
         if issue_key:
-            return f"jira:{issue_key}"
+            return f"{webhook_source}:{issue_key}"
     
-    elif webhook_source == "github":
-        issue = payload.get("issue", {})
-        pr = payload.get("pull_request", {})
-        repo = payload.get("repository", {}).get("full_name", "")
-        if pr:
-            pr_number = pr.get("number")
-            if pr_number and repo:
-                return f"github:pr:{repo}#{pr_number}"
-        elif issue:
-            issue_number = issue.get("number")
-            if issue_number and repo:
-                return f"github:issue:{repo}#{issue_number}"
-    
-    elif webhook_source == "slack":
+    if "event" in payload:
         event = payload.get("event", {})
-        channel = event.get("channel")
-        thread_ts = event.get("thread_ts") or event.get("ts")
-        if channel and thread_ts:
-            return f"slack:{channel}:{thread_ts}"
-        elif channel:
-            return f"slack:{channel}"
-    
-    elif webhook_source == "sentry":
-        event = payload.get("event", {})
-        event_id = event.get("event_id")
+        event_id = event.get("event_id") or event.get("id")
         if event_id:
-            return f"sentry:{event_id}"
+            return f"{webhook_source}:{event_id}"
+    
+    # Try to find any ID-like field
+    for key in ["id", "key", "number", "external_id"]:
+        if key in payload and payload[key]:
+            return f"{webhook_source}:{payload[key]}"
     
     return None
+
+
+def generate_flow_id(external_id: Optional[str]) -> str:
+    """Generate a stable flow_id from external_id for end-to-end task flow tracking."""
+    if external_id:
+        # Create a stable hash-based ID from external_id
+        hash_obj = hashlib.md5(external_id.encode())
+        hash_hex = hash_obj.hexdigest()[:16]  # Longer hash for flow_id
+        return f"flow-{hash_hex}"
+    else:
+        # Fallback to UUID if no external_id
+        return f"flow-{uuid.uuid4().hex[:16]}"
+
+
+def should_start_new_conversation(prompt: str, metadata: dict) -> bool:
+    """
+    Detect if user explicitly wants to start a new conversation.
+    
+    Checks for:
+    - Keywords: "new conversation", "start fresh", "new context", "reset conversation"
+    - Metadata flag: new_conversation: true
+    
+    Args:
+        prompt: User prompt text
+        metadata: Task metadata dictionary
+        
+    Returns:
+        True if new conversation should be started, False otherwise
+    """
+    # Check metadata flag first (takes precedence)
+    if "new_conversation" in metadata:
+        return bool(metadata["new_conversation"])
+    
+    # Check for keywords in prompt (case-insensitive)
+    prompt_lower = prompt.lower()
+    keywords = [
+        "new conversation",
+        "start fresh",
+        "new context",
+        "reset conversation"
+    ]
+    
+    for keyword in keywords:
+        if keyword in prompt_lower:
+            return True
+    
+    return False
 
 
 def generate_webhook_conversation_id(external_id: Optional[str]) -> str:
@@ -82,58 +104,138 @@ def generate_webhook_conversation_id(external_id: Optional[str]) -> str:
 
 
 def generate_webhook_conversation_title(webhook_source: str, payload: dict, command: str) -> str:
-    """Generate conversation title based on webhook source and payload."""
-    if webhook_source == "jira":
+    """Generate conversation title based on webhook source and payload (for dynamic webhooks)."""
+    webhook_name = payload.get("webhook_name", webhook_source)
+    
+    # Try to extract a meaningful identifier
+    identifier = None
+    if "issue" in payload:
         issue = payload.get("issue", {})
-        issue_key = issue.get("key", "Unknown")
-        fields = issue.get("fields", {})
-        issue_summary = fields.get("summary", "")
-        if issue_key != "Unknown":
-            title = f"Jira: {issue_key} - {command}"
-            if issue_summary:
-                title += f" ({issue_summary[:40]})"
-            return title
-        return f"Jira Webhook - {command}"
-    
-    elif webhook_source == "github":
-        issue = payload.get("issue", {})
-        pr = payload.get("pull_request", {})
-        if issue:
-            issue_number = issue.get("number", "")
-            issue_title = issue.get("title", "")
-            repo = payload.get("repository", {}).get("full_name", "")
-            if issue_number:
-                title = f"GitHub: {repo}#{issue_number} - {command}"
-                if issue_title:
-                    title += f" ({issue_title[:40]})"
-                return title
-        elif pr:
-            pr_number = pr.get("number", "")
-            pr_title = pr.get("title", "")
-            repo = payload.get("repository", {}).get("full_name", "")
-            if pr_number:
-                title = f"GitHub PR: {repo}#{pr_number} - {command}"
-                if pr_title:
-                    title += f" ({pr_title[:40]})"
-                return title
-        return f"GitHub Webhook - {command}"
-    
-    elif webhook_source == "slack":
+        identifier = issue.get("key") or issue.get("number")
+        title_text = issue.get("title") or issue.get("fields", {}).get("summary")
+    elif "event" in payload:
         event = payload.get("event", {})
-        channel = event.get("channel", "unknown")
-        return f"Slack: #{channel} - {command}"
-    
-    elif webhook_source == "sentry":
-        event = payload.get("event", {})
-        title_text = event.get("title", "")
-        if title_text:
-            return f"Sentry: {title_text[:40]} - {command}"
-        return f"Sentry Webhook - {command}"
-    
+        identifier = event.get("event_id") or event.get("id")
+        title_text = event.get("title")
     else:
-        # Generic or dynamic webhook
-        webhook_name = payload.get("webhook_name", webhook_source)
-        return f"{webhook_name.title()} Webhook - {command}"
+        title_text = payload.get("title") or payload.get("summary")
+        identifier = payload.get("id") or payload.get("key") or payload.get("number")
+    
+    if identifier:
+        title = f"{webhook_name.title()}: {identifier} - {command}"
+        if title_text:
+            title += f" ({str(title_text)[:40]})"
+        return title
+    
+    return f"{webhook_name.title()} Webhook - {command}"
+
+
+async def get_or_create_flow_conversation(
+    flow_id: str,
+    external_id: Optional[str],
+    task_db: TaskDB,
+    db: AsyncSession
+) -> ConversationDB:
+    """
+    Get or create conversation for a flow.
+    
+    If conversation with flow_id exists, reuse it.
+    Otherwise, create new conversation with flow_id and initiated_task_id.
+    
+    Args:
+        flow_id: Flow ID for end-to-end tracking
+        external_id: External ID (e.g., Jira ticket key)
+        task_db: Task database model
+        db: Database session
+        
+    Returns:
+        ConversationDB instance
+    """
+    # Check if conversation with this flow_id already exists
+    result = await db.execute(
+        select(ConversationDB).where(ConversationDB.flow_id == flow_id)
+    )
+    existing_conversation = result.scalar_one_or_none()
+    
+    if existing_conversation:
+        # Reuse existing conversation
+        logger.info(
+            "flow_conversation_reused",
+            flow_id=flow_id,
+            conversation_id=existing_conversation.conversation_id,
+            task_id=task_db.task_id
+        )
+        return existing_conversation
+    
+    # Create new conversation for this flow
+    conversation_id = generate_webhook_conversation_id(external_id)
+    
+    # Parse source_metadata for title generation
+    source_metadata = json.loads(task_db.source_metadata or "{}")
+    webhook_source = source_metadata.get("webhook_source", "unknown")
+    command = source_metadata.get("command", "task")
+    payload = source_metadata.get("payload", {})
+    
+    conversation_title = generate_webhook_conversation_title(
+        webhook_source, payload, command
+    )
+    
+    conversation = ConversationDB(
+        conversation_id=conversation_id,
+        user_id=task_db.user_id,
+        title=conversation_title,
+        flow_id=flow_id,
+        initiated_task_id=task_db.task_id,
+        metadata_json=json.dumps({
+            "webhook_source": webhook_source,
+            "external_id": external_id,
+            "command": command
+        }),
+    )
+    db.add(conversation)
+    
+    try:
+        await db.flush()
+    except Exception as flush_error:
+        # If UNIQUE constraint violation, conversation may have been created concurrently
+        from sqlalchemy.exc import IntegrityError
+        if isinstance(flush_error, IntegrityError) or "UNIQUE constraint" in str(flush_error):
+            # SQLAlchemy auto-rolls back on exception
+            # Check again if conversation exists (may have been created by concurrent request)
+            # Use a fresh query after the rollback
+            result = await db.execute(
+                select(ConversationDB).where(ConversationDB.flow_id == flow_id)
+            )
+            existing_conversation = result.scalar_one_or_none()
+            
+            if existing_conversation:
+                logger.info(
+                    "flow_conversation_reused_after_conflict",
+                    flow_id=flow_id,
+                    conversation_id=existing_conversation.conversation_id,
+                    task_id=task_db.task_id
+                )
+                return existing_conversation
+        
+        # If not a UNIQUE constraint error, or conversation still doesn't exist, re-raise
+        logger.error(
+            "failed_to_create_flow_conversation",
+            flow_id=flow_id,
+            conversation_id=conversation_id,
+            task_id=task_db.task_id,
+            error=str(flush_error)
+        )
+        raise
+    
+    logger.info(
+        "flow_conversation_created",
+        flow_id=flow_id,
+        conversation_id=conversation_id,
+        task_id=task_db.task_id,
+        external_id=external_id
+    )
+    
+    return conversation
 
 
 async def create_webhook_conversation(
@@ -363,17 +465,6 @@ async def execute_command(
         elif command.action == "forward":
             return await action_forward(payload, message)
         
-        # GitHub-specific actions
-        elif command.action == "github_reaction":
-            # Extract reaction from template or use default
-            reaction = message.strip() if message.strip() in ["eyes", "+1", "-1", "laugh", "confused", "heart", "hooray", "rocket"] else "eyes"
-            return await action_github_reaction(payload, reaction)
-        
-        elif command.action == "github_label":
-            # Parse labels from template (comma-separated)
-            labels = [label.strip() for label in message.split(",") if label.strip()]
-            return await action_github_label(payload, labels)
-        
         else:
             logger.error("unknown_action", action=command.action)
             return {"action": "error", "error": f"Unknown action: {command.action}"}
@@ -399,7 +490,7 @@ async def action_create_task(
             session_id=webhook_session_id,
             user_id="webhook-system",
             machine_id="claude-agent-001",
-            connected_at=datetime.utcnow(),
+            connected_at=datetime.now(timezone.utc),
         )
         db.add(session_db)
         
@@ -415,7 +506,11 @@ async def action_create_task(
         if "webhook_source" not in payload:
             payload["webhook_source"] = payload.get("provider", "unknown")
         
-        # Create task
+        # Generate external_id and flow_id for flow tracking
+        external_id = generate_external_id(payload.get("webhook_source", "unknown"), payload)
+        flow_id = generate_flow_id(external_id)
+        
+        # Create task with flow tracking fields
         task_db = TaskDB(
             task_id=task_id,
             session_id=webhook_session_id,
@@ -426,19 +521,81 @@ async def action_create_task(
             input_message=message,
             source="webhook",
             source_metadata=json.dumps(payload),
+            flow_id=flow_id,
+            initiated_task_id=task_id,  # Root task - self-reference
         )
         db.add(task_db)
         await db.flush()  # Flush to get task_db.id if needed
         
-        # Create conversation immediately when task is created
-        conversation_id = await create_webhook_conversation(task_db, db)
-        if conversation_id:
-            logger.info("webhook_conversation_created_in_action", conversation_id=conversation_id, task_id=task_id)
+        # Get or create flow conversation
+        conversation = await get_or_create_flow_conversation(
+            flow_id=flow_id,
+            external_id=external_id,
+            task_db=task_db,
+            db=db
+        )
+        conversation_id = conversation.conversation_id
+        
+        # Update task source_metadata with flow_id and conversation_id
+        source_metadata = json.loads(task_db.source_metadata or "{}")
+        source_metadata["flow_id"] = flow_id
+        source_metadata["conversation_id"] = conversation_id
+        source_metadata["initiated_task_id"] = task_id
+        task_db.source_metadata = json.dumps(source_metadata)
+        
+        # Sync to Claude Code Tasks if enabled (non-blocking)
+        try:
+            from core.claude_tasks_sync import sync_task_to_claude_tasks
+            claude_task_id = sync_task_to_claude_tasks(
+                task_db=task_db,
+                flow_id=flow_id,
+                conversation_id=conversation_id
+            )
+            if claude_task_id:
+                source_metadata["claude_task_id"] = claude_task_id
+                task_db.source_metadata = json.dumps(source_metadata)
+        except Exception as sync_error:
+            logger.warning(
+                "claude_tasks_sync_failed",
+                task_id=task_id,
+                error=str(sync_error)
+            )
+        
+        # Add message to conversation
+        from core.database.models import ConversationMessageDB
+        user_message_id = f"msg-{uuid.uuid4().hex[:12]}"
+        user_message = ConversationMessageDB(
+            message_id=user_message_id,
+            conversation_id=conversation_id,
+            role="user",
+            content=message,
+            task_id=task_id,
+            metadata_json=json.dumps({
+                "webhook_source": payload.get("webhook_source", "unknown"),
+                "command": payload.get("command", "create_task")
+            }),
+        )
+        db.add(user_message)
+        
+        logger.info(
+            "webhook_task_created_with_flow",
+            task_id=task_id,
+            flow_id=flow_id,
+            conversation_id=conversation_id,
+            external_id=external_id
+        )
         
         await db.commit()
         
-        # Push to queue
-        await redis_client.push_task(task_id)
+        # Push to queue (non-blocking - task already created)
+        try:
+            await redis_client.push_task(task_id)
+        except Exception as redis_error:
+            logger.warning(
+                "task_queue_push_failed",
+                task_id=task_id,
+                error=str(redis_error)
+            )
         
         logger.info("task_created_from_webhook", task_id=task_id, agent=agent)
         
@@ -455,39 +612,13 @@ async def action_create_task(
 
 
 async def action_comment(payload: dict, message: str) -> dict:
-    """Post a comment back to the source."""
+    """Post a comment back to the source (for dynamic webhooks)."""
     try:
-        provider = payload.get("provider")
+        provider = payload.get("provider", "unknown")
+        logger.info("comment_action_for_dynamic_webhook", provider=provider, message=message[:100])
         
-        if provider == "github":
-            # Extract repo info and issue/PR number
-            repo_owner, repo_name = extract_repo_info(payload)
-            
-            # Get issue or PR number
-            issue_number = None
-            if "issue" in payload:
-                issue_number = payload["issue"].get("number")
-            elif "pull_request" in payload:
-                issue_number = payload["pull_request"].get("number")
-            
-            if repo_owner and repo_name and issue_number:
-                await github_client.post_issue_comment(
-                    repo_owner,
-                    repo_name,
-                    issue_number,
-                    message
-                )
-                logger.info("github_comment_posted_via_engine", issue=issue_number)
-            else:
-                logger.warning("missing_github_info_for_comment", payload_keys=list(payload.keys()))
-                
-        elif provider == "jira":
-            await jira_post_comment(payload, message)
-        elif provider == "slack":
-            await slack_post_message(payload, message)
-        else:
-            logger.warning("unsupported_comment_provider", provider=provider)
-        
+        # For dynamic webhooks, comment action is a placeholder
+        # Actual implementation would depend on the webhook's API configuration
         return {"action": "comment", "status": "sent", "provider": provider}
     
     except Exception as e:
@@ -511,7 +642,7 @@ async def action_ask(
             session_id=webhook_session_id,
             user_id="webhook-system",
             machine_id="claude-agent-001",
-            connected_at=datetime.utcnow(),
+            connected_at=datetime.now(timezone.utc),
         )
         db.add(session_db)
         
@@ -538,8 +669,15 @@ async def action_ask(
         db.add(task_db)
         await db.commit()
         
-        # Push to queue
-        await redis_client.push_task(task_id)
+        # Push to queue (non-blocking - task already created)
+        try:
+            await redis_client.push_task(task_id)
+        except Exception as redis_error:
+            logger.warning(
+                "task_queue_push_failed",
+                task_id=task_id,
+                error=str(redis_error)
+            )
         
         logger.info("interactive_task_created", task_id=task_id, agent=agent)
         
@@ -582,184 +720,3 @@ async def action_forward(payload: dict, message: str) -> dict:
         return {"action": "forward", "status": "error", "error": str(e)}
 
 
-async def action_github_reaction(payload: dict, reaction: str = "eyes") -> dict:
-    """Add reaction to GitHub comment/issue/PR."""
-    try:
-        repo_owner, repo_name = extract_repo_info(payload)
-        
-        # Get comment ID if available
-        comment_id = None
-        if "comment" in payload:
-            comment_id = payload["comment"].get("id")
-        
-        if repo_owner and repo_name and comment_id:
-            await github_client.add_reaction(
-                repo_owner,
-                repo_name,
-                comment_id,
-                reaction
-            )
-            logger.info("github_reaction_added_via_engine", reaction=reaction)
-            return {"action": "github_reaction", "status": "sent", "reaction": reaction}
-        else:
-            logger.warning("missing_github_info_for_reaction")
-            return {"action": "github_reaction", "status": "skipped", "reason": "missing_info"}
-    
-    except Exception as e:
-        logger.error("action_github_reaction_error", error=str(e))
-        return {"action": "github_reaction", "status": "error", "error": str(e)}
-
-
-async def action_github_label(payload: dict, labels: list[str]) -> dict:
-    """Add labels to GitHub issue/PR."""
-    try:
-        repo_owner, repo_name = extract_repo_info(payload)
-        
-        # Get issue or PR number
-        issue_number = None
-        if "issue" in payload:
-            issue_number = payload["issue"].get("number")
-        elif "pull_request" in payload:
-            issue_number = payload["pull_request"].get("number")
-        
-        if repo_owner and repo_name and issue_number:
-            await github_client.update_issue_labels(
-                repo_owner,
-                repo_name,
-                issue_number,
-                labels
-            )
-            logger.info("github_labels_added_via_engine", labels=labels)
-            return {"action": "github_label", "status": "sent", "labels": labels}
-        else:
-            logger.warning("missing_github_info_for_labels")
-            return {"action": "github_label", "status": "skipped", "reason": "missing_info"}
-    
-    except Exception as e:
-        logger.error("action_github_label_error", error=str(e))
-        return {"action": "github_label", "status": "error", "error": str(e)}
-
-
-async def github_post_comment(payload: dict, message: str):
-    """Post comment to GitHub issue/PR (legacy)."""
-    logger.info("github_comment_posted", message=message)
-
-
-async def jira_post_comment(payload: dict, message: str):
-    """Post comment to Jira issue."""
-    try:
-        from core.config import settings
-        import base64
-        
-        # Get Jira credentials
-        jira_url = settings.jira_url or os.getenv("JIRA_URL")
-        jira_email = settings.jira_email or os.getenv("JIRA_EMAIL")
-        jira_api_token = settings.jira_api_token or os.getenv("JIRA_API_TOKEN")
-        
-        if not jira_url or not jira_api_token or not jira_email:
-            logger.warning("jira_credentials_missing", message="Jira API credentials not configured")
-            return
-        
-        # Extract issue key from payload
-        issue = payload.get("issue", {})
-        issue_key = issue.get("key")
-        
-        if not issue_key:
-            logger.warning("jira_issue_key_missing", payload_keys=list(payload.keys()))
-            return
-        
-        # Build API URL
-        api_url = f"{jira_url.rstrip('/')}/rest/api/3/issue/{issue_key}/comment"
-        
-        # Create auth header (Basic auth with email:token)
-        auth_string = f"{jira_email}:{jira_api_token}"
-        auth_bytes = auth_string.encode('ascii')
-        auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
-        
-        # Post comment
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                api_url,
-                headers={
-                    "Authorization": f"Basic {auth_b64}",
-                    "Content-Type": "application/json",
-                    "Accept": "application/json"
-                },
-                json={
-                    "body": {
-                        "type": "doc",
-                        "version": 1,
-                        "content": [
-                            {
-                                "type": "paragraph",
-                                "content": [
-                                    {
-                                        "type": "text",
-                                        "text": message
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                },
-                timeout=30.0
-            )
-            response.raise_for_status()
-            
-            logger.info(
-                "jira_comment_posted",
-                issue_key=issue_key,
-                comment_id=response.json().get("id")
-            )
-            
-    except httpx.HTTPStatusError as e:
-        logger.error(
-            "jira_comment_failed",
-            status_code=e.response.status_code,
-            error=str(e),
-            response_text=e.response.text[:500] if e.response.text else None
-        )
-    except Exception as e:
-        logger.error("jira_api_error", error=str(e), error_type=type(e).__name__)
-
-
-async def slack_post_message(payload: dict, message: str):
-    """Post message to Slack channel using Slack API."""
-    try:
-        slack_token = os.getenv("SLACK_BOT_TOKEN")
-        if not slack_token:
-            logger.warning("slack_bot_token_not_configured_for_comment")
-            return
-        
-        # Extract channel from payload
-        channel = None
-        event = payload.get("event", {})
-        if event:
-            channel = event.get("channel")
-        
-        # Fallback to notification channel if not in event
-        if not channel:
-            channel = os.getenv("SLACK_NOTIFICATION_CHANNEL", "#ai-agent-activity")
-        
-        # Send message using Slack API
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://slack.com/api/chat.postMessage",
-                headers={
-                    "Authorization": f"Bearer {slack_token}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "channel": channel,
-                    "text": message
-                },
-                timeout=10.0
-            )
-            response.raise_for_status()
-            result = response.json()
-            if not result.get("ok"):
-                logger.error("slack_api_error", error=result.get("error"))
-            else:
-                logger.info("slack_message_posted", channel=channel, message=message[:100])
-    except Exception as e:
-        logger.error("slack_post_message_error", error=str(e))

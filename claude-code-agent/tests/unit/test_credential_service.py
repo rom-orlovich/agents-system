@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from shared.machine_models import ClaudeCredentials, AuthStatus
 
 
@@ -8,7 +8,7 @@ class TestClaudeCredentials:
     
     def test_valid_credentials(self):
         """Valid credentials return VALID status."""
-        future_ts = int((datetime.utcnow() + timedelta(hours=2)).timestamp() * 1000)
+        future_ts = int((datetime.now(timezone.utc) + timedelta(hours=2)).timestamp() * 1000)
         creds = ClaudeCredentials(
             access_token="valid_token_12345",
             refresh_token="refresh_token_12345",
@@ -20,7 +20,7 @@ class TestClaudeCredentials:
     
     def test_expired_credentials(self):
         """Expired credentials return EXPIRED status."""
-        past_ts = int((datetime.utcnow() - timedelta(hours=1)).timestamp() * 1000)
+        past_ts = int((datetime.now(timezone.utc) - timedelta(hours=1)).timestamp() * 1000)
         creds = ClaudeCredentials(
             access_token="expired_token_12345",
             refresh_token="refresh_token_12345",
@@ -31,7 +31,7 @@ class TestClaudeCredentials:
     
     def test_needs_refresh_credentials(self):
         """Credentials expiring within 30 min return REFRESH_NEEDED."""
-        soon_ts = int((datetime.utcnow() + timedelta(minutes=15)).timestamp() * 1000)
+        soon_ts = int((datetime.now(timezone.utc) + timedelta(minutes=15)).timestamp() * 1000)
         creds = ClaudeCredentials(
             access_token="soon_expired_token",
             refresh_token="refresh_token_12345",
@@ -58,5 +58,5 @@ class TestClaudeCredentials:
             refresh_token="refresh_token_12345",
             expires_at=ts_ms,
         )
-        expected_dt = datetime.fromtimestamp(ts_ms / 1000)
+        expected_dt = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc)
         assert creds.expires_at_datetime == expected_dt

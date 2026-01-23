@@ -1,0 +1,8 @@
+{
+  "enabledMcpjsonServers": [
+    "filesystem",
+    "reddit",
+    "gitmcp",
+    "github"
+  ]
+}

@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -63,6 +64,10 @@ class Settings(BaseSettings):
     default_model: str | None = None  # e.g., "opus", "sonnet" (None = CLI default)
     default_allowed_tools: str = "Read,Edit,Bash,Glob,Grep,Write"  # Pre-approved tools
     enable_subagents: bool = True  # Enable sub-agent execution
+    
+    # Claude Code Tasks Integration
+    sync_to_claude_tasks: bool = False  # Sync orchestration tasks to Claude Code Tasks directory
+    claude_tasks_directory: Optional[Path] = None  # Default: ~/.claude/tasks
     
     # Model Configuration by Agent Type
     claude_model_planning: str = "claude-opus-4-5-20251101"      # Complex tasks, thinking, planning

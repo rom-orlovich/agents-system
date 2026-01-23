@@ -1,7 +1,7 @@
 """Account and machine management API endpoints."""
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -60,7 +60,7 @@ async def upload_credentials(
         existing.email = request.email or existing.email
         existing.credential_expires_at = expires_at
         existing.credential_status = "valid"
-        existing.updated_at = datetime.utcnow()
+        existing.updated_at = datetime.now(timezone.utc)
         registered = False
     else:
         # Create new account
@@ -245,7 +245,7 @@ async def register_machine(
     if existing:
         # Update existing
         existing.status = "online"
-        existing.last_heartbeat = datetime.utcnow()
+        existing.last_heartbeat = datetime.now(timezone.utc)
         if request.display_name:
             existing.display_name = request.display_name
         if request.account_id:
@@ -257,7 +257,7 @@ async def register_machine(
             account_id=request.account_id,
             display_name=request.display_name,
             status="online",
-            last_heartbeat=datetime.utcnow()
+            last_heartbeat=datetime.now(timezone.utc)
         )
         db.add(machine)
     
@@ -321,7 +321,7 @@ async def machine_heartbeat(
     machine = result.scalar_one_or_none()
     
     if machine:
-        machine.last_heartbeat = datetime.utcnow()
+        machine.last_heartbeat = datetime.now(timezone.utc)
         await db.commit()
     
     return {"ok": True}
@@ -377,7 +377,11 @@ def _get_credential_status(account: AccountDB) -> str:
         return account.credential_status
     
     if account.credential_expires_at:
-        days_until_expiry = (account.credential_expires_at - datetime.utcnow()).days
+        # SQLite returns naive datetimes, convert to UTC-aware for comparison
+        expires_at = account.credential_expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        days_until_expiry = (expires_at - datetime.now(timezone.utc)).days
         if days_until_expiry < 0:
             return "expired"
         elif days_until_expiry <= 7:

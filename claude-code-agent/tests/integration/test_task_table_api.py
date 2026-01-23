@@ -1,17 +1,20 @@
 import pytest
+import uuid
 from httpx import AsyncClient
-from datetime import datetime
+from datetime import datetime, timezone
 from core.database.models import TaskDB, SessionDB
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 class TestTaskTableAPI:
     """Integration tests for paginated task table."""
     
     async def test_task_table_empty(self, client: AsyncClient):
         """Empty database returns empty list with pagination info."""
-        response = await client.get("/api/tasks/table")
+        # Use a filter for a non-existent session to ensure empty results
+        # This makes the test robust when run with other tests that create data
+        unique_session = f"non-existent-session-{uuid.uuid4().hex[:8]}"
+        response = await client.get(f"/api/tasks/table?session_id={unique_session}")
         assert response.status_code == 200
         data = response.json()
         assert data["tasks"] == []
@@ -21,8 +24,10 @@ class TestTaskTableAPI:
     
     async def test_task_table_pagination(self, client: AsyncClient, db_session):
         """Pagination returns correct page of results."""
+        # Use unique session_id to avoid collisions
+        unique_sess_id = f"test-sess-{uuid.uuid4().hex[:8]}"
         # Create session first
-        session = SessionDB(session_id="test-sess", user_id="user-1", machine_id="m-1")
+        session = SessionDB(session_id=unique_sess_id, user_id="user-1", machine_id="m-1", connected_at=datetime.now(timezone.utc))
         db_session.add(session)
         await db_session.flush()
         
@@ -30,7 +35,7 @@ class TestTaskTableAPI:
         for i in range(25):
             task = TaskDB(
                 task_id=f"task-{i:03d}",
-                session_id="test-sess",
+                session_id=unique_sess_id,
                 user_id="user-1",
                 agent_type="planning",
                 status="completed",
@@ -40,8 +45,8 @@ class TestTaskTableAPI:
             db_session.add(task)
         await db_session.commit()
         
-        # Page 1 (default page_size=20)
-        response = await client.get("/api/tasks/table?page=1&page_size=10")
+        # Page 1 (default page_size=20) - filter by session_id to avoid seeing other tests' data
+        response = await client.get(f"/api/tasks/table?page=1&page_size=10&session_id={unique_sess_id}")
         assert response.status_code == 200
         data = response.json()
         assert len(data["tasks"]) == 10
@@ -50,7 +55,7 @@ class TestTaskTableAPI:
         assert data["total_pages"] == 3
         
         # Page 3
-        response = await client.get("/api/tasks/table?page=3&page_size=10")
+        response = await client.get(f"/api/tasks/table?page=3&page_size=10&session_id={unique_sess_id}")
         assert response.status_code == 200
         data = response.json()
         assert len(data["tasks"]) == 5  # Remaining tasks
@@ -58,8 +63,10 @@ class TestTaskTableAPI:
     
     async def test_task_table_filter_by_status(self, client: AsyncClient, db_session):
         """Filter by status returns only matching tasks."""
+        # Use unique session_id to avoid collisions
+        unique_sess_id = f"test-sess-{uuid.uuid4().hex[:8]}"
         # Create session
-        session = SessionDB(session_id="test-sess", user_id="user-1", machine_id="m-1")
+        session = SessionDB(session_id=unique_sess_id, user_id="user-1", machine_id="m-1", connected_at=datetime.now(timezone.utc))
         db_session.add(session)
         await db_session.flush()
         
@@ -67,7 +74,7 @@ class TestTaskTableAPI:
         for i in range(5):
             task = TaskDB(
                 task_id=f"completed-{i}",
-                session_id="test-sess",
+                session_id=unique_sess_id,
                 user_id="user-1",
                 agent_type="planning",
                 status="completed",
@@ -78,7 +85,7 @@ class TestTaskTableAPI:
         for i in range(3):
             task = TaskDB(
                 task_id=f"failed-{i}",
-                session_id="test-sess",
+                session_id=unique_sess_id,
                 user_id="user-1",
                 agent_type="executor",
                 status="failed",
@@ -87,7 +94,8 @@ class TestTaskTableAPI:
             db_session.add(task)
         await db_session.commit()
         
-        response = await client.get("/api/tasks/table?status=completed")
+        # Filter by both status and session_id to avoid seeing other tests' data
+        response = await client.get(f"/api/tasks/table?status=completed&session_id={unique_sess_id}")
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 5
@@ -96,8 +104,10 @@ class TestTaskTableAPI:
     
     async def test_task_table_sort_by_cost(self, client: AsyncClient, db_session):
         """Sort by cost_usd works correctly."""
+        # Use unique session_id to avoid collisions
+        unique_sess_id = f"test-sess-{uuid.uuid4().hex[:8]}"
         # Create session
-        session = SessionDB(session_id="test-sess", user_id="user-1", machine_id="m-1")
+        session = SessionDB(session_id=unique_sess_id, user_id="user-1", machine_id="m-1", connected_at=datetime.now(timezone.utc))
         db_session.add(session)
         await db_session.flush()
         
@@ -106,7 +116,7 @@ class TestTaskTableAPI:
         for i, cost in enumerate(costs):
             task = TaskDB(
                 task_id=f"task-{i}",
-                session_id="test-sess",
+                session_id=unique_sess_id,
                 user_id="user-1",
                 agent_type="planning",
                 status="completed",
@@ -116,7 +126,8 @@ class TestTaskTableAPI:
             db_session.add(task)
         await db_session.commit()
         
-        response = await client.get("/api/tasks/table?sort_by=cost_usd&sort_order=desc")
+        # Filter by session_id to avoid seeing other tests' data
+        response = await client.get(f"/api/tasks/table?sort_by=cost_usd&sort_order=desc&session_id={unique_sess_id}")
         assert response.status_code == 200
         data = response.json()
         task_costs = [t["cost_usd"] for t in data["tasks"]]

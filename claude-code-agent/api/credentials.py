@@ -15,6 +15,7 @@ from core.config import settings
 from core.database import get_session as get_db_session, async_session_factory
 from core.database.models import SessionDB
 from core.cli_access import test_cli_access
+from core.oauth_usage import fetch_oauth_usage, OAuthUsageResponse
 from shared.machine_models import ClaudeCredentials, AuthStatus, CLIStatusUpdateMessage
 from shared import APIResponse
 import structlog
@@ -103,7 +104,7 @@ async def get_credential_status() -> CredentialStatusResponse:
                 cli_version=cli_version,
                 expires_at=creds.expires_at_datetime.isoformat() if hasattr(creds, 'expires_at_datetime') else None,
                 account_email=creds.email if hasattr(creds, 'email') else None,
-                account_id=creds.user_id if hasattr(creds, 'user_id') else None,
+                account_id=creds.account_id if hasattr(creds, 'account_id') else None,
             )
         except Exception as e:
             logger.error("credential_validation_error", error=str(e))
@@ -159,7 +160,7 @@ async def upload_credentials(
     # After successful upload, run test and update session status
     try:
         is_active = await test_cli_access()
-        user_id = creds.user_id or creds.account_id
+        user_id = creds.account_id
         
         if user_id:
             # Update sessions for this user
@@ -213,7 +214,7 @@ async def get_cli_status(db: AsyncSession = Depends(get_db_session)):
     try:
         creds_data = json.loads(creds_path.read_text())
         creds = ClaudeCredentials(**creds_data)
-        user_id = creds.user_id or creds.account_id
+        user_id = creds.account_id
         
         if not user_id:
             return {"active": False, "message": "No user_id found in credentials"}
@@ -234,6 +235,55 @@ async def get_cli_status(db: AsyncSession = Depends(get_db_session)):
     except Exception as e:
         logger.warning("Failed to get CLI status", error=str(e))
         return {"active": False, "message": str(e)}
+
+
+@router.get("/usage")
+async def get_oauth_usage() -> dict:
+    """
+    Get Claude Code CLI OAuth usage limits (session and weekly).
+    
+    Returns usage data from Anthropic's OAuth usage endpoint:
+    - session: 5-hour session usage limits
+    - weekly: 7-day weekly usage limits
+    """
+    usage = await fetch_oauth_usage()
+    
+    if usage.error:
+        return {
+            "success": False,
+            "error": usage.error,
+            "session": None,
+            "weekly": None,
+        }
+    
+    result = {
+        "success": True,
+        "error": None,
+    }
+    
+    if usage.session:
+        result["session"] = {
+            "used": usage.session.used,
+            "limit": usage.session.limit,
+            "remaining": usage.session.remaining,
+            "percentage": round(usage.session.percentage, 2),
+            "is_exceeded": usage.session.is_exceeded,
+        }
+    else:
+        result["session"] = None
+    
+    if usage.weekly:
+        result["weekly"] = {
+            "used": usage.weekly.used,
+            "limit": usage.weekly.limit,
+            "remaining": usage.weekly.remaining,
+            "percentage": round(usage.weekly.percentage, 2),
+            "is_exceeded": usage.weekly.is_exceeded,
+        }
+    else:
+        result["weekly"] = None
+    
+    return result
 
 
 @router.get("/accounts")

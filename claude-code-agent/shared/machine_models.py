@@ -3,7 +3,7 @@ ALL domain models with Pydantic validation.
 Business rules are ENFORCED here, not in service layer.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Literal
@@ -156,10 +156,10 @@ class Task(BaseModel):
     def validate_status_transitions(self) -> "Task":
         """Ensure valid status transitions."""
         if self.status == TaskStatus.RUNNING and self.started_at is None:
-            object.__setattr__(self, "started_at", datetime.utcnow())
+            object.__setattr__(self, "started_at", datetime.now(timezone.utc))
         if self.status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED):
             if self.completed_at is None:
-                object.__setattr__(self, "completed_at", datetime.utcnow())
+                object.__setattr__(self, "completed_at", datetime.now(timezone.utc))
             if self.started_at and self.completed_at:
                 object.__setattr__(self, "duration_seconds", (self.completed_at - self.started_at).total_seconds())
         return self
@@ -313,17 +313,17 @@ class ClaudeCredentials(BaseModel):
     @property
     def expires_at_datetime(self) -> datetime:
         """Convert to datetime."""
-        return datetime.fromtimestamp(self.expires_at / 1000)
+        return datetime.fromtimestamp(self.expires_at / 1000, tz=timezone.utc)
 
     @property
     def is_expired(self) -> bool:
         """Check if token is expired."""
-        return datetime.utcnow() >= self.expires_at_datetime
+        return datetime.now(timezone.utc) >= self.expires_at_datetime
 
     @property
     def needs_refresh(self) -> bool:
         """Check if token needs refresh (< 30 min left)."""
-        remaining = (self.expires_at_datetime - datetime.utcnow()).total_seconds()
+        remaining = (self.expires_at_datetime - datetime.now(timezone.utc)).total_seconds()
         return remaining < 1800  # 30 minutes
 
     def get_status(self) -> AuthStatus:

@@ -2,7 +2,7 @@
 
 import json
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import redis.asyncio as redis
 import structlog
 
@@ -175,7 +175,7 @@ class RedisClient:
                 "status": status_data.get("status", "running"),
                 "mode": status_data.get("mode", "foreground"),
                 "agent_name": status_data.get("agent_name", ""),
-                "started_at": status_data.get("started_at", datetime.utcnow().isoformat()),
+                "started_at": status_data.get("started_at", datetime.now(timezone.utc).isoformat()),
                 "permission_mode": status_data.get("permission_mode", "default"),
             }
         )
@@ -288,7 +288,7 @@ class RedisClient:
             RedisKeys.MACHINE_STATUS.format(id=machine_id),
             mapping={
                 "status": "online",
-                "heartbeat": datetime.utcnow().isoformat(),
+                "heartbeat": datetime.now(timezone.utc).isoformat(),
             }
         )
         if account_id:
@@ -301,7 +301,7 @@ class RedisClient:
             raise RuntimeError("Redis not connected")
         await self._client.hset(
             RedisKeys.MACHINE_STATUS.format(id=machine_id),
-            "heartbeat", datetime.utcnow().isoformat()
+            "heartbeat", datetime.now(timezone.utc).isoformat()
         )
 
     async def set_machine_status(self, machine_id: str, status: str) -> None:

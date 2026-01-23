@@ -5,7 +5,6 @@ from httpx import AsyncClient
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 async def test_health_endpoint(client: AsyncClient):
     """Health endpoint returns status."""
     response = await client.get("/api/health")
@@ -17,7 +16,6 @@ async def test_health_endpoint(client: AsyncClient):
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 async def test_status_endpoint(client: AsyncClient):
     """Status endpoint returns machine status."""
     response = await client.get("/api/status")
@@ -29,7 +27,6 @@ async def test_status_endpoint(client: AsyncClient):
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 async def test_list_tasks_endpoint(client: AsyncClient):
     """List tasks endpoint returns task list."""
     response = await client.get("/api/tasks")
@@ -41,7 +38,6 @@ async def test_list_tasks_endpoint(client: AsyncClient):
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 async def test_list_agents_endpoint(client: AsyncClient):
     """List agents endpoint returns agents."""
     response = await client.get("/api/agents")
@@ -53,7 +49,6 @@ async def test_list_agents_endpoint(client: AsyncClient):
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 async def test_list_webhooks_endpoint(client: AsyncClient):
     """List webhooks endpoint returns webhooks."""
     response = await client.get("/api/webhooks")
@@ -63,7 +58,6 @@ async def test_list_webhooks_endpoint(client: AsyncClient):
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 async def test_get_nonexistent_task(client: AsyncClient):
     """Getting nonexistent task returns 404."""
     response = await client.get("/api/tasks/nonexistent")
