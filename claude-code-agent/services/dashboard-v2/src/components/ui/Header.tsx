@@ -1,8 +1,12 @@
-import { Cpu, Moon, Sun, Terminal } from "lucide-react";
+import { Cpu, Moon, Sun, Terminal, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCLIStatus } from "../../hooks/useCLIStatus";
 
 export function Header() {
   const [isDark, setIsDark] = useState(false);
+  const { active: cliActive, isLoading: cliLoading } = useCLIStatus();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     // Check local storage or system preference
@@ -22,6 +26,15 @@ export function Header() {
       localStorage.setItem("theme", "light");
     }
   }, [isDark]);
+
+  // Listen for WebSocket updates and invalidate query
+  useEffect(() => {
+    // TODO: Connect to WebSocket if not already connected
+    // Listen for 'cli_status_update' messages
+    // When received: queryClient.invalidateQueries({ queryKey: ["cli-status"] })
+    // This will trigger React Query to refetch automatically
+    // For now, polling via refetchInterval handles updates
+  }, [queryClient]);
 
   return (
     <header className="h-16 border-b border-gray-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-between px-4 md:px-8 z-50 sticky top-0">
@@ -48,6 +61,27 @@ export function Header() {
         >
           {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
+        
+        {/* CLI Status Indicator */}
+        <div className="hidden md:flex items-center gap-2 px-4 py-1.5 border border-gray-200 dark:border-slate-800 text-[10px] font-heading bg-gray-50/50 dark:bg-slate-950/50">
+          {cliLoading || cliActive === null ? (
+            <>
+              <Loader2 size={12} className="animate-spin text-yellow-500" />
+              <span className="dark:text-gray-400">CLI: CHECKING...</span>
+            </>
+          ) : cliActive ? (
+            <>
+              <CheckCircle2 size={12} className="text-green-500" />
+              <span className="dark:text-gray-400">CLI: ACTIVE</span>
+            </>
+          ) : (
+            <>
+              <XCircle size={12} className="text-red-500" />
+              <span className="dark:text-gray-400">CLI: INACTIVE</span>
+            </>
+          )}
+        </div>
+        
         <div className="hidden md:flex items-center gap-4 px-4 py-1.5 border border-gray-200 dark:border-slate-800 text-[10px] font-heading bg-gray-50/50 dark:bg-slate-950/50">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-blink" />

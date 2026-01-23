@@ -178,9 +178,19 @@ EOF
         exit 0
         ;;
 
+    rate_limit)
+        # Simulate rate limit error
+        cat >&2 <<EOF
+Error: You're out of extra usage · resets 9pm (UTC)
+
+Rate limit exceeded. Please wait before making more requests.
+EOF
+        exit 1
+        ;;
+
     *)
         echo "Error: Unknown FAKE_CLAUDE_MODE: $MODE" >&2
-        echo "Valid modes: success, error, timeout, malformed, auth_error, syntax_error" >&2
+        echo "Valid modes: success, error, timeout, malformed, auth_error, syntax_error, rate_limit" >&2
         exit 1
         ;;
 esac

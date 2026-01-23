@@ -43,7 +43,9 @@ class DashboardApp {
         this.setupEventListeners();
         await this.connectWebSocket();
         await this.loadStatus();
+        await this.loadCLIStatus();
         this.startStatusPolling();
+        this.startCLIStatusPolling();
         this.loadSubagents();
 
         // Initialize conversation manager when available
@@ -94,6 +96,42 @@ class DashboardApp {
         }, 5000);
     }
 
+    async loadCLIStatus() {
+        try {
+            const response = await fetch('/api/credentials/cli-status');
+            const data = await response.json();
+            this.updateCLIStatusIndicator(data.active);
+        } catch (error) {
+            console.error('Failed to load CLI status:', error);
+            this.updateCLIStatusIndicator(false);
+        }
+    }
+
+    updateCLIStatusIndicator(active) {
+        const indicator = document.getElementById('cli-status');
+        const text = document.getElementById('cli-status-text');
+
+        if (active === null || active === undefined) {
+            indicator.className = 'cli-status-indicator checking';
+            text.textContent = 'CLI: CHECKING...';
+            return;
+        }
+
+        if (active) {
+            indicator.className = 'cli-status-indicator active';
+            text.textContent = 'CLI: ACTIVE';
+        } else {
+            indicator.className = 'cli-status-indicator inactive';
+            text.textContent = 'CLI: INACTIVE';
+        }
+    }
+
+    startCLIStatusPolling() {
+        setInterval(() => {
+            this.loadCLIStatus();
+        }, 5000); // Poll every 5 seconds
+    }
+
     connectWebSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws/${this.sessionId}`;
@@ -134,6 +172,9 @@ class DashboardApp {
                 break;
             case 'task.failed':
                 this.failTask(message.task_id, message.error);
+                break;
+            case 'cli_status_update':
+                this.updateCLIStatusIndicator(message.active);
                 break;
         }
     }
@@ -302,6 +343,8 @@ class DashboardApp {
         } else if (tabName === 'analytics') {
             await this.loadDailyCostsChart();
             await this.loadSubagentCostsChart();
+        } else if (tabName === 'tasks') {
+            await this.refreshTaskTable();
         }
 
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1025,6 +1068,36 @@ class DashboardApp {
             clearInterval(this.logsPollingInterval);
             this.logsPollingInterval = null;
         }
+    }
+
+    // Input Modal (for new conversations, renames, etc.)
+    showInputModal(title, label, value, placeholder, onConfirm) {
+        document.getElementById('input-modal-title').textContent = title;
+        document.getElementById('input-modal-label').textContent = label;
+        const input = document.getElementById('generic-input');
+        input.value = value;
+        input.placeholder = placeholder;
+
+        const submitBtn = document.getElementById('input-modal-submit');
+        submitBtn.onclick = () => {
+            const newValue = input.value.trim();
+            if (newValue) {
+                onConfirm(newValue);
+                this.hideInputModal();
+            }
+        };
+
+        // Allow Enter key
+        input.onkeypress = (e) => {
+            if (e.key === 'Enter') submitBtn.click();
+        };
+
+        document.getElementById('input-modal').classList.remove('hidden');
+        input.focus();
+    }
+
+    hideInputModal() {
+        document.getElementById('input-modal').classList.add('hidden');
     }
 
     // Webhook Status & Monitoring

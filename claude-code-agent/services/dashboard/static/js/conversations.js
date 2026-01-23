@@ -145,9 +145,23 @@ class ConversationManager {
     }
 
     async createNewConversation() {
-        const title = prompt('Enter conversation title:', `Conversation ${new Date().toLocaleDateString()}`);
-        if (!title) return;
+        if (typeof app !== 'undefined' && app.showInputModal) {
+            app.showInputModal(
+                'INITIALIZE_COMMS',
+                'CHANNEL_IDENTIFIER:',
+                `Conversation ${new Date().toLocaleDateString()}`,
+                'Enter title...',
+                async (title) => {
+                    await this._performCreate(title);
+                }
+            );
+        } else {
+            const title = prompt('Enter conversation title:', `Conversation ${new Date().toLocaleDateString()}`);
+            if (title) await this._performCreate(title);
+        }
+    }
 
+    async _performCreate(title) {
         try {
             const response = await fetch('/api/conversations', {
                 method: 'POST',
@@ -168,10 +182,10 @@ class ConversationManager {
             this.renderConversationList();
             await this.selectConversation(newConv.conversation_id);
 
-            this.showSuccess('Conversation created successfully');
+            this.showSuccess('Conversation initialized');
         } catch (error) {
             console.error('Error creating conversation:', error);
-            this.showError(`Failed to create: ${error.message}`);
+            this.showError(`Init failed: ${error.message}`);
         }
     }
 
@@ -179,9 +193,25 @@ class ConversationManager {
         const conv = this.conversations.find(c => c.conversation_id === conversationId);
         if (!conv) return;
 
-        const newTitle = prompt('Enter new title:', conv.title);
-        if (!newTitle || newTitle === conv.title) return;
+        if (typeof app !== 'undefined' && app.showInputModal) {
+            app.showInputModal(
+                'REDEFINE_IDENTIFIER',
+                'NEW_TITLE:',
+                conv.title,
+                'Enter new title...',
+                async (newTitle) => {
+                    await this._performRename(conversationId, newTitle);
+                }
+            );
+        } else {
+            const newTitle = prompt('Enter new title:', conv.title);
+            if (newTitle && newTitle !== conv.title) {
+                await this._performRename(conversationId, newTitle);
+            }
+        }
+    }
 
+    async _performRename(conversationId, newTitle) {
         try {
             const response = await fetch(`/api/conversations/${conversationId}`, {
                 method: 'PUT',
@@ -191,33 +221,37 @@ class ConversationManager {
 
             if (!response.ok) throw new Error('Failed to rename conversation');
 
-            conv.title = newTitle;
+            const conv = this.conversations.find(c => c.conversation_id === conversationId);
+            if (conv) conv.title = newTitle;
+
             this.renderConversationList();
 
             if (conversationId === this.currentConversationId) {
-                document.getElementById('current-conversation-title').textContent = newTitle;
+                const titleEl = document.getElementById('current-conversation-title');
+                if (titleEl) titleEl.textContent = newTitle;
             }
 
-            this.showSuccess('Conversation renamed');
+            this.showSuccess('Identifier updated');
         } catch (error) {
             console.error('Error renaming conversation:', error);
-            this.showError('Failed to rename conversation');
+            this.showError('Rename failed');
         }
     }
 
     async deleteConversation(conversationId) {
-        if (!confirm('Are you sure you want to delete this conversation? This cannot be undone.')) {
-            return;
-        }
-
+        console.log('Deleting conversation:', conversationId);
         try {
             const response = await fetch(`/api/conversations/${conversationId}`, {
                 method: 'DELETE'
             });
+            console.log('Delete response status:', response.status);
 
             if (!response.ok) throw new Error('Failed to delete conversation');
 
+            const initialCount = this.conversations.length;
             this.conversations = this.conversations.filter(c => c.conversation_id !== conversationId);
+            console.log(`Filtered conversations: ${initialCount} -> ${this.conversations.length}`);
+
             this.renderConversationList();
 
             if (conversationId === this.currentConversationId) {

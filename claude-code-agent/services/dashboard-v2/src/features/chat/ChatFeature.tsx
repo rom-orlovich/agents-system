@@ -1,10 +1,10 @@
 import { clsx } from "clsx";
-import { Bot, Clock, MessageSquare, Send, User } from "lucide-react";
+import { Bot, Clock, MessageSquare, Plus, Trash2, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useChat } from "./hooks/useChat";
 
 export function ChatFeature() {
-  const { conversations, messages, selectedConversation, setSelectedConversation, sendMessage } =
+  const { conversations, messages, selectedConversation, setSelectedConversation, sendMessage, createConversation, deleteConversation } =
     useChat();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -23,11 +23,21 @@ export function ChatFeature() {
   };
 
   return (
-    <div className="flex h-full border border-gray-200 bg-white animate-in fade-in duration-500 overflow-hidden rounded-lg shadow-sm">
+    <div className="flex h-full border border-gray-200 bg-[#fbfcfd] animate-in fade-in duration-500 overflow-hidden rounded-xl shadow-xl shadow-gray-200/20">
       {/* Sidebar */}
       <aside className="w-64 border-r border-gray-200 flex flex-col bg-gray-50/50 min-h-0">
-        <div className="p-4 border-b border-gray-200 bg-white font-heading text-[10px] font-bold text-gray-400 tracking-widest">
-          COMMS_CHANNELS
+        <div className="p-4 border-b border-gray-200 bg-white flex justify-between items-center">
+          <span className="font-heading text-[10px] font-bold text-gray-400 tracking-widest">COMMS_CHANNELS</span>
+          <button 
+            type="button"
+            onClick={() => {
+              const title = prompt("ENTER_CHANNEL_TITLE");
+              if (title) createConversation(title);
+            }}
+            className="p-1 hover:bg-gray-100 text-gray-400 hover:text-primary rounded transition-colors"
+          >
+            <Plus size={14} />
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto">
           {conversations?.map((conv) => (
@@ -36,19 +46,49 @@ export function ChatFeature() {
               key={conv.id}
               onClick={() => setSelectedConversation(conv)}
               className={clsx(
-                "w-full text-left p-4 transition-colors border-b border-gray-100 hover:bg-white group",
-                selectedConversation?.id === conv.id ? "bg-white border-r-2 border-r-primary" : "",
+                "w-full text-left p-4 transition-all border-b border-gray-100 hover:bg-white group relative",
+                selectedConversation?.id === conv.id ? "bg-white" : "",
               )}
             >
-              <div className="text-xs font-heading font-black truncate group-hover:text-primary transition-colors">
-                {conv.title}
+              {selectedConversation?.id === conv.id && (
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary animate-in slide-in-from-left duration-300" />
+              )}
+              
+              <div className="flex justify-between items-start mb-1">
+                <div className={clsx(
+                  "text-[11px] font-heading font-black truncate transition-colors tracking-tight",
+                  selectedConversation?.id === conv.id ? "text-primary" : "text-gray-900 group-hover:text-primary"
+                )}>
+                  {conv.title}
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                  <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-[8px] font-heading font-bold text-green-500 tracking-tighter uppercase opacity-80">LIVE</span>
+                </div>
               </div>
-              <div className="text-[10px] text-gray-400 truncate mt-1">{conv.lastMessage}</div>
-              <div className="text-[10px] text-gray-300 mt-3 flex items-center justify-between font-mono">
-                <span className="flex items-center gap-1.5">
-                  <Clock size={10} /> {new Date(conv.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-                <span className="text-[8px] opacity-70">LIVE</span>
+
+              <div className="text-[10px] text-gray-400 truncate mt-1 font-mono opacity-60">
+                {conv.lastMessage || "AWAITING_TRANSMISSION..."}
+              </div>
+
+              <div className="flex items-center justify-between mt-4">
+                <div className="flex items-center gap-1.5 text-[10px] font-mono text-gray-400">
+                  <Clock size={10} className="shrink-0 opacity-40" />
+                  <span>{new Date(conv.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm(`TERMINATE_STREAM: ${conv.title}?`)) {
+                      deleteConversation(conv.id);
+                    }
+                  }}
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all text-gray-300"
+                  title="DELETE_CONVERSATION"
+                >
+                  <Trash2 size={12} />
+                </button>
               </div>
             </button>
           ))}
@@ -75,31 +115,34 @@ export function ChatFeature() {
                   <div
                     key={msg.id}
                     className={clsx(
-                      "flex gap-4 mb-6",
-                      msg.role === "user" ? "ml-auto flex-row-reverse" : "",
+                      "group flex gap-4 mb-8 items-start animate-in fade-in slide-in-from-bottom-2 duration-300",
+                      msg.role === "user" ? "flex-row-reverse" : "",
                     )}
                   >
                     <div
                       className={clsx(
-                        "w-8 h-8 rounded-none flex items-center justify-center flex-shrink-0 border shadow-sm",
+                        "w-8 h-8 flex items-center justify-center flex-shrink-0 border shadow-sm transition-all duration-300",
                         msg.role === "user"
-                          ? "border-gray-200 bg-white"
-                          : "border-primary/20 bg-primary/5 text-primary",
+                          ? "border-gray-200 bg-white rounded-full group-hover:border-primary/30"
+                          : "border-primary/20 bg-primary/5 text-primary rounded-none group-hover:bg-primary group-hover:text-white",
                       )}
                     >
-                      {msg.role === "user" ? <User size={16} /> : <Bot size={16} />}
+                      {msg.role === "user" ? <User size={14} /> : <Bot size={14} />}
                     </div>
                     <div
                       className={clsx(
-                        "p-4 text-xs leading-relaxed border shadow-sm max-w-[85%]",
+                        "p-4 text-[11px] leading-relaxed border shadow-sm max-w-[80%] transition-all",
                         msg.role === "user"
-                          ? "bg-gray-50 border-gray-200 italic"
-                          : "bg-white border-primary/10",
+                          ? "bg-slate-50 border-slate-200 rounded-2xl rounded-tr-none text-slate-600"
+                          : "bg-white border-gray-100 rounded-2xl rounded-tl-none text-gray-800",
                       )}
                     >
-                      <div className="font-mono whitespace-pre-wrap selection:bg-primary/20">{msg.content}</div>
-                      <div className="mt-2 text-[9px] text-gray-300 font-mono">
-                        {new Date(msg.timestamp).toLocaleTimeString()}
+                      <div className="font-mono whitespace-pre-wrap selection:bg-primary/20 leading-relaxed text-[11px]">
+                        {msg.content}
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-4 opacity-0 group-hover:opacity-40 transition-opacity">
+                        <span className="text-[9px] font-mono tracking-tighter uppercase font-bold">{msg.role}</span>
+                        <span className="text-[9px] font-mono">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     </div>
                   </div>
@@ -126,17 +169,28 @@ export function ChatFeature() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center bg-gray-50/30">
-            <div className="text-center">
-              <div className="w-16 h-16 border-2 border-dashed border-gray-200 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-300 animate-pulse">
-                <MessageSquare size={32} />
+          <div className="flex-1 flex items-center justify-center bg-gray-50/10">
+            <div className="text-center group max-w-sm px-8 animate-in zoom-in-95 duration-500">
+              <div className="w-20 h-20 border border-gray-100 rounded-3xl flex items-center justify-center mx-auto mb-8 text-gray-200 group-hover:text-primary transition-all duration-500 group-hover:scale-110 group-hover:rotate-12 bg-white shadow-sm">
+                <MessageSquare size={36} strokeWidth={1.5} />
               </div>
-              <div className="font-heading text-xs font-bold text-gray-300 tracking-widest uppercase mb-2">
+              <div className="font-heading text-[11px] font-black text-gray-400 tracking-[0.2em] uppercase mb-3">
                 NO_ACTIVE_TRANSMISSION
               </div>
-              <div className="font-mono text-[10px] text-gray-400/80">
-                Select a frequency from correctly established channels
-              </div>
+              <p className="font-mono text-[10px] text-gray-400/60 leading-relaxed mb-8">
+                Select a frequency from correctly established channels or initialize a new secure uplink
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  const title = prompt("ENTER_CHANNEL_TITLE");
+                  if (title) createConversation(title);
+                }}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-white border border-gray-100 text-[10px] font-heading font-black text-gray-400 hover:text-primary hover:border-primary/20 transition-all uppercase tracking-widest rounded-lg shadow-sm hover:shadow-md active:scale-95"
+              >
+                <Plus size={14} />
+                INITIALIZE_CHANNEL
+              </button>
             </div>
           </div>
         )}

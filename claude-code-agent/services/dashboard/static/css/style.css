@@ -34,10 +34,11 @@
     --font-mono: 'JetBrains Mono', 'Space Mono', monospace;
     
     /* Effects */
-    --shadow-hard: 6px 6px 0px rgba(0, 0, 0, 1);
-    --shadow-panel: 0 0 0 1px #222, 10px 10px 0px rgba(0, 0, 0, 0.5);
-    --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1); /* Smoother transition */
-    --glow-primary: 0 0 15px var(--primary-glow);
+    --shadow-hard: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px var(--border);
+    --shadow-panel: 0 0 0 1px #222, 0 10px 30px rgba(0, 0, 0, 0.5);
+    --transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    --glow-primary: 0 0 20px var(--primary-glow);
+    --glass: blur(12px) saturate(180%);
 }
 
 /* Base Reset & Typography */
@@ -56,9 +57,12 @@ body {
     height: 100vh;
     font-size: 14px;
     line-height: 1.5;
-    /* Subtle scanline texture */
-    background-image: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-    background-size: 100% 2px, 3px 100%;
+    /* Sophisticated ambient texture */
+    background-image: 
+        radial-gradient(circle at 50% -20%, rgba(204, 255, 0, 0.05), transparent 40%),
+        linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
+        linear-gradient(90deg, rgba(255, 0, 0, 0.01), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.01));
+    background-size: 100% 100%, 100% 2px, 3px 100%;
 }
 
 /* Custom Scrollbar */
@@ -142,6 +146,46 @@ body {
 .status-indicator.online {
     background: var(--primary);
     box-shadow: 0 0 8px var(--primary), inset 0 0 4px rgba(255,255,255,0.5);
+}
+
+.cli-status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-left: 8px;
+    transition: all 0.3s ease;
+}
+
+.cli-status-indicator.active {
+    background-color: #10b981; /* green */
+    box-shadow: 0 0 4px #10b981;
+}
+
+.cli-status-indicator.inactive {
+    background-color: #ef4444; /* red */
+    box-shadow: 0 0 4px #ef4444;
+}
+
+.cli-status-indicator.checking {
+    background-color: #f59e0b; /* yellow */
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+#cli-status-text {
+    margin-left: 4px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
 }
 
 /* SIDEBAR */
@@ -738,34 +782,64 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); box-sh
     position: fixed;
     top: 0; left: 0;
     width: 100vw; height: 100vh;
-    background: rgba(0,0,0,0.8);
-    backdrop-filter: blur(4px);
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(8px);
     z-index: 1000;
     display: flex;
     align-items: center;
     justify-content: center;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.2s;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .modal:not(.hidden) { opacity: 1; pointer-events: auto; }
 .modal-content {
     background: var(--bg-panel);
     border: 1px solid var(--border-light);
-    padding: 2rem;
-    width: 500px;
+    border-radius: 4px;
+    padding: 2.5rem;
+    width: 600px;
     max-width: 90vw;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+    box-shadow: 0 40px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
     position: relative;
-    transform: scale(0.95);
-    transition: transform 0.2s;
-    max-height: 90vh;
+    transform: translateY(20px) scale(0.98);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    max-height: 85vh;
     overflow-y: auto;
 }
-.modal:not(.hidden) .modal-content { transform: scale(1); }
-.modal h2 { margin-bottom: 1.5rem; font-family: var(--font-heading); border-bottom: 1px solid var(--border); padding-bottom: 1rem; color: var(--text-main); }
-.modal .close { position: absolute; top: 1rem; right: 1rem; cursor: pointer; color: var(--text-dim); font-size: 1.5rem; }
-.modal .close:hover { color: var(--primary); }
+.modal:not(.hidden) .modal-content { transform: translateY(0) scale(1); }
+.modal h2 { 
+    margin-bottom: 2rem; 
+    font-family: var(--font-heading); 
+    font-size: 1.75rem;
+    font-weight: 800;
+    border-bottom: 2px solid var(--primary-dim); 
+    padding-bottom: 1rem; 
+    color: var(--text-main); 
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+}
+.modal .close { 
+    position: absolute; 
+    top: 1.5rem; 
+    right: 1.5rem; 
+    cursor: pointer; 
+    color: var(--text-dim); 
+    font-size: 1.25rem; 
+    transition: var(--transition);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+}
+.modal .close:hover { 
+    color: var(--primary); 
+    background: rgba(204, 255, 0, 0.1);
+    transform: rotate(90deg);
+}
  
 /* Empty State */
 .empty-state {
@@ -891,22 +965,23 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); box-sh
     100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(255, 51, 102, 0); }
 }
 
-/* FRAGMENTED MODAL OVERWRITE */
-.modal-content.brutalist {
+/* NEO-INDUSTRIAL MODAL OVERWRITE (Formerly Brutalist) */
+.modal.brutalist .modal-content {
     background: #000 !important;
-    border: 2px solid #fff !important;
-    box-shadow: 20px 20px 0px rgba(0,0,0,0.8) !important;
+    border: 1px solid #333 !important;
+    box-shadow: 0 0 50px rgba(204, 255, 0, 0.15), 0 0 0 1px var(--primary-dim) !important;
     width: 900px !important;
     padding: 0 !important;
     max-width: 95vw !important;
-    transform: none !important;
+    transform: translateY(0) !important;
+    border-radius: 0 !important;
 }
 
-.modal-content.brutalist .close {
-    background: #FF4D00 !important;
+.modal.brutalist .modal-content .close {
+    background: var(--primary) !important;
     color: #000 !important;
-    top: -2px !important;
-    right: -42px !important;
+    top: 0 !important;
+    right: 0 !important;
     width: 40px !important;
     height: 40px !important;
     display: flex !important;
@@ -914,7 +989,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); box-sh
     align-items: center !important;
     font-weight: 900 !important;
     opacity: 1 !important;
-    border: 2px solid #fff !important;
+    border: none !important;
+    border-radius: 0 !important;
 }
 
 .logs-controls {

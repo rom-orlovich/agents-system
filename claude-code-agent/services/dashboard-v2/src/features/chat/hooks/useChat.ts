@@ -54,12 +54,39 @@ export function useChat() {
       const res = await fetch(`/api/conversations/${selectedId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ role: "user", content }),
       });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["messages", selectedId] });
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (title: string) => {
+      const res = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      return res.json();
+    },
+    onSuccess: (newConv) => {
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      setSelectedId(newConv.conversation_id);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await fetch(`/api/conversations/${id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      if (selectedId) setSelectedId(null);
     },
   });
 
@@ -70,5 +97,7 @@ export function useChat() {
     selectedConversation: conversations?.find((c) => c.id === selectedId),
     setSelectedConversation: (conv: Conversation) => setSelectedId(conv.id),
     sendMessage: (content: string) => sendMutation.mutate(content),
+    createConversation: (title: string) => createMutation.mutate(title),
+    deleteConversation: (id: string) => deleteMutation.mutate(id),
   };
 }

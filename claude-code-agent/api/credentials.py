@@ -8,17 +8,30 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, File, UploadFile, Depends
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from core.database import get_session as get_db_session
+from core.database import get_session as get_db_session, async_session_factory
 from core.database.models import SessionDB
-from shared.machine_models import ClaudeCredentials, AuthStatus
+from core.cli_access import test_cli_access
+from shared.machine_models import ClaudeCredentials, AuthStatus, CLIStatusUpdateMessage
 from shared import APIResponse
 import structlog
 
 logger = structlog.get_logger()
+
+# Get ws_hub from app state (will be injected)
+ws_hub = None
+
+def get_ws_hub():
+    """Get WebSocket hub from app state."""
+    global ws_hub
+    if ws_hub is None:
+        from fastapi import Request
+        # This will be set during app initialization
+        pass
+    return ws_hub
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
 
@@ -114,7 +127,8 @@ async def get_credential_status() -> CredentialStatusResponse:
 
 @router.post("/upload")
 async def upload_credentials(
-    file: UploadFile = File(..., description="claude.json credentials file")
+    file: UploadFile = File(..., description="claude.json credentials file"),
+    request: Optional[object] = None  # Will be injected via Depends if needed
 ) -> APIResponse:
     """Upload credentials file."""
     
@@ -142,6 +156,36 @@ async def upload_credentials(
     
     logger.info("credentials_uploaded", expires_at=creds.expires_at_datetime.isoformat())
     
+    # After successful upload, run test and update session status
+    try:
+        is_active = await test_cli_access()
+        user_id = creds.user_id or creds.account_id
+        
+        if user_id:
+            # Update sessions for this user
+            async with async_session_factory() as session:
+                await session.execute(
+                    update(SessionDB)
+                    .where(SessionDB.user_id == user_id)
+                    .values(active=is_active)
+                )
+                await session.commit()
+            
+            # Broadcast WebSocket update (if ws_hub is available)
+            try:
+                from main import ws_hub as main_ws_hub
+                if main_ws_hub:
+                    await main_ws_hub.broadcast(
+                        CLIStatusUpdateMessage(session_id=None, active=is_active)
+                    )
+            except Exception as ws_error:
+                logger.warning("Failed to broadcast CLI status update", error=str(ws_error))
+        
+        logger.info("CLI test completed after upload", active=is_active, user_id=user_id)
+    except Exception as test_error:
+        # Don't fail upload - just log error
+        logger.warning("CLI test failed after upload", error=str(test_error))
+    
     return APIResponse(
         success=True,
         message="Credentials uploaded successfully",
@@ -157,6 +201,39 @@ class AccountInfo(BaseModel):
     total_cost_usd: float
     first_seen: str
     last_seen: str
+
+
+@router.get("/cli-status")
+async def get_cli_status(db: AsyncSession = Depends(get_db_session)):
+    """Get CLI status for current credentials."""
+    creds_path = settings.credentials_path
+    if not creds_path.exists():
+        return {"active": False, "message": "Credentials not found"}
+    
+    try:
+        creds_data = json.loads(creds_path.read_text())
+        creds = ClaudeCredentials(**creds_data)
+        user_id = creds.user_id or creds.account_id
+        
+        if not user_id:
+            return {"active": False, "message": "No user_id found in credentials"}
+        
+        # Get latest session for this user
+        result = await db.execute(
+            select(SessionDB)
+            .where(SessionDB.user_id == user_id)
+            .order_by(SessionDB.connected_at.desc())
+            .limit(1)
+        )
+        session = result.scalar_one_or_none()
+        
+        if session:
+            return {"active": session.active, "message": None}
+        else:
+            return {"active": False, "message": "No session found"}
+    except Exception as e:
+        logger.warning("Failed to get CLI status", error=str(e))
+        return {"active": False, "message": str(e)}
 
 
 @router.get("/accounts")

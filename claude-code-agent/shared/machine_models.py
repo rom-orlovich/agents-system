@@ -403,10 +403,17 @@ class ChatMessage(WebSocketMessage):
     message: str
 
 
+class CLIStatusUpdateMessage(WebSocketMessage):
+    """CLI status update event."""
+    type: Literal["cli_status_update"] = "cli_status_update"
+    session_id: Optional[str] = None  # None means broadcast to all
+    active: bool
+
+
 # Union type for all WebSocket messages
 WSMessage = (TaskCreatedMessage | TaskOutputMessage | TaskMetricsMessage |
              TaskCompletedMessage | TaskFailedMessage | UserInputMessage |
-             TaskStopMessage | ChatMessage)
+             TaskStopMessage | ChatMessage | CLIStatusUpdateMessage)
 
 
 # =============================================================================

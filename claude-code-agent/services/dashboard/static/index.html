@@ -24,6 +24,8 @@
                 <div class="connection-status">
                     <span id="machine-status" class="status-indicator"></span>
                     <span id="machine-id">CLAUDE-MACHINE-CORE</span>
+                    <span id="cli-status" class="cli-status-indicator"></span>
+                    <span id="cli-status-text">CLI: CHECKING...</span>
                 </div>
             </div>
         </header>
@@ -370,15 +372,26 @@
         </div>
     </div>
 
-    <!-- Task Detail Modal -->
-    <div id="modal" class="modal hidden">
+    <!-- Input Modal (Generic for New/Rename) -->
+    <div id="input-modal" class="modal hidden">
         <div class="modal-content">
-            <span class="close" onclick="app.hideModal()">&times;</span>
-            <div id="modal-body"></div>
+            <span class="close" onclick="app.hideInputModal()">&times;</span>
+            <h2 id="input-modal-title">INPUT_REQUIRED</h2>
+            <div class="form-group">
+                <label id="input-modal-label">VALUE:</label>
+                <input type="text" id="generic-input" placeholder="Enter value...">
+            </div>
+            <div class="form-actions">
+                <button id="input-modal-submit" class="create-btn">COMMIT_CHANGES</button>
+            </div>
         </div>
     </div>
 
-    <script src="/static/js/conversations.js?v=3"></script>
-    <script src="/static/js/app.js?v=5"></script>
+    <!-- Task Detail Modal -->
+    <div id="modal" class="modal hidden">
+        <div class="modal-content brutalist">
+
+    <script src="/static/js/conversations.js?v=5"></script>
+    <script src="/static/js/app.js?v=7"></script>
 </body>
 </html>

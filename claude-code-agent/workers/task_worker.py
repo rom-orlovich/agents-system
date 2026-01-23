@@ -11,7 +11,7 @@ import httpx
 from core import settings, run_claude_cli
 from core.subagent_config import load_subagent_config, get_default_subagents
 from core.database import async_session_factory
-from core.database.models import TaskDB, ConversationDB, ConversationMessageDB
+from core.database.models import TaskDB, SessionDB, ConversationDB, ConversationMessageDB
 from core.database.redis_client import redis_client
 from core.websocket_hub import WebSocketHub
 from core.webhook_engine import (
@@ -271,6 +271,30 @@ class TaskWorker:
                     # Then update database
                     task_db.status = TaskStatus.FAILED
                     task_db.error = result.error
+
+                    # Check for rate limit errors and update session
+                    if result.error:
+                        error_lower = result.error.lower()
+                        if "out of extra usage" in error_lower or "rate limit" in error_lower:
+                            # Get session from database and update active status
+                            session_result = await session.execute(
+                                select(SessionDB).where(SessionDB.session_id == task_db.session_id)
+                            )
+                            session_db = session_result.scalar_one_or_none()
+                            if session_db:
+                                session_db.active = False
+                                
+                                # Broadcast WebSocket update
+                                from shared.machine_models import CLIStatusUpdateMessage
+                                await self.ws_hub.broadcast(
+                                    CLIStatusUpdateMessage(session_id=task_db.session_id, active=False)
+                                )
+                                
+                                logger.warning(
+                                    "Rate limit detected - session marked inactive",
+                                    task_id=task_id,
+                                    session_id=task_db.session_id
+                                )
 
                     # Log failure details
                     logger.warning(
