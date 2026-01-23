@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export interface RegistryAsset {
   name: string;
@@ -9,6 +9,7 @@ export interface RegistryAsset {
 }
 
 export function useRegistry() {
+  const queryClient = useQueryClient();
   const { data: skills, isLoading: isSkillsLoading } = useQuery<RegistryAsset[]>({
     queryKey: ["registry", "skills"],
     queryFn: async () => {
@@ -43,5 +44,8 @@ export function useRegistry() {
     skills: skills || [],
     agents: agents || [],
     isLoading: isSkillsLoading || isAgentsLoading,
+    refresh: () => {
+      queryClient.invalidateQueries({ queryKey: ["registry"] });
+    },
   };
 }

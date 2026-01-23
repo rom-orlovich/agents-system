@@ -22,6 +22,7 @@ export function useMetrics() {
     data: metrics,
     isLoading: isMetricsLoading,
     error: metricsError,
+    refetch: refetchMetrics,
   } = useQuery<Metric>({
     queryKey: ["metrics"],
     queryFn: async () => {
@@ -44,6 +45,7 @@ export function useMetrics() {
     data: tasks,
     isLoading: isTasksLoading,
     error: tasksError,
+    refetch: refetchTasks,
   } = useQuery<Task[]>({
     queryKey: ["tasks"],
     queryFn: async () => {
@@ -66,5 +68,9 @@ export function useMetrics() {
     tasks,
     isLoading: isMetricsLoading || isTasksLoading,
     error: metricsError || tasksError,
+    refetch: () => {
+      refetchMetrics();
+      refetchTasks();
+    },
   };
 }

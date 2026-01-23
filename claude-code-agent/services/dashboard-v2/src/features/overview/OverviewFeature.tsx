@@ -1,9 +1,9 @@
-import { Activity, Cpu, DollarSign, Zap, Eye, X } from "lucide-react";
+import { Activity, Cpu, DollarSign, Zap, Eye, X, RefreshCw } from "lucide-react";
 import { useMetrics, type Task } from "./hooks/useMetrics";
 import { useState } from "react";
 
 export function OverviewFeature() {
-  const { metrics, tasks, isLoading, error } = useMetrics();
+  const { metrics, tasks, isLoading, error, refetch } = useMetrics();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   if (isLoading) return <div className="p-8 text-center font-heading">SYNCING_METRICS...</div>;
@@ -13,6 +13,18 @@ export function OverviewFeature() {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-xl font-heading font-black tracking-tighter">OPERATIONAL_OVERVIEW</h1>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 text-[10px] font-heading font-bold hover:bg-white hover:text-primary transition-all uppercase tracking-widest shadow-sm"
+        >
+          <RefreshCw size={12} className={isLoading ? "animate-spin" : ""} />
+          REFRESH
+        </button>
+      </div>
+
       <section
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
         data-label="SYSTEM_STATUS"
@@ -33,7 +45,8 @@ export function OverviewFeature() {
             {tasks?.map((task) => (
               <div
                 key={task.id}
-                className="flex items-center justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors"
+                onClick={() => setSelectedTask(task)}
+                className="flex items-center justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors cursor-pointer group/row"
               >
                 <div className="flex items-center gap-4">
                   <div className={`w-2 h-2 rounded-full ${getStatusColor(task.status)}`} />
@@ -51,8 +64,11 @@ export function OverviewFeature() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setSelectedTask(task)}
-                    className="p-1.5 hover:bg-gray-100 text-gray-400 hover:text-primary rounded-md transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedTask(task);
+                    }}
+                    className="p-1.5 hover:bg-gray-100 text-gray-400 group-hover/row:text-primary rounded-md transition-colors"
                   >
                     <Eye size={16} />
                   </button>

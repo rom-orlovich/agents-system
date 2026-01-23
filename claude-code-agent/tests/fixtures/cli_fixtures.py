@@ -137,6 +137,18 @@ def fake_cli_streaming(fake_claude_cli, monkeypatch) -> str:
 
 
 @pytest.fixture
+def fake_cli_rate_limit(fake_claude_cli, monkeypatch) -> str:
+    """
+    Fake CLI that returns rate limit error.
+
+    Returns:
+        str: Path to fake CLI (configured for rate limit error)
+    """
+    monkeypatch.setenv("FAKE_CLAUDE_MODE", "rate_limit")
+    return fake_claude_cli
+
+
+@pytest.fixture
 def real_claude_cli() -> Generator[str, None, None]:
     """
     Provides path to real Claude CLI (if enabled).

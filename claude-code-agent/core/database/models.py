@@ -22,6 +22,7 @@ class SessionDB(Base):
     disconnected_at = Column(DateTime, nullable=True)
     total_cost_usd = Column(Float, default=0.0, nullable=False)
     total_tasks = Column(Integer, default=0, nullable=False)
+    active = Column(Boolean, default=True, nullable=False)  # CLI access active (not rate limited)
 
     # Relationships
     tasks = relationship("TaskDB", back_populates="session")
