@@ -136,8 +136,10 @@ async def run_claude_cli(
                     accumulated_output.append(line_str)
                     await output_queue.put(line_str)
 
-        # Stream stderr (subagent logs, diagnostics)
+        # Stream stderr (subagent logs, diagnostics, errors)
+        stderr_lines = []
         async def read_stderr():
+            nonlocal stderr_lines
             if not process.stderr:
                 return
 
@@ -145,6 +147,9 @@ async def run_claude_cli(
                 line_str = line.decode().strip()
                 if not line_str:
                     continue
+
+                # Store stderr for error reporting
+                stderr_lines.append(line_str)
 
                 # Prefix stderr with [LOG] for visibility
                 log_line = f"[LOG] {line_str}"
@@ -166,15 +171,28 @@ async def run_claude_cli(
             task_id=task_id,
             success=process.returncode == 0,
             cost_usd=cost_usd,
+            returncode=process.returncode,
+            has_stderr=len(stderr_lines) > 0,
+            stderr_preview="\n".join(stderr_lines[-3:]) if stderr_lines else None
         )
 
+        # Build error message if CLI failed
+        error_msg = None
+        if process.returncode != 0:
+            if stderr_lines:
+                # Include stderr output in error message
+                error_details = "\n".join(stderr_lines[-5:])  # Last 5 lines of stderr
+                error_msg = f"Exit code: {process.returncode}\n\nStderr:\n{error_details}"
+            else:
+                error_msg = f"Exit code: {process.returncode}"
+        
         return CLIResult(
             success=process.returncode == 0,
             output="".join(accumulated_output),
             cost_usd=cost_usd,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
-            error=None if process.returncode == 0 else f"Exit code: {process.returncode}"
+            error=error_msg
         )
 
     except asyncio.TimeoutError:

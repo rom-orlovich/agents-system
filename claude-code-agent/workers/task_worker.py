@@ -11,11 +11,19 @@ import httpx
 from core import settings, run_claude_cli
 from core.subagent_config import load_subagent_config, get_default_subagents
 from core.database import async_session_factory
-from core.database.models import TaskDB
+from core.database.models import TaskDB, ConversationDB, ConversationMessageDB
 from core.database.redis_client import redis_client
 from core.websocket_hub import WebSocketHub
+from core.webhook_engine import (
+    generate_external_id,
+    generate_webhook_conversation_id,
+    generate_webhook_conversation_title,
+    action_comment
+)
 from shared import TaskStatus, TaskOutputMessage, TaskCompletedMessage, TaskFailedMessage
 from sqlalchemy import select, update
+from datetime import datetime
+import uuid
 
 logger = structlog.get_logger()
 
@@ -136,6 +144,14 @@ class TaskWorker:
 
             # Then update database (slow ~10-100ms)
             task_db.status = TaskStatus.RUNNING
+            
+            # Check if conversation already exists (created when task was created)
+            source_metadata = json.loads(task_db.source_metadata or "{}")
+            conversation_id = source_metadata.get("conversation_id")
+            if not conversation_id and task_db.source == "webhook":
+                # Fallback: create conversation if it wasn't created earlier
+                await self._create_webhook_conversation(task_db, session)
+            
             await session.commit()
 
             # Determine agent directory
@@ -215,6 +231,14 @@ class TaskWorker:
                     task_db.status = TaskStatus.COMPLETED
                     task_db.result = result.output
 
+                    # Add response to conversation if task has one
+                    await self._add_task_response_to_conversation(
+                        task_db=task_db,
+                        result=result.output,
+                        cost_usd=result.cost_usd,
+                        session=session
+                    )
+
                     # Send completion message
                     await self.ws_hub.send_to_session(
                         task_db.session_id,
@@ -233,6 +257,13 @@ class TaskWorker:
                             result=result.output,
                             error=None
                         )
+                        
+                        # Post comment back to webhook source (Jira, GitHub, Slack)
+                        await self._post_webhook_comment(
+                            task_db=task_db,
+                            message=result.output,
+                            success=True
+                        )
                 else:
                     # ✅ Update Redis first (fast)
                     await redis_client.set_task_status(task_id, TaskStatus.FAILED)
@@ -240,6 +271,24 @@ class TaskWorker:
                     # Then update database
                     task_db.status = TaskStatus.FAILED
                     task_db.error = result.error
+
+                    # Log failure details
+                    logger.warning(
+                        "Task failed",
+                        task_id=task_id,
+                        error=result.error,
+                        output_length=len(result.output) if result.output else 0,
+                        output_preview=result.output[:200] if result.output else None
+                    )
+
+                    # Add error to conversation if task has one
+                    await self._add_task_response_to_conversation(
+                        task_db=task_db,
+                        result=None,
+                        error=result.error,
+                        cost_usd=result.cost_usd,
+                        session=session
+                    )
 
                     # Send failure message
                     await self.ws_hub.send_to_session(
@@ -254,6 +303,19 @@ class TaskWorker:
                             success=False,
                             result=None,
                             error=result.error
+                        )
+                        
+                        # Post comment back to webhook source (Jira, GitHub, Slack)
+                        error_message = f"❌ Task failed: {result.error}" if result.error else "❌ Task failed"
+                        logger.info(
+                            "Posting webhook comment for failed task",
+                            task_id=task_id,
+                            error_message=error_message[:100]
+                        )
+                        await self._post_webhook_comment(
+                            task_db=task_db,
+                            message=error_message,
+                            success=False
                         )
 
                 await session.commit()
@@ -277,6 +339,14 @@ class TaskWorker:
                             result=None,
                             error=str(e)
                         )
+                        
+                        # Post comment back to webhook source (Jira, GitHub, Slack)
+                        error_message = f"❌ Task error: {str(e)}"
+                        await self._post_webhook_comment(
+                            task_db=task_db,
+                            message=error_message,
+                            success=False
+                        )
                 except Exception as notify_error:
                     logger.error("Slack notification error", error=str(notify_error))
 
@@ -287,6 +357,15 @@ class TaskWorker:
                 task_db.status = TaskStatus.FAILED
                 task_db.error = str(e)
 
+                # Add error to conversation if task has one
+                await self._add_task_response_to_conversation(
+                    task_db=task_db,
+                    result=None,
+                    error=str(e),
+                    cost_usd=0.0,
+                    session=session
+                )
+
                 # Send failure message
                 await self.ws_hub.send_to_session(
                     task_db.session_id,
@@ -294,6 +373,256 @@ class TaskWorker:
                 )
 
                 await session.commit()
+
+    async def _create_webhook_conversation(
+        self,
+        task_db: TaskDB,
+        session
+    ) -> None:
+        """Create or reuse conversation for webhook task based on external ID (fallback if not created earlier)."""
+        try:
+            # Parse source_metadata
+            source_metadata = json.loads(task_db.source_metadata or "{}")
+            webhook_source = source_metadata.get("webhook_source", "unknown")
+            command = source_metadata.get("command", "unknown")
+            payload = source_metadata.get("payload", {})
+            
+            # Generate external ID (Jira ticket key, PR number, etc.)
+            external_id = generate_external_id(webhook_source, payload)
+            
+            # Generate stable conversation_id from external_id
+            conversation_id = generate_webhook_conversation_id(external_id)
+            
+            # Check if conversation already exists
+            result = await session.execute(
+                select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
+            )
+            existing_conversation = result.scalar_one_or_none()
+            
+            if existing_conversation:
+                # Reuse existing conversation
+                logger.info(
+                    "webhook_conversation_reused_fallback",
+                    task_id=task_db.task_id,
+                    conversation_id=conversation_id,
+                    external_id=external_id,
+                    webhook_source=webhook_source
+                )
+            else:
+                # Create new conversation
+                conversation_title = generate_webhook_conversation_title(
+                    webhook_source, payload, command
+                )
+                
+                conversation = ConversationDB(
+                    conversation_id=conversation_id,
+                    user_id=task_db.user_id,
+                    title=conversation_title,
+                    metadata_json=json.dumps({
+                        "webhook_source": webhook_source,
+                        "external_id": external_id,
+                        "command": command
+                    }),
+                )
+                session.add(conversation)
+                logger.info(
+                    "webhook_conversation_created_fallback",
+                    task_id=task_db.task_id,
+                    conversation_id=conversation_id,
+                    external_id=external_id,
+                    webhook_source=webhook_source
+                )
+            
+            # Always add a new message to the conversation (even if reusing conversation)
+            user_message_id = f"msg-{uuid.uuid4().hex[:12]}"
+            user_message = ConversationMessageDB(
+                message_id=user_message_id,
+                conversation_id=conversation_id,
+                role="user",
+                content=task_db.input_message,
+                task_id=task_db.task_id,
+                metadata_json=json.dumps({
+                    "webhook_source": webhook_source,
+                    "command": command
+                }),
+            )
+            session.add(user_message)
+            
+            # Update task metadata with conversation_id
+            source_metadata["conversation_id"] = conversation_id
+            task_db.source_metadata = json.dumps(source_metadata)
+            
+        except Exception as e:
+            logger.error(
+                "failed_to_create_webhook_conversation",
+                task_id=task_db.task_id,
+                error=str(e)
+            )
+            # Don't fail the task if conversation creation fails
+
+    async def _add_task_response_to_conversation(
+        self,
+        task_db: TaskDB,
+        result: Optional[str] = None,
+        error: Optional[str] = None,
+        cost_usd: float = 0.0,
+        session = None
+    ) -> None:
+        """Add task response to conversation if task has a conversation_id."""
+        try:
+            # Parse source_metadata to get conversation_id
+            source_metadata = json.loads(task_db.source_metadata or "{}")
+            conversation_id = source_metadata.get("conversation_id")
+            
+            logger.debug(
+                "checking_conversation_for_task",
+                task_id=task_db.task_id,
+                has_conversation_id=bool(conversation_id),
+                source_metadata_keys=list(source_metadata.keys())
+            )
+            
+            if not conversation_id:
+                logger.debug("no_conversation_id_for_task", task_id=task_db.task_id, source=task_db.source)
+                return  # No conversation associated with this task
+            
+            # Use provided session or create new one
+            if session is None:
+                async with async_session_factory() as db_session:
+                    await self._add_message_to_conversation(
+                        db_session, conversation_id, task_db.task_id, result, error, cost_usd
+                    )
+                    await db_session.commit()
+            else:
+                await self._add_message_to_conversation(
+                    session, conversation_id, task_db.task_id, result, error, cost_usd
+                )
+            
+            logger.info(
+                "task_response_added_to_conversation",
+                task_id=task_db.task_id,
+                conversation_id=conversation_id,
+                has_result=result is not None,
+                has_error=error is not None
+            )
+        except Exception as e:
+            logger.error(
+                "failed_to_add_task_response_to_conversation",
+                task_id=task_db.task_id,
+                error=str(e)
+            )
+    
+    async def _add_message_to_conversation(
+        self,
+        db_session,
+        conversation_id: str,
+        task_id: str,
+        result: Optional[str] = None,
+        error: Optional[str] = None,
+        cost_usd: float = 0.0
+    ) -> None:
+        """Helper to add a message to a conversation."""
+        # Check if conversation exists
+        conv_result = await db_session.execute(
+            select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
+        )
+        conversation = conv_result.scalar_one_or_none()
+        
+        if not conversation:
+            logger.warning("conversation_not_found", conversation_id=conversation_id)
+            return
+        
+        # Build assistant message content from Claude CLI response
+        if error:
+            content = f"❌ Task failed: {error}"
+        elif result:
+            # Use the full Claude CLI output as the response
+            content = result
+            if cost_usd > 0:
+                content += f"\n\n---\n✅ Task completed. Cost: ${cost_usd:.4f}"
+        else:
+            content = "Task completed (no output)"
+        
+        # Create assistant message
+        message_id = f"msg-{uuid.uuid4().hex[:12]}"
+        assistant_message = ConversationMessageDB(
+            message_id=message_id,
+            conversation_id=conversation_id,
+            role="assistant",
+            content=content,
+            task_id=task_id,
+            metadata_json=json.dumps({
+                "cost_usd": cost_usd,
+                "has_error": error is not None
+            }),
+        )
+        db_session.add(assistant_message)
+        
+        # Update conversation timestamp
+        conversation.updated_at = datetime.utcnow()
+
+    async def _post_webhook_comment(
+        self,
+        task_db: TaskDB,
+        message: str,
+        success: bool
+    ) -> bool:
+        """Post comment back to webhook source (Jira, GitHub, Slack) after task completion."""
+        try:
+            # Parse source_metadata to get payload
+            source_metadata = json.loads(task_db.source_metadata or "{}")
+            payload = source_metadata.get("payload", {})
+            webhook_source = source_metadata.get("webhook_source", "unknown")
+            
+            if not payload:
+                logger.debug("no_payload_for_webhook_comment", task_id=task_db.task_id)
+                return False
+            
+            # Ensure payload has provider field
+            if "provider" not in payload:
+                payload["provider"] = webhook_source
+            
+            # Format message with status indicator
+            status_prefix = "✅" if success else "❌"
+            
+            # Truncate message if too long (most APIs have limits)
+            max_length = 4000  # Conservative limit for most APIs
+            truncated_message = message[:max_length] if len(message) > max_length else message
+            if len(message) > max_length:
+                truncated_message += "\n\n... (message truncated)"
+            
+            formatted_message = f"{status_prefix} {truncated_message}"
+            
+            # Add cost info if available and successful
+            if success and task_db.cost_usd > 0:
+                formatted_message += f"\n\n💰 Cost: ${task_db.cost_usd:.4f}"
+            
+            # Post comment using webhook_engine action_comment
+            result = await action_comment(payload, formatted_message)
+            
+            if result.get("status") == "sent":
+                logger.info(
+                    "webhook_comment_posted",
+                    task_id=task_db.task_id,
+                    provider=payload.get("provider"),
+                    success=success
+                )
+                return True
+            else:
+                logger.warning(
+                    "webhook_comment_failed",
+                    task_id=task_db.task_id,
+                    provider=payload.get("provider"),
+                    error=result.get("error")
+                )
+                return False
+                
+        except Exception as e:
+            logger.error(
+                "webhook_comment_error",
+                task_id=task_db.task_id,
+                error=str(e)
+            )
+            return False
 
     async def _send_slack_notification(
         self,
@@ -304,11 +633,6 @@ class TaskWorker:
     ) -> bool:
         """Send Slack notification when webhook task completes."""
         if not os.getenv("SLACK_NOTIFICATIONS_ENABLED", "true").lower() == "true":
-            return False
-        
-        slack_url = os.getenv("SLACK_WEBHOOK_URL")
-        if not slack_url:
-            logger.warning("SLACK_WEBHOOK_URL not configured, skipping notification")
             return False
         
         # Extract webhook metadata
@@ -368,11 +692,29 @@ class TaskWorker:
                 ]
             })
         
-        # Send to Slack
+        # Get Slack bot token (use Slack API, not webhook URL)
+        slack_token = os.getenv("SLACK_BOT_TOKEN")
+        if not slack_token:
+            logger.debug("slack_bot_token_not_configured", task_id=task_db.task_id)
+            return False
+        
+        # Send to Slack using API
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.post(slack_url, json=message, timeout=10.0)
+                response = await client.post(
+                    "https://slack.com/api/chat.postMessage",
+                    headers={
+                        "Authorization": f"Bearer {slack_token}",
+                        "Content-Type": "application/json"
+                    },
+                    json=message,
+                    timeout=10.0
+                )
                 response.raise_for_status()
+                result = response.json()
+                if not result.get("ok"):
+                    logger.error("slack_api_error", task_id=task_db.task_id, error=result.get("error"))
+                    return False
                 logger.info("slack_notification_sent", task_id=task_db.task_id, success=success)
                 return True
         except Exception as e:

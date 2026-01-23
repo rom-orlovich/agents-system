@@ -3,12 +3,16 @@
 import uuid
 import json
 import re
+import os
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 import structlog
+import httpx
+import hashlib
 
-from core.database.models import WebhookCommandDB, TaskDB, SessionDB, WebhookEventDB
+from core.database.models import WebhookCommandDB, TaskDB, SessionDB, WebhookEventDB, ConversationDB, ConversationMessageDB
 from core.database.redis_client import redis_client
 from core.github_client import github_client
 from shared import TaskStatus, AgentType
@@ -24,6 +28,212 @@ def extract_repo_info(payload: dict) -> tuple[str, str]:
         owner, name = full_name.split("/", 1)
         return owner, name
     return "", ""
+
+
+def generate_external_id(webhook_source: str, payload: dict) -> Optional[str]:
+    """Generate a stable external ID from webhook payload (Jira ticket key, PR number, etc.)."""
+    if webhook_source == "jira":
+        issue = payload.get("issue", {})
+        issue_key = issue.get("key")
+        if issue_key:
+            return f"jira:{issue_key}"
+    
+    elif webhook_source == "github":
+        issue = payload.get("issue", {})
+        pr = payload.get("pull_request", {})
+        repo = payload.get("repository", {}).get("full_name", "")
+        if pr:
+            pr_number = pr.get("number")
+            if pr_number and repo:
+                return f"github:pr:{repo}#{pr_number}"
+        elif issue:
+            issue_number = issue.get("number")
+            if issue_number and repo:
+                return f"github:issue:{repo}#{issue_number}"
+    
+    elif webhook_source == "slack":
+        event = payload.get("event", {})
+        channel = event.get("channel")
+        thread_ts = event.get("thread_ts") or event.get("ts")
+        if channel and thread_ts:
+            return f"slack:{channel}:{thread_ts}"
+        elif channel:
+            return f"slack:{channel}"
+    
+    elif webhook_source == "sentry":
+        event = payload.get("event", {})
+        event_id = event.get("event_id")
+        if event_id:
+            return f"sentry:{event_id}"
+    
+    return None
+
+
+def generate_webhook_conversation_id(external_id: Optional[str]) -> str:
+    """Generate a stable conversation_id from external_id."""
+    if external_id:
+        # Create a stable hash-based ID from external_id
+        hash_obj = hashlib.md5(external_id.encode())
+        hash_hex = hash_obj.hexdigest()[:12]
+        return f"conv-{hash_hex}"
+    else:
+        # Fallback to UUID if no external_id
+        return f"conv-{uuid.uuid4().hex[:12]}"
+
+
+def generate_webhook_conversation_title(webhook_source: str, payload: dict, command: str) -> str:
+    """Generate conversation title based on webhook source and payload."""
+    if webhook_source == "jira":
+        issue = payload.get("issue", {})
+        issue_key = issue.get("key", "Unknown")
+        fields = issue.get("fields", {})
+        issue_summary = fields.get("summary", "")
+        if issue_key != "Unknown":
+            title = f"Jira: {issue_key} - {command}"
+            if issue_summary:
+                title += f" ({issue_summary[:40]})"
+            return title
+        return f"Jira Webhook - {command}"
+    
+    elif webhook_source == "github":
+        issue = payload.get("issue", {})
+        pr = payload.get("pull_request", {})
+        if issue:
+            issue_number = issue.get("number", "")
+            issue_title = issue.get("title", "")
+            repo = payload.get("repository", {}).get("full_name", "")
+            if issue_number:
+                title = f"GitHub: {repo}#{issue_number} - {command}"
+                if issue_title:
+                    title += f" ({issue_title[:40]})"
+                return title
+        elif pr:
+            pr_number = pr.get("number", "")
+            pr_title = pr.get("title", "")
+            repo = payload.get("repository", {}).get("full_name", "")
+            if pr_number:
+                title = f"GitHub PR: {repo}#{pr_number} - {command}"
+                if pr_title:
+                    title += f" ({pr_title[:40]})"
+                return title
+        return f"GitHub Webhook - {command}"
+    
+    elif webhook_source == "slack":
+        event = payload.get("event", {})
+        channel = event.get("channel", "unknown")
+        return f"Slack: #{channel} - {command}"
+    
+    elif webhook_source == "sentry":
+        event = payload.get("event", {})
+        title_text = event.get("title", "")
+        if title_text:
+            return f"Sentry: {title_text[:40]} - {command}"
+        return f"Sentry Webhook - {command}"
+    
+    else:
+        # Generic or dynamic webhook
+        webhook_name = payload.get("webhook_name", webhook_source)
+        return f"{webhook_name.title()} Webhook - {command}"
+
+
+async def create_webhook_conversation(
+    task_db: TaskDB,
+    db: AsyncSession
+) -> str:
+    """Create or reuse conversation for webhook task based on external ID (Jira ticket, PR number, etc.)."""
+    try:
+        # Parse source_metadata
+        source_metadata = json.loads(task_db.source_metadata or "{}")
+        webhook_source = source_metadata.get("webhook_source", "unknown")
+        command = source_metadata.get("command", "unknown")
+        payload = source_metadata.get("payload", {})
+        
+        # Generate external ID (Jira ticket key, PR number, etc.)
+        external_id = generate_external_id(webhook_source, payload)
+        
+        # Generate stable conversation_id from external_id
+        conversation_id = generate_webhook_conversation_id(external_id)
+        
+        # Check if conversation already exists
+        result = await db.execute(
+            select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
+        )
+        existing_conversation = result.scalar_one_or_none()
+        
+        if existing_conversation:
+            # Reuse existing conversation
+            logger.info(
+                "webhook_conversation_reused",
+                task_id=task_db.task_id,
+                conversation_id=conversation_id,
+                external_id=external_id,
+                webhook_source=webhook_source
+            )
+        else:
+            # Create new conversation
+            conversation_title = generate_webhook_conversation_title(
+                webhook_source, payload, command
+            )
+            
+            conversation = ConversationDB(
+                conversation_id=conversation_id,
+                user_id=task_db.user_id,
+                title=conversation_title,
+                metadata_json=json.dumps({
+                    "webhook_source": webhook_source,
+                    "external_id": external_id,
+                    "command": command
+                }),
+            )
+            db.add(conversation)
+            logger.info(
+                "webhook_conversation_created",
+                task_id=task_db.task_id,
+                conversation_id=conversation_id,
+                external_id=external_id,
+                webhook_source=webhook_source
+            )
+        
+        # Always add a new message to the conversation (even if reusing conversation)
+        user_message_id = f"msg-{uuid.uuid4().hex[:12]}"
+        user_message = ConversationMessageDB(
+            message_id=user_message_id,
+            conversation_id=conversation_id,
+            role="user",
+            content=task_db.input_message,
+            task_id=task_db.task_id,
+            metadata_json=json.dumps({
+                "webhook_source": webhook_source,
+                "command": command
+            }),
+        )
+        db.add(user_message)
+        
+        # Update task metadata with conversation_id
+        source_metadata["conversation_id"] = conversation_id
+        task_db.source_metadata = json.dumps(source_metadata)
+        
+        # Mark task_db as modified in the session
+        db.add(task_db)
+        
+        logger.info(
+            "webhook_conversation_created",
+            task_id=task_db.task_id,
+            conversation_id=conversation_id,
+            webhook_source=webhook_source,
+            title=conversation_title,
+            source_metadata_updated=True
+        )
+        
+        return conversation_id
+        
+    except Exception as e:
+        logger.error(
+            "failed_to_create_webhook_conversation",
+            task_id=task_db.task_id,
+            error=str(e)
+        )
+        return None
 
 
 def render_template(template: str, payload: dict) -> str:
@@ -201,6 +411,10 @@ async def action_create_task(
         }
         agent_type = agent_type_map.get(agent, AgentType.PLANNING)
         
+        # Ensure payload has webhook_source for conversation creation
+        if "webhook_source" not in payload:
+            payload["webhook_source"] = payload.get("provider", "unknown")
+        
         # Create task
         task_db = TaskDB(
             task_id=task_id,
@@ -214,6 +428,13 @@ async def action_create_task(
             source_metadata=json.dumps(payload),
         )
         db.add(task_db)
+        await db.flush()  # Flush to get task_db.id if needed
+        
+        # Create conversation immediately when task is created
+        conversation_id = await create_webhook_conversation(task_db, db)
+        if conversation_id:
+            logger.info("webhook_conversation_created_in_action", conversation_id=conversation_id, task_id=task_id)
+        
         await db.commit()
         
         # Push to queue
@@ -426,9 +647,119 @@ async def github_post_comment(payload: dict, message: str):
 
 async def jira_post_comment(payload: dict, message: str):
     """Post comment to Jira issue."""
-    logger.info("jira_comment_posted", message=message)
+    try:
+        from core.config import settings
+        import base64
+        
+        # Get Jira credentials
+        jira_url = settings.jira_url or os.getenv("JIRA_URL")
+        jira_email = settings.jira_email or os.getenv("JIRA_EMAIL")
+        jira_api_token = settings.jira_api_token or os.getenv("JIRA_API_TOKEN")
+        
+        if not jira_url or not jira_api_token or not jira_email:
+            logger.warning("jira_credentials_missing", message="Jira API credentials not configured")
+            return
+        
+        # Extract issue key from payload
+        issue = payload.get("issue", {})
+        issue_key = issue.get("key")
+        
+        if not issue_key:
+            logger.warning("jira_issue_key_missing", payload_keys=list(payload.keys()))
+            return
+        
+        # Build API URL
+        api_url = f"{jira_url.rstrip('/')}/rest/api/3/issue/{issue_key}/comment"
+        
+        # Create auth header (Basic auth with email:token)
+        auth_string = f"{jira_email}:{jira_api_token}"
+        auth_bytes = auth_string.encode('ascii')
+        auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+        
+        # Post comment
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                api_url,
+                headers={
+                    "Authorization": f"Basic {auth_b64}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                json={
+                    "body": {
+                        "type": "doc",
+                        "version": 1,
+                        "content": [
+                            {
+                                "type": "paragraph",
+                                "content": [
+                                    {
+                                        "type": "text",
+                                        "text": message
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                timeout=30.0
+            )
+            response.raise_for_status()
+            
+            logger.info(
+                "jira_comment_posted",
+                issue_key=issue_key,
+                comment_id=response.json().get("id")
+            )
+            
+    except httpx.HTTPStatusError as e:
+        logger.error(
+            "jira_comment_failed",
+            status_code=e.response.status_code,
+            error=str(e),
+            response_text=e.response.text[:500] if e.response.text else None
+        )
+    except Exception as e:
+        logger.error("jira_api_error", error=str(e), error_type=type(e).__name__)
 
 
 async def slack_post_message(payload: dict, message: str):
-    """Post message to Slack channel."""
-    logger.info("slack_message_posted", message=message)
+    """Post message to Slack channel using Slack API."""
+    try:
+        slack_token = os.getenv("SLACK_BOT_TOKEN")
+        if not slack_token:
+            logger.warning("slack_bot_token_not_configured_for_comment")
+            return
+        
+        # Extract channel from payload
+        channel = None
+        event = payload.get("event", {})
+        if event:
+            channel = event.get("channel")
+        
+        # Fallback to notification channel if not in event
+        if not channel:
+            channel = os.getenv("SLACK_NOTIFICATION_CHANNEL", "#ai-agent-activity")
+        
+        # Send message using Slack API
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://slack.com/api/chat.postMessage",
+                headers={
+                    "Authorization": f"Bearer {slack_token}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "channel": channel,
+                    "text": message
+                },
+                timeout=10.0
+            )
+            response.raise_for_status()
+            result = response.json()
+            if not result.get("ok"):
+                logger.error("slack_api_error", error=result.get("error"))
+            else:
+                logger.info("slack_message_posted", channel=channel, message=message[:100])
+    except Exception as e:
+        logger.error("slack_post_message_error", error=str(e))
