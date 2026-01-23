@@ -101,11 +101,19 @@ You should see the Claude Machine Dashboard!
 - **Skill Creator**: Create new skills (sonnet)
 
 ### 3. Webhook Endpoints
-- `POST /webhooks/github` - GitHub events
+
+**Static Routes** (Hard-Coded - Recommended):
+- `POST /webhooks/github` - GitHub events (configured in `core/webhook_configs.py`)
 - `POST /webhooks/jira` - Jira events
-- `POST /webhooks/sentry` - Sentry events
 - `POST /webhooks/slack` - Slack events
-- `POST /webhooks/custom/{id}` - Custom webhooks
+- `POST /webhooks/sentry` - Sentry events
+
+**Dynamic Routes** (Database-Driven):
+- `POST /webhooks/{provider}/{webhook_id}` - Custom webhooks (created via API)
+- `GET /api/webhooks` - List all webhooks
+- `POST /api/webhooks` - Create new webhook
+
+**Note**: This system uses a hybrid approach - static routes for standard integrations, dynamic routes for runtime configuration.
 
 ### 4. API Endpoints
 - `GET /api/status` - System status

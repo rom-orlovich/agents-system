@@ -16,8 +16,10 @@ from core import (
 from core.database import init_db
 from core.database.redis_client import redis_client
 from api import credentials, dashboard, registry, analytics, websocket, conversations
-from api import webhooks_management, webhooks_dynamic, webhook_status
+from api import webhooks_dynamic, webhook_status
 from api import subagents, container, accounts, sessions
+from api.webhooks import router as webhooks_router
+from core.webhook_configs import validate_webhook_configs
 from workers.task_worker import TaskWorker
 
 # Setup logging
@@ -39,6 +41,9 @@ async def lifespan(app: FastAPI):
 
     # Connect to Redis
     await redis_client.connect()
+
+    # Validate webhook configurations
+    validate_webhook_configs()
 
     # Start task worker
     worker = TaskWorker(ws_hub)
@@ -87,8 +92,8 @@ app.include_router(credentials.router, prefix="/api", tags=["credentials"])
 app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(registry.router, prefix="/api", tags=["registry"])
 app.include_router(webhook_status.router, prefix="/api", tags=["webhooks"])
-app.include_router(webhooks_management.router, prefix="/api", tags=["webhooks"])
-app.include_router(webhooks_dynamic.router, prefix="/webhooks", tags=["webhooks"])
+app.include_router(webhooks_dynamic.router, prefix="/webhooks", tags=["webhooks"])  # Old system (backward compat)
+app.include_router(webhooks_router, tags=["webhooks"])  # New hard-coded webhooks
 app.include_router(websocket.router, tags=["websocket"])
 
 # V2 API routers (Multi-Subagent Orchestration)

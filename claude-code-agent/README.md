@@ -43,7 +43,7 @@ A self-managing machine where FastAPI runs as a daemon and Claude Code CLI is sp
 - 🔄 **Specialized Agents**: Planning, Executor, Service Integrator, Self-Improvement, Agent Creator, Skill Creator
 - 📊 **Cost Tracking**: Per-task and per-session cost monitoring
 - 🗄️ **Dual Storage**: Redis (queue/cache) + SQLite (persistence)
-- 🔌 **Extensible**: Create webhooks, agents, and skills dynamically
+- 🔌 **Hybrid Webhooks**: Static routes (hard-coded) + Dynamic routes (database-driven)
 - 🧪 **TDD Workflow**: Full test-driven development with E2E validation
 - 🔗 **Service Integration**: Cross-service workflows (GitHub, Jira, Slack, Sentry)
 
@@ -146,12 +146,19 @@ claude-code-agent/
 │   ├── dashboard.py            # Dashboard API
 │   ├── conversations.py        # Conversation management
 │   ├── websocket.py            # WebSocket endpoint
-│   ├── webhooks.py             # Webhook handlers
+│   ├── webhooks/               # Static webhook handlers (hard-coded)
+│   │   ├── github.py          # GitHub webhook handler
+│   │   ├── jira.py            # Jira webhook handler
+│   │   ├── slack.py           # Slack webhook handler
+│   │   └── sentry.py          # Sentry webhook handler
+│   ├── webhooks_dynamic.py     # Dynamic webhook receiver (database-driven)
+│   ├── webhook_status.py       # Webhook status/monitoring API
 │   └── ...                     # Other API endpoints
 ├── core/                       # Core logic
 │   ├── config.py               # Configuration
 │   ├── cli_runner.py           # Claude CLI executor
-│   ├── webhook_engine.py       # Webhook processing logic
+│   ├── webhook_configs.py      # Static webhook configurations
+│   ├── webhook_engine.py       # Shared webhook utilities (render_template, etc.)
 │   ├── websocket_hub.py        # WebSocket manager
 │   └── database/               # Database layer
 ├── shared/                     # Shared models
@@ -186,9 +193,19 @@ All business rules are enforced in Pydantic models (`shared/machine_models.py`):
 ### 3. Session Model - User Session Tracking
 - Tracks total cost and active tasks per user session
 
-### 4. Webhook Models - Dynamic Configuration
-- `WebhookConfig`: Provider, secret, enabled status
-- `WebhookCommand`: Trigger, action, template, priority
+### 4. Webhook Models - Hybrid Configuration
+
+**Static Webhooks** (Hard-Coded):
+- `WebhookConfig`: Name, endpoint, source, commands, target_agent
+- `WebhookCommand`: Name, aliases, prompt_template, target_agent
+- **Location**: `core/webhook_configs.py`
+- **Validation**: Pydantic models, validated at startup
+
+**Dynamic Webhooks** (Database-Driven):
+- `WebhookConfigDB`: Provider, secret, enabled status, endpoint
+- `WebhookCommandDB`: Trigger, action, template, priority, conditions
+- **Location**: Database (`webhook_configs` table)
+- **Management**: Via `/api/webhooks` endpoints
 
 ## Core Components
 
@@ -274,10 +291,20 @@ Processes tasks from Redis queue:
 10. Task completes; results saved; status updated to COMPLETED
 11. Response added back to **Conversation**
 
-### Unified Webhook Flow
-1. Webhook received (e.g., `/webhooks/github/webhook-123`)
+### Webhook Flow
+
+**Static Route Flow** (Hard-Coded):
+1. Webhook received at `/webhooks/github` (or jira/slack/sentry)
+2. Signature verified (provider-specific)
+3. Command matched by name/aliases + prefix (e.g., `@agent analyze`)
+4. Immediate response sent (GitHub reaction, Slack ephemeral message)
+5. Task created and queued
+6. Slack notification sent on completion
+
+**Dynamic Route Flow** (Database-Driven):
+1. Webhook received at `/webhooks/{provider}/{webhook_id}`
 2. HMAC signature verified (if configured)
-3. Payload matched against **WebhookCommands**
+3. Payload matched against **WebhookCommands** (trigger + conditions)
 4. Actions executed in **Priority Order**:
    - `github_reaction`: Add 👀 or 👍
    - `github_label`: Add labels like "bot-processing"
@@ -293,7 +320,7 @@ Real-time web interface with persistent conversation system:
 - **Task Linking**: Every message linked to underlying task for traceability
 - **Monitor active tasks**: Real-time status updates
 - **View costs and metrics**: Per-task and per-session tracking
-- **Manage agents and webhooks**: Dynamic configuration
+- **Manage agents and webhooks**: Static (hard-coded) + Dynamic (database-driven) configuration
 
 **Access**: `http://localhost:8000`
 
@@ -303,9 +330,43 @@ Real-time web interface with persistent conversation system:
 - **Traceability**: Click on any message to view execution details and logs
 - **UI Usage**: Found in the **Chat** tab; click **➕** to start a new thread
 
-### 5. Unified Webhook System
+### 5. Hybrid Webhook System
 
-A powerful, user-configurable webhook system for GitHub, Jira, Slack, and generic sources.
+A powerful webhook system using a **hybrid approach**: **static routes** (hard-coded) + **dynamic routes** (database-driven).
+
+#### Architecture: Static + Dynamic Routes
+
+**Static Routes (Hard-Coded)** - Recommended for production:
+- ✅ Type-safe, validated at startup
+- ✅ Version controlled in git
+- ✅ Easy to maintain and understand
+- ✅ One file per provider with all logic
+- **Endpoints**: `/webhooks/github`, `/webhooks/jira`, `/webhooks/slack`, `/webhooks/sentry`
+- **Location**: `api/webhooks/github.py`, `api/webhooks/jira.py`, etc.
+- **Configuration**: `core/webhook_configs.py`
+
+**Dynamic Routes (Database-Driven)** - For runtime configuration:
+- ✅ Create webhooks via API
+- ✅ Store in database
+- ✅ Enable/disable without code changes
+- **Endpoints**: `/webhooks/{provider}/{webhook_id}`
+- **Location**: `api/webhooks_dynamic.py`
+- **Management API**: `/api/webhooks` (CRUD operations)
+
+#### Static Webhook Features
+
+- **Command Matching**: By name/aliases + command prefix (e.g., `@agent analyze`)
+- **Immediate Responses**: GitHub reactions, Slack ephemeral messages
+- **Template Rendering**: `{{variable}}` syntax with nested access
+- **Slack Notifications**: Automatic notifications on task completion
+- **Type Safety**: Pydantic validation at startup
+
+#### Dynamic Webhook Features
+
+- **Trigger-Based**: Event type matching (e.g., `issues.opened`)
+- **Condition Filtering**: Match based on payload conditions
+- **Priority Ordering**: Execute commands by priority
+- **Runtime Management**: Create, update, delete via API
 
 #### Supported Actions
 - `create_task`: Queue a task for an agent (Planning, Executor, Brain)
@@ -315,16 +376,20 @@ A powerful, user-configurable webhook system for GitHub, Jira, Slack, and generi
 - `ask`: Request clarification from a user
 - `forward`: Send event data to another service
 
-#### Pre-built Templates
-- **GitHub Issue Tracking**: Auto-triage, label, and analyze new issues
-- **GitHub PR Review**: Automated code review on PR open
-- **GitHub Mention Bot**: Respond to `@agent` mentions in comments
-- **Jira Sync**: Automatically create agent tasks from Jira tickets
-
 #### Webhook Endpoints
-- **GitHub**: `/webhooks/github` - Issues, PRs, comments
-- **Jira**: `/webhooks/jira` - Ticket updates
-- **Sentry**: `/webhooks/sentry` - Error alerts
+
+**Static Routes** (Hard-Coded):
+- **GitHub**: `POST /webhooks/github` - Issues, PRs, comments
+- **Jira**: `POST /webhooks/jira` - Ticket updates
+- **Slack**: `POST /webhooks/slack` - Commands and mentions
+- **Sentry**: `POST /webhooks/sentry` - Error alerts
+
+**Dynamic Routes** (Database-Driven):
+- **GitHub**: `POST /webhooks/github/{webhook_id}`
+- **Jira**: `POST /webhooks/jira/{webhook_id}`
+- **Slack**: `POST /webhooks/slack/{webhook_id}`
+- **Sentry**: `POST /webhooks/sentry/{webhook_id}`
+- **Custom**: `POST /webhooks/custom/{webhook_id}`
 
 ## API Endpoints
 
@@ -347,11 +412,22 @@ A powerful, user-configurable webhook system for GitHub, Jira, Slack, and generi
 
 ### Webhooks
 
+**Static Routes** (Hard-Coded):
 | Endpoint | Description |
 |----------|-------------|
-| `/webhooks/github` | GitHub events |
-| `/webhooks/jira` | Jira events |
-| `/webhooks/sentry` | Sentry events |
+| `POST /webhooks/github` | GitHub events (hard-coded handler) |
+| `POST /webhooks/jira` | Jira events (hard-coded handler) |
+| `POST /webhooks/slack` | Slack events (hard-coded handler) |
+| `POST /webhooks/sentry` | Sentry events (hard-coded handler) |
+
+**Dynamic Routes** (Database-Driven):
+| Endpoint | Description |
+|----------|-------------|
+| `POST /webhooks/{provider}/{webhook_id}` | Dynamic webhook (created via API) |
+| `GET /api/webhooks` | List all webhooks |
+| `POST /api/webhooks` | Create new webhook |
+| `PUT /api/webhooks/{id}` | Update webhook |
+| `DELETE /api/webhooks/{id}` | Delete webhook |
 
 ## Configuration
 
