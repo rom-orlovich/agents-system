@@ -1,18 +1,19 @@
 """Webhook status and monitoring API."""
 
 import os
-from fastapi import APIRouter, Depends
-from sqlalchemy import select, func
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import structlog
 import uuid
+import json
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
 from core.config import settings
 from core.database import get_session as get_db_session
-from core.database.models import WebhookConfigDB, WebhookEventDB
+from core.database.models import WebhookConfigDB, WebhookEventDB, WebhookCommandDB
 from core.webhook_configs import WEBHOOK_CONFIGS
 
 logger = structlog.get_logger()
@@ -153,24 +154,138 @@ class WebhookCreate(BaseModel):
     name: str
     provider: str
     enabled: bool = True
+    secret: Optional[str] = None
     commands: List[Dict[str, Any]] = []
 
-@router.post("/webhooks")
+class WebhookUpdate(BaseModel):
+    name: Optional[str] = None
+    enabled: Optional[bool] = None
+    secret: Optional[str] = None
+
+class CommandCreate(BaseModel):
+    trigger: str
+    action: str
+    agent: Optional[str] = None
+    template: str
+    conditions: Optional[Dict[str, Any]] = None
+    priority: int = 0
+
+class CommandUpdate(BaseModel):
+    trigger: Optional[str] = None
+    action: Optional[str] = None
+    agent: Optional[str] = None
+    template: Optional[str] = None
+    conditions: Optional[Dict[str, Any]] = None
+    priority: Optional[int] = None
+
+@router.get("/webhooks")
+async def list_webhooks(db: AsyncSession = Depends(get_db_session)):
+    """List all dynamic webhooks (returns list directly, not wrapped)."""
+    try:
+        result = await db.execute(
+            select(WebhookConfigDB).order_by(WebhookConfigDB.created_at.desc())
+        )
+        webhooks = result.scalars().all()
+        
+        webhook_list = []
+        for webhook in webhooks:
+            # Load commands
+            commands_result = await db.execute(
+                select(WebhookCommandDB).where(WebhookCommandDB.webhook_id == webhook.webhook_id)
+            )
+            commands = commands_result.scalars().all()
+            
+            webhook_list.append({
+                "webhook_id": webhook.webhook_id,
+                "name": webhook.name,
+                "provider": webhook.provider,
+                "endpoint": webhook.endpoint,
+                "enabled": webhook.enabled,
+                "commands": [
+                    {
+                        "command_id": cmd.command_id,
+                        "trigger": cmd.trigger,
+                        "action": cmd.action,
+                        "agent": cmd.agent,
+                        "template": cmd.template,
+                        "conditions": json.loads(cmd.conditions_json) if cmd.conditions_json else None,
+                        "priority": cmd.priority,
+                    }
+                    for cmd in commands
+                ],
+            })
+        
+        return webhook_list
+    except Exception as e:
+        logger.error("list_webhooks_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/webhooks/{webhook_id}")
+async def get_webhook(
+    webhook_id: str,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Get webhook details by ID."""
+    try:
+        result = await db.execute(
+            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+        )
+        webhook = result.scalar_one_or_none()
+        
+        if not webhook:
+            raise HTTPException(status_code=404, detail="Webhook not found")
+        
+        # Load commands
+        commands_result = await db.execute(
+            select(WebhookCommandDB).where(WebhookCommandDB.webhook_id == webhook_id)
+        )
+        commands = commands_result.scalars().all()
+        
+        return {
+            "webhook_id": webhook.webhook_id,
+            "name": webhook.name,
+            "provider": webhook.provider,
+            "endpoint": webhook.endpoint,
+            "enabled": webhook.enabled,
+            "commands": [
+                {
+                    "command_id": cmd.command_id,
+                    "trigger": cmd.trigger,
+                    "action": cmd.action,
+                    "agent": cmd.agent,
+                    "template": cmd.template,
+                    "conditions": json.loads(cmd.conditions_json) if cmd.conditions_json else None,
+                    "priority": cmd.priority,
+                }
+                for cmd in commands
+            ],
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("get_webhook_error", error=str(e), webhook_id=webhook_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/webhooks", status_code=status.HTTP_201_CREATED)
 async def create_webhook(
     webhook: WebhookCreate,
     db: AsyncSession = Depends(get_db_session)
 ):
     """Create a new dynamic webhook."""
     try:
+        # Validate provider
+        valid_providers = ["github", "jira", "slack", "sentry"]
+        if webhook.provider not in valid_providers:
+            raise HTTPException(status_code=400, detail=f"Invalid provider. Must be one of: {', '.join(valid_providers)}")
+        
         # Check if name exists
         existing = await db.execute(
             select(WebhookConfigDB).where(WebhookConfigDB.name == webhook.name)
         )
         if existing.scalar_one_or_none():
-             # Return error in format expected by tests or frontend?
-             # Tests expect 400 with detail "already exists"
-             from fastapi import HTTPException
-             raise HTTPException(status_code=400, detail="Webhook with this name already exists")
+            raise HTTPException(status_code=400, detail="Webhook with this name already exists")
 
         # Create webhook
         webhook_id = f"wh-{uuid.uuid4().hex[:12]}"
@@ -182,9 +297,29 @@ async def create_webhook(
             provider=webhook.provider,
             endpoint=endpoint,
             enabled=webhook.enabled,
-            created_at=datetime.utcnow()
+            secret=webhook.secret,
+            config_json=json.dumps({}),  # Required field
+            created_by="system",  # Required field
+            created_at=datetime.now(timezone.utc)
         )
         db.add(db_webhook)
+        await db.flush()  # Flush to get webhook_id for commands
+        
+        # Create commands
+        for cmd_data in webhook.commands:
+            command_id = f"cmd-{uuid.uuid4().hex[:12]}"
+            db_command = WebhookCommandDB(
+                command_id=command_id,
+                webhook_id=webhook_id,
+                trigger=cmd_data.get("trigger", ""),
+                action=cmd_data.get("action", "create_task"),
+                agent=cmd_data.get("agent"),
+                template=cmd_data.get("template", ""),
+                conditions_json=json.dumps(cmd_data.get("conditions")) if cmd_data.get("conditions") else None,
+                priority=cmd_data.get("priority", 0),
+            )
+            db.add(db_command)
+        
         await db.commit()
         
         return {
@@ -197,9 +332,10 @@ async def create_webhook(
                 "enabled": db_webhook.enabled
             }
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("create_webhook_error", error=str(e))
-        from fastapi import HTTPException
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -242,6 +378,336 @@ async def get_webhook_events(
             "success": False,
             "error": str(e)
         }
+
+
+@router.put("/webhooks/{webhook_id}")
+async def update_webhook(
+    webhook_id: str,
+    webhook_update: WebhookUpdate,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Update webhook configuration."""
+    try:
+        result = await db.execute(
+            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+        )
+        webhook = result.scalar_one_or_none()
+        
+        if not webhook:
+            raise HTTPException(status_code=404, detail="Webhook not found")
+        
+        # Update fields
+        if webhook_update.name is not None:
+            webhook.name = webhook_update.name
+        if webhook_update.enabled is not None:
+            webhook.enabled = webhook_update.enabled
+        if webhook_update.secret is not None:
+            webhook.secret = webhook_update.secret
+        
+        await db.commit()
+        
+        return {
+            "success": True,
+            "data": {
+                "webhook_id": webhook.webhook_id,
+                "name": webhook.name,
+                "provider": webhook.provider,
+                "endpoint": webhook.endpoint,
+                "enabled": webhook.enabled,
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("update_webhook_error", error=str(e), webhook_id=webhook_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/webhooks/{webhook_id}")
+async def delete_webhook(
+    webhook_id: str,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Delete webhook."""
+    try:
+        result = await db.execute(
+            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+        )
+        webhook = result.scalar_one_or_none()
+        
+        if not webhook:
+            raise HTTPException(status_code=404, detail="Webhook not found")
+        
+        await db.delete(webhook)
+        await db.commit()
+        
+        return {
+            "success": True,
+            "data": {"webhook_id": webhook_id}
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("delete_webhook_error", error=str(e), webhook_id=webhook_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/webhooks/{webhook_id}/enable")
+async def enable_webhook(
+    webhook_id: str,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Enable a webhook."""
+    try:
+        result = await db.execute(
+            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+        )
+        webhook = result.scalar_one_or_none()
+        
+        if not webhook:
+            raise HTTPException(status_code=404, detail="Webhook not found")
+        
+        webhook.enabled = True
+        await db.commit()
+        
+        return {
+            "success": True,
+            "data": {"webhook_id": webhook_id, "enabled": True}
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("enable_webhook_error", error=str(e), webhook_id=webhook_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/webhooks/{webhook_id}/disable")
+async def disable_webhook(
+    webhook_id: str,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Disable a webhook."""
+    try:
+        result = await db.execute(
+            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+        )
+        webhook = result.scalar_one_or_none()
+        
+        if not webhook:
+            raise HTTPException(status_code=404, detail="Webhook not found")
+        
+        webhook.enabled = False
+        await db.commit()
+        
+        return {
+            "success": True,
+            "data": {"webhook_id": webhook_id, "enabled": False}
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("disable_webhook_error", error=str(e), webhook_id=webhook_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/webhooks/{webhook_id}/commands", status_code=status.HTTP_201_CREATED)
+async def add_command_to_webhook(
+    webhook_id: str,
+    command: CommandCreate,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Add command to existing webhook."""
+    try:
+        # Verify webhook exists
+        result = await db.execute(
+            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+        )
+        webhook = result.scalar_one_or_none()
+        
+        if not webhook:
+            raise HTTPException(status_code=404, detail="Webhook not found")
+        
+        # Create command
+        command_id = f"cmd-{uuid.uuid4().hex[:12]}"
+        db_command = WebhookCommandDB(
+            command_id=command_id,
+            webhook_id=webhook_id,
+            trigger=command.trigger,
+            action=command.action,
+            agent=command.agent,
+            template=command.template,
+            conditions_json=json.dumps(command.conditions) if command.conditions else None,
+            priority=command.priority,
+        )
+        db.add(db_command)
+        await db.commit()
+        
+        return {
+            "success": True,
+            "data": {
+                "command_id": command_id,
+                "trigger": command.trigger,
+                "action": command.action,
+                "agent": command.agent,
+                "template": command.template,
+                "conditions": command.conditions,
+                "priority": command.priority,
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("add_command_error", error=str(e), webhook_id=webhook_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/webhooks/{webhook_id}/commands")
+async def list_commands(
+    webhook_id: str,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """List all commands for a webhook."""
+    try:
+        # Verify webhook exists
+        result = await db.execute(
+            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+        )
+        webhook = result.scalar_one_or_none()
+        
+        if not webhook:
+            raise HTTPException(status_code=404, detail="Webhook not found")
+        
+        # Get commands
+        commands_result = await db.execute(
+            select(WebhookCommandDB).where(WebhookCommandDB.webhook_id == webhook_id)
+        )
+        commands = commands_result.scalars().all()
+        
+        return [
+            {
+                "command_id": cmd.command_id,
+                "trigger": cmd.trigger,
+                "action": cmd.action,
+                "agent": cmd.agent,
+                "template": cmd.template,
+                "conditions": json.loads(cmd.conditions_json) if cmd.conditions_json else None,
+                "priority": cmd.priority,
+            }
+            for cmd in commands
+        ]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("list_commands_error", error=str(e), webhook_id=webhook_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/webhooks/{webhook_id}/commands/{command_id}")
+async def update_command(
+    webhook_id: str,
+    command_id: str,
+    command_update: CommandUpdate,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Update existing command."""
+    try:
+        # Verify webhook exists
+        webhook_result = await db.execute(
+            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+        )
+        webhook = webhook_result.scalar_one_or_none()
+        
+        if not webhook:
+            raise HTTPException(status_code=404, detail="Webhook not found")
+        
+        # Get command
+        command_result = await db.execute(
+            select(WebhookCommandDB).where(
+                WebhookCommandDB.command_id == command_id,
+                WebhookCommandDB.webhook_id == webhook_id
+            )
+        )
+        command = command_result.scalar_one_or_none()
+        
+        if not command:
+            raise HTTPException(status_code=404, detail="Command not found")
+        
+        # Update fields
+        if command_update.trigger is not None:
+            command.trigger = command_update.trigger
+        if command_update.action is not None:
+            command.action = command_update.action
+        if command_update.agent is not None:
+            command.agent = command_update.agent
+        if command_update.template is not None:
+            command.template = command_update.template
+        if command_update.conditions is not None:
+            command.conditions_json = json.dumps(command_update.conditions)
+        if command_update.priority is not None:
+            command.priority = command_update.priority
+        
+        await db.commit()
+        
+        return {
+            "success": True,
+            "data": {
+                "command_id": command.command_id,
+                "trigger": command.trigger,
+                "action": command.action,
+                "agent": command.agent,
+                "template": command.template,
+                "conditions": json.loads(command.conditions_json) if command.conditions_json else None,
+                "priority": command.priority,
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("update_command_error", error=str(e), webhook_id=webhook_id, command_id=command_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/webhooks/{webhook_id}/commands/{command_id}")
+async def delete_command(
+    webhook_id: str,
+    command_id: str,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Delete command from webhook."""
+    try:
+        # Verify webhook exists
+        webhook_result = await db.execute(
+            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+        )
+        webhook = webhook_result.scalar_one_or_none()
+        
+        if not webhook:
+            raise HTTPException(status_code=404, detail="Webhook not found")
+        
+        # Get command
+        command_result = await db.execute(
+            select(WebhookCommandDB).where(
+                WebhookCommandDB.command_id == command_id,
+                WebhookCommandDB.webhook_id == webhook_id
+            )
+        )
+        command = command_result.scalar_one_or_none()
+        
+        if not command:
+            raise HTTPException(status_code=404, detail="Command not found")
+        
+        await db.delete(command)
+        await db.commit()
+        
+        return {
+            "success": True,
+            "data": {"command_id": command_id}
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("delete_command_error", error=str(e), webhook_id=webhook_id, command_id=command_id)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/webhooks/events/recent")

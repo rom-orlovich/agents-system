@@ -121,6 +121,100 @@ from .my_provider import router as my_provider_router
 router.include_router(my_provider_router, prefix="/webhooks")
 ```
 
+## 🔄 Flow Tracking
+
+### Overview
+
+Each webhook-initiated task flow creates a special `flow_id` that tracks the entire lifecycle: webhook trigger → analysis → plan creation → PR creation → execution. All tasks in this flow belong to one conversation unless explicitly broken.
+
+### Flow ID Generation
+
+Flow IDs are generated from external IDs (Jira ticket key, GitHub PR number, etc.):
+
+```python
+from core.webhook_engine import generate_external_id, generate_flow_id
+
+# Generate external_id from webhook payload
+external_id = generate_external_id("jira", payload)  # e.g., "jira:PROJ-123"
+
+# Generate stable flow_id
+flow_id = generate_flow_id(external_id)  # e.g., "flow-abc123def456"
+```
+
+**Key Properties:**
+- **Stable**: Same external_id always generates same flow_id
+- **Unique**: Different external_ids generate different flow_ids
+- **Persistent**: Flow_id propagates across entire task chain
+
+### Conversation Inheritance
+
+**Default Behavior**: Child tasks automatically inherit parent's `conversation_id`.
+
+**Example Flow:**
+```
+Webhook → Task #1 (conversation_id="conv-xyz")
+  ↓
+Task #1 → Task #2 (inherits conversation_id="conv-xyz")
+  ↓
+Task #2 → Task #3 (inherits conversation_id="conv-xyz")
+```
+
+**Breaking Conversation Chain:**
+
+Users can explicitly start new conversations via:
+- **Keywords**: "new conversation", "start fresh", "new context", "reset conversation"
+- **API Flag**: `new_conversation: true` in task metadata
+
+**Example:**
+```
+Webhook → Task #1 (conversation_id="conv-1")
+  ↓
+Task #1 → Task #2 with "new conversation" (conversation_id="conv-2", flow_id="flow-abc" still same)
+  ↓
+Task #2 → Task #3 (inherits conversation_id="conv-2")
+```
+
+**Important**: `flow_id` always propagates even when conversation breaks (for end-to-end tracking).
+
+### Claude Code Tasks Integration
+
+**Background agents read `~/.claude/tasks/` directory** to see completed tasks, dependencies, and results. No context injection needed.
+
+**Sync Behavior:**
+- Orchestration tasks are synced to Claude Code Tasks directory (if `sync_to_claude_tasks=True`)
+- Claude Code task ID stored in `source_metadata["claude_task_id"]`
+- Task status updates when orchestration task completes
+- Background agents can check `~/.claude/tasks/` to see task status
+
+**Example Task JSON:**
+```json
+{
+  "id": "claude-task-task-123",
+  "title": "Analyze Jira ticket PROJ-123",
+  "status": "completed",
+  "dependencies": ["claude-task-task-parent"],
+  "metadata": {
+    "orchestration_task_id": "task-123",
+    "flow_id": "flow-abc123",
+    "conversation_id": "conv-xyz"
+  }
+}
+```
+
+### Webhook Flow with Flow Tracking
+
+**Updated Flow:**
+1. Webhook received → Generate `external_id` (e.g., "jira:PROJ-123")
+2. Generate `flow_id` from external_id
+3. Create Task #1 (root) with `flow_id`, `initiated_task_id=task_id`
+4. Get or create conversation with `flow_id`
+5. Sync to Claude Code Tasks (if enabled)
+6. Task #1 creates Task #2 → Check: new conversation requested?
+   - **NO** → Inherit `flow_id`, `conversation_id` (default)
+   - **YES** → Create new conversation, keep `flow_id`
+7. All tasks update conversation metrics on completion
+8. Update Claude Code Task status when orchestration task completes
+
 ## 🔄 Dynamic Routes (Database-Driven)
 
 ### Endpoints

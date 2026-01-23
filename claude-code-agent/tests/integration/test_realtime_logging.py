@@ -3,14 +3,12 @@
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 
 class TestRealtimeLoggingFlow:
     """Test real-time logging business requirements."""
-    
-    @pytest.mark.asyncio
     async def test_subagent_output_endpoint_exists(self, client, redis_mock):
         """
         REQUIREMENT: Subagent output should be accessible via API.
@@ -29,8 +27,6 @@ class TestRealtimeLoggingFlow:
         
         # Should return output or 404 if subagent doesn't exist
         assert response.status_code in [200, 404]
-    
-    @pytest.mark.asyncio
     async def test_subagent_output_accumulates(self, client, redis_mock):
         """
         REQUIREMENT: Subagent output should accumulate over time.
@@ -45,8 +41,6 @@ class TestRealtimeLoggingFlow:
         
         # Verify append was called
         redis_mock.append_subagent_output.assert_called_once()
-    
-    @pytest.mark.asyncio
     async def test_parallel_subagents_have_separate_output(self, client, redis_mock, db_session):
         """
         REQUIREMENT: Output from parallel subagents should be
@@ -71,8 +65,6 @@ class TestRealtimeLoggingFlow:
         subagent_ids = data["subagent_ids"]
         assert len(subagent_ids) == 2
         assert subagent_ids[0] != subagent_ids[1]
-    
-    @pytest.mark.asyncio
     async def test_subagent_logs_include_timestamp(self, client, redis_mock):
         """
         REQUIREMENT: Subagent logs should include timestamps.
@@ -83,7 +75,7 @@ class TestRealtimeLoggingFlow:
             "status": "running",
             "mode": "foreground",
             "agent_name": "planning",
-            "started_at": datetime.utcnow().isoformat()
+            "started_at": datetime.now(timezone.utc).isoformat()
         })
         
         response = await client.get(f"/api/v2/subagents/{subagent_id}")
@@ -95,8 +87,6 @@ class TestRealtimeLoggingFlow:
 
 class TestWebSocketStreamingFlow:
     """Test WebSocket streaming requirements."""
-    
-    @pytest.mark.asyncio
     async def test_websocket_endpoint_exists(self, client):
         """
         REQUIREMENT: WebSocket endpoint for streaming should exist.
@@ -106,8 +96,6 @@ class TestWebSocketStreamingFlow:
         response = await client.get("/ws")
         # WebSocket endpoints typically return 403 or upgrade required for GET
         assert response.status_code in [200, 400, 403, 404, 426]
-    
-    @pytest.mark.asyncio
     async def test_subagent_stream_endpoint_structure(self, client, redis_mock):
         """
         REQUIREMENT: Subagent streaming should provide structured output.
@@ -118,7 +106,7 @@ class TestWebSocketStreamingFlow:
             "status": "running",
             "mode": "foreground",
             "agent_name": "planning",
-            "started_at": datetime.utcnow().isoformat()
+            "started_at": datetime.now(timezone.utc).isoformat()
         })
         redis_mock.get_subagent_output = AsyncMock(return_value="Processing...\nDone.")
         
@@ -134,8 +122,6 @@ class TestWebSocketStreamingFlow:
 
 class TestLoggingPersistenceFlow:
     """Test logging persistence requirements."""
-    
-    @pytest.mark.asyncio
     async def test_subagent_output_persisted_to_redis(self, client, redis_mock, db_session):
         """
         REQUIREMENT: Subagent output should be persisted to Redis.
@@ -154,8 +140,6 @@ class TestLoggingPersistenceFlow:
         
         # Verify Redis was called to track the subagent
         redis_mock.add_active_subagent.assert_called_once()
-    
-    @pytest.mark.asyncio
     async def test_completed_subagent_output_available(self, client, redis_mock, db_session):
         """
         REQUIREMENT: Output from completed subagents should remain available.

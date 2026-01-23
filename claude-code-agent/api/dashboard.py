@@ -1,6 +1,6 @@
 """Dashboard API endpoints."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Annotated
 import uuid
 import math
@@ -305,7 +305,7 @@ async def chat_with_brain(
             session_id=session_id,
             user_id="default-user",  # TODO: Get from auth
             machine_id="claude-agent-001",
-            connected_at=datetime.utcnow(),
+            connected_at=datetime.now(timezone.utc),
         )
         db.add(session_db)
         await db.commit()
@@ -370,7 +370,7 @@ async def chat_with_brain(
             task_id=task_id,
         )
         db.add(user_message)
-        conversation.updated_at = datetime.utcnow()
+        conversation.updated_at = datetime.now(timezone.utc)
         await db.commit()
 
     # Push to queue

@@ -61,7 +61,6 @@ from tests.fixtures.cli_fixtures import (
 # ============================================================================
 
 @pytest.mark.fake_cli
-@pytest.mark.asyncio
 async def test_cli_command_syntax_basic(fake_claude_cli):
     """Test basic CLI command syntax using fake CLI."""
     cmd = [
@@ -88,7 +87,6 @@ async def test_cli_command_syntax_basic(fake_claude_cli):
 
 
 @pytest.mark.fake_cli
-@pytest.mark.asyncio
 async def test_cli_model_flag(fake_claude_cli):
     """Test --model flag recognition using fake CLI."""
     cmd = [
@@ -112,7 +110,6 @@ async def test_cli_model_flag(fake_claude_cli):
 
 
 @pytest.mark.fake_cli
-@pytest.mark.asyncio
 async def test_cli_allowed_tools_flag(fake_claude_cli):
     """Test --allowedTools flag recognition using fake CLI."""
     cmd = [
@@ -135,7 +132,6 @@ async def test_cli_allowed_tools_flag(fake_claude_cli):
 
 
 @pytest.mark.fake_cli
-@pytest.mark.asyncio
 async def test_cli_agents_flag(fake_claude_cli):
     """Test --agents flag recognition using fake CLI."""
     agents_config = json.dumps({
@@ -165,7 +161,6 @@ async def test_cli_agents_flag(fake_claude_cli):
 
 
 @pytest.mark.fake_cli
-@pytest.mark.asyncio
 async def test_cli_full_command(fake_claude_cli):
     """Test full CLI command with all flags using fake CLI."""
     agents_config = json.dumps({
@@ -199,7 +194,6 @@ async def test_cli_full_command(fake_claude_cli):
 
 
 @pytest.mark.fake_cli
-@pytest.mark.asyncio
 async def test_cli_json_output_parsing(fake_cli_success):
     """Test JSON output parsing from fake CLI."""
     cmd = [
@@ -235,7 +229,6 @@ async def test_cli_json_output_parsing(fake_cli_success):
 
 
 @pytest.mark.fake_cli
-@pytest.mark.asyncio
 async def test_cli_error_handling(fake_cli_error):
     """Test error handling with fake CLI."""
     cmd = [
@@ -258,7 +251,6 @@ async def test_cli_error_handling(fake_cli_error):
 
 
 @pytest.mark.fake_cli
-@pytest.mark.asyncio
 async def test_cli_timeout_handling(fake_cli_timeout):
     """Test timeout handling with fake CLI."""
     cmd = [
@@ -279,7 +271,6 @@ async def test_cli_timeout_handling(fake_cli_timeout):
 
 
 @pytest.mark.fake_cli
-@pytest.mark.asyncio
 async def test_cli_auth_error(fake_cli_auth_error):
     """Test authentication error handling with fake CLI."""
     cmd = [
@@ -302,7 +293,6 @@ async def test_cli_auth_error(fake_cli_auth_error):
 
 
 @pytest.mark.fake_cli
-@pytest.mark.asyncio
 async def test_cli_streaming_output(fake_cli_streaming):
     """Test streaming output handling with fake CLI."""
     cmd = [
@@ -379,7 +369,6 @@ def test_subagent_config_loading(dry_run_mode):
 # ============================================================================
 
 @pytest.mark.real_cli
-@pytest.mark.asyncio
 async def test_real_cli_smoke_test(real_claude_cli):
     """
     Minimal smoke test with real Claude CLI.
@@ -421,7 +410,6 @@ async def test_real_cli_smoke_test(real_claude_cli):
 
 
 @pytest.mark.real_cli
-@pytest.mark.asyncio
 async def test_real_cli_version(real_claude_cli):
     """Test real CLI version command (no API call, no cost)."""
     result = subprocess.run(
@@ -441,7 +429,6 @@ async def test_real_cli_version(real_claude_cli):
 # ============================================================================
 
 @pytest.mark.fake_cli
-@pytest.mark.asyncio
 async def test_cli_runner_with_fake_cli(fake_claude_cli, cli_test_workspace, monkeypatch):
     """Test core.cli_runner.run_claude_cli() with fake CLI."""
     from core.cli_runner import run_claude_cli

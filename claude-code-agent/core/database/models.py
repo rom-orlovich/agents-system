@@ -1,6 +1,6 @@
 """SQLAlchemy database models."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Float, DateTime, Text, ForeignKey, Boolean
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, relationship
@@ -62,6 +62,10 @@ class TaskDB(Base):
     source = Column(String(50), default="dashboard", nullable=False)
     source_metadata = Column(Text, default="{}", nullable=False)  # JSON
     parent_task_id = Column(String(255), nullable=True)
+    
+    # Flow tracking
+    initiated_task_id = Column(String(255), nullable=True)  # Root task that initiated this flow (self-reference for root tasks)
+    flow_id = Column(String(255), nullable=True, index=True)  # Unique identifier for the entire task flow
 
     # Relationships
     session = relationship("SessionDB", back_populates="tasks")
@@ -89,9 +93,9 @@ class WebhookConfigDB(Base):
     secret = Column(String(500), nullable=True)
     enabled = Column(Boolean, default=True, nullable=False)
     config_json = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, nullable=False)
     created_by = Column(String(255), nullable=False)
-    updated_at = Column(DateTime, nullable=True, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=True)
     
     commands = relationship("WebhookCommandDB", back_populates="webhook", cascade="all, delete-orphan")
     events = relationship("WebhookEventDB", back_populates="webhook", cascade="all, delete-orphan")
@@ -141,6 +145,17 @@ class ConversationDB(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     is_archived = Column(Boolean, default=False, nullable=False)
     metadata_json = Column(Text, default="{}", nullable=False)  # JSON for additional metadata
+    
+    # Flow tracking
+    initiated_task_id = Column(String(255), nullable=True)  # Root task that started this conversation
+    flow_id = Column(String(255), nullable=True, index=True)  # Flow ID for end-to-end tracking
+    
+    # Aggregated metrics
+    total_cost_usd = Column(Float, default=0.0, nullable=False)
+    total_tasks = Column(Integer, default=0, nullable=False)
+    total_duration_seconds = Column(Float, default=0.0, nullable=False)
+    started_at = Column(DateTime, nullable=True)  # Earliest task start time
+    completed_at = Column(DateTime, nullable=True)  # Latest task completion time
     
     # Relationships
     messages = relationship("ConversationMessageDB", back_populates="conversation", cascade="all, delete-orphan", order_by="ConversationMessageDB.created_at")
@@ -241,3 +256,48 @@ class AuditLogDB(Base):
     target_id = Column(String(255), nullable=True)
     details_json = Column(Text, default="{}")  # JSON with action-specific details
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+async def update_conversation_metrics(
+    conversation_id: str,
+    task: TaskDB,
+    db: "AsyncSession"
+) -> None:
+    """
+    Update conversation aggregated metrics when a task completes.
+    
+    Args:
+        conversation_id: Conversation ID to update
+        task: Completed task
+        db: Database session
+    """
+    from sqlalchemy import select
+    
+    # Get conversation
+    result = await db.execute(
+        select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
+    )
+    conversation = result.scalar_one_or_none()
+    
+    if not conversation:
+        return
+    
+    # Update aggregated metrics
+    conversation.total_cost_usd += (task.cost_usd or 0.0)
+    conversation.total_tasks += 1
+    conversation.total_duration_seconds += (task.duration_seconds or 0.0)
+    
+    # Update started_at (earliest task start)
+    if task.started_at:
+        if conversation.started_at is None or task.started_at < conversation.started_at:
+            conversation.started_at = task.started_at
+    
+    # Update completed_at (latest task completion)
+    if task.completed_at:
+        if conversation.completed_at is None or task.completed_at > conversation.completed_at:
+            conversation.completed_at = task.completed_at
+    
+    # Update updated_at timestamp
+    conversation.updated_at = datetime.now(timezone.utc)
+    
+    db.add(conversation)

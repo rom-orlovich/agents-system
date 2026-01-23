@@ -5,7 +5,6 @@ from httpx import AsyncClient
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 class TestRegistryAPI:
     """Integration tests for registry endpoints."""
     

@@ -14,9 +14,6 @@ from core.webhook_engine import (
     action_respond
 )
 from core.database.models import WebhookCommandDB
-
-
-@pytest.mark.asyncio
 class TestWebhookEngine:
     """Test webhook command execution engine."""
     
@@ -37,6 +34,12 @@ class TestWebhookEngine:
         db_mock = AsyncMock(spec=AsyncSession)
         db_mock.commit = AsyncMock()
         db_mock.add = MagicMock()
+        db_mock.flush = AsyncMock()
+        
+        # Mock db.execute() to return a result object with scalar_one_or_none()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none = MagicMock(return_value=None)  # No existing conversation
+        db_mock.execute = AsyncMock(return_value=mock_result)
         
         with patch('core.webhook_engine.redis_client.push_task', new_callable=AsyncMock):
             result = await execute_command(command, payload, db_mock)
@@ -46,7 +49,7 @@ class TestWebhookEngine:
             assert result["agent"] == "planning"
     
     async def test_execute_comment_command(self):
-        """Execute comment command posts comment."""
+        """Execute comment command posts comment (for dynamic webhooks)."""
         command = WebhookCommandDB(
             command_id="cmd-002",
             webhook_id="webhook-001",
@@ -58,15 +61,14 @@ class TestWebhookEngine:
         
         payload = {
             "issue": {"number": 123},
-            "provider": "github",
-            "repository": {"full_name": "org/repo"}
+            "provider": "custom",
         }
         
-        with patch('core.webhook_engine.github_client.post_issue_comment', new_callable=AsyncMock) as mock_comment:
-            result = await execute_command(command, payload, None)
-            
-            assert result["action"] == "comment"
-            assert result["status"] == "sent"
+        result = await execute_command(command, payload, None)
+        
+        assert result["action"] == "comment"
+        assert result["status"] == "sent"
+        assert result["provider"] == "custom"
     
     async def test_execute_ask_command(self):
         """Execute ask command creates interactive task."""
@@ -265,9 +267,6 @@ class TestCommandMatching:
         assert len(matched) == 2
         assert matched[0].command_id == "cmd-002"
         assert matched[1].command_id == "cmd-001"
-
-
-@pytest.mark.asyncio
 class TestActionHandlers:
     """Test individual action handlers."""
     
@@ -276,6 +275,12 @@ class TestActionHandlers:
         db_mock = AsyncMock(spec=AsyncSession)
         db_mock.commit = AsyncMock()
         db_mock.add = MagicMock()
+        db_mock.flush = AsyncMock()
+        
+        # Mock db.execute() to return a result object with scalar_one_or_none()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none = MagicMock(return_value=None)  # No existing conversation
+        db_mock.execute = AsyncMock(return_value=mock_result)
         
         with patch('core.webhook_engine.redis_client.push_task', new_callable=AsyncMock):
             result = await action_create_task(
@@ -289,19 +294,17 @@ class TestActionHandlers:
             assert "task_id" in result
             assert result["agent"] == "planning"
     
-    async def test_action_comment_github(self):
-        """Comment action posts to GitHub."""
+    async def test_action_comment_dynamic(self):
+        """Comment action for dynamic webhooks."""
         payload = {
-            "provider": "github",
-            "repository": {"full_name": "org/repo"},
-            "issue": {"number": 123}
+            "provider": "custom",
         }
         
-        with patch('core.webhook_engine.github_client.post_issue_comment', new_callable=AsyncMock) as mock_comment:
-            result = await action_comment(payload, "Test comment")
-            
-            assert result["action"] == "comment"
-            assert result["status"] == "sent"
+        result = await action_comment(payload, "Test comment")
+        
+        assert result["action"] == "comment"
+        assert result["status"] == "sent"
+        assert result["provider"] == "custom"
     
     async def test_action_ask_creates_interactive_task(self):
         """Ask action creates interactive task."""

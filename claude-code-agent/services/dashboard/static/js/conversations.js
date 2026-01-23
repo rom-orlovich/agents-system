@@ -56,6 +56,11 @@ class ConversationManager {
 
         listContainer.innerHTML = this.conversations.map(conv => {
             const isActive = conv.conversation_id === this.currentConversationId;
+            const cost = conv.total_cost_usd || 0;
+            const tasks = conv.total_tasks || 0;
+            const duration = conv.total_duration_seconds || 0;
+            const durationFormatted = duration > 0 ? this.formatDuration(duration) : '-';
+
             return `
                 <div class="conversation-item ${isActive ? 'active' : ''}" 
                      data-id="${conv.conversation_id}"
@@ -63,10 +68,15 @@ class ConversationManager {
                     <div class="conversation-body">
                         <div class="conversation-header">
                             <span class="conversation-title">${this.escapeHtml(conv.title)}</span>
-                            <span class="conversation-count">${conv.message_count}</span>
+                            <span class="conversation-count">${conv.message_count} msgs</span>
                         </div>
                         <div class="conversation-meta">
                             <span class="conversation-date">${this.formatDate(conv.updated_at)}</span>
+                        </div>
+                        <div class="conversation-metrics">
+                            <span class="metric-item" title="Total Cost">$${cost.toFixed(4)}</span>
+                            <span class="metric-item" title="Total Tasks">${tasks} tasks</span>
+                            <span class="metric-item" title="Total Duration">${durationFormatted}</span>
                         </div>
                     </div>
                     <div class="conversation-actions">
@@ -98,10 +108,15 @@ class ConversationManager {
             const conversation = await response.json();
             this.currentMessages = conversation.messages || [];
 
-            // Update title
+            // Update title with metrics
             const titleEl = document.getElementById('current-conversation-title');
             if (titleEl) {
-                titleEl.textContent = conversation.title;
+                const cost = conversation.total_cost_usd || 0;
+                const tasks = conversation.total_tasks || 0;
+                const duration = conversation.total_duration_seconds || 0;
+                const durationFormatted = duration > 0 ? this.formatDuration(duration) : '';
+                const metricsText = tasks > 0 ? ` | $${cost.toFixed(4)} | ${tasks} tasks${durationFormatted ? ' | ' + durationFormatted : ''}` : '';
+                titleEl.textContent = conversation.title + metricsText;
             }
 
             // Render messages
@@ -393,6 +408,14 @@ class ConversationManager {
     formatTime(dateStr) {
         const date = new Date(dateStr);
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    formatDuration(seconds) {
+        if (seconds < 60) return `${seconds.toFixed(1)}s`;
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${Math.floor(seconds % 60)}s`;
+        const hours = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        return `${hours}h ${mins}m`;
     }
 
     escapeHtml(text) {

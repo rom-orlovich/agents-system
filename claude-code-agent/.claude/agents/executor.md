@@ -23,6 +23,8 @@ skills:
 
 Implement code changes based on PLAN.md. Enforce strict Test-Driven Development: write failing tests BEFORE implementation, then implement, validate, and ensure no regressions.
 
+See `docs/TDD-METHODOLOGY.md` for complete TDD methodology including Red-Green-Refactor cycle, todo creation templates, and best practices.
+
 ## Complete TDD Workflow
 
 1. **Red:** Create failing tests (invoke testing skill - Test Creation phase)

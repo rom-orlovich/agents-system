@@ -4,14 +4,15 @@ import pytest
 import hmac
 import hashlib
 import json
+import uuid
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
+from unittest.mock import AsyncMock, patch
 
 from core.database.models import WebhookConfigDB, WebhookCommandDB, WebhookEventDB
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 class TestWebhookReceiver:
     """Test dynamic webhook receiver."""
     
@@ -51,8 +52,9 @@ class TestWebhookReceiver:
     
     async def test_webhook_signature_verification(self, client: AsyncClient):
         """Webhook with secret requires valid signature."""
+        unique_name = f"Secure Webhook {uuid.uuid4().hex[:8]}"
         webhook_data = {
-            "name": "Secure Webhook",
+            "name": unique_name,
             "provider": "github",
             "secret": "my-secret-key",
             "commands": []
@@ -69,8 +71,9 @@ class TestWebhookReceiver:
     async def test_webhook_signature_valid(self, client: AsyncClient):
         """Webhook with valid signature is accepted."""
         secret = "my-secret-key"
+        unique_name = f"Secure Webhook Valid {uuid.uuid4().hex[:8]}"
         webhook_data = {
-            "name": "Secure Webhook",
+            "name": unique_name,
             "provider": "github",
             "secret": secret,
             "commands": []
@@ -79,8 +82,6 @@ class TestWebhookReceiver:
         webhook_id = create_response.json()["data"]["webhook_id"]
         
         payload = {"test": "data"}
-        # Compute signature over the exact JSON that will be sent
-        # Note: JSON serialization must match exactly what the client sends
         payload_bytes = json.dumps(payload, separators=(',', ':')).encode()
         signature = hmac.new(secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
         
@@ -89,8 +90,6 @@ class TestWebhookReceiver:
             json=payload,
             headers={"X-Hub-Signature-256": f"sha256={signature}"}
         )
-        # May fail if JSON serialization doesn't match exactly
-        # Accept both 200 (success) and 401 (signature mismatch due to serialization)
         assert response.status_code in [200, 401]
     
     async def test_disabled_webhook_rejected(self, client: AsyncClient):
@@ -121,8 +120,9 @@ class TestWebhookReceiver:
     
     async def test_webhook_event_logged(self, client: AsyncClient, db: AsyncSession):
         """Webhook events are logged to database."""
+        unique_name = f"Test Webhook Event {uuid.uuid4().hex[:8]}"
         webhook_data = {
-            "name": "Test Webhook",
+            "name": unique_name,
             "provider": "github",
             "commands": [{
                 "trigger": "issues.opened",
@@ -229,14 +229,14 @@ class TestWebhookReceiver:
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
 class TestWebhookProviders:
     """Test different webhook providers."""
     
-    async def test_jira_webhook(self, client: AsyncClient):
+    async def test_jira_webhook(self, client: AsyncClient, db_session: AsyncSession):
         """Jira webhook is processed."""
+        unique_name = f"Jira Webhook {uuid.uuid4().hex[:8]}"
         webhook_data = {
-            "name": "Jira Webhook",
+            "name": unique_name,
             "provider": "jira",
             "commands": [{
                 "trigger": "jira:issue_created",
@@ -261,7 +261,11 @@ class TestWebhookProviders:
             json=payload
         )
         
-        assert response.status_code == 200
+        if response.status_code != 200:
+            print(f"Error response: {response.status_code}")
+            print(f"Response text: {response.text[:500]}")
+        
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text[:500]}"
     
     async def test_slack_webhook(self, client: AsyncClient):
         """Slack webhook is processed."""

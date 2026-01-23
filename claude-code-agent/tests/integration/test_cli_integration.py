@@ -22,7 +22,6 @@ from unittest.mock import patch, MagicMock
 
 
 @pytest.mark.cli_integration
-@pytest.mark.asyncio
 async def test_claude_cli_installed():
     """Verify Claude CLI is installed and accessible."""
     result = subprocess.run(
@@ -35,7 +34,6 @@ async def test_claude_cli_installed():
 
 
 @pytest.mark.cli_integration
-@pytest.mark.asyncio
 async def test_claude_cli_version():
     """Test that Claude CLI responds to --version."""
     result = subprocess.run(
@@ -49,7 +47,6 @@ async def test_claude_cli_version():
 
 
 @pytest.mark.cli_integration
-@pytest.mark.asyncio
 async def test_claude_cli_help():
     """Test that Claude CLI responds to --help."""
     result = subprocess.run(
@@ -63,7 +60,6 @@ async def test_claude_cli_help():
 
 
 @pytest.mark.cli_integration
-@pytest.mark.asyncio
 async def test_cli_command_format_simple():
     """Test basic CLI command format (mocked to avoid execution)."""
     from unittest.mock import Mock, patch
@@ -98,11 +94,10 @@ async def test_cli_command_format_simple():
 
 
 @pytest.mark.cli_integration
-@pytest.mark.asyncio
-async def test_cli_model_flag():
+async def test_cli_model_flag(fake_claude_cli):
     """Test that --model flag is recognized."""
     cmd = [
-        "claude",
+        fake_claude_cli,
         "-p",
         "--model", "sonnet",  # Test model flag
         "--dangerously-skip-permissions",
@@ -114,7 +109,7 @@ async def test_cli_model_flag():
         cmd,
         capture_output=True,
         text=True,
-        timeout=30
+        timeout=5  # Reduced timeout since fake CLI is instant
     )
 
     # Check for syntax errors related to --model
@@ -125,11 +120,10 @@ async def test_cli_model_flag():
 
 
 @pytest.mark.cli_integration
-@pytest.mark.asyncio
-async def test_cli_allowed_tools_flag():
+async def test_cli_allowed_tools_flag(fake_claude_cli):
     """Test that --allowedTools flag is recognized."""
     cmd = [
-        "claude",
+        fake_claude_cli,
         "-p",
         "--allowedTools", "Read,Edit,Bash",  # Test allowedTools flag
         "--dangerously-skip-permissions",
@@ -141,7 +135,7 @@ async def test_cli_allowed_tools_flag():
         cmd,
         capture_output=True,
         text=True,
-        timeout=30
+        timeout=5  # Reduced timeout since fake CLI is instant
     )
 
     # Check for syntax errors related to --allowedTools
@@ -152,11 +146,10 @@ async def test_cli_allowed_tools_flag():
 
 
 @pytest.mark.cli_integration
-@pytest.mark.asyncio
-async def test_cli_agents_flag():
+async def test_cli_agents_flag(fake_claude_cli):
     """Test that --agents flag is recognized."""
     cmd = [
-        "claude",
+        fake_claude_cli,
         "-p",
         "--agents", '{"planning":{"skills":["analyze"]}}',  # Test agents flag
         "--dangerously-skip-permissions",
@@ -168,7 +161,7 @@ async def test_cli_agents_flag():
         cmd,
         capture_output=True,
         text=True,
-        timeout=30
+        timeout=5  # Reduced timeout since fake CLI is instant
     )
 
     # Check for syntax errors related to --agents
@@ -179,11 +172,10 @@ async def test_cli_agents_flag():
 
 
 @pytest.mark.cli_integration
-@pytest.mark.asyncio
-async def test_cli_full_command():
+async def test_cli_full_command(fake_claude_cli):
     """Test full CLI command with all flags."""
     cmd = [
-        "claude",
+        fake_claude_cli,
         "-p",
         "--output-format", "json",
         "--dangerously-skip-permissions",
@@ -198,7 +190,7 @@ async def test_cli_full_command():
         cmd,
         capture_output=True,
         text=True,
-        timeout=60  # Allow more time for full execution
+        timeout=5  # Reduced timeout since fake CLI is instant
     )
 
     # Check for syntax errors
@@ -216,7 +208,6 @@ async def test_cli_full_command():
 
 
 @pytest.mark.cli_integration
-@pytest.mark.asyncio
 async def test_subagent_config_loading():
     """Test that sub-agent configuration loading works."""
     from core.subagent_config import load_subagent_config, get_default_subagents
@@ -241,8 +232,7 @@ async def test_subagent_config_loading():
 
 
 @pytest.mark.cli_integration
-@pytest.mark.asyncio
-async def test_cli_command_builder():
+async def test_cli_command_builder(fake_claude_cli, monkeypatch):
     """Test that our CLI command builder produces valid commands."""
     from core.cli_runner import run_claude_cli
     from pathlib import Path
@@ -255,49 +245,43 @@ async def test_cli_command_builder():
     # Create a simple CLAUDE.md
     (test_dir / "CLAUDE.md").write_text("# Test Agent\nYou are a test agent.")
 
+    # Patch asyncio.create_subprocess_exec to use fake CLI
+    original_create_subprocess = asyncio.create_subprocess_exec
+
+    async def patched_create_subprocess(*args, **kwargs):
+        # Replace 'claude' with fake CLI path
+        patched_args = list(args)
+        if patched_args and patched_args[0] == "claude":
+            patched_args[0] = fake_claude_cli
+        return await original_create_subprocess(*patched_args, **kwargs)
+
+    monkeypatch.setattr(asyncio, 'create_subprocess_exec', patched_create_subprocess)
+
     # Create output queue
     output_queue = asyncio.Queue()
 
-    # This will likely fail due to API key, but we're testing command format
-    try:
-        result = await asyncio.wait_for(
-            run_claude_cli(
-                prompt="What is 1+1?",
-                working_dir=test_dir,
-                output_queue=output_queue,
-                task_id="test-001",
-                timeout_seconds=10,
-                model="sonnet",
-                allowed_tools="Read,Edit",
-                agents='{"test":{"description":"Test","skills":["test"]}}'
-            ),
-            timeout=15
-        )
+    # Test command builder with fake CLI (instant response)
+    result = await asyncio.wait_for(
+        run_claude_cli(
+            prompt="What is 1+1?",
+            working_dir=test_dir,
+            output_queue=output_queue,
+            task_id="test-001",
+            timeout_seconds=5,  # Reduced timeout since fake CLI is instant
+            model="sonnet",
+            allowed_tools="Read,Edit",
+            agents='{"test":{"description":"Test","skills":["test"]}}'
+        ),
+        timeout=10  # Reduced timeout since fake CLI is instant
+    )
 
-        # If we get here, either:
-        # 1. API key is configured and it worked
-        # 2. Some other expected error occurred
-        # We just check that it didn't fail with syntax errors
-        if not result.success and result.error:
-            error_lower = result.error.lower()
-            syntax_errors = [
-                "unrecognized",
-                "unknown option",
-                "invalid argument"
-            ]
-            has_syntax_error = any(err in error_lower for err in syntax_errors)
-            assert not has_syntax_error, f"CLI syntax error: {result.error}"
-
-    except asyncio.TimeoutError:
-        # Timeout is acceptable (API call may be slow)
-        pass
-    except Exception as e:
-        # Check if it's a syntax error
-        error_str = str(e).lower()
+    # Verify command was built correctly (no syntax errors)
+    if not result.success and result.error:
+        error_lower = result.error.lower()
         syntax_errors = [
             "unrecognized",
             "unknown option",
             "invalid argument"
         ]
-        has_syntax_error = any(err in error_str for err in syntax_errors)
-        assert not has_syntax_error, f"CLI syntax error: {str(e)}"
+        has_syntax_error = any(err in error_lower for err in syntax_errors)
+        assert not has_syntax_error, f"CLI syntax error: {result.error}"

@@ -1,7 +1,7 @@
 """Fixtures for multi-subagent orchestration tests."""
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 import uuid
 
@@ -102,7 +102,7 @@ async def registered_account(client, db_session):
         email="test@example.com",
         display_name="Test User",
         credential_status="valid",
-        credential_expires_at=datetime.utcnow()
+        credential_expires_at=datetime.now(timezone.utc)
     )
     db_session.add(account)
     await db_session.commit()
@@ -121,7 +121,7 @@ async def registered_machine(client, db_session, registered_account):
         account_id=registered_account["account_id"],
         display_name="Test Machine",
         status="online",
-        last_heartbeat=datetime.utcnow()
+        last_heartbeat=datetime.now(timezone.utc)
     )
     db_session.add(machine)
     await db_session.commit()
@@ -158,7 +158,7 @@ def ws_client():
                     "type": "subagent_log",
                     "subagent_id": f"subagent-{i % 2}",
                     "content": f"Message {i}",
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 }
     
     return MockWSClient()

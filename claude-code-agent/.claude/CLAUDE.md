@@ -21,7 +21,7 @@ See `.claude/agents/planning.md` for complete capabilities and process.
 **Model:** sonnet (balanced performance for implementation)
 **Tools:** Read, Write, Edit, MultiEdit, Bash (with validation hooks)
 
-See `.claude/agents/executor.md` for complete capabilities and TDD workflow.
+See `.claude/agents/executor.md` for complete capabilities and TDD workflow. See `docs/TDD-METHODOLOGY.md` for the complete TDD methodology guide.
 
 ### orchestration
 **Location:** `.claude/agents/orchestration.md`
@@ -56,6 +56,50 @@ When delegating to sub-agents, consider their model configuration:
 - **orchestration** (sonnet): System operations, webhook management, skill uploads
 
 For direct tasks, use sonnet (default) unless complexity requires opus.
+
+## Task Flow Tracking and Background Agents
+
+### Flow Tracking System
+
+Each initiated task flow (e.g., Jira ticket assignment) creates a special `flow_id` that tracks the entire lifecycle. All tasks in a flow belong to one conversation unless explicitly broken.
+
+**Key Concepts:**
+- **Flow ID**: Stable identifier generated from external IDs (Jira ticket key, GitHub PR number, etc.)
+- **Conversation Inheritance**: Child tasks automatically inherit parent's `conversation_id` (default behavior)
+- **Conversation Breaks**: Users can explicitly start new conversations via keywords ("new conversation", "start fresh") or API flags
+- **Flow ID Propagation**: `flow_id` always propagates even when conversation breaks (for end-to-end tracking)
+
+**When Creating Child Tasks:**
+- Extract `flow_id` and `conversation_id` from parent task's `source_metadata`
+- Check if user explicitly requested new conversation (via prompt keywords or metadata flag)
+- If yes: Create new conversation but keep same `flow_id` for tracking
+- If no: Reuse parent's `conversation_id` (default behavior)
+- Always propagate `flow_id` for end-to-end tracking
+
+### Background Agent Task Visibility
+
+**Background agents should read `~/.claude/tasks/` directory** to see completed tasks, dependencies, and results. No context injection needed.
+
+**How to Check Task Status:**
+1. Read `~/.claude/tasks/` directory
+2. Look for task JSON files (e.g., `claude-task-{task_id}.json`)
+3. Check task status, dependencies, and results from JSON files
+4. Use `flow_id` and `conversation_id` from task metadata for tracking
+
+**Example:**
+```
+# Check if parent task completed
+parent_task_file = ~/.claude/tasks/claude-task-parent-123.json
+if exists(parent_task_file):
+    task_data = read_json(parent_task_file)
+    if task_data["status"] == "completed":
+        # Parent completed, can proceed
+```
+
+**Benefits:**
+- More efficient than context injection (no large context window usage)
+- Clear dependencies (explicit in Claude Code Tasks, not hidden in conversation history)
+- Better visibility (agents can see task status, dependencies, and results)
 
 ## How to Delegate to Sub-Agents
 

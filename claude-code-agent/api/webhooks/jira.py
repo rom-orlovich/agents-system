@@ -11,7 +11,7 @@ import hashlib
 import os
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import httpx
 import structlog
@@ -21,6 +21,8 @@ from core.database.models import WebhookEventDB, SessionDB, TaskDB
 from core.database.redis_client import redis_client
 from core.webhook_configs import JIRA_WEBHOOK
 from core.webhook_engine import render_template, create_webhook_conversation
+import base64
+import httpx
 from shared.machine_models import WebhookCommand
 from shared import TaskStatus, AgentType
 
@@ -31,25 +33,27 @@ router = APIRouter()
 # ✅ Verification function (Jira webhook ONLY)
 async def verify_jira_signature(request: Request, body: bytes) -> None:
     """Verify Jira webhook signature ONLY."""
-    secret = os.getenv("JIRA_WEBHOOK_SECRET")
-    if not secret:
-        logger.warning("JIRA_WEBHOOK_SECRET not configured, skipping verification")
-        return
-    
     signature = request.headers.get("X-Jira-Signature", "")
-    if not signature:
-        raise HTTPException(status_code=401, detail="Missing signature header")
+    secret = os.getenv("JIRA_WEBHOOK_SECRET")
     
-    # Compute expected signature (Jira uses HMAC-SHA256)
-    expected_signature = hmac.new(
-        secret.encode(),
-        body,
-        hashlib.sha256
-    ).hexdigest()
-    
-    # Compare signatures (constant-time comparison)
-    if not hmac.compare_digest(signature, expected_signature):
-        raise HTTPException(status_code=401, detail="Invalid signature")
+    # If signature header is present, we must verify it
+    if signature:
+        if not secret:
+            raise HTTPException(status_code=401, detail="Webhook secret not configured but signature provided")
+        
+        # Compute expected signature (Jira uses HMAC-SHA256)
+        expected_signature = hmac.new(
+            secret.encode(),
+            body,
+            hashlib.sha256
+        ).hexdigest()
+        
+        # Compare signatures (constant-time comparison)
+        if not hmac.compare_digest(signature, expected_signature):
+            raise HTTPException(status_code=401, detail="Invalid signature")
+    elif secret:
+        # Secret is configured but no signature provided
+        logger.warning("JIRA_WEBHOOK_SECRET configured but no signature header provided")
 
 
 # ✅ Helper function: Check if assignee changed to AI Agent
@@ -108,8 +112,6 @@ async def send_jira_immediate_response(
 ) -> bool:
     """Send immediate response for Jira webhook ONLY. Only posts if assignee changed to AI Agent."""
     try:
-        from core.webhook_engine import jira_post_comment
-        
         issue = payload.get("issue", {})
         issue_key = issue.get("key", "unknown")
         
@@ -135,7 +137,7 @@ async def send_jira_immediate_response(
         
         # Generate and post message
         message = generate_jira_immediate_message(command)
-        await jira_post_comment(payload, message)
+        await post_jira_comment(payload, message)
         logger.info("jira_immediate_comment_sent", issue_key=issue_key, command=command.name)
         return True
         
@@ -211,7 +213,7 @@ async def create_jira_task(
         session_id=webhook_session_id,
         user_id="webhook-system",
         machine_id="claude-agent-001",
-        connected_at=datetime.utcnow(),
+        connected_at=datetime.now(timezone.utc),
     )
     db.add(session_db)
     
@@ -272,6 +274,84 @@ async def create_jira_task(
     logger.info("jira_task_created", task_id=task_id, command=command.name, message_preview=message[:100])
     
     return task_id
+
+
+async def post_jira_comment(payload: dict, message: str):
+    """Post comment to Jira issue."""
+    try:
+        from core.config import settings
+        import os
+        
+        # Get Jira credentials
+        jira_url = settings.jira_url or os.getenv("JIRA_URL")
+        jira_email = settings.jira_email or os.getenv("JIRA_EMAIL")
+        jira_api_token = settings.jira_api_token or os.getenv("JIRA_API_TOKEN")
+        
+        if not jira_url or not jira_api_token or not jira_email:
+            logger.warning("jira_credentials_missing", message="Jira API credentials not configured")
+            return
+        
+        # Extract issue key from payload
+        issue = payload.get("issue", {})
+        issue_key = issue.get("key")
+        
+        if not issue_key:
+            logger.warning("jira_issue_key_missing", payload_keys=list(payload.keys()))
+            return
+        
+        # Build API URL
+        api_url = f"{jira_url.rstrip('/')}/rest/api/3/issue/{issue_key}/comment"
+        
+        # Create auth header (Basic auth with email:token)
+        auth_string = f"{jira_email}:{jira_api_token}"
+        auth_bytes = auth_string.encode('ascii')
+        auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+        
+        # Post comment
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                api_url,
+                headers={
+                    "Authorization": f"Basic {auth_b64}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                json={
+                    "body": {
+                        "type": "doc",
+                        "version": 1,
+                        "content": [
+                            {
+                                "type": "paragraph",
+                                "content": [
+                                    {
+                                        "type": "text",
+                                        "text": message
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                timeout=30.0
+            )
+            response.raise_for_status()
+            
+            logger.info(
+                "jira_comment_posted",
+                issue_key=issue_key,
+                comment_id=response.json().get("id")
+            )
+            
+    except httpx.HTTPStatusError as e:
+        logger.error(
+            "jira_comment_failed",
+            status_code=e.response.status_code,
+            error=str(e),
+            response_text=e.response.text[:500] if e.response.text else None
+        )
+    except Exception as e:
+        logger.error("jira_api_error", error=str(e), error_type=type(e).__name__)
 
 
 # ✅ Route handler (Jira webhook - handles all Jira events)
@@ -369,7 +449,7 @@ async def jira_webhook(
                 matched_command=command.name,
                 task_id=task_id,
                 response_sent=immediate_response_sent,
-                created_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc)
             )
             db.add(event_db)
             await db.commit()

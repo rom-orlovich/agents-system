@@ -5,9 +5,6 @@ import json
 from unittest.mock import AsyncMock, patch
 
 from core.database.redis_client import RedisClient
-
-
-@pytest.mark.asyncio
 async def test_redis_connect():
     """Test Redis connection."""
     client = RedisClient()
@@ -20,9 +17,6 @@ async def test_redis_connect():
 
         mock_from_url.assert_called_once()
         assert client._client is mock_redis
-
-
-@pytest.mark.asyncio
 async def test_redis_disconnect():
     """Test Redis disconnection."""
     client = RedisClient()
@@ -31,9 +25,6 @@ async def test_redis_disconnect():
     await client.disconnect()
 
     client._client.close.assert_called_once()
-
-
-@pytest.mark.asyncio
 async def test_push_task():
     """Test pushing task to queue."""
     client = RedisClient()
@@ -42,18 +33,12 @@ async def test_push_task():
     await client.push_task("test-001")
 
     client._client.rpush.assert_called_once_with("task_queue", "test-001")
-
-
-@pytest.mark.asyncio
 async def test_push_task_not_connected():
     """Test pushing task when not connected raises error."""
     client = RedisClient()
 
     with pytest.raises(RuntimeError, match="Redis not connected"):
         await client.push_task("test-001")
-
-
-@pytest.mark.asyncio
 async def test_pop_task():
     """Test popping task from queue."""
     client = RedisClient()
@@ -64,9 +49,6 @@ async def test_pop_task():
 
     assert task_id == "test-001"
     client._client.blpop.assert_called_once_with("task_queue", timeout=5)
-
-
-@pytest.mark.asyncio
 async def test_pop_task_empty_queue():
     """Test popping from empty queue returns None."""
     client = RedisClient()
@@ -76,18 +58,12 @@ async def test_pop_task_empty_queue():
     task_id = await client.pop_task(timeout=5)
 
     assert task_id is None
-
-
-@pytest.mark.asyncio
 async def test_pop_task_not_connected():
     """Test popping task when not connected raises error."""
     client = RedisClient()
 
     with pytest.raises(RuntimeError, match="Redis not connected"):
         await client.pop_task()
-
-
-@pytest.mark.asyncio
 async def test_set_task_status():
     """Test setting task status."""
     client = RedisClient()
@@ -100,9 +76,6 @@ async def test_set_task_status():
         "running",
         ex=3600
     )
-
-
-@pytest.mark.asyncio
 async def test_get_task_status():
     """Test getting task status."""
     client = RedisClient()
@@ -113,9 +86,6 @@ async def test_get_task_status():
 
     assert status == "completed"
     client._client.get.assert_called_once_with("task:test-001:status")
-
-
-@pytest.mark.asyncio
 async def test_set_task_pid():
     """Test setting task PID."""
     client = RedisClient()
@@ -128,9 +98,6 @@ async def test_set_task_pid():
         "12345",
         ex=3600
     )
-
-
-@pytest.mark.asyncio
 async def test_get_task_pid():
     """Test getting task PID."""
     client = RedisClient()
@@ -140,9 +107,6 @@ async def test_get_task_pid():
     pid = await client.get_task_pid("test-001")
 
     assert pid == 12345
-
-
-@pytest.mark.asyncio
 async def test_get_task_pid_not_found():
     """Test getting nonexistent PID returns None."""
     client = RedisClient()
@@ -152,9 +116,6 @@ async def test_get_task_pid_not_found():
     pid = await client.get_task_pid("test-001")
 
     assert pid is None
-
-
-@pytest.mark.asyncio
 async def test_append_output():
     """Test appending output chunk."""
     client = RedisClient()
@@ -170,9 +131,6 @@ async def test_append_output():
         "task:test-001:output",
         3600
     )
-
-
-@pytest.mark.asyncio
 async def test_get_output():
     """Test getting accumulated output."""
     client = RedisClient()
@@ -182,9 +140,6 @@ async def test_get_output():
     output = await client.get_output("test-001")
 
     assert output == "Hello World"
-
-
-@pytest.mark.asyncio
 async def test_add_session_task():
     """Test adding task to session."""
     client = RedisClient()
@@ -200,9 +155,6 @@ async def test_add_session_task():
         "session:session-001:tasks",
         86400
     )
-
-
-@pytest.mark.asyncio
 async def test_get_session_tasks():
     """Test getting session tasks."""
     client = RedisClient()
@@ -215,9 +167,6 @@ async def test_get_session_tasks():
     assert "test-001" in tasks
     assert "test-002" in tasks
     assert "test-003" in tasks
-
-
-@pytest.mark.asyncio
 async def test_set_json():
     """Test setting JSON data."""
     client = RedisClient()
@@ -232,9 +181,6 @@ async def test_set_json():
         expected_json,
         ex=300
     )
-
-
-@pytest.mark.asyncio
 async def test_get_json():
     """Test getting JSON data."""
     client = RedisClient()
@@ -246,9 +192,6 @@ async def test_get_json():
     result = await client.get_json("test-key")
 
     assert result == data
-
-
-@pytest.mark.asyncio
 async def test_get_json_not_found():
     """Test getting nonexistent JSON returns None."""
     client = RedisClient()
@@ -258,9 +201,6 @@ async def test_get_json_not_found():
     result = await client.get_json("test-key")
 
     assert result is None
-
-
-@pytest.mark.asyncio
 async def test_delete():
     """Test deleting key."""
     client = RedisClient()
@@ -269,9 +209,6 @@ async def test_delete():
     await client.delete("test-key")
 
     client._client.delete.assert_called_once_with("test-key")
-
-
-@pytest.mark.asyncio
 async def test_queue_length():
     """Test getting queue length."""
     client = RedisClient()
@@ -282,9 +219,6 @@ async def test_queue_length():
 
     assert length == 5
     client._client.llen.assert_called_once_with("task_queue")
-
-
-@pytest.mark.asyncio
 async def test_queue_length_not_connected():
     """Test queue length when not connected raises error."""
     client = RedisClient()

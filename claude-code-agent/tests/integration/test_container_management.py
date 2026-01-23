@@ -6,8 +6,6 @@ from unittest.mock import AsyncMock, patch
 
 class TestContainerManagementFlow:
     """Test container management business requirements."""
-    
-    @pytest.mark.asyncio
     async def test_list_container_processes(self, client):
         """
         REQUIREMENT: Should be able to list all running processes
@@ -26,8 +24,6 @@ class TestContainerManagementFlow:
         for p in processes:
             assert "pid" in p
             assert "name" in p
-    
-    @pytest.mark.asyncio
     async def test_container_resource_usage(self, client, redis_mock):
         """
         REQUIREMENT: Should report CPU and memory usage.
@@ -45,8 +41,6 @@ class TestContainerManagementFlow:
         assert "cpu_percent" in resources
         assert "memory_mb" in resources
         assert 0 <= float(resources["cpu_percent"]) <= 100
-    
-    @pytest.mark.asyncio
     async def test_kill_process_requires_allowlist(self, client):
         """
         REQUIREMENT: Killing processes should only work for
@@ -57,8 +51,6 @@ class TestContainerManagementFlow:
         
         assert response.status_code == 403
         assert "not allowed" in response.json()["detail"].lower()
-    
-    @pytest.mark.asyncio
     async def test_container_exec_requires_allowlist(self, client):
         """
         REQUIREMENT: Container exec commands must be in allowlist.
@@ -70,8 +62,6 @@ class TestContainerManagementFlow:
         
         assert response.status_code == 403
         assert "not in allowlist" in response.json()["detail"].lower()
-    
-    @pytest.mark.asyncio
     async def test_container_exec_allowed_command(self, client):
         """
         REQUIREMENT: Allowed commands should execute successfully.
@@ -83,8 +73,6 @@ class TestContainerManagementFlow:
         
         # Should either succeed or be in allowlist
         assert response.status_code in [200, 403]
-    
-    @pytest.mark.asyncio
     async def test_container_status(self, client, redis_mock):
         """
         REQUIREMENT: Should report container health status.

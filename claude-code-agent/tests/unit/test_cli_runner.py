@@ -24,9 +24,6 @@ class MockAsyncIterator:
         line = self.lines[self.index]
         self.index += 1
         return line
-
-
-@pytest.mark.asyncio
 async def test_cli_runner_success():
     """Test successful CLI execution."""
     output_queue = asyncio.Queue()
@@ -69,9 +66,6 @@ async def test_cli_runner_success():
             chunks.append(chunk)
 
     assert chunks == ["Hello", " World"]
-
-
-@pytest.mark.asyncio
 async def test_cli_runner_timeout():
     """Test CLI execution timeout."""
     output_queue = asyncio.Queue()
@@ -104,9 +98,6 @@ async def test_cli_runner_timeout():
     assert result.success is False
     assert result.error == "Timeout exceeded"
     mock_proc.kill.assert_called_once()
-
-
-@pytest.mark.asyncio
 async def test_cli_runner_process_error():
     """Test CLI execution with process error."""
     output_queue = asyncio.Queue()
@@ -131,9 +122,6 @@ async def test_cli_runner_process_error():
     assert result.success is False
     assert result.error == "Exit code: 1"
     assert "Error occurred" in result.output
-
-
-@pytest.mark.asyncio
 async def test_cli_runner_json_parsing():
     """Test CLI runner handles both JSON and plain text output."""
     output_queue = asyncio.Queue()

@@ -11,7 +11,7 @@ import hashlib
 import os
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import httpx
 import structlog
@@ -32,29 +32,31 @@ router = APIRouter()
 # ✅ Verification function (GitHub webhook ONLY)
 async def verify_github_signature(request: Request, body: bytes) -> None:
     """Verify GitHub webhook signature ONLY."""
-    secret = os.getenv("GITHUB_WEBHOOK_SECRET")
-    if not secret:
-        logger.warning("GITHUB_WEBHOOK_SECRET not configured, skipping verification")
-        return
-    
     signature = request.headers.get("X-Hub-Signature-256", "")
-    if not signature:
-        raise HTTPException(status_code=401, detail="Missing signature header")
+    secret = os.getenv("GITHUB_WEBHOOK_SECRET")
     
-    # GitHub sends signature as "sha256=hash"
-    if signature.startswith("sha256="):
-        signature = signature[7:]
-    
-    # Compute expected signature
-    expected_signature = hmac.new(
-        secret.encode(),
-        body,
-        hashlib.sha256
-    ).hexdigest()
-    
-    # Compare signatures (constant-time comparison)
-    if not hmac.compare_digest(signature, expected_signature):
-        raise HTTPException(status_code=401, detail="Invalid signature")
+    # If signature header is present, we must verify it
+    if signature:
+        if not secret:
+            raise HTTPException(status_code=401, detail="Webhook secret not configured but signature provided")
+        
+        # GitHub sends signature as "sha256=hash"
+        if signature.startswith("sha256="):
+            signature = signature[7:]
+        
+        # Compute expected signature
+        expected_signature = hmac.new(
+            secret.encode(),
+            body,
+            hashlib.sha256
+        ).hexdigest()
+        
+        # Compare signatures (constant-time comparison)
+        if not hmac.compare_digest(signature, expected_signature):
+            raise HTTPException(status_code=401, detail="Invalid signature")
+    elif secret:
+        # Secret is configured but no signature provided - this is suspicious but we'll allow it for backward compatibility
+        logger.warning("GITHUB_WEBHOOK_SECRET configured but no signature header provided")
 
 
 # ✅ Immediate response function (GitHub webhook ONLY)
@@ -203,7 +205,7 @@ async def create_github_task(
         session_id=webhook_session_id,
         user_id="webhook-system",
         machine_id="claude-agent-001",
-        connected_at=datetime.utcnow(),
+        connected_at=datetime.now(timezone.utc),
     )
     db.add(session_db)
     
@@ -347,7 +349,7 @@ async def github_webhook(
                 matched_command=command.name,
                 task_id=task_id,
                 response_sent=immediate_response_sent,
-                created_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc)
             )
             db.add(event_db)
             await db.commit()

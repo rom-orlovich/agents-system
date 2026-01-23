@@ -86,6 +86,7 @@ async def run_claude_cli(
         env={
             **os.environ,
             "CLAUDE_TASK_ID": task_id,  # For status monitoring
+            "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1",  # CRITICAL: Prevents conflicts with orchestration system
         }
     )
 

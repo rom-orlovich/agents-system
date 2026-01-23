@@ -1,7 +1,7 @@
 """Session status and management API endpoints."""
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -52,8 +52,14 @@ async def get_session_details(
     # Calculate duration
     duration = 0
     if session.connected_at:
-        end_time = session.disconnected_at or datetime.utcnow()
-        duration = int((end_time - session.connected_at).total_seconds())
+        end_time = session.disconnected_at or datetime.now(timezone.utc)
+        # SQLite returns naive datetimes, convert to UTC-aware for comparison
+        connected_at = session.connected_at
+        if connected_at.tzinfo is None:
+            connected_at = connected_at.replace(tzinfo=timezone.utc)
+        if end_time.tzinfo is None:
+            end_time = end_time.replace(tzinfo=timezone.utc)
+        duration = int((end_time - connected_at).total_seconds())
     
     return {
         "session_id": session.session_id,
@@ -125,7 +131,7 @@ async def reset_session(
     # Note: In a full implementation, we'd track session-conversation relationship
     # For now, we preserve cost but could clear context
     
-    reset_at = datetime.utcnow()
+    reset_at = datetime.now(timezone.utc)
     
     return {
         "success": True,
@@ -138,7 +144,7 @@ async def reset_session(
 @router.get("/sessions/summary/weekly", response_model=dict)
 async def get_weekly_summary(db: AsyncSession = Depends(get_session)):
     """Get weekly session summary."""
-    week_ago = datetime.utcnow() - timedelta(days=7)
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
     
     # Get sessions from last 7 days
     result = await db.execute(
@@ -165,9 +171,22 @@ async def get_weekly_summary(db: AsyncSession = Depends(get_session)):
     # Build daily breakdown
     daily = []
     for i in range(7):
-        date = (datetime.utcnow() - timedelta(days=i)).date()
-        day_sessions = [s for s in sessions if s.connected_at and s.connected_at.date() == date]
-        day_tasks = [t for t in tasks if t.created_at and t.created_at.date() == date]
+        date = (datetime.now(timezone.utc) - timedelta(days=i)).date()
+        # SQLite returns naive datetimes, handle both naive and aware
+        day_sessions = [
+            s for s in sessions 
+            if s.connected_at and (
+                s.connected_at.date() == date if s.connected_at.tzinfo is None
+                else s.connected_at.replace(tzinfo=None).date() == date
+            )
+        ]
+        day_tasks = [
+            t for t in tasks 
+            if t.created_at and (
+                t.created_at.date() == date if t.created_at.tzinfo is None
+                else t.created_at.replace(tzinfo=None).date() == date
+            )
+        ]
         
         daily.append({
             "date": date.isoformat(),
@@ -215,7 +234,13 @@ async def get_current_session(db: AsyncSession = Depends(get_session)):
     running_tasks = await redis_client.get_session_tasks(session.session_id)
     
     # Calculate duration
-    duration = int((datetime.utcnow() - session.connected_at).total_seconds()) if session.connected_at else 0
+    duration = 0
+    if session.connected_at:
+        # SQLite returns naive datetimes, convert to UTC-aware for comparison
+        connected_at = session.connected_at
+        if connected_at.tzinfo is None:
+            connected_at = connected_at.replace(tzinfo=timezone.utc)
+        duration = int((datetime.now(timezone.utc) - connected_at).total_seconds())
     
     return {
         "session_id": session.session_id,
@@ -235,7 +260,7 @@ async def get_session_history(
     db: AsyncSession = Depends(get_session)
 ):
     """Get session history for dashboard."""
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     
     result = await db.execute(
         select(SessionDB)

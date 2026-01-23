@@ -155,4 +155,6 @@ End-to-end testing patterns and examples for browser, API, and CLI workflows.
 6. **Guard:** Ensure no regressions (Regression Prevention phase)
 7. **E2E:** Validate complete user flows (E2E Testing Patterns phase)
 
+See `docs/TDD-METHODOLOGY.md` for detailed TDD methodology guide including Red-Green-Refactor cycle, todo creation templates, best practices, and common mistakes.
+
 See examples.md for complete code examples and patterns.

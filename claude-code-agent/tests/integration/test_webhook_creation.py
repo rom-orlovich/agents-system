@@ -7,8 +7,6 @@ import uuid
 
 class TestWebhookCreationFlow:
     """Test webhook creation business requirements."""
-    
-    @pytest.mark.asyncio
     async def test_create_webhook_with_immediate_feedback(self, client, db_session):
         """
         REQUIREMENT: Created webhooks MUST have at least one
@@ -37,8 +35,6 @@ class TestWebhookCreationFlow:
         data = response.json()
         webhook_id = data.get("data", {}).get("webhook_id")
         assert webhook_id is not None
-    
-    @pytest.mark.asyncio
     async def test_webhook_commands_have_priority(self, client, db_session):
         """
         REQUIREMENT: Webhook commands should support priority ordering.
@@ -54,8 +50,6 @@ class TestWebhookCreationFlow:
         })
         
         assert response.status_code == 201
-    
-    @pytest.mark.asyncio
     async def test_webhook_provider_validation(self, client):
         """
         REQUIREMENT: Webhook provider should be validated.
@@ -73,8 +67,6 @@ class TestWebhookCreationFlow:
 
 class TestWebhookExecutionFlow:
     """Test webhook execution business requirements."""
-    
-    @pytest.mark.asyncio
     async def test_webhook_execution_order_by_priority(self, client, db_session):
         """
         REQUIREMENT: Webhook commands should execute in priority order.
@@ -96,8 +88,6 @@ class TestWebhookExecutionFlow:
         assert "data" in data
         assert "webhook_id" in data["data"]
         # Webhook creation with priority-ordered commands works
-    
-    @pytest.mark.asyncio
     async def test_webhook_event_logged(self, client, db_session):
         """
         REQUIREMENT: Webhook events should be logged for debugging.
@@ -120,8 +110,6 @@ class TestWebhookExecutionFlow:
 
 class TestWebhookSecurityFlow:
     """Test webhook security requirements."""
-    
-    @pytest.mark.asyncio
     async def test_webhook_requires_secret_for_github(self, client):
         """
         REQUIREMENT: GitHub webhooks should support secret validation.
@@ -134,8 +122,6 @@ class TestWebhookSecurityFlow:
         })
         
         assert response.status_code == 201
-    
-    @pytest.mark.asyncio
     async def test_webhook_disabled_not_executed(self, client, db_session):
         """
         REQUIREMENT: Disabled webhooks should not execute.

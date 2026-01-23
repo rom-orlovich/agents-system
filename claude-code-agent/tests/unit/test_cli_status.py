@@ -1,15 +1,12 @@
 """Unit tests for CLI status business logic."""
 
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
-from datetime import datetime
+from unittest.mock import patch, AsyncMock, MagicMock, PropertyMock
+from datetime import datetime, timezone
 from pathlib import Path
 
 from core.database.models import SessionDB
 from shared.machine_models import ClaudeCredentials
-
-
-@pytest.mark.asyncio
 async def test_startup_without_credentials_does_not_fail():
     """App should start successfully even if credentials don't exist."""
     from core.config import settings
@@ -20,9 +17,6 @@ async def test_startup_without_credentials_does_not_fail():
         # This test verifies the startup logic doesn't fail
         creds_path = settings.credentials_path
         assert not creds_path.exists()  # Mocked to return False
-
-
-@pytest.mark.asyncio
 async def test_startup_with_credentials_runs_test_and_updates_session():
     """If credentials exist, test CLI and update session active status."""
     from core.config import settings
@@ -31,11 +25,11 @@ async def test_startup_with_credentials_runs_test_and_updates_session():
     # Mock credentials file exists
     mock_creds_path = MagicMock()
     mock_creds_path.exists.return_value = True
-    mock_creds_path.read_text.return_value = '{"access_token": "test", "refresh_token": "test", "expires_at": 9999999999999, "user_id": "user-123"}'
+    mock_creds_path.read_text.return_value = '{"access_token": "test_token_12345", "refresh_token": "refresh_token_12345", "expires_at": 9999999999999, "account_id": "user-123"}'
     
     # Mock test_cli_access() to return True
     with patch('core.cli_access.test_cli_access', return_value=True):
-        with patch.object(settings, 'credentials_path', mock_creds_path):
+        with patch.object(settings.__class__, 'credentials_path', new_callable=PropertyMock, return_value=mock_creds_path):
             with patch('core.database.async_session_factory') as mock_session_factory:
                 mock_session = AsyncMock()
                 mock_session.__aenter__.return_value = mock_session
@@ -45,15 +39,12 @@ async def test_startup_with_credentials_runs_test_and_updates_session():
                 mock_session_factory.return_value = mock_session
                 
                 # Simulate startup logic
-                creds_data = {"access_token": "test", "refresh_token": "test", "expires_at": 9999999999999, "user_id": "user-123"}
+                creds_data = {"access_token": "test_token_12345", "refresh_token": "refresh_token_12345", "expires_at": 9999999999999, "account_id": "user-123"}
                 creds = ClaudeCredentials(**creds_data)
-                user_id = creds.user_id or creds.account_id
+                user_id = creds.account_id
                 
                 # Verify user_id is extracted correctly
                 assert user_id == "user-123"
-
-
-@pytest.mark.asyncio
 async def test_startup_test_failure_sets_active_false():
     """If CLI test fails, set session.active = False."""
     from core.config import settings
@@ -61,18 +52,15 @@ async def test_startup_test_failure_sets_active_false():
     # Mock credentials file exists
     mock_creds_path = MagicMock()
     mock_creds_path.exists.return_value = True
-    mock_creds_path.read_text.return_value = '{"access_token": "test", "refresh_token": "test", "expires_at": 9999999999999, "user_id": "user-123"}'
+    mock_creds_path.read_text.return_value = '{"access_token": "test_token_12345", "refresh_token": "refresh_token_12345", "expires_at": 9999999999999, "account_id": "user-123"}'
     
     # Mock test_cli_access() to return False
     with patch('core.cli_access.test_cli_access', return_value=False):
-        with patch.object(settings, 'credentials_path', mock_creds_path):
+        with patch.object(settings.__class__, 'credentials_path', new_callable=PropertyMock, return_value=mock_creds_path):
             # Verify test returns False
             from core.cli_access import test_cli_access
             result = await test_cli_access()
             assert result is False
-
-
-@pytest.mark.asyncio
 async def test_rate_limit_error_updates_session_active_false():
     """When task fails with rate limit error, update session.active = False."""
     from workers.task_worker import TaskWorker
@@ -88,7 +76,7 @@ async def test_rate_limit_error_updates_session_active_false():
         session_id="session-001",
         user_id="user-001",
         machine_id="machine-001",
-        connected_at=datetime.utcnow(),
+        connected_at=datetime.now(timezone.utc),
         active=True
     )
     
@@ -102,7 +90,7 @@ async def test_rate_limit_error_updates_session_active_false():
         status=TaskStatus.FAILED,
         input_message="Test",
         source="dashboard",
-        created_at=datetime.utcnow()
+        created_at=datetime.now(timezone.utc)
     )
     
     # Mock CLI result with rate limit error
@@ -117,9 +105,6 @@ async def test_rate_limit_error_updates_session_active_false():
     # Verify session would be updated
     assert session_db.active is True  # Initially active
     # In real implementation, this would be set to False
-
-
-@pytest.mark.asyncio
 async def test_credentials_upload_triggers_test_and_updates_status():
     """Uploading credentials should test CLI and update session status."""
     from api.credentials import upload_credentials
@@ -127,13 +112,13 @@ async def test_credentials_upload_triggers_test_and_updates_status():
     from io import BytesIO
     
     # Mock file upload
-    file_content = b'{"access_token": "test", "refresh_token": "test", "expires_at": 9999999999999, "user_id": "user-123"}'
+    file_content = b'{"access_token": "test_token_12345", "refresh_token": "refresh_token_12345", "expires_at": 9999999999999, "account_id": "user-123"}'
     mock_file = MagicMock(spec=UploadFile)
     mock_file.filename = "claude.json"
     mock_file.read = AsyncMock(return_value=file_content)
     
     # Mock test_cli_access() to return True
-    with patch('api.credentials.test_cli_access', return_value=True):
+    with patch('core.cli_access.test_cli_access', return_value=True):
         with patch('api.credentials.async_session_factory') as mock_session_factory:
             mock_session = AsyncMock()
             mock_session.__aenter__.return_value = mock_session
@@ -146,13 +131,10 @@ async def test_credentials_upload_triggers_test_and_updates_status():
             from core.cli_access import test_cli_access
             result = await test_cli_access()
             assert result is True
-
-
-@pytest.mark.asyncio
 async def test_cli_status_endpoint_returns_current_status():
     """Status endpoint should return active status from database."""
     from api.credentials import get_cli_status
-    from core.database import get_db_session
+    from core.database import get_session as get_db_session
     from core.database.models import SessionDB
     from sqlalchemy import select
     from core.config import settings
@@ -162,16 +144,16 @@ async def test_cli_status_endpoint_returns_current_status():
         session_id="session-001",
         user_id="user-123",
         machine_id="machine-001",
-        connected_at=datetime.utcnow(),
+        connected_at=datetime.now(timezone.utc),
         active=True
     )
     
     # Mock credentials file exists
     mock_creds_path = MagicMock()
     mock_creds_path.exists.return_value = True
-    mock_creds_path.read_text.return_value = '{"access_token": "test", "refresh_token": "test", "expires_at": 9999999999999, "user_id": "user-123"}'
+    mock_creds_path.read_text.return_value = '{"access_token": "test_token_12345", "refresh_token": "refresh_token_12345", "expires_at": 9999999999999, "account_id": "user-123"}'
     
-    with patch.object(settings, 'credentials_path', mock_creds_path):
+    with patch.object(settings.__class__, 'credentials_path', new_callable=PropertyMock, return_value=mock_creds_path):
         with patch('api.credentials.get_db_session') as mock_get_db:
             mock_db = AsyncMock()
             mock_result = MagicMock()
@@ -185,9 +167,6 @@ async def test_cli_status_endpoint_returns_current_status():
             # Verify response
             assert result["active"] is True
             assert result["message"] is None
-
-
-@pytest.mark.asyncio
 async def test_cli_status_endpoint_handles_missing_credentials():
     """Status endpoint should handle missing credentials gracefully."""
     from api.credentials import get_cli_status
@@ -197,7 +176,7 @@ async def test_cli_status_endpoint_handles_missing_credentials():
     mock_creds_path = MagicMock()
     mock_creds_path.exists.return_value = False
     
-    with patch.object(settings, 'credentials_path', mock_creds_path):
+    with patch.object(settings.__class__, 'credentials_path', new_callable=PropertyMock, return_value=mock_creds_path):
         result = await get_cli_status()
         
         # Verify response

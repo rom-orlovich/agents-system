@@ -22,7 +22,7 @@ from core.webhook_engine import (
 )
 from shared import TaskStatus, TaskOutputMessage, TaskCompletedMessage, TaskFailedMessage
 from sqlalchemy import select, update
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 logger = structlog.get_logger()
@@ -230,6 +230,18 @@ class TaskWorker:
                     # Then update database
                     task_db.status = TaskStatus.COMPLETED
                     task_db.result = result.output
+                    task_db.completed_at = datetime.now(timezone.utc)
+                    task_db.duration_seconds = (
+                        (task_db.completed_at - task_db.started_at).total_seconds()
+                        if task_db.started_at and task_db.completed_at
+                        else 0.0
+                    )
+
+                    # Update conversation metrics if task has conversation_id
+                    await self._update_conversation_metrics(task_db, session)
+
+                    # Update Claude Code Task status if synced
+                    await self._update_claude_task_status(task_db)
 
                     # Add response to conversation if task has one
                     await self._add_task_response_to_conversation(
@@ -271,6 +283,18 @@ class TaskWorker:
                     # Then update database
                     task_db.status = TaskStatus.FAILED
                     task_db.error = result.error
+                    task_db.completed_at = datetime.now(timezone.utc)
+                    task_db.duration_seconds = (
+                        (task_db.completed_at - task_db.started_at).total_seconds()
+                        if task_db.started_at and task_db.completed_at
+                        else 0.0
+                    )
+
+                    # Update conversation metrics if task has conversation_id
+                    await self._update_conversation_metrics(task_db, session)
+
+                    # Update Claude Code Task status if synced
+                    await self._update_claude_task_status(task_db)
 
                     # Check for rate limit errors and update session
                     if result.error:
@@ -380,6 +404,18 @@ class TaskWorker:
                 # Then update database
                 task_db.status = TaskStatus.FAILED
                 task_db.error = str(e)
+                task_db.completed_at = datetime.now(timezone.utc)
+                task_db.duration_seconds = (
+                    (task_db.completed_at - task_db.started_at).total_seconds()
+                    if task_db.started_at and task_db.completed_at
+                    else 0.0
+                )
+
+                # Update conversation metrics if task has conversation_id
+                await self._update_conversation_metrics(task_db, session)
+
+                # Update Claude Code Task status if synced
+                await self._update_claude_task_status(task_db)
 
                 # Add error to conversation if task has one
                 await self._add_task_response_to_conversation(
@@ -582,7 +618,7 @@ class TaskWorker:
         db_session.add(assistant_message)
         
         # Update conversation timestamp
-        conversation.updated_at = datetime.utcnow()
+        conversation.updated_at = datetime.now(timezone.utc)
 
     def _clean_error_message(self, error: str) -> str:
         """Clean error message by removing noise and extracting actual error text."""
@@ -806,6 +842,82 @@ class TaskWorker:
         except Exception as e:
             logger.error("slack_notification_failed", task_id=task_db.task_id, error=str(e))
             return False
+
+    async def _update_conversation_metrics(
+        self,
+        task_db: TaskDB,
+        session
+    ) -> None:
+        """Update conversation metrics when task completes."""
+        try:
+            # Extract conversation_id from source_metadata
+            source_metadata = json.loads(task_db.source_metadata or "{}")
+            conversation_id = source_metadata.get("conversation_id")
+            
+            if not conversation_id:
+                return  # No conversation associated with this task
+            
+            # Update conversation metrics
+            from core.database.models import update_conversation_metrics
+            await update_conversation_metrics(conversation_id, task_db, session)
+            
+            logger.info(
+                "conversation_metrics_updated",
+                task_id=task_db.task_id,
+                conversation_id=conversation_id,
+                cost_usd=task_db.cost_usd,
+                duration_seconds=task_db.duration_seconds
+            )
+        except Exception as e:
+            logger.warning(
+                "failed_to_update_conversation_metrics",
+                task_id=task_db.task_id,
+                error=str(e)
+            )
+            # Don't fail the task if metrics update fails
+    
+    async def _update_claude_task_status(
+        self,
+        task_db: TaskDB
+    ) -> None:
+        """Update Claude Code Task status when orchestration task completes."""
+        try:
+            from core.claude_tasks_sync import update_claude_task_status
+            
+            # Extract claude_task_id from source_metadata
+            source_metadata = json.loads(task_db.source_metadata or "{}")
+            claude_task_id = source_metadata.get("claude_task_id")
+            
+            if not claude_task_id:
+                return  # Task not synced to Claude Code Tasks
+            
+            # Map TaskStatus to Claude Code task status
+            status_map = {
+                TaskStatus.COMPLETED: "completed",
+                TaskStatus.FAILED: "failed",
+            }
+            claude_status = status_map.get(task_db.status)
+            
+            if claude_status:
+                update_claude_task_status(
+                    claude_task_id=claude_task_id,
+                    status=claude_status,
+                    result=task_db.result
+                )
+                
+                logger.info(
+                    "claude_task_status_updated",
+                    task_id=task_db.task_id,
+                    claude_task_id=claude_task_id,
+                    status=claude_status
+                )
+        except Exception as e:
+            logger.warning(
+                "failed_to_update_claude_task_status",
+                task_id=task_db.task_id,
+                error=str(e)
+            )
+            # Don't fail the task if Claude Code Task update fails
 
     def _get_agent_dir(self, agent_name: str | None) -> Path:
         """

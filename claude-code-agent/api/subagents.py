@@ -1,7 +1,7 @@
 """Subagent management API endpoints."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -75,7 +75,7 @@ async def spawn_subagent(
         "mode": request.mode,
         "agent_name": request.agent_type,
         "permission_mode": permission_mode,
-        "started_at": datetime.utcnow().isoformat()
+        "started_at": datetime.now(timezone.utc).isoformat()
     })
     
     # Create database record
@@ -173,7 +173,7 @@ async def stop_subagent(
     execution = result.scalar_one_or_none()
     if execution:
         execution.status = "stopped"
-        execution.completed_at = datetime.utcnow()
+        execution.completed_at = datetime.now(timezone.utc)
         await db.commit()
     
     return {"data": {"subagent_id": subagent_id, "status": "stopped"}}
@@ -259,7 +259,7 @@ async def spawn_parallel_subagents(
             "mode": "parallel",
             "agent_name": agent_type,
             "permission_mode": "auto-deny",
-            "started_at": datetime.utcnow().isoformat()
+            "started_at": datetime.now(timezone.utc).isoformat()
         })
         
         # Create database record

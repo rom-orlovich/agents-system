@@ -39,13 +39,15 @@ A self-managing machine where FastAPI runs as a daemon and Claude Code CLI is sp
 
 - 🧠 **Brain Orchestrator**: Main Claude CLI instance that manages sub-agents
 - 💬 **Persistent Conversations**: Inbox-style UI with context awareness
+- 🔄 **Task Flow Tracking**: End-to-end flow tracking with flow_id across webhook → analysis → execution
 - 📡 **Unified Webhooks**: Fully configurable GitHub, Jira, Slack, Sentry integration
 - 🔄 **Specialized Agents**: Planning, Executor, Service Integrator, Self-Improvement, Agent Creator, Skill Creator
-- 📊 **Cost Tracking**: Per-task and per-session cost monitoring
+- 📊 **Cost Tracking**: Per-task and per-conversation cost monitoring with aggregated metrics
 - 🗄️ **Dual Storage**: Redis (queue/cache) + SQLite (persistence)
 - 🔌 **Hybrid Webhooks**: Static routes (hard-coded) + Dynamic routes (database-driven)
 - 🧪 **TDD Workflow**: Full test-driven development with E2E validation
 - 🔗 **Service Integration**: Cross-service workflows (GitHub, Jira, Slack, Sentry)
+- 📁 **Claude Code Tasks Integration**: Background agents read task directory for visibility without context injection
 
 ## Quick Start
 
@@ -290,6 +292,44 @@ Processes tasks from Redis queue:
 9. Output streamed real-time via **WebSocket** and buffered in Redis
 10. Task completes; results saved; status updated to COMPLETED
 11. Response added back to **Conversation**
+
+### Task Flow Conversation Tracking
+
+Each initiated task flow (e.g., Jira ticket assignment) creates a special `flow_id` that tracks the entire lifecycle: webhook trigger → analysis → plan creation → PR creation → execution. All tasks in this flow belong to one conversation (unless user explicitly breaks it).
+
+**Flow Tracking Features:**
+- **Flow ID Generation**: Stable `flow_id` generated from external IDs (Jira ticket key, GitHub PR number, etc.)
+- **Conversation Inheritance**: Child tasks automatically inherit parent's `conversation_id` (default behavior)
+- **Conversation Breaks**: Users can explicitly start new conversations via keywords ("new conversation", "start fresh") or API flags
+- **Flow ID Propagation**: `flow_id` always propagates even when conversation breaks (for end-to-end tracking)
+- **Aggregated Metrics**: Dashboard shows aggregated cost, task count, and duration per conversation
+- **Claude Code Tasks Integration**: Background agents read `~/.claude/tasks/` directory to see completed tasks without context injection
+
+**Example Flow:**
+```
+Jira Ticket Assigned (PROJ-123)
+  ↓
+Generate flow_id: "flow-abc123"
+  ↓
+Create Task #1 (root) with flow_id, conversation_id="conv-xyz"
+  ↓
+Task #1 creates Task #2 (child) → Inherits conversation_id (default)
+  ↓
+Task #2 creates Task #3 (child) → Inherits conversation_id (default)
+  ↓
+All tasks update conversation metrics on completion
+  ↓
+Dashboard shows aggregated metrics for conversation
+```
+
+**Claude Code Tasks Integration:**
+- Orchestration tasks are synced to `~/.claude/tasks/` directory (if `sync_to_claude_tasks=True`)
+- Background agents can read task directory to see:
+  - Which tasks are completed
+  - Task dependencies
+  - Task status and results
+- No context injection needed - agents read task directory instead
+- More efficient than injecting large conversation history
 
 ### Webhook Flow
 

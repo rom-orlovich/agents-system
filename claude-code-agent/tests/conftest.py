@@ -2,7 +2,6 @@
 
 import os
 import pytest
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -33,17 +32,12 @@ from tests.fixtures.cli_fixtures import (
 )
 
 
+# Note: event_loop fixture removed - pytest-asyncio handles this automatically in auto mode
+
+
 @pytest.fixture(scope="session")
-def event_loop():
-    """Create event loop for async tests."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture
 async def db_engine():
-    """Create test database engine."""
+    """Create test database engine (session-scoped for performance)."""
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -61,32 +55,17 @@ async def db(db_engine):
 
 @pytest.fixture
 async def db_session(db_engine):
-    """Create test database session."""
+    """Create test database session with automatic rollback."""
     async_session_maker = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
     async with async_session_maker() as session:
         yield session
+        # Rollback after test completes to ensure test isolation
+        await session.rollback()
 
 
-@pytest.fixture
-async def client(db_engine):
-    """Create test HTTP client."""
-    # Override database dependency
-    async def override_get_db():
-        async_session_maker = async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
-        async with async_session_maker() as session:
-            yield session
-    
-    app.dependency_overrides[get_session] = override_get_db
-    
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        yield ac
-    
-    app.dependency_overrides.clear()
-
-
-@pytest.fixture
+@pytest.fixture(scope="session")
 def redis_mock():
-    """Mock Redis client."""
+    """Mock Redis client (session-scoped for performance)."""
     mock = AsyncMock()
     mock.connect = AsyncMock()
     mock.disconnect = AsyncMock()
@@ -147,17 +126,19 @@ async def client(db_session, redis_mock):
     app.dependency_overrides[get_session] = override_get_session
 
     # Mock Redis in all modules
+    # Note: All modules import from core.database.redis_client, so we patch that
     with patch('main.redis_client', redis_mock):
         with patch('core.database.redis_client.redis_client', redis_mock):
-            with patch('api.dashboard.redis_client', redis_mock):
-                with patch('api.webhooks.redis_client', redis_mock):
+            with patch('core.webhook_engine.redis_client', redis_mock):
+                with patch('api.dashboard.redis_client', redis_mock):
                     with patch('api.subagents.redis_client', redis_mock):
                         with patch('api.container.redis_client', redis_mock):
                             with patch('api.accounts.redis_client', redis_mock):
                                 with patch('api.sessions.redis_client', redis_mock):
-                                    transport = ASGITransport(app=app)
-                                    async with AsyncClient(transport=transport, base_url="http://test") as client:
-                                        yield client
+                                    with patch('api.websocket.redis_client', redis_mock):
+                                        transport = ASGITransport(app=app)
+                                        async with AsyncClient(transport=transport, base_url="http://test") as client:
+                                            yield client
 
     # Clean up
     app.dependency_overrides.clear()
