@@ -5,6 +5,12 @@ export const MOCK_METRICS = {
   daily_burn: 45.32,
   total_jobs: 1450,
   cumulative_cost: 1250.45,
+  oauth_session_used: 100,
+  oauth_session_limit: 1000,
+  oauth_session_percentage: 10.0,
+  oauth_weekly_used: 500,
+  oauth_weekly_limit: 5000,
+  oauth_weekly_percentage: 10.0,
 };
 
 export const MOCK_TASKS = [
