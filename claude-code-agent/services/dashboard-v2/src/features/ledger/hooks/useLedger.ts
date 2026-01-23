@@ -21,10 +21,12 @@ export function useLedger() {
 
   const queryParams = new URLSearchParams({
     page: page.toString(),
-    ...filters,
+    session_id: filters.session_id,
+    status: filters.status,
+    subagent: filters.assigned_agent,
   }).toString();
 
-  const { data, isLoading } = useQuery<{ tasks: LedgerTask[]; totalPages: number }>({
+  const { data, isLoading, refetch } = useQuery<{ tasks: LedgerTask[]; totalPages: number }>({
     queryKey: ["ledger", page, filters],
     queryFn: async () => {
       const res = await fetch(`/api/tasks/table?${queryParams}`);
@@ -55,6 +57,7 @@ export function useLedger() {
     tasks: data?.tasks || [],
     agents: agents || [],
     isLoading,
+    refetch,
     filters,
     setFilters: (newFilters: Partial<typeof filters>) => {
       setFilters((prev) => ({ ...prev, ...newFilters }));

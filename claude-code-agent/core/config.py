@@ -72,8 +72,8 @@ class Settings(BaseSettings):
 
     @property
     def agents_dir(self) -> Path:
-        """Directory containing BUILT-IN sub-agents (in .claude/agents/)."""
-        return self.app_dir / ".claude" / "agents"
+        """Directory containing BUILT-IN sub-agents (in .agent/agents/)."""
+        return self.app_dir / ".agent" / "agents"
 
     @property
     def user_agents_dir(self) -> Path:
@@ -82,8 +82,8 @@ class Settings(BaseSettings):
 
     @property
     def skills_dir(self) -> Path:
-        """Directory containing BUILT-IN skills (in .claude/skills/)."""
-        return self.app_dir / ".claude" / "skills"
+        """Directory containing BUILT-IN skills (in .agent/skills/)."""
+        return self.app_dir / ".agent" / "skills"
 
     @property
     def user_skills_dir(self) -> Path:

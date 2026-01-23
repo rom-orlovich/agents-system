@@ -1,10 +1,22 @@
 import { Activity, Cpu, DollarSign, Zap, Eye, X, RefreshCw } from "lucide-react";
 import { useMetrics, type Task } from "./hooks/useMetrics";
-import { useState } from "react";
+import { useTaskLogs, useGlobalLogs, type TaskLogResponse } from "./hooks/useTaskLogs";
+import { useState, useRef, useEffect } from "react";
 
 export function OverviewFeature() {
   const { metrics, tasks, isLoading, error, refetch } = useMetrics();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  
+  const { data: taskLogs, isLoading: isLogsLoading } = useTaskLogs(selectedTask?.id ?? null);
+  const { data: globalLogs } = useGlobalLogs();
+  
+  const logEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (logEndRef.current) {
+      logEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [taskLogs?.output]);
 
   if (isLoading) return <div className="p-8 text-center font-heading">SYNCING_METRICS...</div>;
   if (error)
@@ -42,7 +54,7 @@ export function OverviewFeature() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <section className="lg:col-span-2 panel" data-label="LIVE_PROCESSES">
           <div className="space-y-4">
-            {tasks?.map((task) => (
+            {tasks?.map((task: Task) => (
               <div
                 key={task.id}
                 onClick={() => setSelectedTask(task)}
@@ -100,6 +112,41 @@ export function OverviewFeature() {
         </section>
       </div>
 
+      <section className="panel" data-label="GLOBAL_CONTAINER_LOGS">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xs font-heading font-black tracking-widest uppercase text-gray-400">
+            GLOBAL_CONTAINER_LOGS_STREAM
+          </h2>
+          <div className="flex gap-2">
+             <div className="flex items-center gap-1.5 px-2 py-0.5 border border-gray-100 rounded text-[9px] font-mono font-bold text-blue-500 bg-blue-50/50">
+              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+              LIVE_STREAM
+            </div>
+          </div>
+        </div>
+        <div className="h-64 rounded bg-gray-950 p-4 font-mono text-[10px] text-gray-300 space-y-1 overflow-y-auto border border-gray-800 shadow-inner custom-scrollbar">
+          {globalLogs && globalLogs.length > 0 ? (
+            globalLogs.map((log: TaskLogResponse) => (
+              <div key={log.task_id} className="space-y-1 pb-4 mb-4 border-b border-gray-900 last:border-0 last:pb-0 last:mb-0">
+                <div className="text-gray-500 flex items-center gap-2 mb-2">
+                  <span className="bg-gray-900 px-1.5 py-0.5 rounded text-[8px] border border-gray-800">
+                    TASK_{log.task_id.split("-").pop()}
+                  </span>
+                  <span className={`text-[8px] uppercase font-bold ${log.status === 'running' ? 'text-blue-400' : 'text-gray-600'}`}>
+                    {log.status}
+                  </span>
+                </div>
+                {renderLogs(log.output)}
+              </div>
+            ))
+          ) : (
+            <div className="flex items-center justify-center h-full text-gray-600 italic">
+              AWAITING_SIGNAL_HANDOFF...
+            </div>
+          )}
+        </div>
+      </section>
+
       {selectedTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4 overflow-hidden border border-gray-100 animate-in zoom-in-95 duration-200 ring-1 ring-black/5">
@@ -150,24 +197,23 @@ export function OverviewFeature() {
                 </div>
               </div>
 
-              <div className="rounded bg-gray-950 p-4 font-mono text-[10px] text-gray-300 space-y-1 overflow-x-auto border border-gray-800 shadow-inner">
-                <div className="text-gray-500 mb-2 border-b border-gray-800 pb-1">LIVE_LOGS_STREAM</div>
-                <div className="flex gap-2">
-                  <span className="text-blue-400">info</span>
-                  <span>Task initialized by system</span>
+              <div className="rounded bg-gray-950 p-4 font-mono text-[10px] text-gray-300 space-y-1 overflow-y-auto max-h-48 border border-gray-800 shadow-inner">
+                <div className="text-gray-500 mb-2 border-b border-gray-800 pb-1 flex justify-between">
+                  <span>LIVE_LOGS_STREAM</span>
+                  {taskLogs?.is_live && (
+                    <span className="text-blue-500 animate-pulse text-[8px] font-bold">● LIVE</span>
+                  )}
                 </div>
-                 <div className="flex gap-2">
-                  <span className="text-blue-400">info</span>
-                  <span>Agent {selectedTask.name} assigned</span>
-                </div>
-                 <div className="flex gap-2">
-                  <span className="text-yellow-400">exec</span>
-                  <span>Running main process loop...</span>
-                </div>
-                 <div className="flex gap-2">
-                  <span className="text-green-400">succ</span>
-                  <span>Step completed successfully</span>
-                </div>
+                {isLogsLoading ? (
+                  <div className="text-gray-600 animate-pulse">CONNECTING_TO_STREAM...</div>
+                ) : taskLogs?.output ? (
+                  <>
+                    {renderLogs(taskLogs.output)}
+                    <div ref={logEndRef} />
+                  </>
+                ) : (
+                  <div className="text-gray-600 italic">NO_LOG_DATA_AVAILABLE</div>
+                )}
               </div>
             </div>
 
@@ -224,4 +270,42 @@ function getStatusColor(status: string) {
     default:
       return "bg-gray-300";
   }
+}
+
+function renderLogs(output: string) {
+  if (!output) return null;
+  
+  return output.split("\n").map((line, i) => {
+    if (!line.trim()) return null;
+    
+    // Check for common patterns
+    let colorClass = "text-gray-300";
+    let prefix = "";
+    let content = line;
+    
+    if (line.startsWith("info ")) {
+      colorClass = "text-blue-400";
+      prefix = "info";
+      content = line.substring(5);
+    } else if (line.startsWith("exec ")) {
+      colorClass = "text-yellow-400";
+      prefix = "exec";
+      content = line.substring(5);
+    } else if (line.startsWith("succ ")) {
+      colorClass = "text-green-400";
+      prefix = "succ";
+      content = line.substring(5);
+    } else if (line.startsWith("error ")) {
+      colorClass = "text-red-400";
+      prefix = "error";
+      content = line.substring(6);
+    }
+    
+    return (
+      <div key={i} className="flex gap-2">
+        {prefix && <span className={`${colorClass} opacity-80 min-w-[32px]`}>{prefix}</span>}
+        <span className={prefix ? 'text-gray-300' : colorClass}>{content}</span>
+      </div>
+    );
+  });
 }

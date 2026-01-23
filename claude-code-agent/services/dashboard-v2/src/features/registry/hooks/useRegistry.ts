@@ -40,6 +40,22 @@ export function useRegistry() {
     },
   });
 
+  const getAssetContent = async (type: "skill" | "agent", name: string) => {
+    const res = await fetch(`/api/registry/${type}s/${name}/content`);
+    if (!res.ok) throw new Error("Failed to fetch asset content");
+    return res.json();
+  };
+
+  const updateAssetContent = async (type: "skill" | "agent", name: string, content: string) => {
+    const res = await fetch(`/api/registry/${type}s/${name}/content`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, type, content }),
+    });
+    if (!res.ok) throw new Error("Failed to update asset content");
+    return res.json();
+  };
+
   return {
     skills: skills || [],
     agents: agents || [],
@@ -47,5 +63,7 @@ export function useRegistry() {
     refresh: () => {
       queryClient.invalidateQueries({ queryKey: ["registry"] });
     },
+    getAssetContent,
+    updateAssetContent,
   };
 }

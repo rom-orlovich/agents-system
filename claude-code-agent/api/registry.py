@@ -40,7 +40,7 @@ async def list_skills() -> List[SkillInfo]:
     skills = []
     
     # Builtin skills
-    builtin_skills_dir = Path("/app/skills")
+    builtin_skills_dir = settings.skills_dir
     if builtin_skills_dir.exists():
         for skill_dir in builtin_skills_dir.iterdir():
             if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
@@ -279,6 +279,75 @@ async def list_agents() -> List[AgentInfo]:
                 ))
     
     return agents
+
+
+class AssetContent(BaseModel):
+    """Content of a registry asset."""
+    name: str
+    type: str
+    content: str
+
+
+@router.get("/{asset_type}/{name}/content")
+async def get_asset_content(asset_type: str, name: str) -> AssetContent:
+    """Get the markdown content of an agent or skill."""
+    if asset_type == "agents":
+        # Check builtin
+        path = settings.agents_dir / f"{name}.md"
+        if not path.exists():
+            # Check user
+            path = settings.user_agents_dir / name / ".claude" / "CLAUDE.md"
+            if not path.exists():
+                # Try .md in user agents dir
+                path = settings.user_agents_dir / f"{name}.md"
+    elif asset_type == "skills":
+        # Check builtin
+        path = settings.skills_dir / name / "SKILL.md"
+        if not path.exists():
+            # Check user
+            path = settings.user_skills_dir / name / "SKILL.md"
+    else:
+        raise HTTPException(400, "Invalid asset type")
+
+    if not path or not path.exists():
+        raise HTTPException(404, f"{asset_type[:-1].capitalize()} '{name}' not found")
+
+    try:
+        content = path.read_text()
+        return AssetContent(name=name, type=asset_type[:-1], content=content)
+    except Exception as e:
+        raise HTTPException(500, f"Failed to read asset content: {str(e)}")
+
+
+@router.put("/{asset_type}/{name}/content")
+async def update_asset_content(asset_type: str, name: str, data: AssetContent) -> APIResponse:
+    """Update the markdown content of an agent or skill."""
+    if asset_type == "agents":
+        # Check builtin
+        path = settings.agents_dir / f"{name}.md"
+        if not path.exists():
+            # Check user
+            path = settings.user_agents_dir / name / ".claude" / "CLAUDE.md"
+            if not path.exists():
+                 path = settings.user_agents_dir / f"{name}.md"
+    elif asset_type == "skills":
+        # Check builtin
+        path = settings.skills_dir / name / "SKILL.md"
+        if not path.exists():
+            # Check user
+            path = settings.user_skills_dir / name / "SKILL.md"
+    else:
+        raise HTTPException(400, "Invalid asset type")
+
+    if not path or not path.exists():
+        # If it doesn't exist, we might want to create it, but for now let's just 404
+        raise HTTPException(404, f"{asset_type[:-1].capitalize()} '{name}' not found")
+
+    try:
+        path.write_text(data.content)
+        return APIResponse(success=True, message=f"{asset_type[:-1].capitalize()} '{name}' updated successfully")
+    except Exception as e:
+        raise HTTPException(500, f"Failed to update asset content: {str(e)}")
 
 
 def _extract_description(skill_md: Path) -> str:
