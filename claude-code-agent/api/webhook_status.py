@@ -64,42 +64,13 @@ async def get_webhooks_status(db: AsyncSession = Depends(get_db_session)):
                 "has_secret": bool(webhook.secret),
             })
         
-        # Count static endpoints (always 3: GitHub, Jira, Slack)
-        static_count = 3
-        
         return {
             "success": True,
             "data": {
                 "webhooks": webhook_statuses,
-                "total_count": len(webhook_statuses) + static_count,
-                "active_count": sum(1 for w in webhook_statuses if w["enabled"]) + static_count,
+                "total_count": len(webhook_statuses),
+                "active_count": sum(1 for w in webhook_statuses if w["enabled"]),
                 "public_domain": settings.webhook_public_domain,
-                "static_endpoints": [
-                    {
-                        "name": "GitHub Static",
-                        "endpoint": "/webhooks/github",
-                        "public_url": f"https://{settings.webhook_public_domain}/webhooks/github" if settings.webhook_public_domain else None,
-                        "provider": "github",
-                        "type": "static",
-                        "enabled": True
-                    },
-                    {
-                        "name": "Jira Static",
-                        "endpoint": "/webhooks/jira",
-                        "public_url": f"https://{settings.webhook_public_domain}/webhooks/jira" if settings.webhook_public_domain else None,
-                        "provider": "jira",
-                        "type": "static",
-                        "enabled": True
-                    },
-                    {
-                        "name": "Slack Static",
-                        "endpoint": "/webhooks/slack",
-                        "public_url": f"https://{settings.webhook_public_domain}/webhooks/slack" if settings.webhook_public_domain else None,
-                        "provider": "slack",
-                        "type": "static",
-                        "enabled": True
-                    }
-                ]
             }
         }
     

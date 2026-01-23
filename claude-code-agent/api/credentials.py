@@ -97,21 +97,19 @@ async def get_credential_status() -> CredentialStatusResponse:
             # Fall through if file is corrupt but CLI exists
     
     # 3. Handle CLI-only state or Missing state
-    if cli_available:
+    if not cli_available:
         return CredentialStatusResponse(
-            status=CredentialStatus.VALID,
-            message="Claude Code is connected via CLI",
-            cli_available=True,
-            cli_version=cli_version,
-            account_email="Connected (CLI System)",
+            status=CredentialStatus.CLI_UNAVAILABLE,
+            message="Claude CLI not installed and no credentials file found",
+            cli_available=False,
         )
     
     return CredentialStatusResponse(
         status=CredentialStatus.MISSING,
-        message="Credentials file not found. Please upload claude.json or install Claude Code.",
-        cli_available=False,
+        message="No credentials file found. CLI available for manual auth.",
+        cli_available=True,
+        cli_version=cli_version,
     )
-
 
 
 @router.post("/upload")
