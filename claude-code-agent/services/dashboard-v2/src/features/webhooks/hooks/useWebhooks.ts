@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface Webhook {
   id: string;
@@ -17,13 +17,14 @@ export interface WebhookEvent {
 }
 
 export function useWebhooks() {
+  const queryClient = useQueryClient();
   const { data: webhooks, isLoading: isWhLoading } = useQuery<Webhook[]>({
     queryKey: ["webhooks"],
     queryFn: async () => {
-      const res = await fetch("/api/webhooks");
-      const data = await res.json();
-      return data.map((wh: any) => ({
-        id: wh.webhook_id || wh.name,
+      const res = await fetch("/api/webhooks-status");
+      const json = await res.json();
+      return (json.data?.webhooks || []).map((wh: any) => ({
+        id: wh.webhook_id,
         name: wh.name,
         provider: wh.provider,
         status: wh.enabled ? "active" : "inactive",
@@ -39,9 +40,9 @@ export function useWebhooks() {
   } = useQuery<WebhookEvent[]>({
     queryKey: ["webhook-events"],
     queryFn: async () => {
-      const res = await fetch("/api/webhooks/events");
-      const data = await res.json();
-      return data.map((ev: any) => ({
+      const res = await fetch("/api/webhooks/events/recent");
+      const json = await res.json();
+      return (json.data || []).map((ev: any) => ({
         id: ev.event_id,
         webhook_id: ev.webhook_id,
         event: ev.event_type,
@@ -57,8 +58,24 @@ export function useWebhooks() {
     events,
     isLoading: isWhLoading || isEvLoading,
     refreshEvents,
-    createWebhook: async (_data: Partial<Webhook>) => {
-      // Implementation for creation
-    },
+    createWebhook: useMutation({
+      mutationFn: async (newWebhook: Partial<Webhook>) => {
+        const res = await fetch("/api/webhooks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: newWebhook.name,
+            provider: newWebhook.provider,
+            enabled: true,
+            commands: [],
+          }),
+        });
+        if (!res.ok) throw new Error("Failed to create webhook");
+        return res.json();
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["webhooks"] });
+      },
+    }),
   };
 }

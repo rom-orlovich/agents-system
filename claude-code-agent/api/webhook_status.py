@@ -6,6 +6,9 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
 import structlog
+import uuid
+from pydantic import BaseModel
+from typing import List, Optional, Dict, Any
 
 from core.config import settings
 from core.database import get_session as get_db_session
@@ -143,6 +146,59 @@ async def get_webhooks_status(db: AsyncSession = Depends(get_db_session)):
             "success": False,
             "error": str(e)
         }
+
+class WebhookCreate(BaseModel):
+    name: str
+    provider: str
+    enabled: bool = True
+    commands: List[Dict[str, Any]] = []
+
+@router.post("/webhooks")
+async def create_webhook(
+    webhook: WebhookCreate,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Create a new dynamic webhook."""
+    try:
+        # Check if name exists
+        existing = await db.execute(
+            select(WebhookConfigDB).where(WebhookConfigDB.name == webhook.name)
+        )
+        if existing.scalar_one_or_none():
+             # Return error in format expected by tests or frontend?
+             # Tests expect 400 with detail "already exists"
+             from fastapi import HTTPException
+             raise HTTPException(status_code=400, detail="Webhook with this name already exists")
+
+        # Create webhook
+        webhook_id = f"wh-{uuid.uuid4().hex[:12]}"
+        endpoint = f"/webhooks/{webhook.provider}/{webhook_id}"
+        
+        db_webhook = WebhookConfigDB(
+            webhook_id=webhook_id,
+            name=webhook.name,
+            provider=webhook.provider,
+            endpoint=endpoint,
+            enabled=webhook.enabled,
+            created_at=datetime.utcnow()
+        )
+        db.add(db_webhook)
+        await db.commit()
+        
+        return {
+            "success": True,
+            "data": {
+                "webhook_id": webhook_id,
+                "name": db_webhook.name,
+                "provider": db_webhook.provider,
+                "endpoint": endpoint,
+                "enabled": db_webhook.enabled
+            }
+        }
+    except Exception as e:
+        logger.error("create_webhook_error", error=str(e))
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/webhooks/{webhook_id}/events")

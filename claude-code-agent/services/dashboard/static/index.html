@@ -390,8 +390,28 @@
     <!-- Task Detail Modal -->
     <div id="modal" class="modal hidden">
         <div class="modal-content brutalist">
+            <span class="close" onclick="app.hideModal()">&times;</span>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Edit File Modal -->
+    <div id="edit-file-modal" class="modal hidden">
+        <div class="modal-content large">
+            <span class="close" onclick="app.hideEditFile()">&times;</span>
+            <h2 id="edit-file-title">EDIT_ASSET</h2>
+            <div class="form-group">
+                <label id="edit-file-label">CONTENT:</label>
+                <textarea id="edit-file-content" class="code-editor" spellcheck="false"></textarea>
+            </div>
+            <div class="form-actions">
+                <button onclick="app.saveFileContent()" class="create-btn">COMMIT_CHANGES</button>
+            </div>
+        </div>
+    </div>
 
     <script src="/static/js/conversations.js?v=5"></script>
     <script src="/static/js/app.js?v=7"></script>
 </body>
 </html>
+

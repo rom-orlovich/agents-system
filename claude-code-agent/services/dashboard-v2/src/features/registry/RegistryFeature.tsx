@@ -4,14 +4,48 @@ import { useState } from "react";
 import { useRegistry, type RegistryAsset } from "./hooks/useRegistry";
 
 export function RegistryFeature() {
-  const { skills, agents, isLoading, refresh } = useRegistry();
+  const { skills, agents, isLoading, refresh, getAssetContent, updateAssetContent } = useRegistry();
   const [activeTab, setActiveTab] = useState<"skills" | "agents">("skills");
   const [selectedAsset, setSelectedAsset] = useState<RegistryAsset | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<RegistryAsset | null>(null);
+  const [assetContent, setAssetContent] = useState<string>("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleEditContent = async (asset: RegistryAsset) => {
+    try {
+      const data = await getAssetContent(asset.type, asset.name);
+      setAssetContent(data.content);
+      setEditingAsset(asset);
+    } catch (error) {
+      console.error("Failed to load content:", error);
+      alert("CRITICAL_FAILURE: UNABLE_TO_READ_ASSET_CONTENT");
+    }
+  };
+
+  const handleSaveContent = async () => {
+    if (!editingAsset) return;
+    setIsSaving(true);
+    try {
+      await updateAssetContent(editingAsset.type, editingAsset.name, assetContent);
+      setEditingAsset(null);
+      refresh();
+    } catch (error) {
+      console.error("Failed to save content:", error);
+      alert("CRITICAL_FAILURE: UNABLE_TO_PERSIST_CHANGES");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const assets = activeTab === "skills" ? skills : agents;
 
-  if (isLoading) return <div className="p-8 text-center font-heading animate-pulse">SYNCHRONIZING_REGISTRY...</div>;
+  if (isLoading) return (
+    <div className="p-8 text-center font-heading animate-pulse flex flex-col items-center gap-4">
+      <div className="w-12 h-12 border-2 border-primary border-t-transparent animate-spin" />
+      <div className="tracking-[0.2em] text-[10px] font-black">SYNCHRONIZING_SYSTEM_REGISTRY...</div>
+    </div>
+  );
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 relative">
@@ -64,9 +98,74 @@ export function RegistryFeature() {
             key={asset.name} 
             asset={asset}
             onConfig={() => setSelectedAsset(asset)}
+            onEdit={() => handleEditContent(asset)}
           />
         ))}
       </div>
+
+      {/* Content Editor Drawer */}
+      {editingAsset && (
+        <div 
+          className="fixed inset-0 z-[100] flex justify-end bg-black/50 backdrop-blur-sm animate-in fade-in duration-300"
+          onClick={() => setEditingAsset(null)}
+        >
+          <div 
+            className="w-full max-w-3xl bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 border-l border-gray-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 bg-primary text-white shadow-md">
+              <div className="flex items-center gap-3">
+                <Settings size={18} className="animate-spin-slow" />
+                <h3 className="font-heading font-black text-xs uppercase tracking-[0.15em]">
+                  {editingAsset.type.toUpperCase()}_EDITOR: {editingAsset.name}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingAsset(null)}
+                className="p-1 hover:bg-white/20 transition-colors rounded"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="flex-1 p-0 overflow-hidden relative bg-slate-50">
+              <div className="absolute top-3 right-6 text-[9px] font-mono text-slate-400 pointer-events-none uppercase tracking-widest">
+                Markdown Editor // RAW_CONTENT
+              </div>
+              <textarea 
+                value={assetContent}
+                onChange={(e) => setAssetContent(e.target.value)}
+                className="w-full h-full bg-transparent text-slate-800 p-8 font-mono text-sm leading-relaxed outline-none resize-none selection:bg-primary/20"
+                spellCheck={false}
+              />
+            </div>
+
+            <div className="p-4 border-t border-gray-100 flex justify-between items-center bg-white">
+              <div className="text-[10px] font-mono text-slate-400 uppercase tracking-widest px-2">
+                {assetContent.length} Characters • UTF-8
+              </div>
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => setEditingAsset(null)}
+                  className="px-6 py-2 text-[10px] font-heading font-black text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-[0.1em]"
+                >
+                  DISCARD_CHANGES
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveContent}
+                  disabled={isSaving}
+                  className="px-10 py-2.5 bg-primary text-white text-[10px] font-heading font-black hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 uppercase tracking-[0.15em] shadow-lg shadow-primary/20"
+                >
+                  {isSaving ? "SAVING..." : "SAVE_ALL_CHANGES"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {(selectedAsset || isAdding) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200">
@@ -152,18 +251,18 @@ export function RegistryFeature() {
   );
 }
 
-function AssetCard({ asset, onConfig }: { asset: RegistryAsset; onConfig: () => void }) {
+function AssetCard({ asset, onConfig, onEdit }: { asset: RegistryAsset; onConfig: () => void; onEdit: () => void }) {
   const { name, type, version } = asset;
   return (
     <div
-      className="panel group hover:border-primary transition-colors"
+      className="panel group hover:border-primary transition-all duration-300 border-gray-200 bg-white"
       data-label={type.toUpperCase()}
     >
       <div className="flex items-start justify-between">
-        <div className="p-2 bg-gray-50 text-gray-400 group-hover:text-primary transition-colors">
+        <div className="p-2 bg-gray-50 text-gray-400 group-hover:text-white group-hover:bg-primary transition-all">
           {type === "skill" ? <Package size={20} /> : <Shield size={20} />}
         </div>
-        <div className="text-[10px] font-mono text-gray-300">v{version}</div>
+        <div className="text-[10px] font-mono text-gray-300">v{version || "1.0.0"}</div>
       </div>
       <div className="mt-4">
         <div className="text-xs font-heading font-black truncate">{name}</div>
@@ -177,7 +276,9 @@ function AssetCard({ asset, onConfig }: { asset: RegistryAsset; onConfig: () => 
           </button>
           <button
             type="button"
-            className="p-1.5 border border-gray-200 hover:bg-red-50 hover:text-red-500 transition-colors"
+            onClick={onEdit}
+            className="p-1.5 border border-gray-200 hover:bg-slate-50 hover:text-primary hover:border-primary transition-all active:scale-90"
+            title="EDIT_CONTENT"
           >
             <Settings size={14} />
           </button>

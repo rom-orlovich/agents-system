@@ -646,8 +646,12 @@ class DashboardApp {
             btn.classList.toggle('active', btn.textContent.toLowerCase().includes(tab));
         });
         document.querySelectorAll('.registry-content').forEach(content => {
-            content.classList.toggle('active', content.id === `registry-${tab}`);
+            content.classList.remove('active');
         });
+        const activeContent = document.getElementById(`registry-${tab}`);
+        if (activeContent) {
+            activeContent.classList.add('active');
+        }
     }
 
     async loadSkills() {
@@ -663,10 +667,12 @@ class DashboardApp {
             }
 
             container.innerHTML = skills.map(skill => `
-                <div class="registry-item">
+                <div class="registry-item" onclick="app.editAsset('skills', '${skill.name}')" style="cursor: pointer;">
                     <div class="registry-item-header">
                         <h4>${skill.name}</h4>
-                        ${skill.is_builtin ? '<span class="badge">Built-in</span>' : `<button onclick="app.deleteSkill('${skill.name}')" class="delete-btn">Delete</button>`}
+                        <div class="registry-item-actions">
+                            ${skill.is_builtin ? '<span class="badge">Built-in</span>' : `<button onclick="event.stopPropagation(); app.deleteSkill('${skill.name}')" class="delete-btn-small">Delete</button>`}
+                        </div>
                     </div>
                     <p>${skill.description}</p>
                     <small>Path: ${skill.path}</small>
@@ -692,10 +698,12 @@ class DashboardApp {
             }
 
             container.innerHTML = agents.map(agent => `
-                <div class="registry-item">
+                <div class="registry-item" onclick="app.editAsset('agents', '${agent.name}')" style="cursor: pointer;">
                     <div class="registry-item-header">
                         <h4>${agent.name}</h4>
-                        ${agent.is_builtin ? '<span class="badge">Built-in</span>' : `<button onclick="app.deleteAgent('${agent.name}')" class="delete-btn">Delete</button>`}
+                        <div class="registry-item-actions">
+                            ${agent.is_builtin ? '<span class="badge">Built-in</span>' : `<button onclick="event.stopPropagation(); app.deleteAgent('${agent.name}')" class="delete-btn-small">Delete</button>`}
+                        </div>
                     </div>
                     <p>${agent.description}</p>
                     <small>Type: ${agent.agent_type} | Path: ${agent.path}</small>
@@ -846,6 +854,65 @@ class DashboardApp {
         } catch (error) {
             console.error('Failed to delete agent:', error);
             this.showNotification('Delete failed: Network error', 'error');
+        }
+    }
+
+    async editAsset(type, name) {
+        try {
+            const response = await fetch(`/api/registry/${type}/${name}/content`);
+            const data = await response.json();
+
+            if (response.ok) {
+                this.currentEditingAsset = { type, name };
+                document.getElementById('edit-file-title').textContent = `EDIT_${type.toUpperCase().slice(0, -1)}: ${name.toUpperCase()}`;
+                document.getElementById('edit-file-content').value = data.content;
+                document.getElementById('edit-file-modal').classList.remove('hidden');
+            } else {
+                this.showNotification(`Failed to load content: ${data.detail || 'Unknown error'}`, 'error');
+            }
+        } catch (error) {
+            console.error('Failed to load asset content:', error);
+            this.showNotification('Failed to load content', 'error');
+        }
+    }
+
+    hideEditFile() {
+        document.getElementById('edit-file-modal').classList.add('hidden');
+        this.currentEditingAsset = null;
+    }
+
+    async saveFileContent() {
+        if (!this.currentEditingAsset) return;
+
+        const { type, name } = this.currentEditingAsset;
+        const content = document.getElementById('edit-file-content').value;
+
+        try {
+            const response = await fetch(`/api/registry/${type}/${name}/content`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: name,
+                    type: type.slice(0, -1),
+                    content: content
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                this.showNotification('Asset updated successfully!');
+                this.hideEditFile();
+                if (type === 'skills') await this.loadSkills();
+                else await this.loadAgents();
+            } else {
+                this.showNotification(`Update failed: ${data.detail || 'Unknown error'}`, 'error');
+            }
+        } catch (error) {
+            console.error('Failed to update asset:', error);
+            this.showNotification('Update failed: Network error', 'error');
         }
     }
 

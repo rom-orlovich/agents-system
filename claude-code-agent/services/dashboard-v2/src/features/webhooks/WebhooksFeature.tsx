@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { Activity, Globe, Plus, RefreshCw } from "lucide-react";
 import { useWebhooks, type Webhook } from "./hooks/useWebhooks";
+import { CreateWebhookModal } from "./CreateWebhookModal";
 
 export function WebhooksFeature() {
-  const { webhooks, events, isLoading, refreshEvents } = useWebhooks();
+  const { webhooks, events, isLoading, refreshEvents, createWebhook } = useWebhooks();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   if (isLoading) return <div className="p-8 text-center font-heading">SYNCING_LISTENERS...</div>;
 
@@ -23,6 +26,7 @@ export function WebhooksFeature() {
           <div className="flex gap-2">
             <button
               type="button"
+              onClick={() => setIsModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 border border-gray-200 hover:bg-gray-50 text-[10px] font-heading transition-colors"
             >
               <Plus size={14} /> NEW_LISTENER
@@ -88,6 +92,13 @@ export function WebhooksFeature() {
           ))}
         </div>
       </section>
+      <CreateWebhookModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={async (data) => {
+           await createWebhook.mutateAsync(data);
+        }}
+      />
     </div>
   );
 }

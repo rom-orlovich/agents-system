@@ -30,12 +30,16 @@ class DailyCostsResponse(BaseModel):
     dates: List[str]
     costs: List[float]
     task_counts: List[int]
+    tokens: List[int]
+    avg_latency: List[float]
+    error_counts: List[int]
 
 
 class SubagentCostsResponse(BaseModel):
     """Subagent costs response for Chart.js."""
     subagents: List[str]
     costs: List[float]
+    task_counts: List[int]
 
 
 @router.get("/summary")
@@ -74,13 +78,19 @@ async def get_daily_costs(
     days: int = Query(30, ge=1, le=365),
     db: AsyncSession = Depends(get_db_session)
 ) -> DailyCostsResponse:
-    """Get daily cost aggregation."""
+    """Get daily cost aggregation with extended metrics."""
     start_date = datetime.utcnow() - timedelta(days=days)
     
+    # We use case to count non-null errors
+    error_case = func.sum(func.case((TaskDB.error != None, 1), else_=0))
+
     query = select(
         func.date(TaskDB.created_at).label("date"),
         func.sum(TaskDB.cost_usd).label("total_cost"),
         func.count(TaskDB.task_id).label("task_count"),
+        func.sum(TaskDB.input_tokens + TaskDB.output_tokens).label("total_tokens"),
+        func.avg(TaskDB.duration_seconds).label("avg_duration"),
+        error_case.label("error_count")
     ).where(
         TaskDB.created_at >= start_date
     ).group_by(
@@ -96,6 +106,9 @@ async def get_daily_costs(
         dates=[str(r.date) for r in rows],
         costs=[float(r.total_cost or 0) for r in rows],
         task_counts=[int(r.task_count) for r in rows],
+        tokens=[int(r.total_tokens or 0) for r in rows],
+        avg_latency=[float(r.avg_duration or 0) * 1000 for r in rows], # Convert to ms
+        error_counts=[int(r.error_count or 0) for r in rows],
     )
 
 
@@ -110,6 +123,7 @@ async def get_costs_by_subagent(
     query = select(
         TaskDB.assigned_agent,
         func.sum(TaskDB.cost_usd).label("total_cost"),
+        func.count(TaskDB.task_id).label("task_count"),
     ).where(
         TaskDB.created_at >= start_date
     ).group_by(
@@ -124,4 +138,5 @@ async def get_costs_by_subagent(
     return SubagentCostsResponse(
         subagents=[r.assigned_agent or "unknown" for r in rows],
         costs=[float(r.total_cost or 0) for r in rows],
+        task_counts=[int(r.task_count) for r in rows],
     )
