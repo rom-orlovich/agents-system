@@ -39,11 +39,13 @@ A self-managing machine where FastAPI runs as a daemon and Claude Code CLI is sp
 
 - 🧠 **Brain Orchestrator**: Main Claude CLI instance that manages sub-agents
 - 💬 **Persistent Conversations**: Inbox-style UI with context awareness
-- 📡 **Unified Webhooks**: Fully configurable GitHub, Jira, Slack integration
-- 🔄 **Dynamic Sub-Agents**: Planning and Executor agents spawned on-demand
+- 📡 **Unified Webhooks**: Fully configurable GitHub, Jira, Slack, Sentry integration
+- 🔄 **Specialized Agents**: Planning, Executor, Service Integrator, Self-Improvement, Agent Creator, Skill Creator
 - 📊 **Cost Tracking**: Per-task and per-session cost monitoring
 - 🗄️ **Dual Storage**: Redis (queue/cache) + SQLite (persistence)
 - 🔌 **Extensible**: Create webhooks, agents, and skills dynamically
+- 🧪 **TDD Workflow**: Full test-driven development with E2E validation
+- 🔗 **Service Integration**: Cross-service workflows (GitHub, Jira, Slack, Sentry)
 
 ## Quick Start
 
@@ -123,12 +125,29 @@ make restart
 ```
 claude-code-agent/
 ├── .claude/                    # Brain instructions
-│   └── agents/                 # Sub-agent definitions (.md)
+│   ├── CLAUDE.md              # Main brain configuration
+│   ├── agents/                 # Agent definitions (.md)
+│   │   ├── brain.md           # Main orchestrator
+│   │   ├── planning.md         # Analysis agent
+│   │   ├── executor.md         # Implementation agent
+│   │   ├── service-integrator.md # Service integration agent
+│   │   ├── self-improvement.md  # Code improvement agent
+│   │   ├── agent-creator.md    # Agent creation agent
+│   │   └── skill-creator.md    # Skill creation agent
+│   └── skills/                 # Reusable skills
+│       ├── webhook-management/ # Webhook operations
+│       ├── testing/            # TDD workflow
+│       ├── github-operations/  # GitHub integration
+│       ├── jira-operations/    # Jira integration
+│       ├── slack-operations/   # Slack integration
+│       ├── sentry-operations/  # Sentry integration
+│       └── ...                 # Other skills
 ├── api/                        # FastAPI routes
 │   ├── dashboard.py            # Dashboard API
 │   ├── conversations.py        # Conversation management
 │   ├── websocket.py            # WebSocket endpoint
-│   └── webhooks.py             # Webhook handlers
+│   ├── webhooks.py             # Webhook handlers
+│   └── ...                     # Other API endpoints
 ├── core/                       # Core logic
 │   ├── config.py               # Configuration
 │   ├── cli_runner.py           # Claude CLI executor
@@ -140,8 +159,8 @@ claude-code-agent/
 ├── workers/                    # Background workers
 │   └── task_worker.py          # Task processor
 ├── services/                   # Services
-│   └── dashboard/              # Dashboard frontend
-├── skills/                     # Brain skills
+│   ├── dashboard/              # Dashboard frontend (v1)
+│   └── dashboard-v2/            # Dashboard frontend (v2 - React)
 ├── tests/                      # Test suite
 ├── data/                       # Persistent data (mapped to /data)
 ├── main.py                     # Application entry
@@ -149,6 +168,27 @@ claude-code-agent/
 ├── Dockerfile                  # Container image
 └── docker-compose.yml          # Multi-container setup
 ```
+
+## Business Logic & Domain Models
+
+All business rules are enforced in Pydantic models (`shared/machine_models.py`):
+
+### 1. Task Model - Task Lifecycle Management
+- Status transitions: `QUEUED → RUNNING → COMPLETED/FAILED/CANCELLED`
+- Automatic timing and duration calculation
+- Cost and token usage tracking
+
+### 2. Conversation Model - Persistent Chat History
+- `ConversationDB`: Title, user_id, updated_at
+- `ConversationMessageDB`: Role (user/assistant), content, metadata
+- Automatic context retrieval for agent prompts (last 20 messages)
+
+### 3. Session Model - User Session Tracking
+- Tracks total cost and active tasks per user session
+
+### 4. Webhook Models - Dynamic Configuration
+- `WebhookConfig`: Provider, secret, enabled status
+- `WebhookCommand`: Trigger, action, template, priority
 
 ## Core Components
 
@@ -158,23 +198,58 @@ The Brain is the main Claude CLI instance that:
 - Manages sub-agents
 - Handles simple queries directly
 - Routes complex tasks to specialized agents
-- Manages system configuration
+- Manages system configuration and webhooks
 
-**Location**: `/app/.claude/CLAUDE.md`
+**Location**: `.claude/agents/brain.md`  
+**Model**: opus  
+**Skills**: webhook-management
 
-### 2. Sub-Agents
+### 2. Specialized Agents
 
 #### Planning Agent
 - Analyzes bugs and issues
-- Creates fix plans (PLAN.md)
+- Creates detailed fix plans (PLAN.md)
 - Does NOT implement code
-- **Location**: `.claude/agents/planning.md`
+- **Location**: `.claude/agents/planning.md`  
+**Model**: opus  
+**Tools**: Read-only (Read, Grep, FindByName, ListDir)
 
 #### Executor Agent
-- Implements code changes
-- Runs tests and builds
+- Implements code changes following TDD workflow
+- Runs tests (unit, integration, E2E)
 - Creates pull requests
-- **Location**: `.claude/agents/executor.md`
+- **Location**: `.claude/agents/executor.md`  
+**Model**: sonnet  
+**Skills**: testing  
+**Workflow**: Red → Green → Refactor → Resilience → Acceptance → Regression → E2E
+
+#### Service Integrator Agent
+- Integrates with external services (GitHub, Jira, Slack, Sentry)
+- Orchestrates cross-service workflows
+- **Location**: `.claude/agents/service-integrator.md`  
+**Model**: sonnet  
+**Skills**: github-operations, jira-operations, slack-operations, sentry-operations
+
+#### Self-Improvement Agent
+- Analyzes codebase for patterns and improvements
+- Identifies refactoring opportunities
+- **Location**: `.claude/agents/self-improvement.md`  
+**Model**: sonnet  
+**Skills**: pattern-learner, refactoring-advisor
+
+#### Agent Creator Agent
+- Creates new agents with proper configuration
+- Validates agent structure and frontmatter
+- **Location**: `.claude/agents/agent-creator.md`  
+**Model**: sonnet  
+**Skills**: agent-generator
+
+#### Skill Creator Agent
+- Creates new skills following best practices
+- Validates skill structure and organization
+- **Location**: `.claude/agents/skill-creator.md`  
+**Model**: sonnet  
+**Skills**: skill-generator
 
 ### 3. Task Worker
 
@@ -184,19 +259,69 @@ Processes tasks from Redis queue:
 3. Streams output to WebSocket
 4. Saves results to database
 
+## Process Flows
+
+### Dashboard Chat Flow
+1. User selects/creates a **Conversation**
+2. User sends message via Dashboard
+3. Message saved to `ConversationMessageDB`
+4. **Context** (last 20 messages) retrieved and formatted
+5. **Task** created in SQLite (status=QUEUED)
+6. Task ID pushed to **Redis Queue**
+7. **TaskWorker** pops task, marks as RUNNING
+8. Claude CLI spawned in `app_dir`
+9. Output streamed real-time via **WebSocket** and buffered in Redis
+10. Task completes; results saved; status updated to COMPLETED
+11. Response added back to **Conversation**
+
+### Unified Webhook Flow
+1. Webhook received (e.g., `/webhooks/github/webhook-123`)
+2. HMAC signature verified (if configured)
+3. Payload matched against **WebhookCommands**
+4. Actions executed in **Priority Order**:
+   - `github_reaction`: Add 👀 or 👍
+   - `github_label`: Add labels like "bot-processing"
+   - `create_task`: Create agent task with template rendering
+   - `comment`: Post acknowledgment back to source
+5. TaskWorker processes created tasks as usual
+
 ### 4. Dashboard
 
-Real-time web interface:
-- Chat with Brain
-- Monitor active tasks
-- View costs and metrics
-- Manage agents and webhooks
+Real-time web interface with persistent conversation system:
+- **Chat with Brain**: Inbox-style interface with full history
+- **Persistent Context**: Agent automatically remembers last 20 messages
+- **Task Linking**: Every message linked to underlying task for traceability
+- **Monitor active tasks**: Real-time status updates
+- **View costs and metrics**: Per-task and per-session tracking
+- **Manage agents and webhooks**: Dynamic configuration
 
 **Access**: `http://localhost:8000`
 
-### 5. Webhooks
+#### Conversation Features
+- **Inbox Sidebar**: Create, rename, delete, and switch between multiple conversations
+- **Context Awareness**: The agent remembers conversation history automatically
+- **Traceability**: Click on any message to view execution details and logs
+- **UI Usage**: Found in the **Chat** tab; click **➕** to start a new thread
 
-Handle external events:
+### 5. Unified Webhook System
+
+A powerful, user-configurable webhook system for GitHub, Jira, Slack, and generic sources.
+
+#### Supported Actions
+- `create_task`: Queue a task for an agent (Planning, Executor, Brain)
+- `comment`: Post a response message back to the provider
+- `github_reaction`: Add reactions (👀, 👍, etc.) to GitHub comments
+- `github_label`: Automatically label GitHub issues/PRs
+- `ask`: Request clarification from a user
+- `forward`: Send event data to another service
+
+#### Pre-built Templates
+- **GitHub Issue Tracking**: Auto-triage, label, and analyze new issues
+- **GitHub PR Review**: Automated code review on PR open
+- **GitHub Mention Bot**: Respond to `@agent` mentions in comments
+- **Jira Sync**: Automatically create agent tasks from Jira tickets
+
+#### Webhook Endpoints
 - **GitHub**: `/webhooks/github` - Issues, PRs, comments
 - **Jira**: `/webhooks/jira` - Ticket updates
 - **Sentry**: `/webhooks/sentry` - Error alerts
@@ -402,11 +527,12 @@ docker stack deploy -c docker-compose.yml claude-agent
 
 ## Architecture Principles
 
-1. **Pydantic Everywhere**: All domain logic enforced via Pydantic models
+1. **Pydantic Everywhere**: All business logic enforced via Pydantic models
 2. **On-Demand CLI**: Claude CLI spawned per request, not always running
-3. **Type Safety**: Full typing with mypy strict mode
-4. **Asyncio Native**: All I/O operations are async
-5. **TDD**: Tests for business logic first
+3. **Delegation Pattern**: Brain delegates complex tasks to specialized agents
+4. **Type Safety**: Full typing with mypy strict mode
+5. **Asyncio Native**: All I/O operations are async
+6. **TDD**: Tests for business logic first
 
 ## Contributing
 

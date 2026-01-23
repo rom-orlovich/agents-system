@@ -1,8 +1,8 @@
-# Orchestration Agent Architecture
+# Agent Architecture
 
 ## Overview
 
-The **Brain agent** delegates all background operations to specialized subagents through an **Orchestration Agent**. This creates a clean separation of concerns and enables parallel task execution.
+The **Brain agent** coordinates all operations by delegating to specialized agents. Each agent has a specific role and set of capabilities, creating a clean separation of concerns and enabling efficient task execution.
 
 ---
 
@@ -11,511 +11,326 @@ The **Brain agent** delegates all background operations to specialized subagents
 ```
 User Request
      ↓
-Brain Agent (CLAUDE.md)
+Brain Agent (.claude/agents/brain.md)
      ↓
-Orchestration Agent (.claude/CLAUDE.md + orchestration skill)
-     ↓
-├─→ Webhook Management Subagent
-├─→ Skill Management Subagent  
-├─→ Agent Management Subagent
-├─→ Database Operations Subagent
-├─→ API Integration Subagent
-└─→ Monitoring Subagent
+├─→ Planning Agent (analysis, planning)
+├─→ Executor Agent (implementation, TDD)
+├─→ Service Integrator Agent (external services)
+├─→ Self-Improvement Agent (code analysis)
+├─→ Agent Creator Agent (create agents)
+└─→ Skill Creator Agent (create skills)
 ```
 
 ---
 
-## Brain Agent Structure
+## Brain Agent
 
-### **File: `.claude/CLAUDE.md`**
+### **File: `.claude/agents/brain.md`**
 
-```markdown
-# Brain Agent
+The Brain is the main orchestrator that:
+- Analyzes user requests
+- Routes to appropriate specialized agents
+- Manages system operations (webhooks via webhook-management skill)
+- Coordinates multi-agent workflows
 
-You are the Brain - the central intelligence coordinating all operations.
+**Configuration:**
+- **Model**: opus
+- **Tools**: Read, Write, Edit, Grep, FindByName, ListDir, Bash
+- **Skills**: webhook-management
+- **Permission Mode**: acceptEdits
 
-## Your Role
-
-You **analyze** user requests and **delegate** to specialized subagents.
-You **never** perform operations directly - you orchestrate.
-
-## Available Subagents
-
-- **orchestration** - Coordinates all background operations
-- **planning** - Creates detailed fix plans
-- **executor** - Implements code changes
-
-## Decision Flow
+### Delegation Pattern
 
 1. **Understand** user request
-2. **Determine** which subagent(s) needed
-3. **Delegate** to orchestration agent
+2. **Identify** required agent(s)
+3. **Delegate** with clear context
 4. **Monitor** progress
-5. **Report** results to user
+5. **Aggregate** results
+6. **Report** back to user
 
-## Examples
+### When to Delegate
 
-User: "Create a webhook for GitHub"
-→ Delegate to: orchestration (webhook-management)
-
-User: "Upload a new skill"
-→ Delegate to: orchestration (skill-management)
-
-User: "Show me all webhook events"
-→ Delegate to: orchestration (monitoring)
-
-## Skills Available
-
-- `orchestration` - Background operations management
-- `webhook-management` - Webhook CRUD operations
-- `skill-management` - Skill upload/delete
-- `agent-management` - Agent configuration
-```
+- **Analysis/Planning** → `planning` agent
+- **Implementation** → `executor` agent
+- **Service Integration** → `service-integrator` agent
+- **Code Improvement** → `self-improvement` agent
+- **Create Agents** → `agent-creator` agent
+- **Create Skills** → `skill-creator` agent
+- **Webhook Management** → Handle directly via webhook-management skill
 
 ---
 
-## Orchestration Agent
+## Specialized Agents
 
-### **Directory Structure**
+### Planning Agent
 
-```
-.claude/agents/
-├── orchestration.md        # Orchestration sub-agent definition
-├── planning.md             # Planning sub-agent definition
-└── executor.md             # Executor sub-agent definition
+**File**: `.claude/agents/planning.md`
 
-agents/orchestration/skills/
-    ├── webhook-management/
-    │   ├── SKILL.md
-    │   └── scripts/
-    │       ├── create_webhook.py
-    │       ├── edit_command.py
-    │       └── test_webhook.py
-    ├── skill-management/
-    │   ├── SKILL.md
-    │   └── scripts/
-    │       └── upload_skill.py
-    ├── agent-management/
-    │   ├── SKILL.md
-    │   └── scripts/
-    │       └── configure_agent.py
-    └── monitoring/
-        ├── SKILL.md
-        └── scripts/
-            └── query_events.py
-```
+**Purpose**: Analyzes issues and creates detailed fix plans
 
-### **File: `.claude/agents/orchestration.md`**
+**Capabilities:**
+- Root cause analysis
+- Creates PLAN.md files
+- Identifies affected components
+- Defines testing strategy
+- Does NOT implement code
 
-```markdown
-# Orchestration Agent
+**Configuration:**
+- **Model**: opus
+- **Tools**: Read, Grep, FindByName, ListDir, Bash (read-only)
+- **Permission Mode**: default (read-only)
 
-You coordinate all background operations for the Brain agent.
+### Executor Agent
 
-## Your Responsibilities
+**File**: `.claude/agents/executor.md`
 
-1. **Webhook Operations**
-   - Create, edit, delete webhooks
-   - Configure commands and triggers
-   - Test webhook endpoints
-   - Monitor webhook events
+**Purpose**: Implements code changes following strict TDD workflow
 
-2. **Skill Operations**
-   - Upload new skills
-   - Update existing skills
-   - Delete user skills
-   - Validate skill structure
+**Capabilities:**
+- Test-driven development (Red → Green → Refactor)
+- Resilience testing
+- Acceptance validation
+- Regression prevention
+- E2E testing
+- Creates pull requests
 
-3. **Agent Operations**
-   - Configure agent settings
-   - Upload new agents
-   - Manage agent permissions
+**Configuration:**
+- **Model**: sonnet
+- **Tools**: Read, Write, Edit, MultiEdit, Grep, FindByName, ListDir, Bash
+- **Skills**: testing
+- **Permission Mode**: acceptEdits
+- **Hooks**: Bash validation, post-edit linting
 
-4. **Database Operations**
-   - Query data
-   - Generate reports
-   - Clean up old data
+**TDD Workflow:**
+1. **Red**: Create failing tests
+2. **Green**: Implement minimum code
+3. **Refactor**: Improve code
+4. **Resilience**: Add error handling
+5. **Acceptance**: Validate criteria
+6. **Regression**: Ensure no regressions
+7. **E2E**: Validate complete workflows
 
-5. **API Integration**
-   - Call external APIs
-   - Handle authentication
-   - Process responses
+### Service Integrator Agent
 
-6. **Monitoring**
-   - Track system health
-   - Monitor webhook events
-   - Generate alerts
+**File**: `.claude/agents/service-integrator.md`
 
-## Available Skills
+**Purpose**: Integrates with external services and orchestrates cross-service workflows
 
-### webhook-management
-Use for: Creating, editing, testing webhooks
-Scripts: create_webhook.py, edit_command.py, test_webhook.py
+**Capabilities:**
+- GitHub operations (issues, PRs, releases)
+- Jira operations (tickets, sprints)
+- Slack operations (messages, notifications)
+- Sentry operations (errors, releases)
+- Cross-service workflows
 
-### skill-management
-Use for: Uploading, managing skills
-Scripts: upload_skill.py, validate_skill.py
+**Configuration:**
+- **Model**: sonnet
+- **Tools**: Read, Grep, Bash
+- **Skills**: github-operations, jira-operations, slack-operations, sentry-operations
+- **Permission Mode**: default
+- **Context**: fork
 
-### agent-management
-Use for: Configuring agents
-Scripts: configure_agent.py, upload_agent.py
+**Common Workflows:**
+- Incident response (Sentry → Jira → GitHub → Slack)
+- Release coordination (GitHub → Sentry → Jira → Slack)
+- Bug fix workflow (Jira → GitHub → Slack)
+- Status aggregation across services
 
-### monitoring
-Use for: System monitoring, event tracking
-Scripts: query_events.py, health_check.py
+### Self-Improvement Agent
 
-## Execution Pattern
+**File**: `.claude/agents/self-improvement.md`
 
-1. **Receive** delegation from Brain
-2. **Select** appropriate skill
-3. **Execute** operation using skill scripts
-4. **Validate** results
-5. **Report** back to Brain
+**Purpose**: Analyzes codebase for patterns and improvement opportunities
 
-## Tools Available
+**Capabilities:**
+- Pattern learning
+- Code quality analysis
+- Refactoring suggestions
+- Technical debt tracking
 
-- Read, Write, Edit - File operations
-- Bash - Execute scripts
-- API calls - HTTP requests
+**Configuration:**
+- **Model**: sonnet
+- **Tools**: Read, Edit, Grep, FindByName, ListDir, Bash
+- **Skills**: pattern-learner, refactoring-advisor
+- **Permission Mode**: acceptEdits
+- **Context**: fork
 
-## Example Workflows
+### Agent Creator Agent
 
-### Create Webhook
-1. Receive request: "Create GitHub webhook for issue tracking"
-2. Use webhook-management skill
-3. Call create_webhook.py with parameters
-4. Validate webhook created
-5. Test webhook endpoint
-6. Report webhook URL to Brain
+**File**: `.claude/agents/agent-creator.md`
 
-### Upload Skill
-1. Receive request: "Upload data-analyzer skill"
-2. Use skill-management skill
-3. Validate SKILL.md exists
-4. Call upload_skill.py
-5. Verify files in /data/config/skills/
-6. Report success to Brain
-```
+**Purpose**: Creates new agents with proper configuration and validation
 
----
+**Capabilities:**
+- Validates agent structure
+- Generates proper frontmatter
+- Configures hooks and permissions
+- Ensures best practices
 
-## Subagent Delegation Pattern
+**Configuration:**
+- **Model**: sonnet
+- **Tools**: Read, Write, Edit, Grep
+- **Skills**: agent-generator
+- **Permission Mode**: acceptEdits
 
-### **Example: Webhook Creation**
+### Skill Creator Agent
 
-**User Request:**
-```
-"Create a Jira webhook that triggers when issues are assigned to AI Agent"
-```
+**File**: `.claude/agents/skill-creator.md`
 
-**Brain Agent (Step 1: Analyze)**
-```
-User wants: Jira webhook with assignee trigger
-Required: Webhook creation + command configuration
-Delegate to: orchestration agent
-```
+**Purpose**: Creates new skills following best practices
 
-**Brain → Orchestration Agent:**
-```
-Task: Create Jira webhook
-Parameters:
-  - Provider: Jira
-  - Trigger: issues.assigned
-  - Condition: assignee == "AI Agent"
-  - Action: create_task
-  - Agent: planning
-```
+**Capabilities:**
+- Validates skill structure
+- Generates proper documentation
+- Organizes examples and scripts
+- Ensures consistency
 
-**Orchestration Agent (Step 2: Execute)**
-```
-1. Load webhook-management skill
-2. Execute create_webhook.py:
-   - Call POST /api/webhooks
-   - Configure assignee trigger
-   - Set up auto-comment
-   - Test webhook
-3. Validate webhook active
-4. Return webhook_id and endpoint
-```
-
-**Orchestration → Brain:**
-```
-✓ Webhook created: jira-assignee-001
-✓ Endpoint: /webhooks/jira/jira-assignee-001
-✓ Command configured: assignee trigger
-✓ Test passed
-```
-
-**Brain → User:**
-```
-I've created a Jira webhook that triggers when issues are assigned to "AI Agent".
-
-Webhook endpoint: /webhooks/jira/jira-assignee-001
-
-When an issue is assigned to AI Agent:
-1. A planning task will be created
-2. The bot will comment: "I've been assigned and will analyze this ticket"
-
-The webhook is active and tested.
-```
+**Configuration:**
+- **Model**: sonnet
+- **Tools**: Read, Write, Edit, Grep
+- **Skills**: skill-generator
+- **Permission Mode**: acceptEdits
 
 ---
 
-## Skill Structure for Orchestration
+## Skills System
 
-### **webhook-management/SKILL.md**
+Skills are reusable knowledge modules that agents can invoke. Skills contain:
+- **SKILL.md**: Instructions and capabilities
+- **examples.md**: Code examples (optional)
+- **scripts/**: Helper scripts (optional)
+- **reference.md**: Detailed reference (optional)
 
-```markdown
-# Webhook Management Skill
+### Available Skills
 
-Manages webhook lifecycle operations.
-
-## Capabilities
-
-- Create webhooks with custom configurations
-- Edit webhook commands and triggers
-- Configure bot mention tags
-- Set up assignee triggers
-- Test webhooks before deployment
-- Monitor webhook events
-- Delete webhooks
-
-## Scripts
-
-### create_webhook.py
-Creates a new webhook configuration.
-
-Usage:
-```bash
-python create_webhook.py \
-  --provider github \
-  --name "GitHub Issues" \
-  --triggers "issues.opened,issue_comment.created" \
-  --mention-tags "@agent,@bot"
-```
-
-### edit_command.py
-Edits an existing webhook command.
-
-Usage:
-```bash
-python edit_command.py \
-  --webhook-id webhook-123 \
-  --command-id cmd-456 \
-  --trigger "issues.assigned" \
-  --condition "assignee:AI Agent"
-```
-
-### test_webhook.py
-Tests a webhook with sample payload.
-
-Usage:
-```bash
-python test_webhook.py \
-  --webhook-id webhook-123 \
-  --event-type "issues.opened" \
-  --payload-file sample.json
-```
-
-## API Endpoints Used
-
-- POST /api/webhooks - Create webhook
-- PUT /api/webhooks/{id} - Update webhook
-- POST /api/webhooks/{id}/commands - Add command
-- PUT /api/webhooks/{id}/commands/{cmd_id} - Edit command
-- POST /api/webhooks/{id}/test - Test webhook
-- DELETE /api/webhooks/{id} - Delete webhook
-
-## Configuration Options
-
-### Mention Tags
-Configure which @mentions trigger the bot:
-- @agent
-- @ai-assistant
-- @bot
-- Custom tags
-
-### Assignee Triggers
-Configure which assignees trigger actions:
-- AI Agent
-- automation-bot
-- Custom usernames
-
-### Trigger Conditions
-- Event type (issues.opened, pr.created, etc.)
-- Field conditions (label, status, assignee)
-- Pattern matching (regex, contains, equals)
-
-## Examples
-
-### Example 1: GitHub Mention Webhook
-```python
-create_webhook(
-    provider="github",
-    name="GitHub Mentions",
-    mention_tags=["@agent", "@bot"],
-    commands=[{
-        "trigger": "issue_comment.created",
-        "condition": "body contains @agent",
-        "action": "create_task",
-        "agent": "planning"
-    }]
-)
-```
-
-### Example 2: Jira Assignee Webhook
-```python
-create_webhook(
-    provider="jira",
-    name="Jira Assignee",
-    assignee_triggers=["AI Agent"],
-    commands=[{
-        "trigger": "issues.assigned",
-        "condition": "assignee == 'AI Agent'",
-        "action": "ask",
-        "agent": "brain"
-    }]
-)
-```
-```
+- **webhook-management**: Webhook CRUD operations
+- **testing**: TDD workflow and test patterns
+- **github-operations**: GitHub CLI and API operations
+- **jira-operations**: Jira CLI and API operations
+- **slack-operations**: Slack API operations
+- **sentry-operations**: Sentry CLI operations
+- **agent-generator**: Agent creation utilities
+- **skill-generator**: Skill creation utilities
+- **pattern-learner**: Pattern identification
+- **refactoring-advisor**: Refactoring guidance
+- **claude-config-updater**: Configuration management
 
 ---
 
-## Benefits of Orchestration Pattern
+## Delegation Examples
 
-### **1. Separation of Concerns**
-- Brain focuses on understanding user intent
-- Orchestration handles execution details
-- Specialized subagents for specific domains
+### Example 1: Bug Fix Workflow
 
-### **2. Parallel Execution**
+**User**: "Fix the login bug"
+
+**Brain → Planning Agent:**
 ```
-Brain delegates multiple tasks:
-├─→ Orchestration: Create webhook (async)
-├─→ Orchestration: Upload skill (async)
-└─→ Orchestration: Query events (async)
-     ↓
-All execute in parallel
-     ↓
-Results aggregated and reported
+Analyze the login bug and create a fix plan.
 ```
 
-### **3. Maintainability**
-- Each subagent has clear responsibilities
+**Planning Agent:**
+- Investigates issue
+- Creates PLAN.md with root cause and strategy
+
+**Brain → Executor Agent:**
+```
+Implement the fix based on PLAN.md using TDD workflow.
+```
+
+**Executor Agent:**
+- Creates failing tests
+- Implements fix
+- Runs full test suite
+- Creates PR
+
+### Example 2: Service Integration
+
+**User**: "Create a Jira ticket for this Sentry error"
+
+**Brain → Service Integrator Agent:**
+```
+Create a Jira ticket from Sentry error XYZ.
+Include error details and stack trace.
+```
+
+**Service Integrator Agent:**
+- Fetches Sentry error details
+- Creates Jira ticket with proper formatting
+- Links Sentry error to Jira ticket
+
+### Example 3: Webhook Creation
+
+**User**: "Create a GitHub webhook for issue tracking"
+
+**Brain** (handles directly via webhook-management skill):
+- Uses webhook-management skill
+- Creates webhook configuration
+- Sets up triggers and commands
+- Tests webhook endpoint
+
+### Example 4: Multi-Agent Workflow
+
+**User**: "Analyze this error, create a fix plan, implement it, and deploy"
+
+**Brain coordinates:**
+1. **Planning Agent**: Analyzes error, creates PLAN.md
+2. **Executor Agent**: Implements fix following TDD
+3. **Service Integrator Agent**: Creates GitHub PR, updates Jira
+4. **Brain**: Aggregates results and reports to user
+
+---
+
+## Benefits of Current Architecture
+
+### 1. Clear Separation of Concerns
+- Each agent has a specific role
+- Skills provide reusable capabilities
+- Brain coordinates without implementing
+
+### 2. Efficient Task Execution
+- Right agent for the right task
+- Parallel execution when possible
+- Optimized model selection (opus for complex, sonnet for standard)
+
+### 3. Maintainability
+- Agents are independent
 - Skills are modular and reusable
 - Easy to add new capabilities
 
-### **4. Testability**
-- Each subagent can be tested independently
+### 4. Testability
+- Each agent can be tested independently
 - Skills have isolated test suites
 - Clear input/output contracts
 
-### **5. Scalability**
-- Add new subagents without modifying Brain
+### 5. Scalability
+- Add new agents without modifying Brain
 - Skills can be updated independently
-- Horizontal scaling of subagents
+- Horizontal scaling support
 
 ---
 
-## Implementation Checklist
+## Agent Selection Guide
 
-### **Phase 1: Create Orchestration Agent**
-- [x] Create `.claude/agents/orchestration.md`
-- [x] Define orchestration responsibilities
-- [x] Document available skills
-
-### **Phase 2: Create Skills**
-- [ ] webhook-management skill
-- [ ] skill-management skill
-- [ ] agent-management skill
-- [ ] monitoring skill
-
-### **Phase 3: Create Scripts**
-- [ ] create_webhook.py
-- [ ] edit_command.py
-- [ ] test_webhook.py
-- [ ] upload_skill.py
-- [ ] query_events.py
-
-### **Phase 4: Update Brain Agent**
-- [ ] Update Brain CLAUDE.md with delegation pattern
-- [ ] Add orchestration agent to agents list
-- [ ] Document when to delegate
-
-### **Phase 5: Test Integration**
-- [ ] Test Brain → Orchestration delegation
-- [ ] Test skill execution
-- [ ] Test error handling
-- [ ] Test parallel execution
-
----
-
-## Example: Complete Workflow
-
-**User:** "Set up webhooks for our GitHub repo with @agent mentions and urgent label triggers"
-
-**Brain Agent:**
-```
-Analyzing request:
-- Need 2 webhooks: mentions + labels
-- Provider: GitHub
-- Delegate to: orchestration agent
-```
-
-**Brain → Orchestration:**
-```
-Task 1: Create mention webhook
-Task 2: Create label webhook
-Execute in parallel
-```
-
-**Orchestration Agent:**
-```
-Task 1 (webhook-management skill):
-  - create_webhook.py --provider github --mention-tags @agent
-  - Result: webhook-001 created
-
-Task 2 (webhook-management skill):
-  - create_webhook.py --provider github --label-trigger urgent
-  - Result: webhook-002 created
-
-Both tasks complete
-```
-
-**Orchestration → Brain:**
-```
-✓ Created 2 webhooks:
-  1. webhook-001: @agent mentions → /webhooks/github/webhook-001
-  2. webhook-002: urgent labels → /webhooks/github/webhook-002
-```
-
-**Brain → User:**
-```
-I've set up 2 GitHub webhooks for your repo:
-
-1. **Mention Webhook**
-   - Triggers when someone mentions @agent in comments
-   - Creates a planning task
-   - Endpoint: /webhooks/github/webhook-001
-
-2. **Urgent Label Webhook**
-   - Triggers when "urgent" label is added
-   - Creates high-priority planning task
-   - Endpoint: /webhooks/github/webhook-002
-
-Both webhooks are active and tested.
-```
+| Task Type | Agent | Model | Reason |
+|-----------|-------|-------|--------|
+| Analysis/Planning | planning | opus | Complex reasoning |
+| Implementation | executor | sonnet | Balanced performance |
+| Service Integration | service-integrator | sonnet | Standard operations |
+| Code Improvement | self-improvement | sonnet | Pattern analysis |
+| Create Agent | agent-creator | sonnet | Structured generation |
+| Create Skill | skill-creator | sonnet | Structured generation |
+| Webhook Management | brain | opus | Direct via skill |
 
 ---
 
 ## Summary
 
-**Orchestration Pattern:**
+**Current Architecture:**
 - ✅ Brain analyzes and delegates
-- ✅ Orchestration agent executes
-- ✅ Specialized skills for each operation
+- ✅ Specialized agents for specific domains
+- ✅ Skills provide reusable capabilities
 - ✅ Clean separation of concerns
-- ✅ Parallel execution support
+- ✅ Efficient model selection
 - ✅ Fully testable and maintainable
 
-**Brain never does operations directly - always delegates to orchestration!**
+**Brain delegates to specialized agents - never implements directly!**

@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 import structlog
 
 from core.database import get_session as get_db_session
@@ -84,7 +85,9 @@ VALID_ACTIONS = [
 async def list_webhooks(db: AsyncSession = Depends(get_db_session)):
     """List all registered webhooks."""
     try:
-        result = await db.execute(select(WebhookConfigDB))
+        result = await db.execute(
+            select(WebhookConfigDB).options(selectinload(WebhookConfigDB.commands))
+        )
         webhooks = result.scalars().all()
         
         response = []
@@ -132,7 +135,9 @@ async def create_webhook(
             )
         
         result = await db.execute(
-            select(WebhookConfigDB).where(WebhookConfigDB.name == webhook.name)
+            select(WebhookConfigDB)
+            .options(selectinload(WebhookConfigDB.commands))
+            .where(WebhookConfigDB.name == webhook.name)
         )
         existing = result.scalar_one_or_none()
         if existing:
@@ -207,7 +212,9 @@ async def get_webhook(
     """Get webhook details by ID."""
     try:
         result = await db.execute(
-            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+            select(WebhookConfigDB)
+            .options(selectinload(WebhookConfigDB.commands))
+            .where(WebhookConfigDB.webhook_id == webhook_id)
         )
         webhook = result.scalar_one_or_none()
         
@@ -252,7 +259,9 @@ async def update_webhook(
     """Update webhook configuration."""
     try:
         result = await db.execute(
-            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+            select(WebhookConfigDB)
+            .options(selectinload(WebhookConfigDB.commands))
+            .where(WebhookConfigDB.webhook_id == webhook_id)
         )
         webhook = result.scalar_one_or_none()
         
@@ -296,7 +305,9 @@ async def delete_webhook(
     """Delete webhook."""
     try:
         result = await db.execute(
-            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+            select(WebhookConfigDB)
+            .options(selectinload(WebhookConfigDB.commands))
+            .where(WebhookConfigDB.webhook_id == webhook_id)
         )
         webhook = result.scalar_one_or_none()
         
@@ -325,7 +336,9 @@ async def enable_webhook(
     """Enable webhook."""
     try:
         result = await db.execute(
-            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+            select(WebhookConfigDB)
+            .options(selectinload(WebhookConfigDB.commands))
+            .where(WebhookConfigDB.webhook_id == webhook_id)
         )
         webhook = result.scalar_one_or_none()
         
@@ -355,7 +368,9 @@ async def disable_webhook(
     """Disable webhook."""
     try:
         result = await db.execute(
-            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+            select(WebhookConfigDB)
+            .options(selectinload(WebhookConfigDB.commands))
+            .where(WebhookConfigDB.webhook_id == webhook_id)
         )
         webhook = result.scalar_one_or_none()
         
@@ -385,7 +400,9 @@ async def list_commands(
     """List all commands for a webhook."""
     try:
         result = await db.execute(
-            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+            select(WebhookConfigDB)
+            .options(selectinload(WebhookConfigDB.commands))
+            .where(WebhookConfigDB.webhook_id == webhook_id)
         )
         webhook = result.scalar_one_or_none()
         
@@ -421,7 +438,9 @@ async def add_command(
     """Add command to webhook."""
     try:
         result = await db.execute(
-            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+            select(WebhookConfigDB)
+            .options(selectinload(WebhookConfigDB.commands))
+            .where(WebhookConfigDB.webhook_id == webhook_id)
         )
         webhook = result.scalar_one_or_none()
         

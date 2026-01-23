@@ -16,7 +16,8 @@ from core import (
 from core.database import init_db
 from core.database.redis_client import redis_client
 from api import credentials, dashboard, registry, analytics, websocket, conversations
-from api import webhooks, webhooks_management, webhooks_dynamic, webhook_status
+from api import webhooks_management, webhooks_dynamic, webhook_status
+from api import subagents, container, accounts, sessions
 from workers.task_worker import TaskWorker
 
 # Setup logging
@@ -87,9 +88,14 @@ app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(registry.router, prefix="/api", tags=["registry"])
 app.include_router(webhook_status.router, prefix="/api", tags=["webhooks"])
 app.include_router(webhooks_management.router, prefix="/api", tags=["webhooks"])
-app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
 app.include_router(webhooks_dynamic.router, prefix="/webhooks", tags=["webhooks"])
 app.include_router(websocket.router, tags=["websocket"])
+
+# V2 API routers (Multi-Subagent Orchestration)
+app.include_router(subagents.router, tags=["subagents"])
+app.include_router(container.router, tags=["container"])
+app.include_router(accounts.router, tags=["accounts", "machines"])
+app.include_router(sessions.router, tags=["sessions"])
 
 # Serve static files (dashboard frontend)
 try:

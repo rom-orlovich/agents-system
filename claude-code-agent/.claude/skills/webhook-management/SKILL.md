@@ -1,111 +1,46 @@
-# Webhook Management Skill
+---
+name: webhook-management
+description: Create, edit, test, and manage webhooks for GitHub, Jira, Slack, Sentry
+user-invocable: true
+---
 
-Manages webhook lifecycle operations.
+Manages webhook lifecycle operations for GitHub, Jira, Slack, and Sentry providers.
+
+## Quick Start
+
+User invokes with: `/webhook-management create github` or similar commands.
+This skill requires explicit user invocation for safety.
 
 ## Capabilities
 
 - Create webhooks with custom configurations
-- Edit webhook commands and triggers
-- Configure bot mention tags
-- Set up assignee triggers
 - Test webhooks before deployment
+- Configure triggers and conditions
+- Set up notifications (Slack, email)
 - Monitor webhook events
-- Delete webhooks
 
-## Scripts
+## Supported Providers
 
-### create_webhook.py
-Creates a new webhook configuration.
+- **GitHub** - Issue events, PR events, mention triggers
+- **Jira** - Issue updates, comment mentions, sprint changes
+- **Slack** - Task notifications, error alerts, slash commands
+- **Sentry** - Error detection, error rate spikes, new error types
 
-Usage:
-```bash
-python create_webhook.py \
-  --provider github \
-  --name "GitHub Issues" \
-  --triggers "issues.opened,issue_comment.created" \
-  --mention-tags "@agent,@bot"
-```
+## Helper Scripts
 
-### edit_command.py
-Edits an existing webhook command.
+Scripts available in `scripts/` directory:
+- `create_webhook.py` - Create webhooks via API
+- `test_webhook.py` - Test webhooks with sample payloads
 
-Usage:
-```bash
-python edit_command.py \
-  --webhook-id webhook-123 \
-  --command-id cmd-456 \
-  --trigger "issues.assigned" \
-  --condition "assignee:AI Agent"
-```
+## Common Workflows
 
-### test_webhook.py
-Tests a webhook with sample payload.
+- **GitHub → Planning Agent** - Auto-create analysis task when @agent mentioned
+- **Jira → Executor Agent** - Start implementation when issue assigned
+- **Sentry → Investigation** - Create task when error threshold exceeded
+- **Task → Slack** - Notify team when tasks start/complete/fail
 
-Usage:
-```bash
-python test_webhook.py \
-  --webhook-id webhook-123 \
-  --event-type "issues.opened" \
-  --payload-file sample.json
-```
+## Additional Resources
 
-## API Endpoints Used
-
-- POST /api/webhooks - Create webhook
-- PUT /api/webhooks/{id} - Update webhook
-- POST /api/webhooks/{id}/commands - Add command
-- PUT /api/webhooks/{id}/commands/{cmd_id} - Edit command
-- POST /api/webhooks/{id}/test - Test webhook
-- DELETE /api/webhooks/{id} - Delete webhook
-
-## Configuration Options
-
-### Mention Tags
-Configure which @mentions trigger the bot:
-- @agent
-- @ai-assistant
-- @bot
-- Custom tags
-
-### Assignee Triggers
-Configure which assignees trigger actions:
-- AI Agent
-- automation-bot
-- Custom usernames
-
-### Trigger Conditions
-- Event type (issues.opened, pr.created, etc.)
-- Field conditions (label, status, assignee)
-- Pattern matching (regex, contains, equals)
-
-## Examples
-
-### Example 1: GitHub Mention Webhook
-```python
-create_webhook(
-    provider="github",
-    name="GitHub Mentions",
-    mention_tags=["@agent", "@bot"],
-    commands=[{
-        "trigger": "issue_comment.created",
-        "condition": "body contains @agent",
-        "action": "create_task",
-        "agent": "planning"
-    }]
-)
-```
-
-### Example 2: Jira Assignee Webhook
-```python
-create_webhook(
-    provider="jira",
-    name="Jira Assignee",
-    assignee_triggers=["AI Agent"],
-    commands=[{
-        "trigger": "issues.assigned",
-        "condition": "assignee == 'AI Agent'",
-        "action": "ask",
-        "agent": "brain"
-    }]
-)
-```
+- **Complete API reference and configurations**: See [reference.md](reference.md)
+- **Workflow examples and setup guides**: See [examples.md](examples.md)
+- **Helper scripts**: See `scripts/` directory

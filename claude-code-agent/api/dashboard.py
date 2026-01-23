@@ -411,46 +411,20 @@ async def list_agents():
 @router.get("/webhooks")
 async def list_webhooks(db: AsyncSession = Depends(get_db_session)):
     """List configured webhooks."""
-    # Get custom webhooks from database
+    # Get webhooks from database
     result = await db.execute(select(WebhookConfigDB))
-    custom_webhooks = result.scalars().all()
+    webhooks = result.scalars().all()
     
-    # Built-in webhooks
-    builtin_webhooks = [
+    return [
         {
-            "name": "github",
-            "provider": "github",
-            "endpoint": "/webhooks/github",
-            "is_builtin": True,
-            "enabled": True,
-        },
-        {
-            "name": "jira",
-            "provider": "jira",
-            "endpoint": "/webhooks/jira",
-            "is_builtin": True,
-            "enabled": True,
-        },
-        {
-            "name": "sentry",
-            "provider": "sentry",
-            "endpoint": "/webhooks/sentry",
-            "is_builtin": True,
-            "enabled": True,
-        },
-    ]
-    
-    # Add custom webhooks
-    for webhook in custom_webhooks:
-        builtin_webhooks.append({
             "name": webhook.name,
             "provider": webhook.provider,
             "endpoint": webhook.endpoint,
             "is_builtin": False,
             "enabled": webhook.enabled,
-        })
-    
-    return builtin_webhooks
+        }
+        for webhook in webhooks
+    ]
 
 
 @router.get("/webhooks/events")

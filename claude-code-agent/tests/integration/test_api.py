@@ -70,25 +70,3 @@ async def test_get_nonexistent_task(client: AsyncClient):
     assert response.status_code == 404
 
 
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_github_webhook_endpoint(client: AsyncClient):
-    """GitHub webhook endpoint accepts POST."""
-    payload = {
-        "action": "opened",
-        "issue": {
-            "number": 123,
-            "title": "Test issue",
-            "body": "Test body"
-        }
-    }
-    headers = {"X-GitHub-Event": "issues"}
-
-    response = await client.post(
-        "/webhooks/github",
-        json=payload,
-        headers=headers
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "status" in data

@@ -2,14 +2,9 @@
 
 ## Setup (One-Time)
 
-### 1. Run Database Migration
+### 1. Database Migration
 
-```bash
-cd /Users/romo/projects/agents-prod/claude-code-agent
-python scripts/migrate_add_conversations.py
-```
-
-This creates the necessary database tables for conversation management.
+The database tables for conversation management are created automatically on first startup. If you need to manually run migrations, check the `scripts/` directory for migration scripts.
 
 ### 2. Restart the Application
 
@@ -134,4 +129,6 @@ curl http://localhost:8000/api/conversations/$CONV_ID/messages
 
 ## Need Help?
 
-Check the full documentation: `docs/CONVERSATION-MANAGEMENT.md`
+- Check the main **README.md** for system overview
+- See **QUICKSTART.md** for getting started
+- Review **docs/WEBHOOK-SETUP.md** for webhook configuration

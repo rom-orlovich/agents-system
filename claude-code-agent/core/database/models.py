@@ -159,3 +159,84 @@ class ConversationMessageDB(Base):
     
     # Relationships
     conversation = relationship("ConversationDB", back_populates="messages")
+
+
+class AccountDB(Base):
+    """User account database model."""
+    __tablename__ = "accounts"
+    
+    account_id = Column(String(255), primary_key=True)  # From credential user_id
+    email = Column(String(255), nullable=True, index=True)
+    display_name = Column(String(255), nullable=True)
+    credential_status = Column(String(50), default="valid")  # valid, expired, revoked, expiring_soon
+    credential_expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    metadata_json = Column(Text, default="{}")
+    
+    # Relationships
+    machines = relationship("MachineDB", back_populates="account")
+
+
+class MachineDB(Base):
+    """Machine/container instance database model."""
+    __tablename__ = "machines"
+    
+    machine_id = Column(String(255), primary_key=True)  # e.g., "claude-agent-001"
+    account_id = Column(String(255), ForeignKey("accounts.account_id"), nullable=True)
+    display_name = Column(String(255), nullable=True)
+    status = Column(String(50), default="offline")  # online, offline, busy, error
+    last_heartbeat = Column(DateTime, nullable=True)
+    container_id = Column(String(255), nullable=True)  # Docker container ID
+    host_info = Column(Text, default="{}")  # JSON: hostname, IP, resources
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    account = relationship("AccountDB", back_populates="machines")
+
+
+class SubagentExecutionDB(Base):
+    """Subagent execution tracking."""
+    __tablename__ = "subagent_executions"
+    
+    execution_id = Column(String(255), primary_key=True)
+    parent_task_id = Column(String(255), ForeignKey("tasks.task_id"), nullable=True)
+    agent_name = Column(String(255), nullable=False)
+    mode = Column(String(50), nullable=False)  # foreground, background, parallel
+    status = Column(String(50), nullable=False)  # running, completed, failed, stopped
+    permission_mode = Column(String(50), default="default")  # default, auto-deny, acceptEdits
+    started_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+    context_tokens = Column(Integer, default=0)
+    result_summary = Column(Text, nullable=True)
+    error = Column(Text, nullable=True)
+    
+    # Parallel group tracking
+    group_id = Column(String(255), nullable=True, index=True)
+
+
+class SkillExecutionDB(Base):
+    """Skill execution tracking."""
+    __tablename__ = "skill_executions"
+    
+    execution_id = Column(String(255), primary_key=True)
+    task_id = Column(String(255), ForeignKey("tasks.task_id"), nullable=True)
+    skill_name = Column(String(255), nullable=False)
+    input_params = Column(Text, default="{}")  # JSON
+    output_result = Column(Text, nullable=True)  # JSON
+    success = Column(Boolean, default=False)
+    executed_at = Column(DateTime, default=datetime.utcnow)
+    duration_seconds = Column(Float, default=0.0)
+
+
+class AuditLogDB(Base):
+    """Audit log for tracking sensitive actions."""
+    __tablename__ = "audit_log"
+    
+    log_id = Column(String(255), primary_key=True)
+    action = Column(String(100), nullable=False, index=True)  # webhook_create, subagent_spawn, etc.
+    actor = Column(String(255), nullable=False)  # user_id or system
+    target_type = Column(String(100), nullable=True)  # webhook, subagent, agent, skill
+    target_id = Column(String(255), nullable=True)
+    details_json = Column(Text, default="{}")  # JSON with action-specific details
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)

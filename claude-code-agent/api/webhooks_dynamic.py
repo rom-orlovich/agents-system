@@ -89,8 +89,11 @@ async def dynamic_webhook_receiver(
     """
     try:
         # 1. Load webhook config from database
+        from sqlalchemy.orm import selectinload
         result = await db.execute(
-            select(WebhookConfigDB).where(WebhookConfigDB.webhook_id == webhook_id)
+            select(WebhookConfigDB)
+            .options(selectinload(WebhookConfigDB.commands))
+            .where(WebhookConfigDB.webhook_id == webhook_id)
         )
         webhook = result.scalar_one_or_none()
         
