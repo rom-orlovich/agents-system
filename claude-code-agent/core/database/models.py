@@ -6,6 +6,16 @@ from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, relationship
 
 
+def utc_now():
+    """Get current UTC datetime - helper function to avoid SQLAlchemy deprecation warnings.
+    
+    SQLAlchemy wraps callable defaults, and using lambda directly can trigger
+    deprecation warnings. This function provides a clean callable that returns
+    timezone-aware UTC datetime.
+    """
+    return datetime.now(timezone.utc)
+
+
 class Base(AsyncAttrs, DeclarativeBase):
     """Base class for all models."""
     pass
@@ -18,7 +28,7 @@ class SessionDB(Base):
     session_id = Column(String(255), primary_key=True)
     user_id = Column(String(255), nullable=False, index=True)
     machine_id = Column(String(255), nullable=False)
-    connected_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    connected_at = Column(DateTime, default=utc_now, nullable=False)
     disconnected_at = Column(DateTime, nullable=True)
     total_cost_usd = Column(Float, default=0.0, nullable=False)
     total_tasks = Column(Integer, default=0, nullable=False)
@@ -42,7 +52,7 @@ class TaskDB(Base):
 
     # Status
     status = Column(String(50), nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
 
@@ -79,7 +89,7 @@ class EntityDB(Base):
     entity_type = Column(String(50), nullable=False, index=True)  # webhook, agent, skill
     config = Column(Text, nullable=False)  # JSON serialized Pydantic model
     is_builtin = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
 
 class WebhookConfigDB(Base):
@@ -129,7 +139,7 @@ class WebhookEventDB(Base):
     matched_command = Column(String(255), nullable=True)
     task_id = Column(String(255), nullable=True)
     response_sent = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
     
     webhook = relationship("WebhookConfigDB", back_populates="events")
 
@@ -141,8 +151,8 @@ class ConversationDB(Base):
     conversation_id = Column(String(255), primary_key=True)
     user_id = Column(String(255), nullable=False, index=True)
     title = Column(String(500), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
     is_archived = Column(Boolean, default=False, nullable=False)
     metadata_json = Column(Text, default="{}", nullable=False)  # JSON for additional metadata
     
@@ -170,7 +180,7 @@ class ConversationMessageDB(Base):
     role = Column(String(50), nullable=False)  # user, assistant, system
     content = Column(Text, nullable=False)
     task_id = Column(String(255), nullable=True)  # Link to task if this message created a task
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
     metadata_json = Column(Text, default="{}", nullable=False)  # JSON for tokens, cost, etc.
     
     # Relationships
@@ -186,8 +196,8 @@ class AccountDB(Base):
     display_name = Column(String(255), nullable=True)
     credential_status = Column(String(50), default="valid")  # valid, expired, revoked, expiring_soon
     credential_expires_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     metadata_json = Column(Text, default="{}")
     
     # Relationships
@@ -205,7 +215,7 @@ class MachineDB(Base):
     last_heartbeat = Column(DateTime, nullable=True)
     container_id = Column(String(255), nullable=True)  # Docker container ID
     host_info = Column(Text, default="{}")  # JSON: hostname, IP, resources
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     
     # Relationships
     account = relationship("AccountDB", back_populates="machines")
@@ -221,7 +231,7 @@ class SubagentExecutionDB(Base):
     mode = Column(String(50), nullable=False)  # foreground, background, parallel
     status = Column(String(50), nullable=False)  # running, completed, failed, stopped
     permission_mode = Column(String(50), default="default")  # default, auto-deny, acceptEdits
-    started_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, default=utc_now)
     completed_at = Column(DateTime, nullable=True)
     context_tokens = Column(Integer, default=0)
     result_summary = Column(Text, nullable=True)
@@ -241,7 +251,7 @@ class SkillExecutionDB(Base):
     input_params = Column(Text, default="{}")  # JSON
     output_result = Column(Text, nullable=True)  # JSON
     success = Column(Boolean, default=False)
-    executed_at = Column(DateTime, default=datetime.utcnow)
+    executed_at = Column(DateTime, default=utc_now)
     duration_seconds = Column(Float, default=0.0)
 
 
@@ -255,7 +265,7 @@ class AuditLogDB(Base):
     target_type = Column(String(100), nullable=True)  # webhook, subagent, agent, skill
     target_id = Column(String(255), nullable=True)
     details_json = Column(Text, default="{}")  # JSON with action-specific details
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=utc_now, index=True)
 
 
 async def update_conversation_metrics(

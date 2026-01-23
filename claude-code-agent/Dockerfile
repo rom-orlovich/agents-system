@@ -10,7 +10,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Claude Code CLI via npm (required for headless operation)
-RUN npm install -g @anthropic-ai/claude-code
+# Using @latest to ensure we get the most recent version
+RUN npm install -g @anthropic-ai/claude-code@latest
 
 # Install uv
 RUN pip install --no-cache-dir uv

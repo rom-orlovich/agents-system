@@ -4,5 +4,10 @@
     "reddit",
     "gitmcp",
     "github"
-  ]
+  ],
+  "permissions": {
+    "allow": [
+      "mcp__filesystem__directory_tree"
+    ]
+  }
 }

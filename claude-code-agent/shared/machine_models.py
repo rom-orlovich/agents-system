@@ -84,7 +84,7 @@ class Session(BaseModel):
     session_id: str = Field(..., description="Unique session identifier")
     user_id: str = Field(..., description="User account ID from Claude auth")
     machine_id: str = Field(..., description="Machine this session connects to")
-    connected_at: datetime = Field(default_factory=datetime.utcnow)
+    connected_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     disconnected_at: Optional[datetime] = None
 
     # Metrics (auto-updated)
@@ -131,7 +131,7 @@ class Task(BaseModel):
 
     # Status
     status: TaskStatus = Field(default=TaskStatus.QUEUED)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
 
@@ -204,7 +204,7 @@ class SubAgentConfig(BaseModel):
 
     # Built-in vs dynamic
     is_builtin: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @field_validator("name")
     @classmethod
@@ -260,7 +260,7 @@ class WebhookConfig(BaseModel):
 
     # Metadata
     is_builtin: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @field_validator("name")
     @classmethod
@@ -285,7 +285,7 @@ class SkillConfig(BaseModel):
     description: str = Field(default="")
     skill_path: Path = Field(...)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @field_validator("target")
     @classmethod
@@ -342,7 +342,7 @@ class ClaudeCredentials(BaseModel):
 class WebSocketMessage(BaseModel):
     """Base WebSocket message."""
     type: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class TaskCreatedMessage(WebSocketMessage):

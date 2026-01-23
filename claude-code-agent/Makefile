@@ -199,7 +199,7 @@ type-check:
 
 run-local:
 	@echo "🚀 Running locally (no Docker)..."
-	@uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+	@uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000 --reload-exclude "*.venv/**" --reload-exclude "**/site-packages/**" --reload-exclude "**/__pycache__/**" --reload-exclude "**/.git/**"
 
 # =============================================================================
 # 🔧 UTILITIES
