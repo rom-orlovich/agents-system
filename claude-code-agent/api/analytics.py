@@ -73,19 +73,30 @@ async def get_analytics_summary(
     )
 
 
-@router.get("/costs/daily")
-async def get_daily_costs(
+@router.get("/costs/histogram")
+async def get_costs_histogram(
     days: int = Query(30, ge=1, le=365),
+    granularity: str = Query("day", regex="^(day|hour)$"),
     db: AsyncSession = Depends(get_db_session)
 ) -> DailyCostsResponse:
-    """Get daily cost aggregation with extended metrics."""
+    """Get cost aggregation with variable granularity."""
     start_date = datetime.utcnow() - timedelta(days=days)
     
+    # Granularity logic
+    if granularity == "hour":
+        # SQLite format for hourly: YYYY-MM-DD HH:00:00
+        time_group = func.strftime('%Y-%m-%d %H:00:00', TaskDB.created_at)
+        date_label = time_group
+    else:
+        # SQLite format for daily: YYYY-MM-DD
+        time_group = func.date(TaskDB.created_at)
+        date_label = time_group
+
     # We use case to count non-null errors
     error_case = func.sum(func.case((TaskDB.error != None, 1), else_=0))
 
     query = select(
-        func.date(TaskDB.created_at).label("date"),
+        time_group.label("date"),
         func.sum(TaskDB.cost_usd).label("total_cost"),
         func.count(TaskDB.task_id).label("task_count"),
         func.sum(TaskDB.input_tokens + TaskDB.output_tokens).label("total_tokens"),
@@ -94,9 +105,9 @@ async def get_daily_costs(
     ).where(
         TaskDB.created_at >= start_date
     ).group_by(
-        func.date(TaskDB.created_at)
+        time_group
     ).order_by(
-        func.date(TaskDB.created_at).asc()
+        time_group.asc()
     )
     
     result = await db.execute(query)

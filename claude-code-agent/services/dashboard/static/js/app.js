@@ -114,15 +114,27 @@ class DashboardApp {
         if (active === null || active === undefined) {
             indicator.className = 'cli-status-indicator checking';
             text.textContent = 'CLI: CHECKING...';
+            // Disable send button while checking
+            if (typeof conversationManager !== 'undefined' && conversationManager) {
+                conversationManager.disableChatInput();
+            }
             return;
         }
 
         if (active) {
             indicator.className = 'cli-status-indicator active';
             text.textContent = 'CLI: ACTIVE';
+            // Enable send button when CLI is active
+            if (typeof conversationManager !== 'undefined' && conversationManager) {
+                conversationManager.enableChatInput();
+            }
         } else {
             indicator.className = 'cli-status-indicator inactive';
             text.textContent = 'CLI: INACTIVE';
+            // Disable send button when CLI is inactive
+            if (typeof conversationManager !== 'undefined' && conversationManager) {
+                conversationManager.disableChatInput();
+            }
         }
     }
 

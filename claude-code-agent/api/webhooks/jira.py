@@ -285,45 +285,77 @@ async def jira_webhook(
     Handles all Jira events.
     All logic and functions in this file.
     """
+    issue_key = None
+    task_id = None
+    
     try:
         # 1. Read body
-        body = await request.body()
+        try:
+            body = await request.body()
+        except Exception as e:
+            logger.error("jira_webhook_body_read_failed", error=str(e))
+            raise HTTPException(status_code=400, detail=f"Failed to read request body: {str(e)}")
         
         # 2. Verify signature
-        await verify_jira_signature(request, body)
+        try:
+            await verify_jira_signature(request, body)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("jira_signature_verification_error", error=str(e))
+            raise HTTPException(status_code=401, detail=f"Signature verification failed: {str(e)}")
         
         # 3. Parse payload
-        payload = json.loads(body.decode())
-        payload["provider"] = "jira"
+        try:
+            payload = json.loads(body.decode())
+            payload["provider"] = "jira"
+        except json.JSONDecodeError as e:
+            logger.error("jira_payload_parse_error", error=str(e))
+            raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {str(e)}")
+        except Exception as e:
+            logger.error("jira_payload_decode_error", error=str(e))
+            raise HTTPException(status_code=400, detail=f"Failed to decode payload: {str(e)}")
+        
+        # Extract issue key for logging
+        issue_key = payload.get("issue", {}).get("key", "unknown")
         
         # 4. Extract event type
         event_type = payload.get("webhookEvent", "unknown")
         
-        logger.info("jira_webhook_received", event_type=event_type, payload_keys=list(payload.keys()))
+        logger.info("jira_webhook_received", event_type=event_type, issue_key=issue_key, payload_keys=list(payload.keys()))
         
         # 5. Match command based on event type and payload
-        command = match_jira_command(payload, event_type)
-        if not command:
-            logger.warning("jira_no_command_matched", event_type=event_type, payload_sample=str(payload)[:500])
-            # Still create a task with default command
-            if JIRA_WEBHOOK.commands:
-                command = JIRA_WEBHOOK.commands[0]  # Use first command as fallback
-                logger.info("jira_using_fallback_command", command=command.name)
-            else:
-                return {"status": "received", "actions": 0, "message": "No commands configured"}
+        try:
+            command = match_jira_command(payload, event_type)
+            if not command:
+                logger.warning("jira_no_command_matched", event_type=event_type, issue_key=issue_key, payload_sample=str(payload)[:500])
+                # Still create a task with default command
+                if JIRA_WEBHOOK.commands:
+                    command = JIRA_WEBHOOK.commands[0]  # Use first command as fallback
+                    logger.info("jira_using_fallback_command", command=command.name, issue_key=issue_key)
+                else:
+                    return {"status": "received", "actions": 0, "message": "No commands configured"}
+        except Exception as e:
+            logger.error("jira_command_matching_error", error=str(e), issue_key=issue_key)
+            raise HTTPException(status_code=500, detail=f"Command matching failed: {str(e)}")
         
-        logger.info("jira_command_matched", command=command.name, event_type=event_type)
+        logger.info("jira_command_matched", command=command.name, event_type=event_type, issue_key=issue_key)
         
         # 6. Send immediate response
-        immediate_response_sent = await send_jira_immediate_response(payload, command, event_type)
+        immediate_response_sent = False
+        try:
+            immediate_response_sent = await send_jira_immediate_response(payload, command, event_type)
+        except Exception as e:
+            logger.error("jira_immediate_response_error", error=str(e), issue_key=issue_key, command=command.name)
+            # Don't fail the whole request if immediate response fails
         
         # 7. Create task
         try:
             task_id = await create_jira_task(command, payload, db)
-            logger.info("jira_task_created_success", task_id=task_id)
+            logger.info("jira_task_created_success", task_id=task_id, issue_key=issue_key)
         except Exception as e:
-            logger.error("jira_task_creation_failed", error=str(e), error_type=type(e).__name__)
-            raise
+            logger.error("jira_task_creation_failed", error=str(e), error_type=type(e).__name__, issue_key=issue_key, command=command.name)
+            raise HTTPException(status_code=500, detail=f"Task creation failed: {str(e)}")
         
         # 8. Log event
         try:
@@ -341,12 +373,12 @@ async def jira_webhook(
             )
             db.add(event_db)
             await db.commit()
-            logger.info("jira_event_logged", event_id=event_id, task_id=task_id)
+            logger.info("jira_event_logged", event_id=event_id, task_id=task_id, issue_key=issue_key)
         except Exception as e:
-            logger.error("jira_event_logging_failed", error=str(e), task_id=task_id)
+            logger.error("jira_event_logging_failed", error=str(e), task_id=task_id, issue_key=issue_key)
             # Don't fail the whole request if event logging fails
         
-        logger.info("jira_webhook_processed", task_id=task_id, command=command.name, event_type=event_type)
+        logger.info("jira_webhook_processed", task_id=task_id, command=command.name, event_type=event_type, issue_key=issue_key)
         
         return {
             "status": "processed",
@@ -358,10 +390,18 @@ async def jira_webhook(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("jira_webhook_error", error=str(e), error_type=type(e).__name__, exc_info=True)
+        logger.error(
+            "jira_webhook_error",
+            error=str(e),
+            error_type=type(e).__name__,
+            issue_key=issue_key,
+            task_id=task_id,
+            exc_info=True
+        )
         # Return error details for debugging
         return {
             "status": "error",
             "error": str(e),
-            "error_type": type(e).__name__
+            "error_type": type(e).__name__,
+            "issue_key": issue_key
         }

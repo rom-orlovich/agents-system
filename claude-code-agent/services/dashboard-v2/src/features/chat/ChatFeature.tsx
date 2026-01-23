@@ -1,13 +1,18 @@
 import { clsx } from "clsx";
-import { Bot, Clock, MessageSquare, Plus, Trash2, User } from "lucide-react";
+import { Bot, Clock, MessageSquare, Plus, Trash2, User, X, Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useChat } from "./hooks/useChat";
+import { useCLIStatus } from "../../hooks/useCLIStatus";
 
 export function ChatFeature() {
   const { conversations, messages, selectedConversation, setSelectedConversation, sendMessage, createConversation, deleteConversation } =
     useChat();
+  const { active: cliActive } = useCLIStatus();
   const [input, setInput] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -15,12 +20,28 @@ export function ChatFeature() {
     }
   }, [messages]);
 
+  useEffect(() => {
+    if (isCreating && titleInputRef.current) {
+      titleInputRef.current.focus();
+    }
+  }, [isCreating]);
+
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || cliActive === false) return;
     sendMessage(input);
     setInput("");
   };
+
+  const handleCreate = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!newTitle.trim()) return;
+    createConversation(newTitle);
+    setNewTitle("");
+    setIsCreating(false);
+  };
+  
+  const isDisabled = cliActive === false;
 
   return (
     <div className="flex h-full border border-gray-200 bg-[#fbfcfd] animate-in fade-in duration-500 overflow-hidden rounded-xl shadow-xl shadow-gray-200/20">
@@ -30,16 +51,52 @@ export function ChatFeature() {
           <span className="font-heading text-[10px] font-bold text-gray-400 tracking-widest">COMMS_CHANNELS</span>
           <button 
             type="button"
-            onClick={() => {
-              const title = prompt("ENTER_CHANNEL_TITLE");
-              if (title) createConversation(title);
-            }}
+            onClick={() => setIsCreating(true)}
             className="p-1 hover:bg-gray-100 text-gray-400 hover:text-primary rounded transition-colors"
           >
             <Plus size={14} />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto">
+          {isCreating && (
+            <div className="p-2 m-2 bg-white border border-primary/20 rounded shadow-sm">
+              <form onSubmit={handleCreate}>
+                 <input
+                  ref={titleInputRef}
+                  type="text"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="CHANNEL_NAME..."
+                  className="w-full text-[11px] font-heading font-bold mb-2 outline-none placeholder:text-gray-300"
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setIsCreating(false);
+                      setNewTitle("");
+                    }
+                  }}
+                />
+                <div className="flex justify-end gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreating(false);
+                      setNewTitle("");
+                    }}
+                    className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                  >
+                    <X size={12} />
+                  </button>
+                  <button
+                    type="submit"
+                    className="p-1 text-primary hover:bg-primary/10 rounded transition-colors"
+                  >
+                    <Check size={12} />
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+          
           {conversations?.map((conv) => (
             <button
               type="button"
@@ -156,12 +213,22 @@ export function ChatFeature() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="ENTER_COMMAND..."
-                  className="flex-1 bg-gray-50 border border-gray-200 px-4 py-2 text-xs font-mono focus:border-primary focus:bg-white transition-all outline-none rounded-sm"
+                  placeholder={isDisabled ? "CLI INACTIVE - Cannot send messages" : "ENTER_COMMAND..."}
+                  disabled={isDisabled}
+                  className={clsx(
+                    "flex-1 bg-gray-50 border border-gray-200 px-4 py-2 text-xs font-mono focus:border-primary focus:bg-white transition-all outline-none rounded-sm",
+                    isDisabled && "opacity-50 cursor-not-allowed"
+                  )}
                 />
                 <button
                   type="submit"
-                  className="bg-primary text-white px-4 py-2 hover:opacity-90 transition-all active:scale-95 font-heading text-[10px] font-bold tracking-widest uppercase"
+                  disabled={isDisabled}
+                  className={clsx(
+                    "px-4 py-2 transition-all active:scale-95 font-heading text-[10px] font-bold tracking-widest uppercase",
+                    isDisabled
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-primary text-white hover:opacity-90"
+                  )}
                 >
                   SEND
                 </button>
@@ -182,10 +249,7 @@ export function ChatFeature() {
               </p>
               <button
                 type="button"
-                onClick={() => {
-                  const title = prompt("ENTER_CHANNEL_TITLE");
-                  if (title) createConversation(title);
-                }}
+                onClick={() => setIsCreating(true)}
                 className="inline-flex items-center gap-2 px-6 py-2.5 bg-white border border-gray-100 text-[10px] font-heading font-black text-gray-400 hover:text-primary hover:border-primary/20 transition-all uppercase tracking-widest rounded-lg shadow-sm hover:shadow-md active:scale-95"
               >
                 <Plus size={14} />
