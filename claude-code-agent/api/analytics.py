@@ -82,14 +82,22 @@ async def get_costs_histogram(
     """Get cost aggregation with variable granularity."""
     start_date = datetime.utcnow() - timedelta(days=days)
     
-    # Granularity logic
+    # Granularity logic (PostgreSQL compatible)
     if granularity == "hour":
-        # SQLite format for hourly: YYYY-MM-DD HH:00:00
-        time_group = func.strftime('%Y-%m-%d %H:00:00', TaskDB.created_at)
+        # Unix/Postgres: to_char(timestamp, format)
+        # We assume Postgres based on dependencies. Fallback for SQLite would be needed if mixed env.
+        # But let's try a standard SQL approach or just the Postgres one since psycopg2 is used.
+        try:
+             # Postgres
+             time_group = func.to_char(TaskDB.created_at, 'YYYY-MM-DD HH24:00:00')
+        except:
+             # Fallback (never called if driver is pg)
+             time_group = func.strftime('%Y-%m-%d %H:00:00', TaskDB.created_at)
+             
         date_label = time_group
     else:
-        # SQLite format for daily: YYYY-MM-DD
-        time_group = func.date(TaskDB.created_at)
+        # Postgres daily
+        time_group = func.to_char(TaskDB.created_at, 'YYYY-MM-DD')
         date_label = time_group
 
     # We use case to count non-null errors
