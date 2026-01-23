@@ -1039,17 +1039,31 @@ class DashboardApp {
             const statsResponse = await fetch('/api/webhooks/stats');
             const stats = await statsResponse.json();
 
-            const webhooksResponse = await fetch('/api/webhooks');
-            const webhooks = await webhooksResponse.json();
-
-            // Fetch webhook status to get public domain
+            // Fetch webhook status to get all webhooks (static + dynamic) and public domain
             const statusResponse = await fetch('/api/webhooks-status');
             const statusData = await statusResponse.json();
-            const publicDomain = statusData.data?.public_domain || null;
+
+            console.log('Webhook status response:', statusData); // Debug log
+
+            if (!statusData.success) {
+                console.error('Failed to load webhook status:', statusData.error);
+                const urlsList = document.getElementById('webhook-urls-list');
+                urlsList.innerHTML = '<div class="error-state">Failed to load webhooks: ' + (statusData.error || 'Unknown error') + '</div>';
+                return;
+            }
+
+            // Handle both possible response structures
+            const webhooks = statusData.data?.webhooks || statusData.webhooks || [];
+            const publicDomain = statusData.data?.public_domain || statusData.public_domain || null;
+
+            console.log('Loaded webhooks:', webhooks.length, webhooks); // Debug log
+            console.log('Stats:', stats); // Debug log
 
             // Update stats
-            document.getElementById('total-webhooks').textContent = stats.total_webhooks || 0;
-            document.getElementById('active-webhooks').textContent = stats.active_webhooks || 0;
+            const totalEl = document.getElementById('total-webhooks');
+            const activeEl = document.getElementById('active-webhooks');
+            if (totalEl) totalEl.textContent = stats.total_webhooks || webhooks.length || 0;
+            if (activeEl) activeEl.textContent = stats.active_webhooks || webhooks.filter(w => w.enabled).length || 0;
 
             // Display public domain or warning
             if (publicDomain) {
@@ -1067,8 +1081,8 @@ class DashboardApp {
             }
 
             urlsList.innerHTML = webhooks.map(webhook => {
-                const publicUrl = publicDomain ? `https://${publicDomain}${webhook.endpoint}` : `http://localhost:8000${webhook.endpoint}`;
-                const eventCount = stats.events_by_webhook[webhook.name] || 0;
+                const publicUrl = webhook.public_url || (publicDomain ? `https://${publicDomain}${webhook.endpoint}` : `http://localhost:8000${webhook.endpoint}`);
+                const eventCount = webhook.event_count || stats.events_by_webhook[webhook.name] || 0;
 
                 return `
                 <div class="webhook-url-card ${webhook.enabled === false ? 'disabled' : ''}">
@@ -1093,12 +1107,17 @@ class DashboardApp {
                         <div class="url-row">
                             <strong>Events Received:</strong> <span class="event-count">${eventCount}</span>
                         </div>
+                        ${webhook.has_secret !== undefined ? `<div class="url-row"><strong>Secret:</strong> <span>${webhook.has_secret ? '✓ Configured' : '✗ Not configured'}</span></div>` : ''}
                     </div>
                 </div>
             `}).join('');
 
         } catch (error) {
             console.error('Failed to load webhook status:', error);
+            const urlsList = document.getElementById('webhook-urls-list');
+            if (urlsList) {
+                urlsList.innerHTML = '<div class="error-state">Error loading webhooks: ' + error.message + '</div>';
+            }
         }
     }
 
@@ -1200,11 +1219,26 @@ class DashboardApp {
     // Webhook Management
     async loadWebhooks() {
         try {
-            const response = await fetch('/api/webhooks');
-            const webhooks = await response.json();
+            // Use webhooks-status endpoint to get both static and dynamic webhooks
+            const response = await fetch('/api/webhooks-status');
+            const statusData = await response.json();
+
+            console.log('Webhooks list response:', statusData); // Debug log
 
             const container = document.getElementById('webhooks-list');
 
+            if (!statusData.success) {
+                console.error('Failed to load webhook status:', statusData.error);
+                container.innerHTML = '<p class="empty-state">Failed to load webhooks: ' + (statusData.error || 'Unknown error') + '</p>';
+                return;
+            }
+
+            // Handle both possible response structures
+            const webhooks = statusData.data?.webhooks || statusData.webhooks || [];
+
+            console.log('Loaded webhooks for list:', webhooks.length, webhooks); // Debug log
+
+            // Always show webhooks, even if disabled
             if (!webhooks || webhooks.length === 0) {
                 container.innerHTML = '<p class="empty-state">No webhooks registered. Use "Create Webhook" from the side menu to get started.</p>';
                 return;
@@ -1224,7 +1258,8 @@ class DashboardApp {
                     <div class="webhook-info">
                         <p><strong>Provider:</strong> ${webhook.provider || webhook.source || 'N/A'}</p>
                         <p><strong>Endpoint:</strong> <code>${webhook.endpoint}</code></p>
-                        ${webhook.commands ? `<p><strong>Commands:</strong> ${webhook.commands.length}</p>` : ''}
+                        ${webhook.event_count !== undefined ? `<p><strong>Events:</strong> ${webhook.event_count}</p>` : ''}
+                        ${webhook.has_secret !== undefined ? `<p><strong>Secret:</strong> ${webhook.has_secret ? '✓ Configured' : '✗ Not configured'}</p>` : ''}
                     </div>
                     ${!webhook.is_builtin && webhook.webhook_id ? `
                         <div class="webhook-actions">
@@ -1239,6 +1274,10 @@ class DashboardApp {
             `).join('');
         } catch (error) {
             console.error('Failed to load webhooks:', error);
+            const container = document.getElementById('webhooks-list');
+            if (container) {
+                container.innerHTML = '<p class="empty-state">Failed to load webhooks: ' + error.message + '</p>';
+            }
         }
     }
 

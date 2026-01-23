@@ -1,5 +1,6 @@
 """Webhook status and monitoring API."""
 
+import os
 from fastapi import APIRouter, Depends
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,7 @@ import structlog
 from core.config import settings
 from core.database import get_session as get_db_session
 from core.database.models import WebhookConfigDB, WebhookEventDB
+from core.webhook_configs import WEBHOOK_CONFIGS
 
 logger = structlog.get_logger()
 
@@ -18,18 +20,78 @@ router = APIRouter()
 @router.get("/webhooks-status")
 async def get_webhooks_status(db: AsyncSession = Depends(get_db_session)):
     """
-    Get status of all webhooks including URLs, event counts, and last activity.
+    Get status of all webhooks including static and dynamic webhooks.
+    Static webhooks are considered active if their secret is configured.
     """
     try:
-        # Get all webhooks with event counts
+        webhook_statuses = []
+        
+        # Log static webhook configs for debugging
+        logger.debug("loading_static_webhooks", count=len(WEBHOOK_CONFIGS))
+        
+        # Get event counts by provider (for static webhooks)
+        events_by_provider_query = select(
+            WebhookEventDB.provider,
+            func.count(WebhookEventDB.event_id).label("count"),
+            func.max(WebhookEventDB.created_at).label("last_event")
+        ).group_by(WebhookEventDB.provider)
+        events_by_provider_result = await db.execute(events_by_provider_query)
+        events_by_provider = {
+            row[0]: {"count": row[1], "last_event": row[2]} 
+            for row in events_by_provider_result
+        }
+        
+        # Add static webhooks first
+        if not WEBHOOK_CONFIGS:
+            logger.warning("no_static_webhook_configs_found")
+        else:
+            logger.debug("processing_static_webhooks", count=len(WEBHOOK_CONFIGS))
+        
+        for config in WEBHOOK_CONFIGS:
+            # Check if webhook is active (has secret configured if required)
+            is_active = True
+            has_secret = False
+            if config.requires_signature and config.secret_env_var:
+                secret_value = os.getenv(config.secret_env_var)
+                has_secret = bool(secret_value)
+                is_active = has_secret  # Only active if secret is configured
+                logger.debug(
+                    "static_webhook_secret_check",
+                    name=config.name,
+                    secret_env_var=config.secret_env_var,
+                    has_secret=has_secret,
+                    is_active=is_active
+                )
+            
+            # Get event stats for this provider
+            provider_stats = events_by_provider.get(config.source, {"count": 0, "last_event": None})
+            
+            # Build public URL
+            public_url = None
+            if settings.webhook_public_domain:
+                public_url = f"https://{settings.webhook_public_domain}{config.endpoint}"
+            
+            webhook_statuses.append({
+                "webhook_id": f"static-{config.name}",  # Unique ID for static webhooks
+                "name": config.name,
+                "provider": config.source,
+                "endpoint": config.endpoint,
+                "public_url": public_url,
+                "enabled": is_active,
+                "is_builtin": True,
+                "event_count": provider_stats["count"],
+                "last_event_at": provider_stats["last_event"].isoformat() if provider_stats["last_event"] else None,
+                "created_at": config.created_at.isoformat() if hasattr(config, 'created_at') else None,
+                "has_secret": has_secret,
+            })
+        
+        # Get dynamic webhooks from database
         result = await db.execute(
             select(WebhookConfigDB).order_by(WebhookConfigDB.created_at.desc())
         )
-        webhooks = result.scalars().all()
+        db_webhooks = result.scalars().all()
         
-        webhook_statuses = []
-        
-        for webhook in webhooks:
+        for webhook in db_webhooks:
             # Count events for this webhook
             event_count_result = await db.execute(
                 select(func.count(WebhookEventDB.event_id))
@@ -58,6 +120,7 @@ async def get_webhooks_status(db: AsyncSession = Depends(get_db_session)):
                 "endpoint": webhook.endpoint,
                 "public_url": public_url,
                 "enabled": webhook.enabled,
+                "is_builtin": False,
                 "event_count": event_count,
                 "last_event_at": last_event.isoformat() if last_event else None,
                 "created_at": webhook.created_at.isoformat(),

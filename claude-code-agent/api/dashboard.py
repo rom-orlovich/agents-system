@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from core.database import get_session as get_db_session
 from core.database.models import TaskDB, SessionDB, WebhookEventDB, WebhookConfigDB
 from core.database.redis_client import redis_client
+from core.webhook_configs import WEBHOOK_CONFIGS
 from shared import (
     Task,
     TaskStatus,
@@ -410,8 +411,8 @@ async def list_agents():
 
 @router.get("/webhooks")
 async def list_webhooks(db: AsyncSession = Depends(get_db_session)):
-    """List configured webhooks."""
-    # Get webhooks from database
+    """List configured dynamic webhooks (from database only)."""
+    # Get webhooks from database (dynamic webhooks only)
     result = await db.execute(select(WebhookConfigDB))
     webhooks = result.scalars().all()
     
@@ -487,25 +488,52 @@ async def get_webhook_event(
 @router.get("/webhooks/stats")
 async def get_webhook_stats(db: AsyncSession = Depends(get_db_session)):
     """Get webhook statistics."""
-    # Count total webhooks
+    import os
+    
+    # Count total webhooks from database
     total_query = select(func.count()).select_from(WebhookConfigDB)
-    total = (await db.execute(total_query)).scalar() or 0
+    db_total = (await db.execute(total_query)).scalar() or 0
     
-    # Count active webhooks
+    # Count active webhooks from database
     active_query = select(func.count()).select_from(WebhookConfigDB).where(WebhookConfigDB.enabled == True)
-    active = (await db.execute(active_query)).scalar() or 0
+    db_active = (await db.execute(active_query)).scalar() or 0
     
-    # Count events by webhook
+    # Count events by webhook name (for matching with static webhooks)
     events_query = select(
+        WebhookEventDB.provider,
+        func.count(WebhookEventDB.event_id).label("count")
+    ).group_by(WebhookEventDB.provider)
+    events_result = await db.execute(events_query)
+    events_by_provider = {row[0]: row[1] for row in events_result}
+    
+    # Also get events by webhook_id for database webhooks
+    events_by_id_query = select(
         WebhookEventDB.webhook_id,
         func.count(WebhookEventDB.event_id).label("count")
     ).group_by(WebhookEventDB.webhook_id)
-    events_result = await db.execute(events_query)
-    events_by_webhook = {row[0]: row[1] for row in events_result}
+    events_by_id_result = await db.execute(events_by_id_query)
+    events_by_webhook = {row[0]: row[1] for row in events_by_id_result}
     
-    # Add built-in webhooks to total
-    total += 3  # github, jira, sentry
-    active += 3
+    # Add static webhook names to events_by_webhook for frontend compatibility
+    # Count active static webhooks (those with secrets configured)
+    static_active_count = 0
+    for config in WEBHOOK_CONFIGS:
+        if config.source in events_by_provider:
+            events_by_webhook[config.name] = events_by_provider[config.source]
+        
+        # Check if static webhook is active (has secret if required)
+        is_active = True
+        if config.requires_signature and config.secret_env_var:
+            secret_value = os.getenv(config.secret_env_var)
+            is_active = bool(secret_value)
+        
+        if is_active:
+            static_active_count += 1
+    
+    # Add static webhooks to totals
+    static_count = len(WEBHOOK_CONFIGS)
+    total = db_total + static_count
+    active = db_active + static_active_count  # Only count active static webhooks
     
     return {
         "total_webhooks": total,

@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     github_webhook_secret: str | None = None
     jira_webhook_secret: str | None = None
     
+    # Jira API Configuration
+    jira_url: str | None = None  # e.g., "https://yourcompany.atlassian.net"
+    jira_email: str | None = None  # Email for Jira API authentication
+    jira_api_token: str | None = None
+    jira_ai_agent_name: str = "AI Agent"  # Name of the AI agent in Jira (for assignee matching)
+    
     # Webhook Public Domain (for displaying URLs)
     webhook_public_domain: str | None = None  # e.g., "abc123.ngrok.io" or "webhooks.yourdomain.com"
 

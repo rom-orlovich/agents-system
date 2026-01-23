@@ -19,7 +19,7 @@ from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB, SessionDB, TaskDB
 from core.database.redis_client import redis_client
 from core.webhook_configs import SENTRY_WEBHOOK
-from core.webhook_engine import render_template
+from core.webhook_engine import render_template, create_webhook_conversation
 from shared.machine_models import WebhookCommand
 from shared import TaskStatus, AgentType
 
@@ -148,6 +148,13 @@ async def create_sentry_task(
         }),
     )
     db.add(task_db)
+    await db.flush()  # Flush to get task_db.id if needed
+    
+    # Create conversation immediately when task is created
+    conversation_id = await create_webhook_conversation(task_db, db)
+    if conversation_id:
+        logger.info("sentry_conversation_created", conversation_id=conversation_id, task_id=task_id)
+    
     await db.commit()
     
     # Push to queue
