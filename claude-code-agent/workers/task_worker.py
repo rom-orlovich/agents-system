@@ -1,8 +1,12 @@
 """Task worker that processes tasks from Redis queue."""
 
 import asyncio
+import json
+import os
 from pathlib import Path
+from typing import Optional
 import structlog
+import httpx
 
 from core import settings, run_claude_cli
 from core.subagent_config import load_subagent_config, get_default_subagents
@@ -220,6 +224,15 @@ class TaskWorker:
                             cost_usd=result.cost_usd
                         )
                     )
+                    
+                    # Send Slack notification if task came from webhook
+                    if task_db.source == "webhook":
+                        await self._send_slack_notification(
+                            task_db=task_db,
+                            success=True,
+                            result=result.output,
+                            error=None
+                        )
                 else:
                     # ✅ Update Redis first (fast)
                     await redis_client.set_task_status(task_id, TaskStatus.FAILED)
@@ -233,6 +246,15 @@ class TaskWorker:
                         task_db.session_id,
                         TaskFailedMessage(task_id=task_id, error=result.error or "Unknown error")
                     )
+                    
+                    # Send Slack notification if task came from webhook
+                    if task_db.source == "webhook":
+                        await self._send_slack_notification(
+                            task_db=task_db,
+                            success=False,
+                            result=None,
+                            error=result.error
+                        )
 
                 await session.commit()
 
@@ -245,6 +267,18 @@ class TaskWorker:
 
             except Exception as e:
                 logger.error("Task processing error", task_id=task_id, error=str(e))
+                
+                # Send Slack notification for errors if task came from webhook
+                try:
+                    if task_db.source == "webhook":
+                        await self._send_slack_notification(
+                            task_db=task_db,
+                            success=False,
+                            result=None,
+                            error=str(e)
+                        )
+                except Exception as notify_error:
+                    logger.error("Slack notification error", error=str(notify_error))
 
                 # ✅ Update Redis first (fast)
                 await redis_client.set_task_status(task_id, TaskStatus.FAILED)
@@ -260,6 +294,90 @@ class TaskWorker:
                 )
 
                 await session.commit()
+
+    async def _send_slack_notification(
+        self,
+        task_db: TaskDB,
+        success: bool,
+        result: Optional[str] = None,
+        error: Optional[str] = None
+    ) -> bool:
+        """Send Slack notification when webhook task completes."""
+        if not os.getenv("SLACK_NOTIFICATIONS_ENABLED", "true").lower() == "true":
+            return False
+        
+        slack_url = os.getenv("SLACK_WEBHOOK_URL")
+        if not slack_url:
+            logger.warning("SLACK_WEBHOOK_URL not configured, skipping notification")
+            return False
+        
+        # Extract webhook metadata
+        try:
+            source_metadata = json.loads(task_db.source_metadata or "{}")
+            webhook_source = source_metadata.get("webhook_source", "unknown")
+            command = source_metadata.get("command", "unknown")
+        except json.JSONDecodeError:
+            webhook_source = "unknown"
+            command = "unknown"
+        
+        # Build notification message
+        status_emoji = "✅" if success else "❌"
+        status_text = "Completed" if success else "Failed"
+        
+        message = {
+            "channel": os.getenv("SLACK_NOTIFICATION_CHANNEL", "#ai-agent-activity"),
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"{status_emoji} *Task {status_text}*\n*Source:* {webhook_source.title()}\n*Command:* {command}\n*Task ID:* `{task_db.task_id}`\n*Agent:* {task_db.assigned_agent}"
+                    }
+                }
+            ]
+        }
+        
+        if success and result:
+            result_preview = result[:500] + "..." if len(result) > 500 else result
+            message["blocks"].append({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Result:*\n```{result_preview}```"
+                }
+            })
+        
+        if error:
+            message["blocks"].append({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Error:*\n```{error}```"
+                }
+            })
+        
+        # Add cost if available
+        if task_db.cost_usd > 0:
+            message["blocks"].append({
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Cost:* ${task_db.cost_usd:.4f}"
+                    }
+                ]
+            })
+        
+        # Send to Slack
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(slack_url, json=message, timeout=10.0)
+                response.raise_for_status()
+                logger.info("slack_notification_sent", task_id=task_db.task_id, success=success)
+                return True
+        except Exception as e:
+            logger.error("slack_notification_failed", task_id=task_db.task_id, error=str(e))
+            return False
 
     def _get_agent_dir(self, agent_name: str | None) -> Path:
         """

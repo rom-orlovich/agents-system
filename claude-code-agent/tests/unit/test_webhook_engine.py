@@ -35,12 +35,15 @@ class TestWebhookEngine:
         payload = {"issue": {"title": "Test Issue", "number": 123}}
         
         db_mock = AsyncMock(spec=AsyncSession)
+        db_mock.commit = AsyncMock()
+        db_mock.add = MagicMock()
         
-        result = await execute_command(command, payload, db_mock)
-        
-        assert result["action"] == "create_task"
-        assert "task_id" in result
-        assert result["agent"] == "planning"
+        with patch('core.webhook_engine.redis_client.push_task', new_callable=AsyncMock):
+            result = await execute_command(command, payload, db_mock)
+            
+            assert result["action"] == "create_task"
+            assert "task_id" in result
+            assert result["agent"] == "planning"
     
     async def test_execute_comment_command(self):
         """Execute comment command posts comment."""
@@ -59,7 +62,7 @@ class TestWebhookEngine:
             "repository": {"full_name": "org/repo"}
         }
         
-        with patch('core.webhook_engine.github_post_comment', new_callable=AsyncMock) as mock_comment:
+        with patch('core.webhook_engine.github_client.post_issue_comment', new_callable=AsyncMock) as mock_comment:
             result = await execute_command(command, payload, None)
             
             assert result["action"] == "comment"
@@ -80,12 +83,15 @@ class TestWebhookEngine:
         payload = {"issue": {"title": "Test Issue", "number": 123}}
         
         db_mock = AsyncMock(spec=AsyncSession)
+        db_mock.commit = AsyncMock()
+        db_mock.add = MagicMock()
         
-        result = await execute_command(command, payload, db_mock)
-        
-        assert result["action"] == "ask"
-        assert "task_id" in result
-        assert result["interactive"] is True
+        with patch('core.webhook_engine.redis_client.push_task', new_callable=AsyncMock):
+            result = await execute_command(command, payload, db_mock)
+            
+            assert result["action"] == "ask"
+            assert "task_id" in result
+            assert result["interactive"] is True
     
     async def test_execute_respond_command(self):
         """Execute respond command sends immediate response."""
@@ -268,17 +274,20 @@ class TestActionHandlers:
     async def test_action_create_task(self):
         """Create task action creates database entry and queues task."""
         db_mock = AsyncMock(spec=AsyncSession)
+        db_mock.commit = AsyncMock()
+        db_mock.add = MagicMock()
         
-        result = await action_create_task(
-            agent="planning",
-            message="Test task message",
-            payload={"issue": {"number": 123}},
-            db=db_mock
-        )
-        
-        assert result["action"] == "create_task"
-        assert "task_id" in result
-        assert result["agent"] == "planning"
+        with patch('core.webhook_engine.redis_client.push_task', new_callable=AsyncMock):
+            result = await action_create_task(
+                agent="planning",
+                message="Test task message",
+                payload={"issue": {"number": 123}},
+                db=db_mock
+            )
+            
+            assert result["action"] == "create_task"
+            assert "task_id" in result
+            assert result["agent"] == "planning"
     
     async def test_action_comment_github(self):
         """Comment action posts to GitHub."""
@@ -288,7 +297,7 @@ class TestActionHandlers:
             "issue": {"number": 123}
         }
         
-        with patch('core.webhook_engine.github_post_comment', new_callable=AsyncMock) as mock_comment:
+        with patch('core.webhook_engine.github_client.post_issue_comment', new_callable=AsyncMock) as mock_comment:
             result = await action_comment(payload, "Test comment")
             
             assert result["action"] == "comment"
@@ -297,17 +306,20 @@ class TestActionHandlers:
     async def test_action_ask_creates_interactive_task(self):
         """Ask action creates interactive task."""
         db_mock = AsyncMock(spec=AsyncSession)
+        db_mock.commit = AsyncMock()
+        db_mock.add = MagicMock()
         
-        result = await action_ask(
-            agent="brain",
-            message="Should I proceed?",
-            payload={"issue": {"number": 123}},
-            db=db_mock
-        )
-        
-        assert result["action"] == "ask"
-        assert "task_id" in result
-        assert result["interactive"] is True
+        with patch('core.webhook_engine.redis_client.push_task', new_callable=AsyncMock):
+            result = await action_ask(
+                agent="brain",
+                message="Should I proceed?",
+                payload={"issue": {"number": 123}},
+                db=db_mock
+            )
+            
+            assert result["action"] == "ask"
+            assert "task_id" in result
+            assert result["interactive"] is True
     
     async def test_action_respond(self):
         """Respond action sends immediate response."""

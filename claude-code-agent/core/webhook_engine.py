@@ -197,7 +197,7 @@ async def action_create_task(
         agent_type_map = {
             "planning": AgentType.PLANNING,
             "executor": AgentType.EXECUTOR,
-            "brain": AgentType.BRAIN,
+            "brain": AgentType.PLANNING,  # Brain uses PLANNING type
         }
         agent_type = agent_type_map.get(agent, AgentType.PLANNING)
         
@@ -298,9 +298,9 @@ async def action_ask(
         agent_type_map = {
             "planning": AgentType.PLANNING,
             "executor": AgentType.EXECUTOR,
-            "brain": AgentType.BRAIN,
+            "brain": AgentType.PLANNING,  # Brain uses PLANNING type
         }
-        agent_type = agent_type_map.get(agent, AgentType.BRAIN)
+        agent_type = agent_type_map.get(agent, AgentType.PLANNING)
         
         # Create interactive task
         task_db = TaskDB(

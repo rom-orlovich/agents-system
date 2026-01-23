@@ -155,6 +155,15 @@ To optimize context usage and maintain efficiency:
 
 See `.claude/skills/claude-config-updater/reference.md` for detailed memory optimization strategies.
 
+## Reference Documentation
+
+For detailed information about the system architecture, setup, and workflows:
+
+- **README.md**: Project overview, architecture, quick start guide, and API documentation
+- **docs/**: Additional documentation covering setup guides, testing strategies, deployment, and architecture details
+
+Refer to these resources when you need detailed information about system components, setup procedures, or architectural decisions.
+
 ## Current State
 
 This is a new machine running in a Docker container with FastAPI serving the dashboard.
