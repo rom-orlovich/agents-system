@@ -16,27 +16,86 @@ interface AgentMetric {
 }
 
 // Map API response to UI data structure
-const mapTrendData = (data: any, days: number): DailyMetric[] => {
-  if (!data?.dates) return [];
-  return data.dates.map((date: string, i: number) => {
-    // If we are in "hourly" mode (short timeframe), show HH:00
-    // Date string from backend is either "YYYY-MM-DD" or "YYYY-MM-DD HH:00:00"
-    let displayDate = "";
-    if (days <= 2) {
-      // Extract time part: YYYY-MM-DD HH:00:00 -> HH:00
-      const timePart = date.split(" ")[1];
-      displayDate = timePart ? timePart.substring(0, 5) : date.substring(5);
-    } else {
-      // Daily: YYYY-MM-DD -> MM/DD
-      displayDate = date.split("-").slice(1).join("/");
+// Generate slots in Local Time for display
+const generateTimeSlots = (days: number): string[] => {
+  const slots: string[] = [];
+  const now = new Date();
+  
+  if (days <= 2) {
+    // Hourly slots for the last 24h * days
+    // We go from oldest to newest to match chart L->R
+    for (let i = (days * 24); i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 60 * 60 * 1000);
+      const hours = d.getHours().toString().padStart(2, '0');
+      slots.push(`${hours}:00`);
     }
+  } else {
+    // Daily slots
+    for (let i = days; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const month = (d.getMonth() + 1).toString().padStart(2, '0');
+      const day = d.getDate().toString().padStart(2, '0');
+      slots.push(`${month}/${day}`);
+    }
+  }
+  return slots;
+};
 
-    return {
-      date: displayDate,
-      cost: data.costs[i] || 0,
-      tokens: data.tokens?.[i] || 0,
-      latency: Math.round(data.avg_latency?.[i] || 0),
-      errors: data.error_counts?.[i] || 0,
+const mapTrendData = (data: any, days: number): DailyMetric[] => {
+  const slots = generateTimeSlots(days);
+  const dataMap = new Map<string, DailyMetric>();
+  
+  if (data?.dates) {
+    data.dates.forEach((dateStr: string, i: number) => {
+      // Backend returns UTC string "YYYY-MM-DD HH:00:00" or "YYYY-MM-DD"
+      // We need to convert this UTC time to Local Time to match our slots
+      let key = "";
+      
+      try {
+        // Append 'Z' to treat as UTC if it's a standard ISO-like string without timezone
+        const cleanDateStr = dateStr.replace(" ", "T") + "Z"; 
+        const d = new Date(cleanDateStr);
+        
+        if (days <= 2) {
+           // Extract Local Hours
+           if (!isNaN(d.getTime())) {
+             const hours = d.getHours().toString().padStart(2, '0');
+             key = `${hours}:00`;
+           }
+        } else {
+           // Extract Local Date
+           if (!isNaN(d.getTime())) {
+             const month = (d.getMonth() + 1).toString().padStart(2, '0');
+             const day = d.getDate().toString().padStart(2, '0');
+             key = `${month}/${day}`;
+           }
+        }
+      } catch (e) {
+        console.error("Date parsing error", e);
+      }
+      
+      if (key) {
+        // Aggregate if multiple backend buckets fall into same local slot (rare but safest)
+        const existing = dataMap.get(key);
+        dataMap.set(key, {
+          date: key,
+          cost: (existing?.cost || 0) + (data.costs[i] || 0),
+          tokens: (existing?.tokens || 0) + (data.tokens?.[i] || 0),
+          latency: Math.max(existing?.latency || 0, Math.round(data.avg_latency?.[i] || 0)), // Take max latency
+          errors: (existing?.errors || 0) + (data.error_counts?.[i] || 0),
+        });
+      }
+    });
+  }
+
+  // Merge slots with data
+  return slots.map(slot => {
+    return dataMap.get(slot) || {
+      date: slot,
+      cost: 0,
+      tokens: 0,
+      latency: 0,
+      errors: 0
     };
   });
 };

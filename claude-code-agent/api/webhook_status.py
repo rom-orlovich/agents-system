@@ -32,12 +32,12 @@ async def get_webhooks_status(db: AsyncSession = Depends(get_db_session)):
         # Log static webhook configs for debugging
         logger.debug("loading_static_webhooks", count=len(WEBHOOK_CONFIGS))
         
-        # Get event counts by provider (for static webhooks)
+        # Get event counts by provider (for static webhooks) - successful only
         events_by_provider_query = select(
             WebhookEventDB.provider,
             func.count(WebhookEventDB.event_id).label("count"),
             func.max(WebhookEventDB.created_at).label("last_event")
-        ).group_by(WebhookEventDB.provider)
+        ).where(WebhookEventDB.response_sent == True).group_by(WebhookEventDB.provider)
         events_by_provider_result = await db.execute(events_by_provider_query)
         events_by_provider = {
             row[0]: {"count": row[1], "last_event": row[2]} 
@@ -51,20 +51,21 @@ async def get_webhooks_status(db: AsyncSession = Depends(get_db_session)):
             logger.debug("processing_static_webhooks", count=len(WEBHOOK_CONFIGS))
         
         for config in WEBHOOK_CONFIGS:
-            # Check if webhook is active (has secret configured if required)
-            is_active = True
+            # Check if webhook secret is configured
             has_secret = False
             if config.requires_signature and config.secret_env_var:
                 secret_value = os.getenv(config.secret_env_var)
                 has_secret = bool(secret_value)
-                is_active = has_secret  # Only active if secret is configured
                 logger.debug(
                     "static_webhook_secret_check",
                     name=config.name,
                     secret_env_var=config.secret_env_var,
-                    has_secret=has_secret,
-                    is_active=is_active
+                    has_secret=has_secret
                 )
+            
+            # Static webhooks are always considered active/enabled if they are in the config
+            # (regardless of secret presence, matching user requirement)
+            is_active = True
             
             # Get event stats for this provider
             provider_stats = events_by_provider.get(config.source, {"count": 0, "last_event": None})
@@ -95,10 +96,11 @@ async def get_webhooks_status(db: AsyncSession = Depends(get_db_session)):
         db_webhooks = result.scalars().all()
         
         for webhook in db_webhooks:
-            # Count events for this webhook
+            # Count events for this webhook - successful only
             event_count_result = await db.execute(
                 select(func.count(WebhookEventDB.event_id))
                 .where(WebhookEventDB.webhook_id == webhook.webhook_id)
+                .where(WebhookEventDB.response_sent == True)
             )
             event_count = event_count_result.scalar() or 0
             
