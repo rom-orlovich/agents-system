@@ -453,6 +453,9 @@ class TaskWorker:
             # Generate stable conversation_id from external_id
             conversation_id = generate_webhook_conversation_id(external_id)
             
+            # Flush any pending changes to ensure we see the latest state
+            await session.flush()
+            
             # Check if conversation already exists
             result = await session.execute(
                 select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
@@ -468,6 +471,7 @@ class TaskWorker:
                     external_id=external_id,
                     webhook_source=webhook_source
                 )
+                conversation_title = existing_conversation.title
             else:
                 # Create new conversation
                 conversation_title = generate_webhook_conversation_title(
@@ -485,13 +489,40 @@ class TaskWorker:
                     }),
                 )
                 session.add(conversation)
-                logger.info(
-                    "webhook_conversation_created_fallback",
-                    task_id=task_db.task_id,
-                    conversation_id=conversation_id,
-                    external_id=external_id,
-                    webhook_source=webhook_source
-                )
+                # Flush immediately to catch any IntegrityError
+                try:
+                    await session.flush()
+                except Exception as flush_error:
+                    # If UNIQUE constraint violation, conversation may have been created concurrently
+                    from sqlalchemy.exc import IntegrityError
+                    if isinstance(flush_error, IntegrityError) or "UNIQUE constraint" in str(flush_error):
+                        # SQLAlchemy auto-rolls back on exception
+                        # Check again if conversation exists
+                        result = await session.execute(
+                            select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
+                        )
+                        existing_conversation = result.scalar_one_or_none()
+                        if existing_conversation:
+                            conversation_title = existing_conversation.title
+                            logger.info(
+                                "webhook_conversation_reused_fallback_after_conflict",
+                                task_id=task_db.task_id,
+                                conversation_id=conversation_id,
+                                external_id=external_id,
+                                webhook_source=webhook_source
+                            )
+                        else:
+                            raise
+                    else:
+                        raise
+                else:
+                    logger.info(
+                        "webhook_conversation_created_fallback",
+                        task_id=task_db.task_id,
+                        conversation_id=conversation_id,
+                        external_id=external_id,
+                        webhook_source=webhook_source
+                    )
             
             # Always add a new message to the conversation (even if reusing conversation)
             user_message_id = f"msg-{uuid.uuid4().hex[:12]}"

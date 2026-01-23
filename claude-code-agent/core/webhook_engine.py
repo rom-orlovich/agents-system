@@ -170,6 +170,29 @@ async def get_or_create_flow_conversation(
     # Create new conversation for this flow
     conversation_id = generate_webhook_conversation_id(external_id)
     
+    # Flush any pending changes to ensure we see the latest state
+    await db.flush()
+    
+    # Check if conversation with this conversation_id already exists (may have been created by another flow)
+    result = await db.execute(
+        select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
+    )
+    existing_by_id = result.scalar_one_or_none()
+    
+    if existing_by_id:
+        # Conversation exists but may not have this flow_id - update it
+        if existing_by_id.flow_id != flow_id:
+            existing_by_id.flow_id = flow_id
+            existing_by_id.initiated_task_id = task_db.task_id
+            db.add(existing_by_id)
+        logger.info(
+            "flow_conversation_reused_by_id",
+            flow_id=flow_id,
+            conversation_id=conversation_id,
+            task_id=task_db.task_id
+        )
+        return existing_by_id
+    
     # Parse source_metadata for title generation
     source_metadata = json.loads(task_db.source_metadata or "{}")
     webhook_source = source_metadata.get("webhook_source", "unknown")
@@ -202,17 +225,22 @@ async def get_or_create_flow_conversation(
         if isinstance(flush_error, IntegrityError) or "UNIQUE constraint" in str(flush_error):
             # SQLAlchemy auto-rolls back on exception
             # Check again if conversation exists (may have been created by concurrent request)
-            # Use a fresh query after the rollback
+            # Check by conversation_id first (the UNIQUE constraint)
             result = await db.execute(
-                select(ConversationDB).where(ConversationDB.flow_id == flow_id)
+                select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
             )
             existing_conversation = result.scalar_one_or_none()
             
             if existing_conversation:
+                # Update flow_id if needed
+                if existing_conversation.flow_id != flow_id:
+                    existing_conversation.flow_id = flow_id
+                    existing_conversation.initiated_task_id = task_db.task_id
+                    db.add(existing_conversation)
                 logger.info(
                     "flow_conversation_reused_after_conflict",
                     flow_id=flow_id,
-                    conversation_id=existing_conversation.conversation_id,
+                    conversation_id=conversation_id,
                     task_id=task_db.task_id
                 )
                 return existing_conversation
@@ -256,6 +284,9 @@ async def create_webhook_conversation(
         # Generate stable conversation_id from external_id
         conversation_id = generate_webhook_conversation_id(external_id)
         
+        # Flush any pending changes to ensure we see the latest state
+        await db.flush()
+        
         # Check if conversation already exists
         result = await db.execute(
             select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
@@ -271,6 +302,7 @@ async def create_webhook_conversation(
                 external_id=external_id,
                 webhook_source=webhook_source
             )
+            conversation_title = existing_conversation.title
         else:
             # Create new conversation
             conversation_title = generate_webhook_conversation_title(
@@ -288,13 +320,42 @@ async def create_webhook_conversation(
                 }),
             )
             db.add(conversation)
-            logger.info(
-                "webhook_conversation_created",
-                task_id=task_db.task_id,
-                conversation_id=conversation_id,
-                external_id=external_id,
-                webhook_source=webhook_source
-            )
+            # Flush immediately to catch any IntegrityError
+            try:
+                await db.flush()
+            except Exception as flush_error:
+                # If UNIQUE constraint violation, conversation may have been created concurrently
+                from sqlalchemy.exc import IntegrityError
+                if isinstance(flush_error, IntegrityError) or "UNIQUE constraint" in str(flush_error):
+                    # SQLAlchemy auto-rolls back on exception
+                    # Check again if conversation exists (may have been created by concurrent request)
+                    result = await db.execute(
+                        select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
+                    )
+                    existing_conversation = result.scalar_one_or_none()
+                    if existing_conversation:
+                        conversation_title = existing_conversation.title
+                        logger.info(
+                            "webhook_conversation_reused_after_conflict",
+                            task_id=task_db.task_id,
+                            conversation_id=conversation_id,
+                            external_id=external_id,
+                            webhook_source=webhook_source
+                        )
+                    else:
+                        # Re-raise if conversation still doesn't exist
+                        raise
+                else:
+                    # Re-raise if it's not a duplicate issue
+                    raise
+            else:
+                logger.info(
+                    "webhook_conversation_created",
+                    task_id=task_db.task_id,
+                    conversation_id=conversation_id,
+                    external_id=external_id,
+                    webhook_source=webhook_source
+                )
         
         # Always add a new message to the conversation (even if reusing conversation)
         user_message_id = f"msg-{uuid.uuid4().hex[:12]}"
