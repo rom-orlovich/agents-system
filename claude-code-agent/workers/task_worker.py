@@ -584,6 +584,53 @@ class TaskWorker:
         # Update conversation timestamp
         conversation.updated_at = datetime.utcnow()
 
+    def _clean_error_message(self, error: str) -> str:
+        """Clean error message by removing noise and extracting actual error text."""
+        if not error:
+            return error
+        
+        lines = error.split("\n")
+        cleaned_lines = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Remove [LOG] prefixes
+            if line.startswith("[LOG]"):
+                line = line[5:].strip()
+            
+            # Skip lines that are just noise
+            if line.startswith("Exit code:") and len(cleaned_lines) > 0:
+                # Exit code info - keep it but don't add if we already have error text
+                continue
+            
+            # Skip empty lines after cleaning
+            if line:
+                cleaned_lines.append(line)
+        
+        if cleaned_lines:
+            return "\n".join(cleaned_lines)
+        return error
+    
+    def _format_error_for_platform(self, error: str, platform: str) -> str:
+        """Format error message based on platform."""
+        cleaned_error = self._clean_error_message(error)
+        
+        if platform == "github":
+            # GitHub: Error emoji + clean message
+            return f"❌ {cleaned_error}"
+        elif platform == "jira":
+            # Jira: Clean error message
+            return cleaned_error
+        elif platform == "slack":
+            # Slack: Clean error message
+            return cleaned_error
+        else:
+            # Default: Include status prefix
+            return f"❌ {cleaned_error}"
+
     async def _post_webhook_comment(
         self,
         task_db: TaskDB,
@@ -605,16 +652,31 @@ class TaskWorker:
             if "provider" not in payload:
                 payload["provider"] = webhook_source
             
-            # Format message with status indicator
-            status_prefix = "✅" if success else "❌"
+            # Get platform for formatting
+            platform = payload.get("provider", webhook_source).lower()
+            
+            # Format message based on success/failure and platform
+            if success:
+                status_prefix = "✅"
+                formatted_message = f"{status_prefix} {message}"
+            else:
+                # Format error message for platform
+                formatted_message = self._format_error_for_platform(message, platform)
             
             # Truncate message if too long (most APIs have limits)
-            max_length = 4000  # Conservative limit for most APIs
-            truncated_message = message[:max_length] if len(message) > max_length else message
-            if len(message) > max_length:
+            # Use higher limit for error messages to preserve important details
+            max_length = 8000 if not success else 4000
+            truncated_message = formatted_message[:max_length] if len(formatted_message) > max_length else formatted_message
+            if len(formatted_message) > max_length:
+                # Try to truncate at sentence boundary
+                last_period = truncated_message.rfind(".")
+                last_newline = truncated_message.rfind("\n")
+                truncate_at = max(last_period, last_newline)
+                if truncate_at > max_length * 0.8:  # Only truncate at boundary if it's reasonable
+                    truncated_message = truncated_message[:truncate_at + 1]
                 truncated_message += "\n\n... (message truncated)"
             
-            formatted_message = f"{status_prefix} {truncated_message}"
+            formatted_message = truncated_message
             
             # Add cost info if available and successful
             if success and task_db.cost_usd > 0:

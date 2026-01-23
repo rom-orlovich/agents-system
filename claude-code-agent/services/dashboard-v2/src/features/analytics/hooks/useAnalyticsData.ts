@@ -16,15 +16,29 @@ interface AgentMetric {
 }
 
 // Map API response to UI data structure
-const mapTrendData = (data: any): DailyMetric[] => {
+const mapTrendData = (data: any, days: number): DailyMetric[] => {
   if (!data?.dates) return [];
-  return data.dates.map((date: string, i: number) => ({
-    date: date.split("-").slice(1).join("/"), // MM/DD
-    cost: data.costs[i] || 0,
-    tokens: data.tokens?.[i] || 0,
-    latency: Math.round(data.avg_latency?.[i] || 0),
-    errors: data.error_counts?.[i] || 0,
-  }));
+  return data.dates.map((date: string, i: number) => {
+    // If we are in "hourly" mode (short timeframe), show HH:00
+    // Date string from backend is either "YYYY-MM-DD" or "YYYY-MM-DD HH:00:00"
+    let displayDate = "";
+    if (days <= 2) {
+      // Extract time part: YYYY-MM-DD HH:00:00 -> HH:00
+      const timePart = date.split(" ")[1];
+      displayDate = timePart ? timePart.substring(0, 5) : date.substring(5);
+    } else {
+      // Daily: YYYY-MM-DD -> MM/DD
+      displayDate = date.split("-").slice(1).join("/");
+    }
+
+    return {
+      date: displayDate,
+      cost: data.costs[i] || 0,
+      tokens: data.tokens?.[i] || 0,
+      latency: Math.round(data.avg_latency?.[i] || 0),
+      errors: data.error_counts?.[i] || 0,
+    };
+  });
 };
 
 const mapAgentData = (data: any): AgentMetric[] => {
@@ -32,8 +46,6 @@ const mapAgentData = (data: any): AgentMetric[] => {
   return data.subagents.map((name: string, i: number) => {
     const cost = data.costs[i] || 0;
     const tasks = data.task_counts?.[i] || 0;
-    // Simple efficiency score: more tasks per dollar is better
-    // Capped at 100. Arbitrary formula for visual demo.
     const efficiency = Math.min(100, Math.round((tasks / (cost + 0.1)) * 5)); 
     
     return {
@@ -45,21 +57,23 @@ const mapAgentData = (data: any): AgentMetric[] => {
   });
 };
 
-export function useAnalyticsData() {
+export function useAnalyticsData(days: number = 7) {
+  const granularity = days <= 2 ? "hour" : "day";
+
   const { data: trendData, isLoading: isTrendLoading } = useQuery({
-    queryKey: ["analytics", "trends"],
+    queryKey: ["analytics", "trends", days, granularity],
     queryFn: async () => {
-      const res = await fetch("/api/analytics/costs/daily?days=30");
+      const res = await fetch(`/api/analytics/costs/histogram?days=${days}&granularity=${granularity}`);
       if (!res.ok) throw new Error("Failed to fetch trend data");
-      return mapTrendData(await res.json());
+      return mapTrendData(await res.json(), days);
     },
     refetchInterval: 10000,
   });
 
   const { data: agentData, isLoading: isAgentLoading } = useQuery({
-    queryKey: ["analytics", "agents"],
+    queryKey: ["analytics", "agents", days],
     queryFn: async () => {
-      const res = await fetch("/api/analytics/costs/by-subagent?days=30");
+      const res = await fetch(`/api/analytics/costs/by-subagent?days=${days}`);
       if (!res.ok) throw new Error("Failed to fetch agent data");
       return mapAgentData(await res.json());
     },

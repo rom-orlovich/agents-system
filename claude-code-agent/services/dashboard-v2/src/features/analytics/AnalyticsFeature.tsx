@@ -53,11 +53,14 @@ const CyberTooltip = ({ active, payload, label }: any) => {
 };
 
 export function AnalyticsFeature() {
-  const { trendData, agentData, isLoading, error } = useAnalyticsData();
+  const [timeRange, setTimeRange] = useState<number>(7);
+  const { trendData, agentData, isLoading, error } = useAnalyticsData(timeRange);
   const [hoverDate, setHoverDate] = useState<string | null>(null);
 
   if (isLoading) return <div className="p-12 text-center font-heading text-blue-400 animate-pulse">INITIALIZING_ANALYTICS_PROTOCOL...</div>;
   if (error) return <div className="p-8 text-red-500 font-heading border border-red-500/20 bg-red-900/10">SYSTEM_FAILURE: {error}</div>;
+
+  const rangeLabel = timeRange === 1 ? "24H" : `${timeRange}D`;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
@@ -90,22 +93,29 @@ export function AnalyticsFeature() {
             </p>
           </div>
           
-          <div className="flex gap-3 pl-5 md:pl-0">
-            <div className="flex flex-col items-end">
-              <div className="flex gap-2 mb-1">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="h-2 w-2 rounded-full bg-emerald-500/50" />
-                <span className="h-2 w-2 rounded-full bg-emerald-500/20" />
-              </div>
-              <div className="flex gap-3 text-[10px] font-heading tracking-wider">
-                <div className="bg-slate-200 dark:bg-slate-800 px-3 py-1.5 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
-                  STATUS: ONLINE
-                </div>
-                <div className="bg-orange-50 dark:bg-orange-900/20 px-3 py-1.5 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-500/30 flex items-center gap-2">
+          <div className="flex flex-col items-end gap-3 pl-5 md:pl-0">
+            {/* Timeframe Selector */}
+            <div className="flex bg-slate-200 dark:bg-slate-800 p-0.5 rounded-none border border-slate-300 dark:border-slate-700">
+              {[1, 7, 30].map((days) => (
+                <button
+                  key={days}
+                  onClick={() => setTimeRange(days)}
+                  className={`px-3 py-1 text-[10px] font-heading font-bold transition-all ${
+                    timeRange === days
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                      : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-300 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  {days === 1 ? "24H" : `${days}D`}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3 text-[10px] font-heading tracking-wider">
+               <div className="bg-orange-50 dark:bg-orange-900/20 px-3 py-1.5 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-500/30 flex items-center gap-2">
                   <span className="w-1.5 h-1.5 bg-orange-500 rounded-sm animate-ping" />
                   LIVE_STREAMING
-                </div>
-              </div>
+               </div>
             </div>
           </div>
         </div>
@@ -116,13 +126,14 @@ export function AnalyticsFeature() {
         {/* CHART 1: BURN RATE (Cost) */}
         <section className="panel group min-h-[400px]" data-label="FINANCIAL_TELEMETRY">
           <div className="flex justify-between items-center mb-6">
-             <h2 className="text-sm font-heading text-gray-400 group-hover:text-blue-400 transition-colors">BURN_RATE_TREND [30D]</h2>
-             <div className="text-xs font-mono text-gray-500">AVG: $3.42/day</div>
+             <h2 className="text-sm font-heading text-gray-400 group-hover:text-blue-400 transition-colors">BURN_RATE_TREND [{rangeLabel}]</h2>
+             {/* Average calculation would need real math here, currently placeholder */}
+             <div className="text-xs font-mono text-gray-500">AVG: --/day</div>
           </div>
           
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData} onMouseMove={(e: any) => e.activeLabel && setHoverDate(e.activeLabel)}>
+              <AreaChart data={trendData} onMouseMove={(e: any) => e.activeLabel && setHoverDate(e.activeLabel)} onMouseLeave={() => setHoverDate(null)}>
                 <defs>
                   <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.4} />
@@ -146,7 +157,7 @@ export function AnalyticsFeature() {
                   strokeWidth={2}
                   fillOpacity={1} 
                   fill="url(#colorCost)" 
-                  animationDuration={2000}
+                  animationDuration={1500}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -156,13 +167,13 @@ export function AnalyticsFeature() {
         {/* CHART 2: TOKEN FLUX (Bar) */}
         <section className="panel group min-h-[400px]" data-label="TOKEN_THROUGHPUT">
           <div className="flex justify-between items-center mb-6">
-             <h2 className="text-sm font-heading text-gray-400 group-hover:text-amber-400 transition-colors">TOKEN_CONSUMPTION_RATE</h2>
-             <div className="text-xs font-mono text-gray-500">TOTAL: 1.2M</div>
+             <h2 className="text-sm font-heading text-gray-400 group-hover:text-amber-400 transition-colors">TOKEN_CONSUMPTION [{rangeLabel}]</h2>
+             <div className="text-xs font-mono text-gray-500">TOTAL: --</div>
           </div>
 
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={trendData}>
+              <BarChart data={trendData} onMouseMove={(e: any) => e.activeLabel && setHoverDate(e.activeLabel)} onMouseLeave={() => setHoverDate(null)}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
                 <XAxis dataKey="date" hide />
                 <Tooltip content={<CyberTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
@@ -175,13 +186,13 @@ export function AnalyticsFeature() {
         {/* CHART 3: LATENCY (Composed) */}
         <section className="panel group min-h-[400px]" data-label="NETWORK_LATENCY">
           <div className="flex justify-between items-center mb-6">
-             <h2 className="text-sm font-heading text-gray-400 group-hover:text-emerald-400 transition-colors">SYSTEM_LATENCY_MS</h2>
-             <div className="text-xs font-mono text-gray-500">P99: 412ms</div>
+             <h2 className="text-sm font-heading text-gray-400 group-hover:text-emerald-400 transition-colors">SYSTEM_LATENCY [{rangeLabel}]</h2>
+             <div className="text-xs font-mono text-gray-500">AVG: --ms</div>
           </div>
 
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData}>
+              <LineChart data={trendData} onMouseMove={(e: any) => e.activeLabel && setHoverDate(e.activeLabel)} onMouseLeave={() => setHoverDate(null)}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
                 <XAxis dataKey="date" hide />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#64748b" }} width={30} />
@@ -204,8 +215,8 @@ export function AnalyticsFeature() {
         {/* CHART 4: AGENT EFFICIENCY (Radial/Bar) */}
         <section className="panel group min-h-[400px]" data-label="AGENT_PERFORMANCE">
           <div className="flex justify-between items-center mb-6">
-             <h2 className="text-sm font-heading text-gray-400 group-hover:text-purple-400 transition-colors">AGENT_COMPUTE_DISTRIBUTION</h2>
-             <div className="text-xs font-mono text-gray-500">ACTIVE_AGENTS: 5</div>
+             <h2 className="text-sm font-heading text-gray-400 group-hover:text-purple-400 transition-colors">AGENT_LEADERBOARD [{rangeLabel}]</h2>
+             <div className="text-xs font-mono text-gray-500">ACTIVE: {agentData?.length || 0}</div>
           </div>
 
           <div className="h-[300px] w-full">

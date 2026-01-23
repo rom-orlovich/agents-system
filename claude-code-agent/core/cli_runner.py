@@ -180,9 +180,28 @@ async def run_claude_cli(
         error_msg = None
         if process.returncode != 0:
             if stderr_lines:
-                # Include stderr output in error message
-                error_details = "\n".join(stderr_lines[-5:])  # Last 5 lines of stderr
-                error_msg = f"Exit code: {process.returncode}\n\nStderr:\n{error_details}"
+                # Capture ALL stderr lines for complete error reporting
+                full_stderr = "\n".join(stderr_lines)
+                
+                # Extract meaningful error messages (prioritize actual error text over exit code)
+                # Look for common error patterns
+                error_text = full_stderr
+                
+                # Remove common noise patterns
+                cleaned_lines = []
+                for line in stderr_lines:
+                    # Skip verbose log prefixes but keep actual errors
+                    if not line.startswith("[LOG]") and line.strip():
+                        cleaned_lines.append(line)
+                
+                if cleaned_lines:
+                    # Use cleaned error text as primary message
+                    error_text = "\n".join(cleaned_lines)
+                    # Include exit code as secondary information
+                    error_msg = f"{error_text}\n\n(Exit code: {process.returncode})"
+                else:
+                    # Fallback to full stderr if cleaning removed everything
+                    error_msg = f"{full_stderr}\n\n(Exit code: {process.returncode})"
             else:
                 error_msg = f"Exit code: {process.returncode}"
         
