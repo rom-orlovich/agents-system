@@ -13,6 +13,7 @@ class ConversationManager {
     async init() {
         await this.loadConversations();
         this.setupEventListeners();
+        this.enableChatInput();
     }
 
     setupEventListeners() {
@@ -101,12 +102,21 @@ class ConversationManager {
                 item.classList.toggle('active', item.dataset.id === conversationId);
             });
 
-            // Load conversation details
-            const response = await fetch(`/api/conversations/${conversationId}`);
-            if (!response.ok) throw new Error('Failed to load conversation');
+            const response = await fetch(`/api/conversations/${conversationId}?include_messages=true`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Failed to load conversation:', response.status, errorText);
+                throw new Error('Failed to load conversation');
+            }
 
             const conversation = await response.json();
+            console.log('Conversation response:', conversation);
             this.currentMessages = conversation.messages || [];
+            
+            console.log('Loaded conversation:', conversationId, 'Messages:', this.currentMessages.length);
+            if (this.currentMessages.length > 0) {
+                console.log('First message:', this.currentMessages[0]);
+            }
 
             // Update title with metrics
             const titleEl = document.getElementById('current-conversation-title');
@@ -119,11 +129,12 @@ class ConversationManager {
                 titleEl.textContent = conversation.title + metricsText;
             }
 
-            // Render messages
-            this.renderMessages();
-
-            // Enable chat input
             this.enableChatInput();
+            
+            // Render messages and ensure scroll happens
+            setTimeout(() => {
+                this.renderMessages();
+            }, 50);
         } catch (error) {
             console.error('Error selecting conversation:', error);
             this.showError('Failed to load conversation');
@@ -132,14 +143,24 @@ class ConversationManager {
 
     renderMessages() {
         const messagesContainer = document.getElementById('chat-messages');
-        if (!messagesContainer) return;
+        if (!messagesContainer) {
+            console.error('chat-messages container not found');
+            return;
+        }
+
+        console.log('Rendering messages:', this.currentMessages.length, this.currentMessages);
 
         if (this.currentMessages.length === 0) {
             messagesContainer.innerHTML = '<p class="welcome-message">Start the conversation by sending a message below.</p>';
             return;
         }
 
-        messagesContainer.innerHTML = this.currentMessages.map(msg => {
+        const html = this.currentMessages.map(msg => {
+            if (!msg || !msg.role || !msg.content) {
+                console.warn('Invalid message format:', msg);
+                return '';
+            }
+            
             const roleClass = msg.role === 'user' ? 'user-message' : 'assistant-message';
             const roleLabel = msg.role === 'user' ? 'You' : 'Brain';
 
@@ -155,8 +176,25 @@ class ConversationManager {
             `;
         }).join('');
 
-        // Scroll to bottom
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        messagesContainer.innerHTML = html;
+
+        // Scroll to bottom with multiple attempts to ensure it works
+        const scrollToBottom = () => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        };
+
+        // Use requestAnimationFrame for better timing
+        requestAnimationFrame(() => {
+            scrollToBottom();
+            // Also try after a short delay to catch any layout changes
+            setTimeout(() => {
+                scrollToBottom();
+            }, 50);
+            // Final attempt after images/content might load
+            setTimeout(() => {
+                scrollToBottom();
+            }, 200);
+        });
     }
 
     async createNewConversation() {
@@ -276,8 +314,8 @@ class ConversationManager {
                 if (this.conversations.length > 0) {
                     await this.selectConversation(this.conversations[0].conversation_id);
                 } else {
-                    this.disableChatInput();
-                    document.getElementById('chat-messages').innerHTML = '<p class="welcome-message">No conversations. Create a new one to get started!</p>';
+                    this.enableChatInput();
+                    document.getElementById('chat-messages').innerHTML = '<p class="welcome-message">No conversations. Type a message and click EXECUTE to start a new conversation!</p>';
                     const titleEl = document.getElementById('current-conversation-title');
                     if (titleEl) titleEl.textContent = 'Select Channel';
                 }
@@ -326,11 +364,9 @@ class ConversationManager {
 
     async sendMessage(message) {
         if (!this.currentConversationId) {
-            this.showError('Please select or create a conversation first');
             return null;
         }
 
-        // Add user message to UI immediately
         const userMessage = {
             role: 'user',
             content: message,
@@ -406,8 +442,15 @@ class ConversationManager {
     }
 
     formatTime(dateStr) {
-        const date = new Date(dateStr);
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (!dateStr) return '';
+        try {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return '';
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch (e) {
+            console.error('Error formatting time:', dateStr, e);
+            return '';
+        }
     }
 
     formatDuration(seconds) {

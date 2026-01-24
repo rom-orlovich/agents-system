@@ -1,12 +1,15 @@
 """Credentials management API endpoints."""
 
+import hashlib
 import json
 import subprocess
+import uuid
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, List
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, File, UploadFile, Depends
+from fastapi import APIRouter, HTTPException, File, UploadFile, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,17 +25,9 @@ import structlog
 
 logger = structlog.get_logger()
 
-# Get ws_hub from app state (will be injected)
-ws_hub = None
-
-def get_ws_hub():
+def get_ws_hub(request: Request):
     """Get WebSocket hub from app state."""
-    global ws_hub
-    if ws_hub is None:
-        from fastapi import Request
-        # This will be set during app initialization
-        pass
-    return ws_hub
+    return request.app.state.ws_hub
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
 
@@ -85,7 +80,7 @@ async def get_credential_status() -> CredentialStatusResponse:
     if file_exists:
         try:
             creds_data = json.loads(creds_path.read_text())
-            creds = ClaudeCredentials(**creds_data)
+            creds = ClaudeCredentials.from_dict(creds_data)
             
             status = CredentialStatus.VALID
             message = "Credentials valid"
@@ -128,10 +123,15 @@ async def get_credential_status() -> CredentialStatusResponse:
 
 @router.post("/upload")
 async def upload_credentials(
-    file: UploadFile = File(..., description="claude.json credentials file"),
-    request: Optional[object] = None  # Will be injected via Depends if needed
+    request: Request,
+    file: UploadFile = File(..., description="claude.json credentials file")
 ) -> APIResponse:
-    """Upload credentials file."""
+    """Upload credentials file.
+    
+    Accepts credentials in either format:
+    1. Direct format: {"access_token": "...", "refresh_token": "...", ...}
+    2. Wrapped format: {"claudeAiOauth": {"accessToken": "...", "refreshToken": "...", ...}}
+    """
     
     if not file.filename.endswith('.json'):
         raise HTTPException(400, "File must be a JSON file")
@@ -139,7 +139,7 @@ async def upload_credentials(
     content = await file.read()
     try:
         creds_data = json.loads(content)
-        creds = ClaudeCredentials(**creds_data)
+        creds = ClaudeCredentials.from_dict(creds_data)
     except json.JSONDecodeError:
         raise HTTPException(400, "Invalid JSON file")
     except Exception as e:
@@ -148,44 +148,83 @@ async def upload_credentials(
     if creds.is_expired:
         raise HTTPException(400, "Credentials are already expired")
     
-    # Save to persistent storage
+    # Save to persistent storage (for API use)
     creds_path = settings.credentials_path
     creds_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    # Write file synchronously (aiofiles not required for small files)
     creds_path.write_bytes(content)
-    
-    logger.info("credentials_uploaded", expires_at=creds.expires_at_datetime.isoformat())
+
+    # Also save to Claude CLI's expected location (for CLI use)
+    cli_creds_path = Path.home() / ".claude" / "claude.json"
+    cli_creds_path.parent.mkdir(parents=True, exist_ok=True)
+    cli_creds_path.write_bytes(content)
+
+    logger.info("credentials_uploaded",
+                expires_at=creds.expires_at_datetime.isoformat(),
+                api_path=str(creds_path),
+                cli_path=str(cli_creds_path))
     
     # After successful upload, run test and update session status
+    user_id = creds.account_id
+    is_active = False
+    
+    # Generate user_id from access token if not present
+    if not user_id:
+        token_hash = hashlib.sha256(creds.access_token.encode()).hexdigest()[:16]
+        user_id = f"user-{token_hash}"
+
     try:
         is_active = await test_cli_access()
-        user_id = creds.account_id
-        
-        if user_id:
-            # Update sessions for this user
-            async with async_session_factory() as session:
-                await session.execute(
-                    update(SessionDB)
-                    .where(SessionDB.user_id == user_id)
-                    .values(active=is_active)
-                )
-                await session.commit()
-            
-            # Broadcast WebSocket update (if ws_hub is available)
-            try:
-                from main import ws_hub as main_ws_hub
-                if main_ws_hub:
-                    await main_ws_hub.broadcast(
-                        CLIStatusUpdateMessage(session_id=None, active=is_active)
-                    )
-            except Exception as ws_error:
-                logger.warning("Failed to broadcast CLI status update", error=str(ws_error))
-        
         logger.info("CLI test completed after upload", active=is_active, user_id=user_id)
     except Exception as test_error:
-        # Don't fail upload - just log error
         logger.warning("CLI test failed after upload", error=str(test_error))
+        is_active = False
+    
+    if user_id:
+        try:
+            async with async_session_factory() as session:
+                # Check if session exists for this user_id
+                result = await session.execute(
+                    select(SessionDB)
+                    .where(SessionDB.user_id == user_id)
+                    .order_by(SessionDB.connected_at.desc())
+                    .limit(1)
+                )
+                existing_session = result.scalar_one_or_none()
+                
+                if existing_session:
+                    # Update existing session
+                    await session.execute(
+                        update(SessionDB)
+                        .where(SessionDB.session_id == existing_session.session_id)
+                        .values(active=is_active)
+                    )
+                else:
+                    # Create new session if none exists
+                    session_id = f"cred-{uuid.uuid4().hex[:12]}"
+                    new_session = SessionDB(
+                        session_id=session_id,
+                        user_id=user_id,
+                        machine_id="claude-agent-001",
+                        connected_at=datetime.now(timezone.utc),
+                        active=is_active
+                    )
+                    session.add(new_session)
+                
+                await session.commit()
+                logger.info("CLI status updated in database", user_id=user_id, active=is_active)
+            
+            try:
+                if request:
+                    ws_hub = get_ws_hub(request)
+                    if ws_hub:
+                        await ws_hub.broadcast(
+                            CLIStatusUpdateMessage(session_id=None, active=is_active)
+                        )
+                        logger.info("Broadcast CLI status update via WebSocket", active=is_active)
+            except Exception as ws_error:
+                logger.warning("Failed to broadcast CLI status update", error=str(ws_error))
+        except Exception as db_error:
+            logger.warning("Failed to update CLI status in database", error=str(db_error))
     
     return APIResponse(
         success=True,
@@ -206,20 +245,25 @@ class AccountInfo(BaseModel):
 
 @router.get("/cli-status")
 async def get_cli_status(db: AsyncSession = Depends(get_db_session)):
-    """Get CLI status for current credentials."""
     creds_path = settings.credentials_path
-    if not creds_path.exists():
-        return {"active": False, "message": "Credentials not found"}
-    
+    cli_creds_path = Path.home() / ".claude" / "claude.json"
+
+    if creds_path.exists():
+        active_path = creds_path
+    elif cli_creds_path.exists():
+        active_path = cli_creds_path
+    else:
+        return {"active": False, "message": "Credentials not found (checked /data/credentials/ and ~/.claude/)"}
+
     try:
-        creds_data = json.loads(creds_path.read_text())
-        creds = ClaudeCredentials(**creds_data)
+        creds_data = json.loads(active_path.read_text())
+        creds = ClaudeCredentials.from_dict(creds_data)
         user_id = creds.account_id
-        
+
         if not user_id:
-            return {"active": False, "message": "No user_id found in credentials"}
+            token_hash = hashlib.sha256(creds.access_token.encode()).hexdigest()[:16]
+            user_id = f"user-{token_hash}"
         
-        # Get latest session for this user
         result = await db.execute(
             select(SessionDB)
             .where(SessionDB.user_id == user_id)
@@ -231,7 +275,7 @@ async def get_cli_status(db: AsyncSession = Depends(get_db_session)):
         if session:
             return {"active": session.active, "message": None}
         else:
-            return {"active": False, "message": "No session found"}
+            return {"active": False, "message": "No session found - upload credentials to test CLI"}
     except Exception as e:
         logger.warning("Failed to get CLI status", error=str(e))
         return {"active": False, "message": str(e)}

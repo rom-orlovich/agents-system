@@ -96,7 +96,7 @@ start:
 	@echo "║  🔌 WebSocket: ws://localhost:8000/ws                        ║"
 	@echo "╚══════════════════════════════════════════════════════════════╝"
 	@echo ""
-	@echo "  make logs    - View logs"`
+	@echo "  make logs    - View logs"
 	@echo "  make health  - Check system health"
 	@echo "  make test    - Run tests"
 	@echo ""
@@ -199,7 +199,7 @@ type-check:
 
 run-local:
 	@echo "🚀 Running locally (no Docker)..."
-	@uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000 --reload-exclude "*.venv/**" --reload-exclude "**/site-packages/**" --reload-exclude "**/__pycache__/**" --reload-exclude "**/.git/**"
+	@uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000 --reload-exclude "*.venv/**" --reload-exclude "**/site-packages/**" --reload-exclude "**/__pycache__/**" --reload-exclude "**/.git/**" --reload-exclude "**/tests/**" --reload-exclude "**/scripts/**"
 
 # =============================================================================
 # 🔧 UTILITIES
@@ -221,6 +221,8 @@ health:
 build:
 	@echo "🔨 Building Docker containers..."
 	@docker-compose build
+	@echo "🧪 Testing CLI after build..."
+	@docker-compose run --rm app uv run python scripts/test_cli_after_build.py || echo "⚠️  CLI test failed or credentials not available"
 
 rebuild: down build up
 	@echo "✅ Rebuild complete"
@@ -280,6 +282,10 @@ clean-all:
 
 db-shell:
 	@docker-compose exec app sqlite3 /data/db/machine.db
+
+db-migrate:
+	@echo "🔄 Running database migrations..."
+	@docker-compose exec app uv run python scripts/migrate_add_conversation_columns.py
 
 redis-cli:
 	@docker-compose exec redis redis-cli

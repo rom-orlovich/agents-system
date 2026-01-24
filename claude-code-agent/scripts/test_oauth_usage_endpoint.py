@@ -23,7 +23,7 @@ def load_credentials() -> Optional[ClaudeCredentials]:
     
     try:
         creds_data = json.loads(creds_path.read_text())
-        creds = ClaudeCredentials(**creds_data)
+        creds = ClaudeCredentials.from_dict(creds_data)
         
         if creds.is_expired:
             print(f"⚠️  Warning: Credentials are expired (expired at: {creds.expires_at_datetime})")

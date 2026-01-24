@@ -73,7 +73,12 @@ class OAuthUsageResponse(BaseModel):
 
 
 def load_credentials() -> Optional[ClaudeCredentials]:
-    """Load credentials from file."""
+    """Load credentials from file.
+    
+    Handles both formats:
+    1. Direct format: {"access_token": "...", "refresh_token": "...", ...}
+    2. Wrapped format: {"claudeAiOauth": {"accessToken": "...", "refreshToken": "...", ...}}
+    """
     creds_path = settings.credentials_path
     if not creds_path.exists():
         logger.debug("credentials_file_not_found", path=str(creds_path))
@@ -81,7 +86,7 @@ def load_credentials() -> Optional[ClaudeCredentials]:
     
     try:
         creds_data = json.loads(creds_path.read_text())
-        creds = ClaudeCredentials(**creds_data)
+        creds = ClaudeCredentials.from_dict(creds_data)
         return creds
     except Exception as e:
         logger.error("failed_to_load_credentials", error=str(e))

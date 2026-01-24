@@ -1,12 +1,19 @@
-import { Cpu, Moon, Sun, Terminal, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Cpu, Moon, Sun, Terminal, CheckCircle2, XCircle, Loader2, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useCLIStatus } from "../../hooks/useCLIStatus";
+import { useWebSocket } from "../../hooks/useWebSocket";
 
-export function Header() {
+interface HeaderProps {
+  onToggleSidebar?: () => void;
+  isSidebarOpen?: boolean;
+}
+
+export function Header({ onToggleSidebar, isSidebarOpen }: HeaderProps) {
   const [isDark, setIsDark] = useState(false);
   const { active: cliActive, isLoading: cliLoading } = useCLIStatus();
-  const queryClient = useQueryClient();
+  
+  // Connect to WebSocket for real-time CLI status updates
+  useWebSocket("dashboard");
 
   useEffect(() => {
     // Check local storage or system preference
@@ -27,18 +34,17 @@ export function Header() {
     }
   }, [isDark]);
 
-  // Listen for WebSocket updates and invalidate query
-  useEffect(() => {
-    // TODO: Connect to WebSocket if not already connected
-    // Listen for 'cli_status_update' messages
-    // When received: queryClient.invalidateQueries({ queryKey: ["cli-status"] })
-    // This will trigger React Query to refetch automatically
-    // For now, polling via refetchInterval handles updates
-  }, [queryClient]);
-
   return (
     <header className="h-16 border-b border-gray-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-between px-4 md:px-8 z-50 sticky top-0">
       <div className="flex items-center gap-3 group">
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          className="p-2 md:hidden hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors dark:text-gray-400"
+          aria-label="Toggle Sidebar"
+        >
+          {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
         <div className="p-2 bg-primary text-white transition-transform group-hover:rotate-12">
           <Terminal size={20} />
         </div>

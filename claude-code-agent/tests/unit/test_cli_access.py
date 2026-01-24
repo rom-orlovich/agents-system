@@ -44,3 +44,56 @@ async def test_cli_access_exception_returns_false():
         from core.cli_access import test_cli_access
         result = await test_cli_access()
         assert result is False
+
+
+async def test_cli_access_logs_stderr_on_failure():
+    """test_cli_access() logs stderr when CLI returns non-zero exit code."""
+    from core.cli_access import test_cli_access
+    from unittest.mock import MagicMock
+    
+    mock_result = MagicMock()
+    mock_result.returncode = 1
+    mock_result.stderr = "Rate limit exceeded"
+    
+    with patch('subprocess.run', return_value=mock_result):
+        with patch('core.cli_access.logger') as mock_logger:
+            result = await test_cli_access()
+            
+            assert result is False
+            mock_logger.warning.assert_called_once()
+            call_kwargs = mock_logger.warning.call_args[1]
+            assert call_kwargs["returncode"] == 1
+            assert call_kwargs["error"] == "Rate limit exceeded"
+
+
+async def test_cli_access_handles_empty_stderr():
+    """test_cli_access() handles empty stderr gracefully."""
+    from core.cli_access import test_cli_access
+    from unittest.mock import MagicMock
+    
+    mock_result = MagicMock()
+    mock_result.returncode = 1
+    mock_result.stderr = None
+    
+    with patch('subprocess.run', return_value=mock_result):
+        with patch('core.cli_access.logger') as mock_logger:
+            result = await test_cli_access()
+            
+            assert result is False
+            mock_logger.warning.assert_called_once()
+            call_kwargs = mock_logger.warning.call_args[1]
+            assert call_kwargs["error"] == "Unknown error"
+
+
+async def test_cli_access_handles_rate_limit_error():
+    """test_cli_access() returns False and logs rate limit errors."""
+    from core.cli_access import test_cli_access
+    from unittest.mock import MagicMock
+    
+    mock_result = MagicMock()
+    mock_result.returncode = 1
+    mock_result.stderr = "Error: You're out of extra usage · resets 9pm (UTC)"
+    
+    with patch('subprocess.run', return_value=mock_result):
+        result = await test_cli_access()
+        assert result is False

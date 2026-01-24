@@ -1,0 +1,79 @@
+{
+  "name": "custom-slack-devops",
+  "endpoint": "/webhooks/custom-slack-devops",
+  "source": "slack",
+  "description": "Custom Slack webhook for DevOps and incident management",
+  "target_agent": "brain",
+  "command_prefix": "@devbot",
+  "commands": [
+    {
+      "name": "incident",
+      "aliases": ["incident-start", "emergency"],
+      "description": "Start incident response workflow",
+      "target_agent": "planning",
+      "prompt_template": "Start incident response:\n\nIncident Report: {{event.text}}\nReported By: <@{{event.user}}>\nChannel: {{event.channel}}\nTimestamp: {{event.ts}}\n\nInitiate:\n1. Assess severity and impact\n2. Identify affected systems\n3. Create incident timeline\n4. Suggest immediate mitigation steps\n5. Identify required stakeholders\n6. Set up incident channel if needed",
+      "requires_approval": false
+    },
+    {
+      "name": "deploy",
+      "aliases": ["deployment", "release"],
+      "description": "Manage deployment workflow",
+      "target_agent": "executor",
+      "prompt_template": "Execute deployment:\n\nRequest: {{event.text}}\nRequested By: <@{{event.user}}>\nChannel: {{event.channel}}\n\nDeployment Checklist:\n1. Verify tests pass\n2. Check staging environment\n3. Review change log\n4. Backup current state\n5. Execute deployment\n6. Verify health checks\n7. Monitor error rates\n8. Report status to channel",
+      "requires_approval": true
+    },
+    {
+      "name": "rollback",
+      "aliases": ["revert", "undo-deploy"],
+      "description": "Execute rollback procedure",
+      "target_agent": "executor",
+      "prompt_template": "Execute rollback:\n\nReason: {{event.text}}\nRequested By: <@{{event.user}}>\nChannel: {{event.channel}}\n\nRollback Procedure:\n1. Identify current version\n2. Identify rollback target version\n3. Assess rollback risks\n4. Execute rollback\n5. Verify services healthy\n6. Document incident\n7. Report completion",
+      "requires_approval": true
+    },
+    {
+      "name": "status",
+      "aliases": ["health", "check-status"],
+      "description": "Check system status and health",
+      "target_agent": "brain",
+      "prompt_template": "Report system status:\n\nRequest: {{event.text}}\nChannel: {{event.channel}}\n\nProvide:\n- Service health status\n- Recent deployments\n- Active incidents\n- Error rates\n- Performance metrics\n- Upcoming maintenance",
+      "requires_approval": false
+    },
+    {
+      "name": "logs",
+      "aliases": ["show-logs", "tail-logs"],
+      "description": "Fetch and analyze recent logs",
+      "target_agent": "planning",
+      "prompt_template": "Analyze logs:\n\nRequest: {{event.text}}\nRequested By: <@{{event.user}}>\nChannel: {{event.channel}}\n\nFetch and analyze:\n- Recent error logs\n- Warning patterns\n- Performance anomalies\n- Security events\n- Key insights and trends",
+      "requires_approval": false
+    },
+    {
+      "name": "scale",
+      "aliases": ["autoscale", "capacity"],
+      "description": "Manage infrastructure scaling",
+      "target_agent": "executor",
+      "prompt_template": "Manage scaling:\n\nRequest: {{event.text}}\nRequested By: <@{{event.user}}>\n\nScaling Actions:\n1. Assess current capacity\n2. Analyze load patterns\n3. Calculate required capacity\n4. Execute scaling operation\n5. Verify service health\n6. Update monitoring dashboards",
+      "requires_approval": true
+    },
+    {
+      "name": "metrics",
+      "aliases": ["dashboard", "stats"],
+      "description": "Generate metrics report",
+      "target_agent": "planning",
+      "prompt_template": "Generate metrics report:\n\nRequest: {{event.text}}\nChannel: {{event.channel}}\n\nMetrics to include:\n- Request rates\n- Error rates\n- Response times\n- Resource utilization\n- Cost analysis\n- Trends and anomalies",
+      "requires_approval": false
+    },
+    {
+      "name": "oncall",
+      "aliases": ["on-call", "escalate"],
+      "description": "Manage on-call escalations",
+      "target_agent": "brain",
+      "prompt_template": "Manage on-call:\n\nRequest: {{event.text}}\nFrom: <@{{event.user}}>\nChannel: {{event.channel}}\n\nActions:\n- Check on-call schedule\n- Assess escalation need\n- Notify appropriate personnel\n- Create incident ticket if needed\n- Document escalation path",
+      "requires_approval": false
+    }
+  ],
+  "default_command": "status",
+  "requires_signature": true,
+  "signature_header": "X-Slack-Signature",
+  "secret_env_var": "SLACK_WEBHOOK_SECRET",
+  "is_builtin": false
+}
