@@ -215,11 +215,13 @@ async def run_claude_cli(
                         input_tokens = usage.get("input_tokens", 0)
                         output_tokens = usage.get("output_tokens", 0)
                         
-                        # Capture error from result if is_error is true
-                        if data.get("is_error"):
-                            result_text = data.get("result", "")
-                            if result_text:
+                        result_text = data.get("result", "")
+                        if result_text:
+                            if data.get("is_error"):
                                 cli_error_message = result_text
+                            else:
+                                accumulated_output.append(result_text)
+                                await output_queue.put(result_text)
 
 
 

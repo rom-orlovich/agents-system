@@ -65,7 +65,9 @@ async def test_cli_runner_success():
         if chunk is not None:
             chunks.append(chunk)
 
-    assert chunks == ["Hello", " World"]
+    # Filter out CLI process started message
+    content_chunks = [chunk for chunk in chunks if not chunk.startswith("[CLI] Process started")]
+    assert content_chunks == ["Hello", " World"]
 async def test_cli_runner_timeout():
     """Test CLI execution timeout."""
     output_queue = asyncio.Queue()
@@ -186,7 +188,9 @@ async def test_cli_runner_logs_chunks():
         if chunk is not None:
             chunks.append(chunk)
     
-    assert chunks == ["First chunk", " Second chunk"]
+    # Filter out CLI process started message
+    content_chunks = [chunk for chunk in chunks if not chunk.startswith("[CLI] Process started")]
+    assert content_chunks == ["First chunk", " Second chunk"]
     assert result.success is True
     # Note: logger.debug("chunk_received") calls verified manually via:
     # docker-compose logs -f app | grep chunk_received
@@ -223,3 +227,51 @@ async def test_cli_runner_rate_limit_error():
     # Should contain the real error message, not just "Exit code: 1"
     assert "hit your limit" in result.error
     assert "4pm (UTC)" in result.error
+
+
+async def test_cli_runner_result_field_output():
+    """Test CLI runner outputs result field from successful result message."""
+    output_queue = asyncio.Queue()
+
+    mock_proc = AsyncMock()
+    mock_proc.returncode = 0
+
+    # Simulate CLI output with result field in result message
+    output_lines = [
+        b'{"type": "content", "content": "Processing task"}\n',
+        b'{"type": "result", "result": "Task completed successfully", "cost_usd": 0.05, "usage": {"input_tokens": 100, "output_tokens": 50}}\n',
+    ]
+
+    mock_proc.stdout = MockAsyncIterator(output_lines)
+    mock_proc.stderr = MockAsyncIterator([])
+    mock_proc.wait = AsyncMock()
+
+    with patch('asyncio.create_subprocess_exec', return_value=mock_proc):
+        result = await run_claude_cli(
+            prompt="Test prompt",
+            working_dir=Path("/tmp"),
+            output_queue=output_queue,
+            task_id="test-result-field",
+            timeout_seconds=60
+        )
+
+    assert result.success is True
+    assert result.cost_usd == 0.05
+    assert result.input_tokens == 100
+    assert result.output_tokens == 50
+    
+    # Check that result field was output to queue
+    chunks = []
+    while not output_queue.empty():
+        chunk = await output_queue.get()
+        if chunk is not None:
+            chunks.append(chunk)
+    
+    # Filter out CLI process started message
+    content_chunks = [chunk for chunk in chunks if not chunk.startswith("[CLI] Process started")]
+    
+    # Should contain both the content and the result field
+    assert "Processing task" in content_chunks
+    assert "Task completed successfully" in content_chunks
+    # Verify result field is in accumulated output
+    assert "Task completed successfully" in result.output
