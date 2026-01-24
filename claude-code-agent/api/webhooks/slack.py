@@ -153,10 +153,13 @@ async def create_slack_task(
     db: AsyncSession
 ) -> str:
     """Create task for Slack webhook ONLY. Handles all Slack event types."""
-    # Render template
-    message = render_template(command.prompt_template, payload)
+    task_id = f"task-{uuid.uuid4().hex[:12]}"
     
-    # Create webhook session if needed
+    base_message = render_template(command.prompt_template, payload, task_id=task_id)
+    
+    from core.webhook_engine import wrap_prompt_with_brain_instructions
+    message = wrap_prompt_with_brain_instructions(base_message, task_id=task_id)
+    
     webhook_session_id = f"webhook-{uuid.uuid4().hex[:12]}"
     session_db = SessionDB(
         session_id=webhook_session_id,
@@ -166,21 +169,18 @@ async def create_slack_task(
     )
     db.add(session_db)
     
-    # Map agent name to AgentType
     agent_type_map = {
         "planning": AgentType.PLANNING,
         "executor": AgentType.EXECUTOR,
-        "brain": AgentType.PLANNING,  # Brain uses PLANNING type
+        "brain": AgentType.PLANNING,
     }
-    agent_type = agent_type_map.get(command.target_agent, AgentType.PLANNING)
+    agent_type = agent_type_map.get("brain", AgentType.PLANNING)
     
-    # Create task
-    task_id = f"task-{uuid.uuid4().hex[:12]}"
     task_db = TaskDB(
         task_id=task_id,
         session_id=webhook_session_id,
         user_id="webhook-system",
-        assigned_agent=command.target_agent,
+        assigned_agent="brain",
         agent_type=agent_type,
         status=TaskStatus.QUEUED,
         input_message=message,
@@ -189,16 +189,44 @@ async def create_slack_task(
             "webhook_source": "slack",
             "webhook_name": SLACK_WEBHOOK.name,
             "command": command.name,
+            "original_target_agent": command.target_agent,  # Preserve original for reference
             "payload": payload
         }),
     )
     db.add(task_db)
-    await db.flush()  # Flush to get task_db.id if needed
+    await db.flush()
     
-    # Create conversation immediately when task is created
+    from core.webhook_engine import generate_external_id, generate_flow_id
+    external_id = generate_external_id("slack", payload)
+    flow_id = generate_flow_id(external_id)
+    
+    source_metadata = json.loads(task_db.source_metadata or "{}")
+    source_metadata["flow_id"] = flow_id
+    source_metadata["external_id"] = external_id
+    task_db.source_metadata = json.dumps(source_metadata)
+    task_db.flow_id = flow_id
+    
     conversation_id = await create_webhook_conversation(task_db, db)
     if conversation_id:
         logger.info("slack_conversation_created", conversation_id=conversation_id, task_id=task_id)
+    
+    try:
+        from core.claude_tasks_sync import sync_task_to_claude_tasks
+        claude_task_id = sync_task_to_claude_tasks(
+            task_db=task_db,
+            flow_id=flow_id,
+            conversation_id=conversation_id
+        )
+        if claude_task_id:
+            source_metadata = json.loads(task_db.source_metadata or "{}")
+            source_metadata["claude_task_id"] = claude_task_id
+            task_db.source_metadata = json.dumps(source_metadata)
+    except Exception as sync_error:
+        logger.warning(
+            "slack_claude_tasks_sync_failed",
+            task_id=task_id,
+            error=str(sync_error)
+        )
     
     await db.commit()
     
