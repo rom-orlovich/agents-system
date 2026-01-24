@@ -43,8 +43,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       
       <aside 
         className={cn(
-          "fixed md:relative top-0 left-0 h-full w-64 md:w-16 lg:w-64 border-r border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 flex flex-col transition-all duration-300 z-40",
-          "transform md:transform-none",
+          "fixed md:relative top-0 left-0 h-full w-64 md:w-16 lg:w-64 border-r border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col transition-all duration-300 z-40",
+          "transform md:transform-none shadow-2xl md:shadow-none",
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
@@ -56,7 +56,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               onClick={onClose}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-4 px-4 py-4 text-gray-500 dark:text-gray-400 transition-all duration-300 hover:bg-gray-50 dark:hover:bg-slate-800/50 relative group border-l-2",
+                  "flex items-center gap-4 px-6 py-4 text-gray-500 dark:text-gray-400 transition-all duration-300 hover:bg-gray-50 dark:hover:bg-slate-800/50 relative group border-l-4",
                   isActive
                     ? "text-primary dark:text-primary bg-primary/5 dark:bg-primary/10 border-primary"
                     : "border-transparent",

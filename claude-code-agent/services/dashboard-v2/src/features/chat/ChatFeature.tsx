@@ -71,10 +71,21 @@ export function ChatFeature() {
     }, []);
   };
 
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+
+  useEffect(() => {
+    if (selectedId && window.innerWidth < 768) {
+      setMobileView("chat");
+    }
+  }, [selectedId]);
+
   return (
-    <div className="flex h-full border border-panel-border bg-background-app animate-in fade-in duration-500 overflow-hidden rounded-xl shadow-xl dark:shadow-slate-950/50">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-panel-border flex flex-col bg-sidebar-bg min-h-0">
+    <div className="flex h-full border border-panel-border bg-background-app animate-in fade-in duration-500 overflow-hidden rounded-xl shadow-xl dark:shadow-slate-950/50 relative">
+      {/* Sidebar / Thread List */}
+      <aside className={clsx(
+        "w-full md:w-64 border-r border-panel-border flex flex-col bg-sidebar-bg min-h-0 transition-all duration-300",
+        mobileView === "chat" ? "hidden md:flex" : "flex"
+      )}>
         <div className="p-4 border-b border-panel-border bg-panel-bg flex justify-between items-center">
           <span className="font-heading text-[10px] font-bold text-app-muted tracking-widest">COMMS_CHANNELS</span>
           <button 
@@ -130,7 +141,10 @@ export function ChatFeature() {
               role="button"
               tabIndex={0}
               key={conv.id}
-              onClick={() => setSelectedConversation(conv)}
+              onClick={() => {
+                setSelectedConversation(conv);
+                if (window.innerWidth < 768) setMobileView("chat");
+              }}
               onKeyDown={(e) => e.key === "Enter" && setSelectedConversation(conv)}
               className={clsx(
                 "w-full text-left p-4 transition-all border-b border-panel-border hover:bg-panel-bg group relative cursor-pointer outline-none",
@@ -183,13 +197,25 @@ export function ChatFeature() {
       </aside>
 
       {/* Main Chat Area */}
-      <section className="flex-1 flex flex-col bg-panel-bg overflow-hidden relative">
+      <section className={clsx(
+        "flex-1 flex flex-col bg-panel-bg overflow-hidden relative",
+        mobileView === "list" ? "hidden md:flex" : "flex"
+      )}>
         {selectedId ? (
           <>
             <div className="p-4 border-b border-panel-border flex justify-between items-center bg-panel-bg/90 backdrop-blur-sm z-10 sticky top-0">
-              <h2 className="text-xs font-heading font-black text-app-main">
-                {selectedConversation?.title || "Establishment in progress..."}
-              </h2>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMobileView("list")}
+                  className="p-1 md:hidden hover:bg-background-app rounded text-app-muted transition-colors"
+                >
+                  <X size={18} />
+                </button>
+                <h2 className="text-xs font-heading font-black text-app-main">
+                  {selectedConversation?.title || "Establishment in progress..."}
+                </h2>
+              </div>
               <div className="text-[10px] font-heading text-green-500 font-bold border border-green-500/20 px-2 py-0.5 rounded uppercase">
                 ENCRYPTED_STREAM
               </div>
@@ -204,34 +230,34 @@ export function ChatFeature() {
                   <div
                     key={msg.id}
                     className={clsx(
-                      "group flex gap-4 mb-8 items-start animate-in fade-in slide-in-from-bottom-2 duration-300",
+                      "group flex gap-2 md:gap-4 mb-8 items-start animate-in fade-in slide-in-from-bottom-2 duration-300",
                       msg.role === "user" ? "flex-row-reverse" : "",
                     )}
                   >
                     <div
                       className={clsx(
-                        "w-8 h-8 flex items-center justify-center flex-shrink-0 border shadow-sm transition-all duration-300",
+                        "w-6 h-6 md:w-8 md:h-8 flex items-center justify-center flex-shrink-0 border shadow-sm transition-all duration-300",
                         msg.role === "user"
                           ? "border-input-border bg-panel-bg rounded-full group-hover:border-primary/30"
                           : "border-primary/20 bg-primary/5 text-primary rounded-none group-hover:bg-primary group-hover:text-white",
                       )}
                     >
-                      {msg.role === "user" ? <User size={14} className="text-app-main" /> : <Bot size={14} />}
+                      {msg.role === "user" ? <User size={12} className="md:w-3.5 md:h-3.5 text-app-main" /> : <Bot size={12} className="md:w-3.5 md:h-3.5" />}
                     </div>
                     <div
                       className={clsx(
-                        "p-4 text-[11px] leading-relaxed border shadow-sm max-w-[80%] transition-all",
+                        "p-3 md:p-4 text-[10px] md:text-[11px] leading-relaxed border shadow-sm max-w-[85%] md:max-w-[80%] transition-all",
                         msg.role === "user"
                           ? "bg-background-app border-panel-border rounded-2xl rounded-tr-none text-app-main/80"
                           : "bg-panel-bg border-panel-border rounded-2xl rounded-tl-none text-app-main",
                       )}
                     >
-                      <div className="font-mono whitespace-pre-wrap selection:bg-primary/20 leading-relaxed text-[11px]">
+                      <div className="font-mono whitespace-pre-wrap selection:bg-primary/20 leading-relaxed">
                         {renderMessageContent(msg.content)}
                       </div>
-                      <div className="mt-3 flex items-center justify-between gap-4 opacity-0 group-hover:opacity-40 transition-opacity">
-                        <span className="text-[9px] font-mono tracking-tighter uppercase font-bold text-app-muted">{msg.role}</span>
-                        <span className="text-[9px] font-mono text-app-muted">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <div className="mt-2 md:mt-3 flex items-center justify-between gap-4 opacity-0 group-hover:opacity-40 transition-opacity">
+                        <span className="text-[8px] md:text-[9px] font-mono tracking-tighter uppercase font-bold text-app-muted">{msg.role}</span>
+                        <span className="text-[8px] md:text-[9px] font-mono text-app-muted">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     </div>
                   </div>
@@ -242,13 +268,13 @@ export function ChatFeature() {
         ) : (
           <div className="flex-1 flex items-center justify-center bg-background-app/10">
             <div className="text-center group max-w-sm px-8 animate-in zoom-in-95 duration-500">
-              <div className="w-20 h-20 border border-panel-border rounded-3xl flex items-center justify-center mx-auto mb-8 text-app-muted/30 group-hover:text-primary transition-all duration-500 group-hover:scale-110 group-hover:rotate-12 bg-panel-bg shadow-sm">
-                <MessageSquare size={36} strokeWidth={1.5} />
+              <div className="w-16 h-16 md:w-20 md:h-20 border border-panel-border rounded-3xl flex items-center justify-center mx-auto mb-8 text-app-muted/30 group-hover:text-primary transition-all duration-500 group-hover:scale-110 group-hover:rotate-12 bg-panel-bg shadow-sm">
+                <MessageSquare size={32} className="md:w-9 md:h-9" strokeWidth={1.5} />
               </div>
-              <div className="font-heading text-[11px] font-black text-app-muted tracking-[0.2em] uppercase mb-3">
+              <div className="font-heading text-[10px] md:text-[11px] font-black text-app-muted tracking-[0.2em] uppercase mb-3">
                 NO_ACTIVE_TRANSMISSION
               </div>
-              <p className="font-mono text-[10px] text-app-muted/60 leading-relaxed mb-8">
+              <p className="font-mono text-[9px] md:text-[10px] text-app-muted/60 leading-relaxed mb-8">
                 Select a frequency from correctly established channels or initialize a new secure uplink
               </p>
               <button
@@ -264,16 +290,16 @@ export function ChatFeature() {
         )}
         
         {/* Input form always visible at bottom */}
-        <div className="p-4 border-t border-panel-border bg-panel-bg z-10">
+        <div className="p-4 border-t border-panel-border bg-panel-bg z-10 w-full">
           <form onSubmit={handleSend} className="max-w-3xl mx-auto flex gap-2">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={isDisabled ? "CLI INACTIVE - Cannot send messages" : selectedId ? "ENTER_COMMAND..." : "ENTER_COMMAND... (will create new conversation)"}
+              placeholder={isDisabled ? "CLI INACTIVE" : selectedId ? "ENTER_COMMAND..." : "ENTER_COMMAND..."}
               disabled={isDisabled}
               className={clsx(
-                "flex-1 bg-background-app border border-input-border px-4 py-2 text-xs font-mono focus:border-primary focus:bg-panel-bg transition-all outline-none rounded-sm text-input-text",
+                "flex-1 bg-background-app border border-input-border px-3 md:px-4 py-2 text-[10px] md:text-xs font-mono focus:border-primary focus:bg-panel-bg transition-all outline-none rounded-sm text-input-text",
                 isDisabled && "opacity-50 cursor-not-allowed"
               )}
             />
@@ -281,7 +307,7 @@ export function ChatFeature() {
               type="submit"
               disabled={isDisabled}
               className={clsx(
-                "px-4 py-2 transition-all active:scale-95 font-heading text-[10px] font-bold tracking-widest uppercase",
+                "px-3 md:px-4 py-2 transition-all active:scale-95 font-heading text-[10px] font-bold tracking-widest uppercase",
                 isDisabled
                   ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                   : "bg-primary text-white hover:opacity-90"

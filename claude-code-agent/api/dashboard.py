@@ -84,30 +84,6 @@ async def get_status(request: Request):
     }
 
 
-@router.get("/sessions/{session_id}")
-async def get_session_by_id(
-    session_id: str,
-    db: AsyncSession = Depends(get_db_session)
-):
-    """Get session details."""
-    result = await db.execute(
-        select(SessionDB).where(SessionDB.session_id == session_id)
-    )
-    session_db = result.scalar_one_or_none()
-
-    if not session_db:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    return {
-        "session_id": session_db.session_id,
-        "user_id": session_db.user_id,
-        "machine_id": session_db.machine_id,
-        "connected_at": session_db.connected_at.isoformat(),
-        "total_cost_usd": session_db.total_cost_usd,
-        "total_tasks": session_db.total_tasks,
-    }
-
-
 @router.get("/tasks")
 async def list_tasks(
     db: AsyncSession = Depends(get_db_session),

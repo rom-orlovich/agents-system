@@ -120,7 +120,7 @@ export function AnalyticsFeature() {
              <div className="text-xs font-mono text-gray-500">AVG: --/day</div>
           </div>
           
-          <div className="h-[300px] w-full" style={{ minHeight: '300px' }}>
+          <div className="h-[250px] md:h-[300px] w-full" style={{ minHeight: '250px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={trendData} onMouseMove={(e: any) => e.activeLabel && setHoverDate(e.activeLabel)} onMouseLeave={() => setHoverDate(null)}>
                 <defs>
@@ -132,12 +132,12 @@ export function AnalyticsFeature() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={localStorage.theme === 'dark' ? '#334155' : '#e2e8f0'} opacity={0.5} />
                 <XAxis dataKey="date" hide />
                 <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fill: "#94a3b8" }} 
-                  tickFormatter={(val) => `$${val}`}
-                  width={30}
-                />
+                   axisLine={false} 
+                   tickLine={false} 
+                   tick={{ fontSize: 10, fill: "#94a3b8" }} 
+                   tickFormatter={(val) => `$${val}`}
+                   width={40}
+                 />
                 <Tooltip content={<CyberTooltip />} cursor={{ stroke: '#3B82F6', strokeWidth: 1, strokeDasharray: '5 5' }} />
                 <Area 
                   type="monotone" 
@@ -160,7 +160,7 @@ export function AnalyticsFeature() {
              <div className="text-xs font-mono text-gray-500">TOTAL: --</div>
           </div>
 
-          <div className="h-[300px] w-full" style={{ minHeight: '300px' }}>
+          <div className="h-[250px] md:h-[300px] w-full" style={{ minHeight: '250px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={trendData} onMouseMove={(e: any) => e.activeLabel && setHoverDate(e.activeLabel)} onMouseLeave={() => setHoverDate(null)}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={localStorage.theme === 'dark' ? '#334155' : '#e2e8f0'} opacity={0.5} />
@@ -179,7 +179,7 @@ export function AnalyticsFeature() {
              <div className="text-xs font-mono text-gray-500">AVG: --ms</div>
           </div>
 
-          <div className="h-[300px] w-full" style={{ minHeight: '300px' }}>
+          <div className="h-[250px] md:h-[300px] w-full" style={{ minHeight: '250px' }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={trendData} onMouseMove={(e: any) => e.activeLabel && setHoverDate(e.activeLabel)} onMouseLeave={() => setHoverDate(null)}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={localStorage.theme === 'dark' ? '#334155' : '#e2e8f0'} opacity={0.5} />

@@ -49,30 +49,30 @@ export function RegistryFeature() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 relative">
-      <div className="flex justify-between items-center bg-panel-bg p-4 border border-panel-border rounded-lg shadow-sm">
-        <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center bg-panel-bg p-4 border border-panel-border rounded-lg shadow-sm gap-4">
+        <div className="flex flex-col xs:flex-row gap-2 sm:gap-4">
           <button
             type="button"
             onClick={() => setActiveTab("skills")}
             className={clsx(
-              "px-4 py-2 font-heading text-[11px] font-bold tracking-widest uppercase transition-all rounded-sm",
+              "px-4 py-2 font-heading text-[10px] sm:text-[11px] font-bold tracking-widest uppercase transition-all rounded-sm flex-1 sm:flex-none",
               activeTab === "skills" ? "bg-primary text-white shadow-lg shadow-primary/20" : "border border-panel-border text-app-muted hover:bg-background-app hover:text-text-main"
             )}
           >
-            SKILLS_REGISTRY
+            SKILLS
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("agents")}
             className={clsx(
-              "px-4 py-2 font-heading text-[11px] font-bold tracking-widest uppercase transition-all rounded-sm",
+              "px-4 py-2 font-heading text-[10px] sm:text-[11px] font-bold tracking-widest uppercase transition-all rounded-sm flex-1 sm:flex-none",
               activeTab === "agents" ? "bg-primary text-white shadow-lg shadow-primary/20" : "border border-panel-border text-app-muted hover:bg-background-app hover:text-text-main"
             )}
           >
-            AGENTS_REGISTRY
+            AGENTS
           </button>
         </div>
-        <div className="flex gap-4 items-center">
+        <div className="flex gap-2 sm:gap-4 items-center justify-between sm:justify-end">
           <button
             type="button"
             onClick={refresh}
@@ -84,10 +84,10 @@ export function RegistryFeature() {
           <button
             type="button"
             onClick={() => setIsAdding(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-[10px] font-heading font-bold hover:opacity-90 transition-all uppercase tracking-widest shadow-sm active:scale-95"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white text-[10px] font-heading font-bold hover:opacity-90 transition-all uppercase tracking-widest shadow-sm active:scale-95"
           >
             <Plus size={14} />
-            REGISTER_NEW_ASSET
+            <span className="xs:inline">REGISTER</span>
           </button>
         </div>
       </div>

@@ -84,14 +84,15 @@ You should see the Claude Machine Dashboard!
 
 ## 🎯 What You Get
 
-### 1. Dashboard Interface
-- Real-time chat with Brain
-- Persistent conversations with context awareness
-- Task monitoring and execution logs
-- Cost tracking (per-task and per-session)
-- Agent and webhook management
+### 1. Dashboard v2 Interface (React-based)
+- **Overview**: System metrics, queue depth, OAuth usage, task monitoring
+- **Analytics**: Cost tracking, usage patterns, conversation analytics
+- **Ledger**: Transaction history with filtering
+- **Webhooks**: Webhook management and event monitoring
+- **Chat**: Real-time chat with Brain, persistent conversations
+- **Registry**: Skills and agents management
 
-### 2. Specialized Agents
+### 2. Specialized Agents (9 Total)
 - **Brain**: Main orchestrator (opus)
 - **Planning**: Analysis and planning (opus)
 - **Executor**: Implementation with TDD (sonnet)
@@ -99,6 +100,8 @@ You should see the Claude Machine Dashboard!
 - **Self-Improvement**: Code analysis and refactoring (sonnet)
 - **Agent Creator**: Create new agents (sonnet)
 - **Skill Creator**: Create new skills (sonnet)
+- **Verifier**: Validation and verification (sonnet)
+- **Webhook Generator**: Webhook creation and configuration (sonnet)
 
 ### 3. Webhook Endpoints
 

@@ -67,7 +67,7 @@ export function LedgerFeature() {
                 <th className="py-3 px-4 text-[10px] font-heading text-app-muted uppercase tracking-wider">
                   TASK_ID
                 </th>
-                <th className="py-3 px-4 text-[10px] font-heading text-app-muted uppercase tracking-wider">
+                <th className="py-3 px-4 text-[10px] font-heading text-app-muted uppercase tracking-wider hidden sm:table-cell">
                   SESSION
                 </th>
                 <th className="py-3 px-4 text-[10px] font-heading text-app-muted uppercase tracking-wider">
@@ -76,13 +76,13 @@ export function LedgerFeature() {
                 <th className="py-3 px-4 text-[10px] font-heading text-app-muted uppercase tracking-wider">
                   STATUS
                 </th>
-                <th className="py-3 px-4 text-[10px] font-heading text-app-muted uppercase tracking-wider">
+                <th className="py-3 px-4 text-[10px] font-heading text-app-muted uppercase tracking-wider hidden lg:table-cell">
                   COST
                 </th>
-                <th className="py-3 px-4 text-[10px] font-heading text-app-muted uppercase tracking-wider">
+                <th className="py-3 px-4 text-[10px] font-heading text-app-muted uppercase tracking-wider hidden lg:table-cell">
                   TIME
                 </th>
-                <th className="py-3 px-4 text-[10px] font-heading text-app-muted uppercase tracking-wider">
+                <th className="py-3 px-4 text-[10px] font-heading text-app-muted uppercase tracking-wider hidden md:table-cell">
                   TIMESTAMP
                 </th>
               </tr>
@@ -111,9 +111,10 @@ export function LedgerFeature() {
                     className="hover:bg-slate-500/5 transition-colors group cursor-pointer"
                   >
                     <td className="py-3 px-4 text-xs font-mono font-bold group-hover:text-primary">
-                      {task.id}
+                      <span className="md:hidden">{task.id.slice(0, 8)}...</span>
+                      <span className="hidden md:inline">{task.id}</span>
                     </td>
-                    <td className="py-3 px-4 text-xs font-mono text-app-muted">{task.session_id}</td>
+                    <td className="py-3 px-4 text-xs font-mono text-app-muted hidden sm:table-cell">{task.session_id}</td>
                     <td className="py-3 px-4 text-xs font-heading text-app-main">
                       {task.assigned_agent}
                     </td>
@@ -124,11 +125,11 @@ export function LedgerFeature() {
                         {task.status.toUpperCase()}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-xs font-mono font-bold text-app-main">${parseFloat(task.cost_usd).toFixed(4)}</td>
-                    <td className="py-3 px-4 text-xs font-mono text-app-muted">
+                    <td className="py-3 px-4 text-xs font-mono font-bold text-app-main hidden lg:table-cell">${parseFloat(task.cost_usd).toFixed(4)}</td>
+                    <td className="py-3 px-4 text-xs font-mono text-app-muted hidden lg:table-cell">
                       {task.duration_seconds}s
                     </td>
-                    <td className="py-3 px-4 text-[10px] text-app-muted">
+                    <td className="py-3 px-4 text-[10px] text-app-muted hidden md:table-cell">
                       {new Date(task.created_at).toLocaleString()}
                     </td>
                   </tr>

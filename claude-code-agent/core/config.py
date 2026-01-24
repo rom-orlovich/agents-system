@@ -1,6 +1,5 @@
 """Application configuration."""
 
-import os
 from pathlib import Path
 from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -61,7 +60,6 @@ class Settings(BaseSettings):
     s3_prefix: str = "claude-agent"
 
     # Claude CLI Configuration
-    default_model: str | None = None  # e.g., "opus", "sonnet" (None = CLI default)
     default_allowed_tools: str = "Read,Edit,Bash,Glob,Grep,Write"  # Pre-approved tools
     enable_subagents: bool = True  # Enable sub-agent execution
     
@@ -77,8 +75,8 @@ class Settings(BaseSettings):
 
     @property
     def agents_dir(self) -> Path:
-        """Directory containing BUILT-IN sub-agents (in .agent/agents/)."""
-        return self.app_dir / ".agent" / "agents"
+        """Directory containing BUILT-IN sub-agents (in .claude/agents/)."""
+        return self.app_dir / ".claude" / "agents"
 
     @property
     def user_agents_dir(self) -> Path:
@@ -87,8 +85,8 @@ class Settings(BaseSettings):
 
     @property
     def skills_dir(self) -> Path:
-        """Directory containing BUILT-IN skills (in .agent/skills/)."""
-        return self.app_dir / ".agent" / "skills"
+        """Directory containing BUILT-IN skills (in .claude/skills/)."""
+        return self.app_dir / ".claude" / "skills"
 
     @property
     def user_skills_dir(self) -> Path:

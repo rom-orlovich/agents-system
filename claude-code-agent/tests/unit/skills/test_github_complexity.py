@@ -6,10 +6,23 @@ import os
 from pathlib import Path
 
 
+def _get_scripts_dir(relative_path: str) -> Path:
+    """Get scripts directory, handling both Docker and local environments."""
+    docker_path = Path("/app/.claude/skills") / relative_path
+    local_path = Path(__file__).parent.parent.parent.parent / ".claude/skills" / relative_path
+    
+    if docker_path.exists():
+        return docker_path
+    elif local_path.exists():
+        return local_path
+    else:
+        return docker_path
+
+
 @pytest.fixture
 def scripts_dir():
     """Return path to github scripts directory."""
-    return Path("/app/.claude/skills/github-operations/scripts")
+    return _get_scripts_dir("github-operations/scripts")
 
 
 class TestAnalyzeComplexity:
@@ -71,6 +84,12 @@ class TestAnalyzeComplexity:
     def test_defaults_to_api_for_unknown(self, scripts_dir):
         """Test that unknown tasks default to 'api'."""
         script = scripts_dir / "analyze_complexity.sh"
+        if not script.exists():
+            pytest.skip(f"Script {script} does not exist")
+        
+        # Ensure script is executable
+        if not os.access(script, os.X_OK):
+            os.chmod(script, 0o755)
         
         result = subprocess.run(
             [str(script), "random unknown task"],

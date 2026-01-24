@@ -37,8 +37,8 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --output-format)
-            if [[ "$2" != "json" ]]; then
-                echo "Error: --output-format only supports 'json'" >&2
+            if [[ "$2" != "json" && "$2" != "stream-json" ]]; then
+                echo "Error: --output-format only supports 'json' or 'stream-json'" >&2
                 exit 1
             fi
             shift 2
@@ -58,6 +58,18 @@ while [[ $# -gt 0 ]]; do
         --dangerously-skip-permissions)
             shift
             ;;
+        --verbose)
+            shift
+            ;;
+        --include-partial-messages)
+            shift
+            ;;
+        --debug)
+            shift
+            if [[ $# -gt 0 && "$1" != -* ]]; then
+                shift
+            fi
+            ;;
         --)
             shift
             PROMPT="$*"
@@ -76,7 +88,7 @@ Usage:
 
 Options:
   -p                              Print mode (headless)
-  --output-format json            Output format (only json supported)
+  --output-format json|stream-json Output format (json or stream-json)
   --model <model>                 Model to use (opus, sonnet, haiku)
   --allowedTools <tools>          Comma-separated list of allowed tools
   --agents <json>                 JSON sub-agent configuration

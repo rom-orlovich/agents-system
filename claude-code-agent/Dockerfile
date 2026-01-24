@@ -33,6 +33,9 @@ RUN uv sync --frozen || uv sync
 # Copy application code
 COPY . .
 
+# Ensure all shell scripts are executable
+RUN find .claude/skills -name "*.sh" -type f -exec chmod +x {} \; || true
+
 # Create data directory structure with correct permissions
 RUN mkdir -p /data/db /data/config/{webhooks,agents,skills} /data/credentials /data/registry \
     && chown -R claude:claude /data /app
@@ -51,4 +54,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/api/health || exit 1
 
 # Run the application
-CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uv sync && uv run uvicorn main:app --host 0.0.0.0 --port 8000"]

@@ -114,6 +114,6 @@
   }
 
   .monitoring-grid {
-    @apply fixed inset-0 pointer-events-none opacity-[0.03] dark:opacity-[0.08] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px];
+    @apply fixed inset-0 pointer-events-none opacity-[0.02] md:opacity-[0.03] dark:opacity-[0.05] dark:md:opacity-[0.08] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px];
   }
 }
