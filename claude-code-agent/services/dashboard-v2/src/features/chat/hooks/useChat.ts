@@ -37,6 +37,7 @@ export function useChat() {
     queryKey: ["messages", selectedId],
     queryFn: async () => {
       if (!selectedId) return [];
+      console.log(`FETCH_MESSAGES: /api/conversations/${selectedId}/messages`);
       const res = await fetch(`/api/conversations/${selectedId}/messages`);
       const data = await res.json();
       return data.map((msg: any) => ({
@@ -96,14 +97,20 @@ export function useChat() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await fetch(`/api/conversations/${id}`, {
+      const res = await fetch(`/api/conversations/${id}`, {
         method: "DELETE",
       });
+      if (!res.ok) throw new Error("Failed to delete conversation");
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       if (selectedId) setSelectedId(null);
     },
+    onError: (error) => {
+      console.error("Delete conversation error:", error);
+      alert("Failed to delete conversation. Please try again.");
+    }
   });
 
   return {

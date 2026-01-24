@@ -3,16 +3,26 @@ import { expect, test, vi } from "vitest";
 import { ChatFeature } from "./ChatFeature";
 import { MOCK_CONVERSATIONS, MOCK_MESSAGES } from "./fixtures";
 
-// Mock the hook
+// Mock the hooks
 vi.mock("./hooks/useChat", () => ({
   useChat: () => ({
     conversations: MOCK_CONVERSATIONS,
     messages: MOCK_MESSAGES,
     isLoading: false,
+    selectedId: "conv-1",
     selectedConversation: MOCK_CONVERSATIONS[0],
     setSelectedConversation: vi.fn(),
     sendMessage: vi.fn(),
+    deleteConversation: vi.fn(),
   }),
+}));
+
+vi.mock("../../hooks/useCLIStatus", () => ({
+  useCLIStatus: () => ({ active: true, isLoading: false }),
+}));
+
+vi.mock("../../hooks/useTaskModal", () => ({
+  useTaskModal: () => ({ openTask: vi.fn() }),
 }));
 
 test("renders conversation list", () => {

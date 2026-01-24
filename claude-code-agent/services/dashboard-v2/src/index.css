@@ -11,6 +11,12 @@
   --color-panel-bg: #ffffff;
   --color-panel-border: #e2e8f0;
   --color-sidebar-bg: rgba(248, 250, 252, 0.5);
+  
+  --color-input-bg: #ffffff;
+  --color-input-border: #e2e8f0;
+  --color-input-text: #1e293b;
+  --color-modal-bg: #ffffff;
+  --color-modal-border: #f1f5f9;
 
   --font-heading: "Orbitron", sans-serif;
   --font-body: "Inter", sans-serif;
@@ -52,6 +58,12 @@
   --color-panel-bg: #020617;
   --color-panel-border: #1e293b;
   --color-sidebar-bg: rgba(2, 6, 23, 0.5);
+  
+  --color-input-bg: #0f172a;
+  --color-input-border: #1e293b;
+  --color-input-text: #f1f5f9;
+  --color-modal-bg: #020617;
+  --color-modal-border: #1e293b;
 }
 
 @layer base {

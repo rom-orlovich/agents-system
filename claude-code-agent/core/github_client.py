@@ -1,9 +1,9 @@
-"""GitHub API client for webhook interactions."""
+"""GitHub API client for webhook interactions and code analysis."""
 
 import os
 import httpx
 import structlog
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
 logger = structlog.get_logger()
 
@@ -183,6 +183,225 @@ class GitHubClient:
                 
         except Exception as e:
             logger.error("github_labels_failed", error=str(e))
+            raise
+
+    async def get_repository_info(
+        self,
+        repo_owner: str,
+        repo_name: str
+    ) -> Dict[str, Any]:
+        """
+        Get repository information.
+
+        Args:
+            repo_owner: Repository owner
+            repo_name: Repository name
+
+        Returns:
+            Repository data dict
+        """
+        url = f"{self.base_url}/repos/{repo_owner}/{repo_name}"
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    url,
+                    headers=self.headers,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+
+                logger.info("github_repo_info_fetched", repo=f"{repo_owner}/{repo_name}")
+                return response.json()
+
+        except Exception as e:
+            logger.error("github_get_repo_failed", repo=f"{repo_owner}/{repo_name}", error=str(e))
+            raise
+
+    async def get_issue(
+        self,
+        repo_owner: str,
+        repo_name: str,
+        issue_number: int
+    ) -> Dict[str, Any]:
+        """
+        Get issue details.
+
+        Args:
+            repo_owner: Repository owner
+            repo_name: Repository name
+            issue_number: Issue number
+
+        Returns:
+            Issue data dict
+        """
+        url = f"{self.base_url}/repos/{repo_owner}/{repo_name}/issues/{issue_number}"
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    url,
+                    headers=self.headers,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+
+                logger.info("github_issue_fetched", repo=f"{repo_owner}/{repo_name}", issue=issue_number)
+                return response.json()
+
+        except Exception as e:
+            logger.error("github_get_issue_failed", repo=f"{repo_owner}/{repo_name}", issue=issue_number, error=str(e))
+            raise
+
+    async def create_pull_request(
+        self,
+        repo_owner: str,
+        repo_name: str,
+        title: str,
+        head: str,
+        base: str,
+        body: Optional[str] = None,
+        draft: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Create a pull request.
+
+        Args:
+            repo_owner: Repository owner
+            repo_name: Repository name
+            title: PR title
+            head: Branch name to merge from
+            base: Branch name to merge into
+            body: Optional PR description
+            draft: Create as draft PR (default: True)
+
+        Returns:
+            PR data dict
+        """
+        url = f"{self.base_url}/repos/{repo_owner}/{repo_name}/pulls"
+
+        payload: Dict[str, Any] = {
+            "title": title,
+            "head": head,
+            "base": base,
+            "draft": draft
+        }
+
+        if body:
+            payload["body"] = body
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    url,
+                    headers=self.headers,
+                    json=payload,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+
+                pr_data = response.json()
+
+                logger.info(
+                    "github_pr_created",
+                    repo=f"{repo_owner}/{repo_name}",
+                    pr=pr_data.get("number"),
+                    url=pr_data.get("html_url")
+                )
+
+                return pr_data
+
+        except Exception as e:
+            logger.error("github_create_pr_failed", repo=f"{repo_owner}/{repo_name}", error=str(e))
+            raise
+
+    async def get_repository_languages(
+        self,
+        repo_owner: str,
+        repo_name: str
+    ) -> Dict[str, int]:
+        """
+        Get programming languages used in repository.
+
+        Args:
+            repo_owner: Repository owner
+            repo_name: Repository name
+
+        Returns:
+            Dict of language name -> bytes of code
+        """
+        url = f"{self.base_url}/repos/{repo_owner}/{repo_name}/languages"
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    url,
+                    headers=self.headers,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+
+                logger.info("github_languages_fetched", repo=f"{repo_owner}/{repo_name}")
+                return response.json()
+
+        except Exception as e:
+            logger.error("github_get_languages_failed", repo=f"{repo_owner}/{repo_name}", error=str(e))
+            raise
+
+    async def search_code(
+        self,
+        query: str,
+        repo_owner: Optional[str] = None,
+        repo_name: Optional[str] = None,
+        max_results: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Search code in GitHub.
+
+        Args:
+            query: Search query
+            repo_owner: Optional repository owner to limit search
+            repo_name: Optional repository name to limit search
+            max_results: Maximum number of results
+
+        Returns:
+            List of code search results
+        """
+        url = f"{self.base_url}/search/code"
+
+        # Build query
+        search_query = query
+        if repo_owner and repo_name:
+            search_query = f"{query} repo:{repo_owner}/{repo_name}"
+
+        params = {
+            "q": search_query,
+            "per_page": min(max_results, 100)
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    url,
+                    headers=self.headers,
+                    params=params,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+
+                data = response.json()
+                items = data.get("items", [])
+
+                logger.info(
+                    "github_code_search_complete",
+                    query=query,
+                    results=len(items)
+                )
+
+                return items
+
+        except Exception as e:
+            logger.error("github_code_search_failed", query=query, error=str(e))
             raise
 
 

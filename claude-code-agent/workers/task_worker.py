@@ -144,6 +144,7 @@ class TaskWorker:
 
             # Then update database (slow ~10-100ms)
             task_db.status = TaskStatus.RUNNING
+            task_db.started_at = datetime.now(timezone.utc)
             
             # Check if conversation already exists (created when task was created)
             source_metadata = json.loads(task_db.source_metadata or "{}")
@@ -203,6 +204,16 @@ class TaskWorker:
 
             # Execute CLI and stream output concurrently
             try:
+                # Send pre-job Slack notification for webhook tasks
+                if task_db.source == "webhook":
+                    await self._send_slack_job_start_notification(task_db)
+
+                # Put initial log message in Redis for dashboard to show immediately
+                init_log = f"[SYSTEM] Task {task_id} started at {datetime.now(timezone.utc).isoformat()}\n"
+                init_log += f"[SYSTEM] Agent: {task_db.assigned_agent} | Model: {model}\n"
+                init_log += f"[SYSTEM] Starting Claude CLI...\n"
+                await redis_client.append_output(task_id, init_log)
+                
                 result, _ = await asyncio.gather(
                     run_claude_cli(
                         prompt=task_db.input_message,
@@ -280,7 +291,6 @@ class TaskWorker:
                     # ✅ Update Redis first (fast)
                     await redis_client.set_task_status(task_id, TaskStatus.FAILED)
 
-                    # Then update database
                     task_db.status = TaskStatus.FAILED
                     
                     error_text = ""
@@ -300,10 +310,7 @@ class TaskWorker:
                         else 0.0
                     )
 
-                    # Update conversation metrics if task has conversation_id
                     await self._update_conversation_metrics(task_db, session)
-
-                    # Update Claude Code Task status if synced
                     await self._update_claude_task_status(task_db)
 
                     if error_text:
@@ -320,6 +327,11 @@ class TaskWorker:
                         elif "invalid api key" in error_lower or "please run /login" in error_lower or "authentication" in error_lower:
                             error_type = "authentication"
                             should_mark_inactive = True
+                        elif "chunk is longer than limit" in error_lower or "separator is found, but chunk" in error_lower:
+                            error_type = "chunk_size_limit"
+                            if "Note: This error occurs" not in error_text:
+                                error_text = f"{error_text}\n\nNote: This error occurs when processing very large files or responses. Try breaking the task into smaller parts or processing files individually."
+                                task_db.error = error_text
                         
                         if should_mark_inactive:
                             session_result = await session.execute(
@@ -350,7 +362,11 @@ class TaskWorker:
                                     output_preview=result.output[:200] if result.output else None
                                 )
                         else:
-                            logger.warning(
+                            log_level = logger.warning
+                            if error_type == "chunk_size_limit":
+                                log_level = logger.info
+                            
+                            log_level(
                                 "CLI error detected - session remains active",
                                 task_id=task_id,
                                 session_id=task_db.session_id,
@@ -814,6 +830,66 @@ class TaskWorker:
                 task_id=task_db.task_id,
                 error=str(e)
             )
+            return False
+
+    async def _send_slack_job_start_notification(
+        self,
+        task_db: TaskDB
+    ) -> bool:
+        """Send Slack notification when webhook task starts."""
+        if not os.getenv("SLACK_NOTIFICATIONS_ENABLED", "true").lower() == "true":
+            return False
+
+        # Extract webhook metadata
+        try:
+            source_metadata = json.loads(task_db.source_metadata or "{}")
+            webhook_source = source_metadata.get("webhook_source", "unknown")
+            command = source_metadata.get("command", "unknown")
+        except json.JSONDecodeError:
+            webhook_source = "unknown"
+            command = "unknown"
+
+        # Build notification message
+        message = {
+            "channel": os.getenv("SLACK_NOTIFICATION_CHANNEL", "#ai-agent-activity"),
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"🚀 *Job Started*\n*Source:* {webhook_source.title()}\n*Command:* {command}\n*Task ID:* `{task_db.task_id}`\n*Agent:* {task_db.assigned_agent}"
+                    }
+                }
+            ]
+        }
+
+        # Get Slack bot token
+        slack_token = os.getenv("SLACK_BOT_TOKEN")
+        if not slack_token:
+            logger.debug("slack_bot_token_not_configured", task_id=task_db.task_id)
+            return False
+
+        # Send to Slack using API
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://slack.com/api/chat.postMessage",
+                    headers={
+                        "Authorization": f"Bearer {slack_token}",
+                        "Content-Type": "application/json"
+                    },
+                    json=message,
+                    timeout=10.0
+                )
+                response.raise_for_status()
+                result = response.json()
+                if not result.get("ok"):
+                    logger.error("slack_api_error", task_id=task_db.task_id, error=result.get("error"))
+                    return False
+                logger.info("slack_job_start_notification_sent", task_id=task_db.task_id)
+                return True
+        except Exception as e:
+            logger.error("slack_job_start_notification_failed", task_id=task_db.task_id, error=str(e))
             return False
 
     async def _send_slack_notification(

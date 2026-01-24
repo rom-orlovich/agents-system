@@ -44,13 +44,13 @@ vi.mock("recharts", async () => {
 test("renders analytics titles", () => {
   render(<AnalyticsFeature />);
 
-  expect(screen.getByText("BURN_RATE_OVER_TIME")).toBeDefined();
-  expect(screen.getByText("COMPUTE_DISTRIBUTION_BY_AGENT")).toBeDefined();
+  expect(screen.getByText(/BURN_RATE_TREND/)).toBeDefined();
+  expect(screen.getByText(/AGENT_LEADERBOARD/)).toBeDefined();
 });
 
 test("renders chart containers", () => {
   render(<AnalyticsFeature />);
 
   expect(screen.getByTestId("area-chart")).toBeDefined();
-  expect(screen.getByTestId("bar-chart")).toBeDefined();
+  expect(screen.getAllByTestId("bar-chart")).toBeDefined();
 });

@@ -7,6 +7,12 @@
 .conversation-sidebar {
     background: #0d0d0d;
     border: 2px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: 100%; /* Add max-height to constrain */
+    min-height: 0; /* GRID FIX: Prevents item from growing to content size */
+    overflow: hidden; /* Constrain children */
 }
 
 .conversation-sidebar-header {
@@ -25,6 +31,8 @@
 .conversation-list {
     padding: 0.5rem;
     overflow-y: auto;
+    flex: 1;
+    min-height: 0;
 }
 
 .conversation-item {
@@ -171,8 +179,9 @@
     border: 2px solid var(--border);
     height: 100%;
     max-height: 100%;
-    min-height: 0;
+    min-height: 0; /* GRID FIX */
     overflow: hidden;
+    position: relative; /* Ensure input stays relative to panel */
 }
 
 .chat-header {

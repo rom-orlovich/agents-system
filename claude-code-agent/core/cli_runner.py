@@ -95,6 +95,9 @@ async def run_claude_cli(
             "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1",
         }
     )
+    
+    # Immediately notify that CLI has started
+    await output_queue.put(f"[CLI] Process started (PID: {process.pid})\n")
 
     accumulated_output = []
     cost_usd = 0.0
@@ -128,19 +131,68 @@ async def run_claude_cli(
                             await output_queue.put(init_content)
                     
                     elif msg_type == "assistant":
-                        # Check for error in assistant message (e.g., rate limit)
+                        # Extract text and tool_use content from assistant message
                         error_type = data.get("error")
                         message = data.get("message", {})
                         content_blocks = message.get("content", [])
                         
-                        if error_type and content_blocks:
-                            # Extract error text from content blocks
-                            for block in content_blocks:
-                                if isinstance(block, dict) and block.get("type") == "text":
-                                    error_text = block.get("text", "")
-                                    if error_text:
-                                        cli_error_message = f"{error_text} (error type: {error_type})"
-                                        break
+                        # Extract all content blocks
+                        for block in content_blocks:
+                            if isinstance(block, dict):
+                                block_type = block.get("type")
+                                if block_type == "text":
+                                    text_content = block.get("text", "")
+                                    if text_content:
+                                        if error_type:
+                                            cli_error_message = f"{text_content} (error type: {error_type})"
+                                        else:
+                                            logger.info("assistant_text", task_id=task_id, text=text_content[:500])
+                                            accumulated_output.append(text_content)
+                                            await output_queue.put(text_content)
+                                elif block_type == "tool_use":
+                                    # Log tool usage
+                                    tool_name = block.get("name", "unknown")
+                                    tool_input = block.get("input", {})
+                                    tool_log = f"\n[TOOL] Using {tool_name}\n"
+                                    cmd = None
+                                    if isinstance(tool_input, dict):
+                                        if "command" in tool_input:
+                                            cmd = tool_input['command']
+                                            tool_log += f"  Command: {cmd}\n"
+                                        elif "description" in tool_input:
+                                            tool_log += f"  {tool_input['description']}\n"
+                                    logger.info("tool_use", task_id=task_id, tool=tool_name, command=cmd)
+                                    accumulated_output.append(tool_log)
+                                    await output_queue.put(tool_log)
+                    
+                    elif msg_type == "user":
+                        # Tool results
+                        message = data.get("message", {})
+                        content = message.get("content", []) if isinstance(message, dict) else data.get("content", [])
+                        for block in content if isinstance(content, list) else []:
+                            if isinstance(block, dict) and block.get("type") == "tool_result":
+                                tool_content = block.get("content", "")
+                                is_error = block.get("is_error", False)
+                                if tool_content:
+                                    prefix = "[TOOL ERROR] " if is_error else "[TOOL RESULT]\n"
+                                    # Truncate long tool results
+                                    if len(tool_content) > 2000:
+                                        tool_content = tool_content[:2000] + "\n... (truncated)"
+                                    result_log = f"{prefix}{tool_content}\n"
+                                    logger.info("tool_result", task_id=task_id, is_error=is_error, content_preview=tool_content[:200])
+                                    accumulated_output.append(result_log)
+                                    await output_queue.put(result_log)
+                    
+                    elif msg_type == "stream_event":
+                        # Streaming chunks - only show text deltas
+                        event = data.get("event", {})
+                        if event.get("type") == "content_block_delta":
+                            delta = event.get("delta", {})
+                            if delta.get("type") == "text_delta":
+                                text = delta.get("text", "")
+                                if text:
+                                    accumulated_output.append(text)
+                                    await output_queue.put(text)
                     
                     elif msg_type == "message":
                         role = data.get("role", "")

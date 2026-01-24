@@ -105,3 +105,89 @@ Scripts available in `scripts/` directory:
 - `create_pr.sh` - Create pull request after changes
 
 See examples.md for complete workflow examples, troubleshooting, and integration patterns.
+
+## Intelligent Code Analysis Workflows
+
+### Complexity-Based Repository Access
+
+Automatically choose between API fetch (fast) vs. full clone (comprehensive) based on task complexity.
+
+```bash
+# Analyze task complexity
+DECISION=$(.claude/skills/github-operations/scripts/analyze_complexity.sh "search for config file")
+echo $DECISION  # Output: "api" (simple task, use API)
+
+DECISION=$(.claude/skills/github-operations/scripts/analyze_complexity.sh "refactor authentication module")
+echo $DECISION  # Output: "clone" (complex task, needs full repo)
+```
+
+### Smart Repository Management
+
+```bash
+# Clone or update repository (idempotent)
+REPO_PATH=$(.claude/skills/github-operations/scripts/clone_or_fetch.sh https://github.com/owner/repo.git)
+echo "Repository available at: $REPO_PATH"
+
+# If already cloned: pulls latest changes
+# If not cloned: clones to /data/workspace/repos/repo
+```
+
+### Fetch Files via API (No Clone Required)
+
+```bash
+# Quickly fetch file content without cloning
+.claude/skills/github-operations/scripts/fetch_files_api.sh owner/repo path/to/file.py
+
+# Fetch multiple files
+for FILE in README.md config.yaml main.py; do
+    .claude/skills/github-operations/scripts/fetch_files_api.sh owner/repo $FILE
+done
+```
+
+### Create Draft Pull Requests with Analysis
+
+```bash
+# Create draft PR with analysis results
+.claude/skills/github-operations/scripts/create_draft_pr.sh \
+    owner/repo \
+    "Fix: Authentication bug in login.py" \
+    "## Analysis
+
+    Found issue in login.py line 45:
+    - Incorrect password validation
+    - Missing rate limiting
+
+    ## Changes
+    - Added rate limiting
+    - Fixed validation logic
+
+    Fixes #123" \
+    main \
+    fix/auth-bug
+```
+
+### End-to-End Workflow Example
+
+```bash
+# 1. Analyze task complexity
+TASK="Analyze authentication module and suggest improvements"
+DECISION=$(.claude/skills/github-operations/scripts/analyze_complexity.sh "$TASK")
+
+if [ "$DECISION" = "clone" ]; then
+    # Complex analysis - clone full repo
+    REPO_PATH=$(.claude/skills/github-operations/scripts/clone_or_fetch.sh https://github.com/owner/repo.git)
+    cd $REPO_PATH
+    # Perform comprehensive analysis
+    grep -r "def authenticate" .
+    # ... detailed analysis ...
+else
+    # Simple query - use API
+    .claude/skills/github-operations/scripts/fetch_files_api.sh owner/repo auth/login.py
+fi
+
+# 2. Create draft PR with findings
+.claude/skills/github-operations/scripts/create_draft_pr.sh \
+    owner/repo \
+    "Analysis: Authentication module improvements" \
+    "$(cat analysis_results.md)"
+```
