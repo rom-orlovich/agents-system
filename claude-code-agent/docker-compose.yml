@@ -22,7 +22,7 @@ services:
       # Mount Claude OAuth credentials from host machine
       # Read-write required for Claude CLI debug logs, cache, and credential updates
       - ~/.claude:/home/claude/.claude
-    command: ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-exclude", "*.venv/**", "--reload-exclude", "**/site-packages/**", "--reload-exclude", "**/__pycache__/**", "--reload-exclude", "**/.git/**", "--reload-exclude", "**/tests/**", "--reload-exclude", "**/scripts/**", "--reload-exclude", "**/.pytest_cache/**", "--reload-exclude", "**/.ruff_cache/**", "--reload-exclude", "**/.mypy_cache/**", "--reload-exclude", "**/.coverage", "--reload-exclude", "**/htmlcov/**"]
+    command: ["sh", "-c", "uv sync && uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude '.venv/**' --reload-exclude '**/.venv/**' --reload-exclude '**/site-packages/**' --reload-exclude '**/__pycache__/**' --reload-exclude '**/.git/**' --reload-exclude '**/tests/**' --reload-exclude '**/scripts/**' --reload-exclude '**/.pytest_cache/**' --reload-exclude '**/.ruff_cache/**' --reload-exclude '**/.mypy_cache/**' --reload-exclude '**/.coverage' --reload-exclude '**/htmlcov/**'"]
     depends_on:
       - redis
     restart: unless-stopped
@@ -46,39 +46,10 @@ services:
       timeout: 5s
       retries: 5
 
-  redisinsight:
-    image: redis/redisinsight:latest
-    container_name: claude-agent-redisinsight
-    ports:
-      - "8001:8001"
-    volumes:
-      - redisinsight_data:/data
-    restart: unless-stopped
-    networks:
-      - claude-network
-    depends_on:
-      - redis
-
-  sqlite-web:
-    image: coleifer/sqlite-web:latest
-    container_name: claude-agent-sqlite-web
-    ports:
-      - "8080:8080"
-    volumes:
-      - machine_data:/data
-    command: ["-x", "/data/db/machine.db", "-H", "0.0.0.0", "-p", "8080"]
-    restart: unless-stopped
-    networks:
-      - claude-network
-    depends_on:
-      - app
-
 volumes:
   machine_data:
     driver: local
   redis_data:
-    driver: local
-  redisinsight_data:
     driver: local
 
 networks:

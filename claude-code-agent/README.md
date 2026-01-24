@@ -38,16 +38,19 @@ A self-managing machine where FastAPI runs as a daemon and Claude Code CLI is sp
 ## Features
 
 - 🧠 **Brain Orchestrator**: Main Claude CLI instance that manages sub-agents
-- 💬 **Persistent Conversations**: Inbox-style UI with context awareness
+- 💬 **Persistent Conversations**: Inbox-style UI with context awareness (Dashboard v2)
 - 🔄 **Task Flow Tracking**: End-to-end flow tracking with flow_id across webhook → analysis → execution
 - 📡 **Unified Webhooks**: Fully configurable GitHub, Jira, Slack, Sentry integration
-- 🔄 **Specialized Agents**: Planning, Executor, Service Integrator, Self-Improvement, Agent Creator, Skill Creator
-- 📊 **Cost Tracking**: Per-task and per-conversation cost monitoring with aggregated metrics
+- 🤖 **9 Specialized Agents**: Brain, Planning, Executor, Service Integrator, Self-Improvement, Agent Creator, Skill Creator, Verifier, Webhook Generator
+- 📊 **Advanced Analytics**: Cost tracking, usage metrics, OAuth monitoring, conversation analytics
 - 🗄️ **Dual Storage**: Redis (queue/cache) + SQLite (persistence)
 - 🔌 **Hybrid Webhooks**: Static routes (hard-coded) + Dynamic routes (database-driven)
 - 🧪 **TDD Workflow**: Full test-driven development with E2E validation
 - 🔗 **Service Integration**: Cross-service workflows (GitHub, Jira, Slack, Sentry)
 - 📁 **Claude Code Tasks Integration**: Background agents read task directory for visibility without context injection
+- 🎨 **Modern Dashboard v2**: React-based UI with Overview, Analytics, Ledger, Webhooks, Chat, and Registry features
+- 📈 **Real-time Monitoring**: WebSocket-based live updates, task logs, system metrics
+- 🔐 **Multi-Account Support**: Account management, credential handling, OAuth usage tracking
 
 ## Quick Start
 
@@ -77,10 +80,12 @@ make init
 make up
 ```
 
-5. Access the dashboard:
+5. Access the dashboard v2:
 ```
 http://localhost:8000
 ```
+
+The dashboard v2 is a modern React-based interface with 6 main features: Overview, Analytics, Ledger, Webhooks, Chat, and Registry.
 
 ## Development
 
@@ -168,8 +173,19 @@ claude-code-agent/
 ├── workers/                    # Background workers
 │   └── task_worker.py          # Task processor
 ├── services/                   # Services
-│   ├── dashboard/              # Dashboard frontend (v1)
-│   └── dashboard-v2/            # Dashboard frontend (v2 - React)
+│   ├── dashboard/              # Dashboard frontend (v1 - Legacy)
+│   └── dashboard-v2/            # Dashboard frontend (v2 - React + TypeScript)
+│       ├── src/
+│       │   ├── features/       # Feature modules
+│       │   │   ├── overview/   # System overview & metrics
+│       │   │   ├── analytics/  # Cost & usage analytics
+│       │   │   ├── ledger/    # Transaction ledger
+│       │   │   ├── webhooks/   # Webhook management
+│       │   │   ├── chat/       # Chat interface
+│       │   │   └── registry/  # Skills & agents registry
+│       │   ├── components/    # Reusable UI components
+│       │   ├── hooks/         # React hooks
+│       │   └── layouts/       # Layout components
 ├── tests/                      # Test suite
 ├── data/                       # Persistent data (mapped to /data)
 ├── main.py                     # Application entry
@@ -223,7 +239,15 @@ The Brain is the main Claude CLI instance that:
 **Model**: opus  
 **Skills**: webhook-management
 
-### 2. Specialized Agents
+### 2. Specialized Agents (9 Total)
+
+#### Brain Agent (Main Orchestrator)
+- Coordinates all system operations
+- Delegates to specialized agents
+- Manages webhooks and system configuration
+- **Location**: `.claude/agents/brain.md`  
+**Model**: opus  
+**Skills**: webhook-management
 
 #### Planning Agent
 - Analyzes bugs and issues
@@ -269,6 +293,16 @@ The Brain is the main Claude CLI instance that:
 - **Location**: `.claude/agents/skill-creator.md`  
 **Model**: sonnet  
 **Skills**: skill-generator
+
+#### Verifier Agent
+- Validates implementations and test results
+- Performs final verification checks
+- **Location**: `.claude/agents/verifier.md`
+
+#### Webhook Generator Agent
+- Creates and configures webhooks dynamically
+- Manages webhook templates and commands
+- **Location**: `.claude/agents/webhook-generator.md`
 
 ### 3. Task Worker
 
@@ -352,23 +386,48 @@ Dashboard shows aggregated metrics for conversation
    - `comment`: Post acknowledgment back to source
 5. TaskWorker processes created tasks as usual
 
-### 4. Dashboard
+### 4. Dashboard v2 (React-based)
 
-Real-time web interface with persistent conversation system:
-- **Chat with Brain**: Inbox-style interface with full history
-- **Persistent Context**: Agent automatically remembers last 20 messages
+Modern real-time web interface with comprehensive features:
+
+#### Overview Tab
+- **System Status**: Queue depth, active sessions, WebSocket connections, daily burn rate
+- **OAuth Usage**: Session and weekly usage percentages
+- **Task Monitoring**: Real-time task list with status, logs, and execution details
+- **Global Logs**: System-wide log streaming
+
+#### Analytics Tab
+- **Cost Analytics**: Histogram views, cost breakdown by subagent
+- **Conversation Analytics**: Conversation-level metrics and trends
+- **Usage Patterns**: Task distribution and performance metrics
+
+#### Ledger Tab
+- **Transaction History**: Detailed cost and token usage per task
+- **Filtering**: By date, agent, status, conversation
+- **Export**: Download transaction data
+
+#### Webhooks Tab
+- **Webhook Management**: View, create, edit, delete webhooks
+- **Command Configuration**: Manage webhook commands and triggers
+- **Event History**: View webhook events and responses
+- **Status Monitoring**: Enable/disable webhooks, view statistics
+
+#### Chat Tab (Communications)
+- **Persistent Conversations**: Inbox-style interface with full history
+- **Context Awareness**: Agent automatically remembers last 20 messages
 - **Task Linking**: Every message linked to underlying task for traceability
-- **Monitor active tasks**: Real-time status updates
-- **View costs and metrics**: Per-task and per-session tracking
-- **Manage agents and webhooks**: Static (hard-coded) + Dynamic (database-driven) configuration
+- **Real-time Updates**: WebSocket-based live message streaming
+- **Conversation Management**: Create, rename, delete, and switch between conversations
+
+#### Registry Tab
+- **Skills Management**: View, upload, delete skills
+- **Agents Management**: View, upload, delete agents
+- **Content Editing**: Edit skill and agent content directly
+- **Asset Browser**: Browse all available skills and agents
 
 **Access**: `http://localhost:8000`
 
-#### Conversation Features
-- **Inbox Sidebar**: Create, rename, delete, and switch between multiple conversations
-- **Context Awareness**: The agent remembers conversation history automatically
-- **Traceability**: Click on any message to view execution details and logs
-- **UI Usage**: Found in the **Chat** tab; click **➕** to start a new thread
+**Technology**: React + TypeScript, Tailwind CSS, React Query for data fetching
 
 ### 5. Hybrid Webhook System
 
@@ -433,17 +492,130 @@ A powerful webhook system using a **hybrid approach**: **static routes** (hard-c
 
 ## API Endpoints
 
-### Dashboard API
+### Dashboard API (v1)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/status` | Machine status |
 | GET | `/api/tasks` | List tasks |
-| GET | `/api/tasks/{id}` | Get task details |
-| POST | `/api/tasks/{id}/stop` | Stop task |
+| GET | `/api/tasks/table` | Get tasks as table rows |
+| GET | `/api/tasks/{task_id}` | Get task details |
+| GET | `/api/tasks/{task_id}/logs` | Get task logs |
+| POST | `/api/tasks/{task_id}/stop` | Stop task |
 | POST | `/api/chat` | Send message to Brain |
 | GET | `/api/agents` | List agents |
-| GET | `/api/webhooks` | List webhooks |
+| GET | `/api/webhooks` | List webhooks (static) |
+| GET | `/api/webhooks/events` | List webhook events |
+| GET | `/api/webhooks/stats` | Webhook statistics |
+
+### Conversations API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/conversations` | Create conversation |
+| GET | `/api/conversations` | List conversations |
+| GET | `/api/conversations/{id}` | Get conversation details |
+| PUT | `/api/conversations/{id}` | Update conversation |
+| DELETE | `/api/conversations/{id}` | Delete conversation |
+| POST | `/api/conversations/{id}/clear` | Clear conversation |
+| POST | `/api/conversations/{id}/messages` | Add message |
+| GET | `/api/conversations/{id}/messages` | Get messages |
+| GET | `/api/conversations/{id}/metrics` | Get conversation metrics |
+| GET | `/api/conversations/{id}/context` | Get conversation context |
+
+### Webhooks API (Dynamic)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/webhooks-status` | Webhook status overview |
+| GET | `/api/webhooks` | List all webhooks |
+| GET | `/api/webhooks/{id}` | Get webhook details |
+| POST | `/api/webhooks` | Create webhook |
+| PUT | `/api/webhooks/{id}` | Update webhook |
+| DELETE | `/api/webhooks/{id}` | Delete webhook |
+| POST | `/api/webhooks/{id}/enable` | Enable webhook |
+| POST | `/api/webhooks/{id}/disable` | Disable webhook |
+| GET | `/api/webhooks/{id}/events` | Get webhook events |
+| POST | `/api/webhooks/{id}/commands` | Add webhook command |
+| GET | `/api/webhooks/{id}/commands` | List webhook commands |
+| PUT | `/api/webhooks/{id}/commands/{cmd_id}` | Update command |
+| DELETE | `/api/webhooks/{id}/commands/{cmd_id}` | Delete command |
+| GET | `/api/webhooks/events/recent` | Recent webhook events |
+
+### Analytics API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/analytics/summary` | Analytics summary |
+| GET | `/api/analytics/costs/histogram` | Cost histogram |
+| GET | `/api/analytics/costs/by-subagent` | Costs by subagent |
+| GET | `/api/analytics/conversations` | Conversation analytics |
+
+### Registry API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/registry/skills` | List skills |
+| POST | `/api/registry/skills/upload` | Upload skill |
+| DELETE | `/api/registry/skills/{name}` | Delete skill |
+| GET | `/api/registry/agents` | List agents |
+| POST | `/api/registry/agents/upload` | Upload agent |
+| DELETE | `/api/registry/agents/{name}` | Delete agent |
+| GET | `/api/registry/{asset_type}/{name}/content` | Get asset content |
+| PUT | `/api/registry/{asset_type}/{name}/content` | Update asset content |
+
+### Credentials & Accounts API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/credentials/status` | Credentials status |
+| POST | `/api/credentials/upload` | Upload credentials |
+| GET | `/api/credentials/cli-status` | CLI status |
+| GET | `/api/credentials/usage` | OAuth usage |
+| GET | `/api/credentials/accounts` | List accounts |
+| POST | `/api/v2/accounts/credentials/upload` | Upload credentials (v2) |
+| GET | `/api/v2/accounts` | List accounts (v2) |
+| GET | `/api/v2/accounts/current` | Current account |
+| GET | `/api/v2/accounts/{id}` | Get account |
+| GET | `/api/v2/machines` | List machines |
+| POST | `/api/v2/machines/register` | Register machine |
+| GET | `/api/v2/machines/{id}` | Get machine |
+| POST | `/api/v2/machines/{id}/heartbeat` | Machine heartbeat |
+| POST | `/api/v2/machines/{id}/link` | Link machine to account |
+
+### Subagents API (v2)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v2/subagents/spawn` | Spawn subagent |
+| GET | `/api/v2/subagents/active` | List active subagents |
+| GET | `/api/v2/subagents/{id}` | Get subagent |
+| POST | `/api/v2/subagents/{id}/stop` | Stop subagent |
+| GET | `/api/v2/subagents/{id}/output` | Get subagent output |
+| GET | `/api/v2/subagents/{id}/context` | Get subagent context |
+| POST | `/api/v2/subagents/parallel` | Spawn parallel subagents |
+| GET | `/api/v2/subagents/parallel/{group_id}/results` | Get parallel results |
+
+### Sessions API (v2)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v2/sessions/{id}` | Get session |
+| GET | `/api/v2/sessions/{id}/status` | Session status |
+| POST | `/api/v2/sessions/{id}/reset` | Reset session |
+| GET | `/api/v2/sessions/summary/weekly` | Weekly summary |
+| GET | `/api/v2/dashboard/session/current` | Current dashboard session |
+| GET | `/api/v2/dashboard/sessions/history` | Session history |
+
+### Container API (v2)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v2/container/status` | Container status |
+| GET | `/api/v2/container/processes` | List processes |
+| GET | `/api/v2/container/resources` | Resource usage |
+| POST | `/api/v2/container/processes/{pid}/kill` | Kill process |
+| POST | `/api/v2/container/exec` | Execute command |
 
 ### WebSocket
 
@@ -643,7 +815,7 @@ docker stack deploy -c docker-compose.yml claude-agent
 
 ## Implementation Status
 
-> **Overall Alignment with Business Requirements**: ~70-75%
+> **Overall Alignment with Business Requirements**: ~85-90%
 >
 > See [docs/BUSINESS-REQUIREMENTS.md](docs/BUSINESS-REQUIREMENTS.md) for detailed analysis.
 
@@ -654,24 +826,33 @@ docker stack deploy -c docker-compose.yml claude-agent
 | Dynamic Webhook CRUD | ✅ API endpoints working |
 | Task Queue & Worker | ✅ Concurrent processing |
 | Conversation Flow Tracking | ✅ flow_id, conversation_id |
-| All 11 Skills | ✅ Exist and documented |
-| 7/8 Agents | ✅ Planning, Executor, etc. |
+| Dashboard v2 (React) | ✅ All 6 features implemented |
+| Analytics & Cost Tracking | ✅ Comprehensive metrics |
+| Registry Management | ✅ Skills & agents CRUD |
+| All 9 Agents | ✅ Brain, Planning, Executor, etc. |
 | Real-time WebSocket | ✅ Task streaming |
+| Multi-Account Support | ✅ Account & machine management |
+| OAuth Usage Tracking | ✅ Session & weekly monitoring |
+| Container Management | ✅ Process & resource monitoring |
 
 ### Known Gaps
 | Feature | Status | Priority |
 |---------|--------|----------|
-| Webhook Creator Agent | ❌ Missing | P0 - Critical |
-| Skill webhook_config Sync | ❌ Not implemented | P0 - Critical |
-| Jira/Slack Signature Verification (Dynamic) | ❌ Security gap | P1 - High |
+| Webhook Generator Agent | ✅ Implemented | - |
+| Skill webhook_config Sync | ⚠️ Partial | P1 - High |
+| Jira/Slack Signature Verification (Dynamic) | ⚠️ Partial | P1 - High |
 | Response to Webhook Source (Dynamic) | ⚠️ Placeholder | P1 - High |
 | Static + Dynamic Command Merging | ❌ Not implemented | P2 - Medium |
 | Cloud Storage (S3/BLOB) | ❌ Local only | P2 - Medium |
 
-### Roadmap
-1. **Phase 1**: Security fixes & webhook-creator agent
-2. **Phase 2**: Complete dynamic webhook features
-3. **Phase 3**: Cloud storage & production monitoring
+### Recent Improvements
+- ✅ Dashboard v2 with React + TypeScript
+- ✅ Comprehensive analytics and cost tracking
+- ✅ Registry management for skills and agents
+- ✅ Multi-account and machine management
+- ✅ Container monitoring and process management
+- ✅ Enhanced conversation management
+- ✅ Webhook Generator agent added
 
 ## Architecture Principles
 

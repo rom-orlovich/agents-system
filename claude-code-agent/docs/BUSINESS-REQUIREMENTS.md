@@ -445,7 +445,7 @@ Result: Agent available at .claude/agents/deployment-manager.md
 **Description**: Claude Code CLI automatically detects relevant skills.
 
 **Process**:
-- Claude Code CLI reads skills from files in `.claude/skills/` and `.agent/skills/`
+- Claude Code CLI reads skills from files in `.claude/skills/`
 - Identifies relevant skills by task context
 - Uses them automatically without manual passing
 

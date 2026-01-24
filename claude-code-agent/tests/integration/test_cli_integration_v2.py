@@ -432,37 +432,26 @@ async def test_real_cli_version(real_claude_cli):
 async def test_cli_runner_with_fake_cli(fake_claude_cli, cli_test_workspace, monkeypatch):
     """Test core.cli_runner.run_claude_cli() with fake CLI."""
     from core.cli_runner import run_claude_cli
+    import asyncio
 
-    # Monkey-patch to use fake CLI
-    import core.cli_runner as cli_runner_module
+    # Patch asyncio.create_subprocess_exec to replace 'claude' with fake CLI
+    original_create_subprocess = asyncio.create_subprocess_exec
 
-    # Save original
-    original_cmd_builder = None
+    async def patched_create_subprocess_exec(*args, **kwargs):
+        # Replace 'claude' with fake CLI path in the command
+        # args[0] is the first command argument (the executable name)
+        if args and args[0] == "claude":
+            patched_args = (fake_claude_cli,) + args[1:]
+        else:
+            patched_args = args
+        return await original_create_subprocess(*patched_args, **kwargs)
 
-    # Override command to use fake CLI
-    async def patched_run_claude_cli(*args, **kwargs):
-        # Use the original run_claude_cli but patch subprocess
-        import asyncio
-
-        # Create a patched subprocess call that uses fake CLI
-        original_create_subprocess = asyncio.create_subprocess_exec
-
-        async def fake_subprocess(*args, **kwargs):
-            # Replace 'claude' with fake CLI path
-            patched_args = list(args)
-            if patched_args and 'claude' in patched_args[0]:
-                patched_args[0] = fake_claude_cli
-            return await original_create_subprocess(*patched_args, **kwargs)
-
-        monkeypatch.setattr(asyncio, 'create_subprocess_exec', fake_subprocess)
-
-        # Call original
-        return await run_claude_cli(*args, **kwargs)
+    monkeypatch.setattr(asyncio, 'create_subprocess_exec', patched_create_subprocess_exec)
 
     # Test with fake CLI
     output_queue = asyncio.Queue()
 
-    result = await patched_run_claude_cli(
+    result = await run_claude_cli(
         prompt="What is 2+2?",
         working_dir=cli_test_workspace,
         output_queue=output_queue,

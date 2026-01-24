@@ -1,4 +1,4 @@
-.PHONY: help start install dev test test-unit test-integration test-e2e test-cov test-all lint format type-check clean clean-all build up down logs restart ps db-shell redis-cli run-local shell init health oauth env rebuild tunnel tunnel-ui tunnel-both
+.PHONY: help start install dev test test-unit test-integration test-e2e test-cov lint format type-check clean clean-all build up down logs restart ps db-shell redis-cli run-local shell init health oauth env rebuild tunnel tunnel-ui cli-test
 
 # Load environment variables if they exist
 -include .env
@@ -35,7 +35,6 @@ help:
 	@echo "  make test-fake - Run fake CLI tests (no API calls)"
 	@echo "  make test-real - Run real CLI tests (requires auth)"
 	@echo "  make test-cov  - Run tests with coverage report"
-	@echo "  make test-all  - Run all test suites sequentially"
 	@echo ""
 	@echo "🔧 DEVELOPMENT"
 	@echo "───────────────────────────────────────────────────────────────"
@@ -51,17 +50,12 @@ help:
 	@echo "  make oauth     - Extract OAuth credentials"
 	@echo "  make env       - Edit .env file"
 	@echo "  make health    - Health check"
+	@echo "  make cli-test  - Test Claude CLI and update DB status"
 	@echo "  make tunnel    - 📡 Setup webhook tunnel to port 8000 (ngrok)"
 	@echo "  make tunnel-ui - 📡 Setup tunnel to port 5173 (Vite dev server)"
-	@echo "  make tunnel-both - 📡 Setup tunnels to both ports 8000 & 5173"
 	@echo "  make clean     - Clean build cache (preserves data)"
 	@echo "  make clean-all - ⚠️  Clean everything including data volumes"
 	@echo "  make rebuild   - Full rebuild (preserves data volumes)"
-	@echo ""
-	@echo "📊 DATABASE DASHBOARDS"
-	@echo "───────────────────────────────────────────────────────────────"
-	@echo "  make redis-ui  - 🔴 Open Redis dashboard (RedisInsight)"
-	@echo "  make sqlite-ui - 🗄️  Open SQLite dashboard (Adminer)"
 	@echo ""
 
 # =============================================================================
@@ -89,7 +83,7 @@ start:
 	@echo ""
 	@# Build & Start
 	@echo "🔨 Building containers..."
-	@docker-compose build --quiet
+	@docker-compose build
 	@echo "🚀 Starting services..."
 	@docker-compose up -d
 	@sleep 5
@@ -101,8 +95,6 @@ start:
 	@echo "║  📊 Dashboard: http://localhost:8000/dashboard               ║"
 	@echo "║  💚 Health:    http://localhost:8000/health                  ║"
 	@echo "║  🔌 WebSocket: ws://localhost:8000/ws                        ║"
-	@echo "║  🔴 Redis UI:   http://localhost:8001                        ║"
-	@echo "║  🗄️  SQLite UI: http://localhost:8080                        ║"
 	@echo "╚══════════════════════════════════════════════════════════════╝"
 	@echo ""
 	@echo "  make logs    - View logs"
@@ -158,27 +150,10 @@ test-real:
 	@uv run pytest tests/integration/ -v -m real_cli
 
 test-cov:
-	@echo "🧪 Running tests with coverage..."
-	@uv run pytest tests/ -v --cov=. --cov-report=html --cov-report=term
+	@echo "🧪 Running tests with coverage (parallel)..."
+	@uv run pytest tests/ -n auto -v --cov=. --cov-report=html --cov-report=term
 	@echo ""
 	@echo "📊 Coverage report generated: htmlcov/index.html"
-
-test-all:
-	@echo "🧪 Running complete test suite..."
-	@echo ""
-	@echo "1️⃣ Unit Tests"
-	@echo "───────────────────────────────────────────────────────────────"
-	@uv run pytest tests/unit/ -v || true
-	@echo ""
-	@echo "2️⃣ Integration Tests"
-	@echo "───────────────────────────────────────────────────────────────"
-	@uv run pytest tests/integration/ -v || true
-	@echo ""
-	@echo "3️⃣ End-to-End Tests"
-	@echo "───────────────────────────────────────────────────────────────"
-	@uv run pytest tests/e2e/ -v || true
-	@echo ""
-	@echo "✅ Test suite complete"
 
 # =============================================================================
 # 🔧 DEVELOPMENT
@@ -212,7 +187,7 @@ ui-v2:
 
 run-local:
 	@echo "🚀 Running locally (no Docker)..."
-	@uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000 --reload-exclude "*.venv/**" --reload-exclude "**/site-packages/**" --reload-exclude "**/__pycache__/**" --reload-exclude "**/.git/**" --reload-exclude "**/tests/**" --reload-exclude "**/scripts/**" --reload-exclude "**/.pytest_cache/**" --reload-exclude "**/.ruff_cache/**" --reload-exclude "**/.mypy_cache/**" --reload-exclude "**/.coverage" --reload-exclude "**/htmlcov/**"
+	@uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000 --reload-exclude ".venv/**" --reload-exclude "**/.venv/**" --reload-exclude "**/site-packages/**" --reload-exclude "**/__pycache__/**" --reload-exclude "**/.git/**" --reload-exclude "**/tests/**" --reload-exclude "**/scripts/**" --reload-exclude "**/.pytest_cache/**" --reload-exclude "**/.ruff_cache/**" --reload-exclude "**/.mypy_cache/**" --reload-exclude "**/.coverage" --reload-exclude "**/htmlcov/**"
 
 # =============================================================================
 # 🔧 UTILITIES
@@ -277,33 +252,6 @@ tunnel-ui:
 	@echo ""
 	@ngrok http --url https://$(NGROK_DOMAIN) 5173
 
-tunnel-both:
-	@command -v ngrok >/dev/null 2>&1 || { echo "📦 Installing ngrok via Homebrew..."; brew install ngrok; }
-	@if [ -z "$(NGROK_DOMAIN)" ]; then \
-		echo "❌ NGROK_DOMAIN is not set!"; \
-		echo "Please set it: make tunnel-both NGROK_DOMAIN=your-name.ngrok-free.dev"; \
-		echo "Or add it to your .env: NGROK_DOMAIN=your-name.ngrok-free.dev"; \
-		exit 1; \
-	fi
-	@echo ""
-	@echo "🌐 Setting up tunnels for both services..."
-	@echo ""
-	@echo "📡 API Server (Port 8000):"
-	@echo "  Webhook URLs:"
-	@echo "    GitHub:  https://$(NGROK_DOMAIN)/webhooks/github"
-	@echo "    Jira:    https://$(NGROK_DOMAIN)/webhooks/jira"
-	@echo "    Sentry:  https://$(NGROK_DOMAIN)/webhooks/sentry"
-	@echo "    Slack:   https://$(NGROK_DOMAIN)/webhooks/slack"
-	@echo ""
-	@echo "📡 UI Dev Server (Port 5173):"
-	@echo "  Dashboard UI: https://$(NGROK_DOMAIN)"
-	@echo ""
-	@echo "⚠️  Note: ngrok can only tunnel one port per domain."
-	@echo "   Use separate domains or run 'make tunnel' and 'make tunnel-ui' in separate terminals"
-	@echo ""
-	@echo "💡 Alternative: Use ngrok config file to tunnel multiple ports"
-	@echo "   See: https://ngrok.com/docs/guides/multiple-services"
-
 clean:
 	@echo "🧹 Cleaning build cache..."
 	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
@@ -337,31 +285,12 @@ clean-all:
 db-shell:
 	@docker-compose exec app sqlite3 /data/db/machine.db
 
-db-migrate:
-	@echo "🔄 Running database migrations..."
-	@docker-compose exec app uv run python scripts/migrate_add_conversation_columns.py
+cli-test:
+	@echo "🧪 Testing Claude CLI and updating database status..."
+	@docker-compose exec app uv run python scripts/test_cli_after_build.py && echo "✅ CLI test completed" || echo "⚠️  CLI test failed or credentials not available"
 
 redis-cli:
 	@docker-compose exec redis redis-cli
-
-redis-ui:
-	@echo "🔴 Opening Redis dashboard..."
-	@echo "   URL: http://localhost:8001"
-	@echo ""
-	@echo "📝 Connection details:"
-	@echo "   Host: redis"
-	@echo "   Port: 6379"
-	@echo ""
-	@command -v open >/dev/null 2>&1 && open http://localhost:8001 || echo "   Open http://localhost:8001 in your browser"
-
-sqlite-ui:
-	@echo "🗄️  Opening SQLite dashboard..."
-	@echo "   URL: http://localhost:8080"
-	@echo ""
-	@echo "📝 Database: /data/db/machine.db"
-	@echo "   No login required - direct access to SQLite database"
-	@echo ""
-	@command -v open >/dev/null 2>&1 && open http://localhost:8080 || echo "   Open http://localhost:8080 in your browser"
 
 shell:
 	@docker-compose exec app /bin/bash

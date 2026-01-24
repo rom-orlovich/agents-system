@@ -116,3 +116,37 @@
     color: var(--text-dim);
     text-align: right;
 }
+
+/* RESPONSIVE WEBHOOKS */
+@media (max-width: 768px) {
+    .webhook-stats {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .url-row {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .url-row code {
+        font-size: 0.65rem;
+    }
+
+    .event-item {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+
+    .event-time {
+        text-align: left;
+    }
+
+    .webhook-urls-section {
+        padding: 0.75rem;
+    }
+
+    #webhook-urls-list {
+        grid-template-columns: 1fr;
+    }
+}

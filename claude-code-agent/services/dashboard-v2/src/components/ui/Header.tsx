@@ -45,14 +45,14 @@ export function Header({ onToggleSidebar, isSidebarOpen }: HeaderProps) {
         >
           {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
-        <div className="p-2 bg-primary text-white transition-transform group-hover:rotate-12">
-          <Terminal size={20} />
+        <div className="p-1.5 md:p-2 bg-primary text-white transition-transform group-hover:rotate-12">
+          <Terminal size={16} className="md:w-5 md:h-5" />
         </div>
         <div className="flex flex-col">
-          <span className="font-heading font-black text-lg tracking-tight dark:text-white leading-none">
+          <span className="font-heading font-black text-base md:text-lg tracking-tight dark:text-white leading-none">
             CLAUDE_MACHINE
           </span>
-          <span className="text-[9px] font-heading text-gray-400 dark:text-gray-500 tracking-[0.2em]">
+          <span className="text-[8px] md:text-[9px] font-heading text-gray-400 dark:text-gray-500 tracking-[0.2em]">
             CORE_SYSTEM_ACCESS
           </span>
         </div>

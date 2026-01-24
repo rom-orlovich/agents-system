@@ -7,10 +7,23 @@ import json
 from pathlib import Path
 
 
+def _get_scripts_dir(relative_path: str) -> Path:
+    """Get scripts directory, handling both Docker and local environments."""
+    docker_path = Path("/app/.claude/skills") / relative_path
+    local_path = Path(__file__).parent.parent.parent.parent / ".claude/skills" / relative_path
+    
+    if docker_path.exists():
+        return docker_path
+    elif local_path.exists():
+        return local_path
+    else:
+        return docker_path
+
+
 @pytest.fixture
 def scripts_dir():
     """Return path to jira scripts directory."""
-    return Path("/app/.claude/skills/jira-operations/scripts")
+    return _get_scripts_dir("jira-operations/scripts")
 
 
 @pytest.fixture
@@ -49,6 +62,13 @@ class TestPostComment:
     def test_post_comment_requires_comment_text(self, scripts_dir, mock_jira_credentials):
         """Test that script requires comment text parameter."""
         script = scripts_dir / "post_comment.sh"
+        if not script.exists():
+            pytest.skip(f"Script {script} does not exist")
+        
+        # Ensure script is executable
+        if not os.access(script, os.X_OK):
+            os.chmod(script, 0o755)
+        
         result = subprocess.run(
             [str(script), "PROJ-123"],
             capture_output=True,

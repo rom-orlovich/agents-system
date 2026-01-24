@@ -15,10 +15,8 @@ async def test_chat_creates_new_conversation_when_none_provided(client: AsyncCli
     
     response = await client.post(
         "/api/chat",
-        json={
-            "message": "Hello, this is a test message",
-            "session_id": session_id,
-        }
+        params={"session_id": session_id},
+        json={"message": "Hello, this is a test message"}
     )
     
     assert response.status_code == 200
@@ -53,10 +51,8 @@ async def test_chat_creates_conversation_with_truncated_title(client: AsyncClien
     
     response = await client.post(
         "/api/chat",
-        json={
-            "message": long_message,
-            "session_id": session_id,
-        }
+        params={"session_id": session_id},
+        json={"message": long_message}
     )
     
     assert response.status_code == 200
@@ -81,10 +77,8 @@ async def test_chat_adds_message_to_new_conversation(client: AsyncClient, db_ses
     
     response = await client.post(
         "/api/chat",
-        json={
-            "message": message_content,
-            "session_id": session_id,
-        }
+        params={"session_id": session_id},
+        json={"message": message_content}
     )
     
     assert response.status_code == 200
@@ -112,10 +106,8 @@ async def test_chat_creates_task_with_conversation_id(client: AsyncClient, db_se
     
     response = await client.post(
         "/api/chat",
-        json={
-            "message": "Create a task",
-            "session_id": session_id,
-        }
+        params={"session_id": session_id},
+        json={"message": "Create a task"}
     )
     
     assert response.status_code == 200
@@ -153,11 +145,8 @@ async def test_chat_uses_existing_conversation_when_provided(client: AsyncClient
     
     response = await client.post(
         "/api/chat",
-        json={
-            "message": "New message in existing conversation",
-            "session_id": session_id,
-            "conversation_id": "existing-conv-001",
-        }
+        params={"session_id": session_id, "conversation_id": "existing-conv-001"},
+        json={"message": "New message in existing conversation"}
     )
     
     assert response.status_code == 200
@@ -199,11 +188,8 @@ async def test_chat_includes_context_from_existing_conversation(client: AsyncCli
     
     response = await client.post(
         "/api/chat",
-        json={
-            "message": "Follow-up message",
-            "session_id": session_id,
-            "conversation_id": conversation_id,
-        }
+        params={"session_id": session_id, "conversation_id": conversation_id},
+        json={"message": "Follow-up message"}
     )
     
     assert response.status_code == 200
@@ -238,10 +224,8 @@ async def test_chat_creates_session_if_not_exists(client: AsyncClient, db_sessio
     
     response = await client.post(
         "/api/chat",
-        json={
-            "message": "Test message",
-            "session_id": new_session_id,
-        }
+        params={"session_id": new_session_id},
+        json={"message": "Test message"}
     )
     
     assert response.status_code == 200

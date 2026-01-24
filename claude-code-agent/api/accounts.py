@@ -181,29 +181,6 @@ async def get_account(
     }
 
 
-@router.delete("/accounts/{account_id}", response_model=dict)
-async def delete_account(
-    account_id: str,
-    db: AsyncSession = Depends(get_session)
-):
-    """Delete an account."""
-    result = await db.execute(
-        select(AccountDB).where(AccountDB.account_id == account_id)
-    )
-    account = result.scalar_one_or_none()
-    
-    if not account:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Account {account_id} not found"
-        )
-    
-    await db.delete(account)
-    await db.commit()
-    
-    return {"deleted": True, "account_id": account_id}
-
-
 # ==================== Machines ====================
 
 @router.get("/machines", response_model=dict)

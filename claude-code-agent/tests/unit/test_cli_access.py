@@ -54,6 +54,7 @@ async def test_cli_access_logs_stderr_on_failure():
     mock_result = MagicMock()
     mock_result.returncode = 1
     mock_result.stderr = "Rate limit exceeded"
+    mock_result.stdout = ""
     
     with patch('subprocess.run', return_value=mock_result):
         with patch('core.cli_access.logger') as mock_logger:
@@ -61,9 +62,9 @@ async def test_cli_access_logs_stderr_on_failure():
             
             assert result is False
             mock_logger.warning.assert_called_once()
-            call_kwargs = mock_logger.warning.call_args[1]
-            assert call_kwargs["returncode"] == 1
-            assert call_kwargs["error"] == "Rate limit exceeded"
+            call_args = mock_logger.warning.call_args
+            assert call_args.kwargs["returncode"] == 1
+            assert call_args.kwargs["error"] == "Rate limit exceeded"
 
 
 async def test_cli_access_handles_empty_stderr():
@@ -74,6 +75,7 @@ async def test_cli_access_handles_empty_stderr():
     mock_result = MagicMock()
     mock_result.returncode = 1
     mock_result.stderr = None
+    mock_result.stdout = None
     
     with patch('subprocess.run', return_value=mock_result):
         with patch('core.cli_access.logger') as mock_logger:
@@ -81,8 +83,8 @@ async def test_cli_access_handles_empty_stderr():
             
             assert result is False
             mock_logger.warning.assert_called_once()
-            call_kwargs = mock_logger.warning.call_args[1]
-            assert call_kwargs["error"] == "Unknown error"
+            call_args = mock_logger.warning.call_args
+            assert call_args.kwargs["error"] == "Unknown error"
 
 
 async def test_cli_access_handles_rate_limit_error():
