@@ -52,27 +52,23 @@ async def run_claude_cli(
         https://code.claude.com/docs/en/sub-agents
     """
 
-    # Build the command (matching official Claude CLI documentation)
     cmd = [
         "claude",
-        "-p",                         # Print mode (headless) - NOT --print!
-        "--output-format", "json",    # JSON output for parsing
-        "--dangerously-skip-permissions",  # Skip permission prompts
+        "-p",
+        "--output-format", "stream-json",
+        "--verbose",
+        "--dangerously-skip-permissions",
     ]
 
-    # Add optional model
     if model:
         cmd.extend(["--model", model])
 
-    # Add allowed tools (pre-approved permissions for headless mode)
     if allowed_tools:
         cmd.extend(["--allowedTools", allowed_tools])
 
-    # Add sub-agents definition (JSON)
     if agents:
         cmd.extend(["--agents", agents])
 
-    # Separator and prompt
     cmd.extend(["--", prompt])
 
     logger.info("Starting Claude CLI", task_id=task_id, working_dir=str(working_dir))
@@ -85,8 +81,8 @@ async def run_claude_cli(
         stderr=asyncio.subprocess.PIPE,
         env={
             **os.environ,
-            "CLAUDE_TASK_ID": task_id,  # For status monitoring
-            "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1",  # CRITICAL: Prevents conflicts with orchestration system
+            "CLAUDE_TASK_ID": task_id,
+            "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1",
         }
     )
 
@@ -96,7 +92,6 @@ async def run_claude_cli(
     output_tokens = 0
 
     try:
-        # Stream stdout in real-time
         async def read_stdout():
             nonlocal cost_usd, input_tokens, output_tokens
 
@@ -104,40 +99,52 @@ async def run_claude_cli(
                 return
 
             async for line in process.stdout:
-                line_str = line.decode().strip()
+                line_bytes = line
+                line_str = line_bytes.decode(errors='replace').rstrip('\n\r')
+                
                 if not line_str:
                     continue
 
                 try:
-                    # Parse JSON output from Claude CLI
                     data = json.loads(line_str)
 
-                    if data.get("type") == "content":
-                        # Text output - stream to queue
+                    msg_type = data.get("type")
+                    
+                    if msg_type == "init":
+                        init_content = data.get("content", "")
+                        if init_content:
+                            accumulated_output.append(init_content)
+                            await output_queue.put(init_content)
+                    
+                    elif msg_type == "message":
+                        role = data.get("role", "")
+                        content = data.get("content", "")
+                        if content:
+                            formatted = f"[{role}]: {content}\n" if role else f"{content}\n"
+                            accumulated_output.append(formatted)
+                            await output_queue.put(formatted)
+                    
+                    elif msg_type == "content":
                         chunk = data.get("content", "")
-                        accumulated_output.append(chunk)
-                        await output_queue.put(chunk)
-
-                    elif data.get("type") == "result":
-                        # Final result with metrics
-                        # Claude CLI uses total_cost_usd and nested usage object
+                        if chunk:
+                            accumulated_output.append(chunk)
+                            await output_queue.put(chunk)
+                    
+                    elif msg_type == "result":
                         cost_usd = data.get("total_cost_usd", data.get("cost_usd", 0.0))
                         usage = data.get("usage", {})
                         input_tokens = usage.get("input_tokens", 0)
                         output_tokens = usage.get("output_tokens", 0)
 
-                        # Also extract the result text if available
                         result_text = data.get("result", "")
                         if result_text:
                             accumulated_output.append(result_text)
                             await output_queue.put(result_text)
 
-                except json.JSONDecodeError:
-                    # Plain text output
-                    accumulated_output.append(line_str)
-                    await output_queue.put(line_str)
+                except json.JSONDecodeError as e:
+                    accumulated_output.append(line_str + "\n")
+                    await output_queue.put(line_str + "\n")
 
-        # Stream stderr (subagent logs, diagnostics, errors)
         stderr_lines = []
         async def read_stderr():
             nonlocal stderr_lines
@@ -149,22 +156,18 @@ async def run_claude_cli(
                 if not line_str:
                     continue
 
-                # Store stderr for error reporting
                 stderr_lines.append(line_str)
 
-                # Prefix stderr with [LOG] for visibility
                 log_line = f"[LOG] {line_str}"
                 accumulated_output.append(log_line + "\n")
                 await output_queue.put(log_line + "\n")
 
-        # Run both streams concurrently with timeout
         await asyncio.wait_for(
             asyncio.gather(read_stdout(), read_stderr()),
             timeout=timeout_seconds
         )
         await process.wait()
 
-        # Signal end of stream
         await output_queue.put(None)
 
         logger.info(
@@ -177,31 +180,22 @@ async def run_claude_cli(
             stderr_preview="\n".join(stderr_lines[-3:]) if stderr_lines else None
         )
 
-        # Build error message if CLI failed
         error_msg = None
         if process.returncode != 0:
             if stderr_lines:
-                # Capture ALL stderr lines for complete error reporting
                 full_stderr = "\n".join(stderr_lines)
                 
-                # Extract meaningful error messages (prioritize actual error text over exit code)
-                # Look for common error patterns
                 error_text = full_stderr
                 
-                # Remove common noise patterns
                 cleaned_lines = []
                 for line in stderr_lines:
-                    # Skip verbose log prefixes but keep actual errors
                     if not line.startswith("[LOG]") and line.strip():
                         cleaned_lines.append(line)
                 
                 if cleaned_lines:
-                    # Use cleaned error text as primary message
                     error_text = "\n".join(cleaned_lines)
-                    # Include exit code as secondary information
                     error_msg = f"{error_text}\n\n(Exit code: {process.returncode})"
                 else:
-                    # Fallback to full stderr if cleaning removed everything
                     error_msg = f"{full_stderr}\n\n(Exit code: {process.returncode})"
             else:
                 error_msg = f"Exit code: {process.returncode}"
@@ -218,7 +212,7 @@ async def run_claude_cli(
     except asyncio.TimeoutError:
         logger.error("Claude CLI timeout", task_id=task_id, timeout=timeout_seconds)
         process.kill()
-        await process.wait()  # ✅ CRITICAL: Wait for zombie cleanup
+        await process.wait()
         await output_queue.put(None)
         return CLIResult(
             success=False,
@@ -232,7 +226,7 @@ async def run_claude_cli(
         logger.error("Claude CLI error", task_id=task_id, error=str(e))
         if process.returncode is None:
             process.kill()
-            await process.wait()  # ✅ CRITICAL: Wait for zombie cleanup
+            await process.wait()
         await output_queue.put(None)
         return CLIResult(
             success=False,
