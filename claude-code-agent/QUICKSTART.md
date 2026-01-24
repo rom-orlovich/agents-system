@@ -7,22 +7,34 @@
 - Docker & Docker Compose installed
 - Git installed
 
-### Step 1: Navigate to Project
+### Step 1: Clone and Navigate
 
 ```bash
-cd /home/user/agents-system/claude-code-agent
+git clone <repository-url>
+cd claude-code-agent
 ```
 
-### Step 2: Create Environment File
+### Step 2: Initialize Project
 
 ```bash
-cp .env.example .env
+# Install dependencies and setup
+make init
 ```
+
+This will:
+- Copy `.env.example` to `.env` if it doesn't exist
+- Install dependencies using `uv`
 
 **Optional**: Edit `.env` to customize configuration
 
-### Step 3: Build and Start
+### Step 3: Start Services
 
+**Option A: One Command (Recommended)**
+```bash
+make start
+```
+
+**Option B: Manual Steps**
 ```bash
 # Build the containers
 make build
@@ -72,24 +84,49 @@ You should see the Claude Machine Dashboard!
 
 ## 🎯 What You Get
 
-### 1. Dashboard Interface
-- Real-time chat with Brain
-- Task monitoring
-- Cost tracking
-- Agent management
+### 1. Dashboard v2 Interface (React-based)
+- **Overview**: System metrics, queue depth, OAuth usage, task monitoring
+- **Analytics**: Cost tracking, usage patterns, conversation analytics
+- **Ledger**: Transaction history with filtering
+- **Webhooks**: Webhook management and event monitoring
+- **Chat**: Real-time chat with Brain, persistent conversations
+- **Registry**: Skills and agents management
 
-### 2. Webhook Endpoints
-- `POST /webhooks/github` - GitHub events
+### 2. Specialized Agents (9 Total)
+- **Brain**: Main orchestrator (opus)
+- **Planning**: Analysis and planning (opus)
+- **Executor**: Implementation with TDD (sonnet)
+- **Service Integrator**: Cross-service workflows (sonnet)
+- **Self-Improvement**: Code analysis and refactoring (sonnet)
+- **Agent Creator**: Create new agents (sonnet)
+- **Skill Creator**: Create new skills (sonnet)
+- **Verifier**: Validation and verification (sonnet)
+- **Webhook Generator**: Webhook creation and configuration (sonnet)
+
+### 3. Webhook Endpoints
+
+**Static Routes** (Hard-Coded - Recommended):
+- `POST /webhooks/github` - GitHub events (configured in `core/webhook_configs.py`)
 - `POST /webhooks/jira` - Jira events
+- `POST /webhooks/slack` - Slack events
 - `POST /webhooks/sentry` - Sentry events
 
-### 3. API Endpoints
+**Dynamic Routes** (Database-Driven):
+- `POST /webhooks/{provider}/{webhook_id}` - Custom webhooks (created via API)
+- `GET /api/webhooks` - List all webhooks
+- `POST /api/webhooks` - Create new webhook
+
+**Note**: This system uses a hybrid approach - static routes for standard integrations, dynamic routes for runtime configuration.
+
+### 4. API Endpoints
 - `GET /api/status` - System status
 - `GET /api/tasks` - List tasks
 - `GET /api/agents` - List agents
 - `POST /api/chat` - Send message
+- `GET /api/conversations` - List conversations
+- `GET /api/webhooks` - List webhooks
 
-### 4. WebSocket
+### 5. WebSocket
 - `WS /ws/{session_id}` - Real-time updates
 
 ## 📝 Common Tasks
@@ -200,20 +237,39 @@ Click "View" on any task to see:
 
 ## 🎭 Agent Types
 
-### Brain (Main)
+### Brain (Main Orchestrator)
 - Handles simple queries
-- Routes to sub-agents
-- Manages system
+- Routes to specialized agents
+- Manages system and webhooks
+- Model: opus
 
 ### Planning Agent
-- Analyzes bugs
-- Creates fix plans
+- Analyzes bugs and issues
+- Creates detailed fix plans (PLAN.md)
 - No code implementation
+- Model: opus
 
 ### Executor Agent
-- Implements fixes
-- Runs tests
+- Implements fixes following TDD workflow
+- Runs tests (unit, integration, E2E)
 - Creates PRs
+- Model: sonnet
+- Skills: testing
+
+### Service Integrator Agent
+- Integrates with GitHub, Jira, Slack, Sentry
+- Orchestrates cross-service workflows
+- Model: sonnet
+
+### Self-Improvement Agent
+- Analyzes codebase patterns
+- Identifies refactoring opportunities
+- Model: sonnet
+
+### Agent Creator & Skill Creator
+- Creates new agents and skills
+- Validates structure and configuration
+- Model: sonnet
 
 ## 🔌 Webhook Setup
 
@@ -315,9 +371,12 @@ make up
 ## 🎓 Learn More
 
 - **README.md**: Complete documentation
-- **IMPLEMENTATION-STATUS.md**: What's implemented
-- **CLAUDE.md files**: Agent configurations
-- **SKILL.md files**: Skill documentation
+- **docs/CONVERSATION-QUICKSTART.md**: Conversation management guide
+- **docs/WEBHOOK-SETUP.md**: Webhook configuration guide
+- **docs/TDD-METHODOLOGY.md**: Test-driven development methodology guide
+- **.claude/CLAUDE.md**: Main brain configuration
+- **.claude/agents/*.md**: Agent definitions
+- **.claude/skills/*/SKILL.md**: Skill documentation
 
 ## 🆘 Need Help?
 

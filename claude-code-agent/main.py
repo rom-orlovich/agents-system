@@ -1,22 +1,30 @@
 """Main entry point for Claude Code Agent."""
 
 import asyncio
+import json
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import structlog
+from sqlalchemy import update
 
 from core import (
     settings,
     setup_logging,
     WebSocketHub,
 )
-from core.database import init_db
+from core.database import init_db, async_session_factory
 from core.database.redis_client import redis_client
-from api import dashboard, websocket, webhooks
+from core.database.models import SessionDB
+from api import credentials, dashboard, registry, analytics, websocket, conversations
+from api import webhooks_dynamic, webhook_status
+from api import subagents, container, accounts, sessions
+from api.webhooks import router as webhooks_router
+from core.webhook_configs import validate_webhook_configs
 from workers.task_worker import TaskWorker
+from shared.machine_models import ClaudeCredentials
 
 # Setup logging
 setup_logging()
@@ -37,6 +45,29 @@ async def lifespan(app: FastAPI):
 
     # Connect to Redis
     await redis_client.connect()
+
+    # Validate webhook configurations
+    validate_webhook_configs()
+
+    # Check credentials (CLI test only runs after credentials upload, not on startup)
+    creds_path = settings.credentials_path
+    if creds_path.exists():
+        try:
+            # Load credentials to get user_id for logging
+            creds_data = json.loads(creds_path.read_text())
+            creds = ClaudeCredentials.from_dict(creds_data)
+            user_id = creds.user_id or creds.account_id
+            
+            if user_id:
+                logger.info("Credentials found", user_id=user_id)
+            else:
+                logger.warning("No user_id found in credentials")
+        except Exception as e:
+            # Don't fail startup - just log error
+            logger.warning("Failed to load credentials during startup", error=str(e))
+    else:
+        # Credentials don't exist - this is OK, just log info
+        logger.info("Credentials file not found - app will start normally. Upload credentials via dashboard.")
 
     # Start task worker
     worker = TaskWorker(ws_hub)
@@ -80,8 +111,20 @@ app.add_middleware(
 
 # Include routers
 app.include_router(dashboard.router, prefix="/api", tags=["dashboard"])
+app.include_router(conversations.router, prefix="/api", tags=["conversations"])
+app.include_router(credentials.router, prefix="/api", tags=["credentials"])
+app.include_router(analytics.router, prefix="/api", tags=["analytics"])
+app.include_router(registry.router, prefix="/api", tags=["registry"])
+app.include_router(webhook_status.router, prefix="/api", tags=["webhooks"])
+app.include_router(webhooks_dynamic.router, prefix="/webhooks", tags=["webhooks"])  # Old system (backward compat)
+app.include_router(webhooks_router, tags=["webhooks"])  # New hard-coded webhooks
 app.include_router(websocket.router, tags=["websocket"])
-app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
+
+# V2 API routers (Multi-Subagent Orchestration)
+app.include_router(subagents.router, tags=["subagents"])
+app.include_router(container.router, tags=["container"])
+app.include_router(accounts.router, tags=["accounts", "machines"])
+app.include_router(sessions.router, tags=["sessions"])
 
 # Serve static files (dashboard frontend)
 try:

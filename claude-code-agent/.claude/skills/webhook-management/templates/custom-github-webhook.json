@@ -1,0 +1,47 @@
+{
+  "name": "custom-github-webhook",
+  "endpoint": "/webhooks/custom-github",
+  "source": "github",
+  "description": "Custom GitHub webhook for advanced code review workflows",
+  "target_agent": "brain",
+  "command_prefix": "@agent",
+  "commands": [
+    {
+      "name": "review",
+      "aliases": ["code-review", "review-pr"],
+      "description": "Perform detailed code review",
+      "target_agent": "planning",
+      "prompt_template": "Perform a detailed code review of this pull request:\n\nTitle: {{pull_request.title}}\nDescription: {{pull_request.body}}\n\nRepository: {{repository.full_name}}\nPR Number: #{{pull_request.number}}\nBranch: {{pull_request.head.ref}} -> {{pull_request.base.ref}}\n\nFocus on:\n- Code quality and best practices\n- Security vulnerabilities\n- Performance implications\n- Test coverage",
+      "requires_approval": false
+    },
+    {
+      "name": "security-scan",
+      "aliases": ["scan", "security-check"],
+      "description": "Run security analysis on PR",
+      "target_agent": "planning",
+      "prompt_template": "Perform security analysis on this pull request:\n\nTitle: {{pull_request.title}}\nRepository: {{repository.full_name}}\nPR: #{{pull_request.number}}\n\nCheck for:\n- SQL injection vulnerabilities\n- XSS risks\n- Authentication/authorization issues\n- Dependency vulnerabilities\n- Secrets in code",
+      "requires_approval": false
+    },
+    {
+      "name": "auto-merge",
+      "aliases": ["merge", "approve-and-merge"],
+      "description": "Automatically merge PR after validation",
+      "target_agent": "executor",
+      "prompt_template": "Validate and merge this pull request:\n\nTitle: {{pull_request.title}}\nRepository: {{repository.full_name}}\nPR: #{{pull_request.number}}\n\nValidation steps:\n1. All tests pass\n2. Code review approved\n3. No merge conflicts\n4. Branch is up to date\n\nIf all checks pass, merge using squash strategy.",
+      "requires_approval": true
+    },
+    {
+      "name": "test-coverage",
+      "aliases": ["coverage", "check-tests"],
+      "description": "Analyze test coverage for PR",
+      "target_agent": "planning",
+      "prompt_template": "Analyze test coverage for this pull request:\n\nTitle: {{pull_request.title}}\nRepository: {{repository.full_name}}\nPR: #{{pull_request.number}}\n\nAnalyze:\n- Current test coverage percentage\n- Coverage delta from base branch\n- Uncovered code paths\n- Suggestions for additional tests",
+      "requires_approval": false
+    }
+  ],
+  "default_command": "review",
+  "requires_signature": true,
+  "signature_header": "X-Hub-Signature-256",
+  "secret_env_var": "GITHUB_WEBHOOK_SECRET",
+  "is_builtin": false
+}

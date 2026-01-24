@@ -3,7 +3,7 @@ ALL domain models with Pydantic validation.
 Business rules are ENFORCED here, not in service layer.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Literal
@@ -84,7 +84,7 @@ class Session(BaseModel):
     session_id: str = Field(..., description="Unique session identifier")
     user_id: str = Field(..., description="User account ID from Claude auth")
     machine_id: str = Field(..., description="Machine this session connects to")
-    connected_at: datetime = Field(default_factory=datetime.utcnow)
+    connected_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     disconnected_at: Optional[datetime] = None
 
     # Metrics (auto-updated)
@@ -131,7 +131,7 @@ class Task(BaseModel):
 
     # Status
     status: TaskStatus = Field(default=TaskStatus.QUEUED)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
 
@@ -156,10 +156,10 @@ class Task(BaseModel):
     def validate_status_transitions(self) -> "Task":
         """Ensure valid status transitions."""
         if self.status == TaskStatus.RUNNING and self.started_at is None:
-            object.__setattr__(self, "started_at", datetime.utcnow())
+            object.__setattr__(self, "started_at", datetime.now(timezone.utc))
         if self.status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED):
             if self.completed_at is None:
-                object.__setattr__(self, "completed_at", datetime.utcnow())
+                object.__setattr__(self, "completed_at", datetime.now(timezone.utc))
             if self.started_at and self.completed_at:
                 object.__setattr__(self, "duration_seconds", (self.completed_at - self.started_at).total_seconds())
         return self
@@ -204,7 +204,7 @@ class SubAgentConfig(BaseModel):
 
     # Built-in vs dynamic
     is_builtin: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @field_validator("name")
     @classmethod
@@ -260,7 +260,7 @@ class WebhookConfig(BaseModel):
 
     # Metadata
     is_builtin: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @field_validator("name")
     @classmethod
@@ -285,7 +285,7 @@ class SkillConfig(BaseModel):
     description: str = Field(default="")
     skill_path: Path = Field(...)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @field_validator("target")
     @classmethod
@@ -310,20 +310,55 @@ class ClaudeCredentials(BaseModel):
     token_type: str = Field(default="Bearer")
     account_id: Optional[str] = None
 
+    @classmethod
+    def normalize_credentials_data(cls, creds_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Normalize credentials data from either format:
+        1. Direct format: {"access_token": "...", "refresh_token": "...", ...}
+        2. Wrapped format: {"claudeAiOauth": {"accessToken": "...", "refreshToken": "...", ...}}
+        
+        Returns normalized dict with snake_case keys.
+        """
+        # Handle wrapped format with claudeAiOauth
+        if "claudeAiOauth" in creds_data:
+            oauth_data = creds_data["claudeAiOauth"]
+            # Convert camelCase to snake_case for ClaudeCredentials model
+            return {
+                "access_token": oauth_data.get("accessToken") or oauth_data.get("access_token"),
+                "refresh_token": oauth_data.get("refreshToken") or oauth_data.get("refresh_token"),
+                "expires_at": oauth_data.get("expiresAt") or oauth_data.get("expires_at"),
+                "token_type": oauth_data.get("tokenType", "Bearer"),
+                "account_id": oauth_data.get("accountId") or oauth_data.get("account_id"),
+            }
+        
+        # Already in direct format, return as-is
+        return creds_data
+
+    @classmethod
+    def from_dict(cls, creds_data: Dict[str, Any]) -> "ClaudeCredentials":
+        """Create ClaudeCredentials from dict, handling both formats."""
+        normalized = cls.normalize_credentials_data(creds_data)
+        return cls(**normalized)
+
+    @property
+    def user_id(self) -> Optional[str]:
+        """Alias for account_id to maintain backward compatibility."""
+        return self.account_id
+
     @property
     def expires_at_datetime(self) -> datetime:
         """Convert to datetime."""
-        return datetime.fromtimestamp(self.expires_at / 1000)
+        return datetime.fromtimestamp(self.expires_at / 1000, tz=timezone.utc)
 
     @property
     def is_expired(self) -> bool:
         """Check if token is expired."""
-        return datetime.utcnow() >= self.expires_at_datetime
+        return datetime.now(timezone.utc) >= self.expires_at_datetime
 
     @property
     def needs_refresh(self) -> bool:
         """Check if token needs refresh (< 30 min left)."""
-        remaining = (self.expires_at_datetime - datetime.utcnow()).total_seconds()
+        remaining = (self.expires_at_datetime - datetime.now(timezone.utc)).total_seconds()
         return remaining < 1800  # 30 minutes
 
     def get_status(self) -> AuthStatus:
@@ -342,7 +377,7 @@ class ClaudeCredentials(BaseModel):
 class WebSocketMessage(BaseModel):
     """Base WebSocket message."""
     type: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class TaskCreatedMessage(WebSocketMessage):
@@ -403,10 +438,17 @@ class ChatMessage(WebSocketMessage):
     message: str
 
 
+class CLIStatusUpdateMessage(WebSocketMessage):
+    """CLI status update event."""
+    type: Literal["cli_status_update"] = "cli_status_update"
+    session_id: Optional[str] = None  # None means broadcast to all
+    active: bool
+
+
 # Union type for all WebSocket messages
 WSMessage = (TaskCreatedMessage | TaskOutputMessage | TaskMetricsMessage |
              TaskCompletedMessage | TaskFailedMessage | UserInputMessage |
-             TaskStopMessage | ChatMessage)
+             TaskStopMessage | ChatMessage | CLIStatusUpdateMessage)
 
 
 # =============================================================================
