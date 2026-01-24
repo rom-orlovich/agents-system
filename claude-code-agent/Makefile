@@ -1,4 +1,4 @@
-.PHONY: help start install dev test test-unit test-integration test-e2e test-cov test-all lint format type-check clean clean-all build up down logs restart ps db-shell redis-cli run-local shell init health oauth env rebuild tunnel
+.PHONY: help start install dev test test-unit test-integration test-e2e test-cov test-all lint format type-check clean clean-all build up down logs restart ps db-shell redis-cli run-local shell init health oauth env rebuild tunnel tunnel-ui tunnel-both
 
 # Load environment variables if they exist
 -include .env
@@ -51,10 +51,17 @@ help:
 	@echo "  make oauth     - Extract OAuth credentials"
 	@echo "  make env       - Edit .env file"
 	@echo "  make health    - Health check"
-	@echo "  make tunnel    - 📡 Setup webhook tunnel (ngrok/cloudflared)"
+	@echo "  make tunnel    - 📡 Setup webhook tunnel to port 8000 (ngrok)"
+	@echo "  make tunnel-ui - 📡 Setup tunnel to port 5173 (Vite dev server)"
+	@echo "  make tunnel-both - 📡 Setup tunnels to both ports 8000 & 5173"
 	@echo "  make clean     - Clean build cache (preserves data)"
 	@echo "  make clean-all - ⚠️  Clean everything including data volumes"
 	@echo "  make rebuild   - Full rebuild (preserves data volumes)"
+	@echo ""
+	@echo "📊 DATABASE DASHBOARDS"
+	@echo "───────────────────────────────────────────────────────────────"
+	@echo "  make redis-ui  - 🔴 Open Redis dashboard (RedisInsight)"
+	@echo "  make sqlite-ui - 🗄️  Open SQLite dashboard (Adminer)"
 	@echo ""
 
 # =============================================================================
@@ -94,6 +101,8 @@ start:
 	@echo "║  📊 Dashboard: http://localhost:8000/dashboard               ║"
 	@echo "║  💚 Health:    http://localhost:8000/health                  ║"
 	@echo "║  🔌 WebSocket: ws://localhost:8000/ws                        ║"
+	@echo "║  🔴 Redis UI:   http://localhost:8001                        ║"
+	@echo "║  🗄️  SQLite UI: http://localhost:8080                        ║"
 	@echo "╚══════════════════════════════════════════════════════════════╝"
 	@echo ""
 	@echo "  make logs    - View logs"
@@ -252,6 +261,49 @@ tunnel:
 	@echo ""
 	@ngrok http --url https://$(NGROK_DOMAIN) 8000
 
+tunnel-ui:
+	@command -v ngrok >/dev/null 2>&1 || { echo "📦 Installing ngrok via Homebrew..."; brew install ngrok; }
+	@if [ -z "$(NGROK_DOMAIN)" ]; then \
+		echo "❌ NGROK_DOMAIN is not set!"; \
+		echo "Please set it: make tunnel-ui NGROK_DOMAIN=your-name.ngrok-free.dev"; \
+		echo "Or add it to your .env: NGROK_DOMAIN=your-name.ngrok-free.dev"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "🌐 Tunneling Vite Dev Server (Port 5173)"
+	@echo "  Dashboard UI: https://$(NGROK_DOMAIN)"
+	@echo ""
+	@echo "💡 Make sure the dev server is running: make ui-v2"
+	@echo ""
+	@ngrok http --url https://$(NGROK_DOMAIN) 5173
+
+tunnel-both:
+	@command -v ngrok >/dev/null 2>&1 || { echo "📦 Installing ngrok via Homebrew..."; brew install ngrok; }
+	@if [ -z "$(NGROK_DOMAIN)" ]; then \
+		echo "❌ NGROK_DOMAIN is not set!"; \
+		echo "Please set it: make tunnel-both NGROK_DOMAIN=your-name.ngrok-free.dev"; \
+		echo "Or add it to your .env: NGROK_DOMAIN=your-name.ngrok-free.dev"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "🌐 Setting up tunnels for both services..."
+	@echo ""
+	@echo "📡 API Server (Port 8000):"
+	@echo "  Webhook URLs:"
+	@echo "    GitHub:  https://$(NGROK_DOMAIN)/webhooks/github"
+	@echo "    Jira:    https://$(NGROK_DOMAIN)/webhooks/jira"
+	@echo "    Sentry:  https://$(NGROK_DOMAIN)/webhooks/sentry"
+	@echo "    Slack:   https://$(NGROK_DOMAIN)/webhooks/slack"
+	@echo ""
+	@echo "📡 UI Dev Server (Port 5173):"
+	@echo "  Dashboard UI: https://$(NGROK_DOMAIN)"
+	@echo ""
+	@echo "⚠️  Note: ngrok can only tunnel one port per domain."
+	@echo "   Use separate domains or run 'make tunnel' and 'make tunnel-ui' in separate terminals"
+	@echo ""
+	@echo "💡 Alternative: Use ngrok config file to tunnel multiple ports"
+	@echo "   See: https://ngrok.com/docs/guides/multiple-services"
+
 clean:
 	@echo "🧹 Cleaning build cache..."
 	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
@@ -291,6 +343,25 @@ db-migrate:
 
 redis-cli:
 	@docker-compose exec redis redis-cli
+
+redis-ui:
+	@echo "🔴 Opening Redis dashboard..."
+	@echo "   URL: http://localhost:8001"
+	@echo ""
+	@echo "📝 Connection details:"
+	@echo "   Host: redis"
+	@echo "   Port: 6379"
+	@echo ""
+	@command -v open >/dev/null 2>&1 && open http://localhost:8001 || echo "   Open http://localhost:8001 in your browser"
+
+sqlite-ui:
+	@echo "🗄️  Opening SQLite dashboard..."
+	@echo "   URL: http://localhost:8080"
+	@echo ""
+	@echo "📝 Database: /data/db/machine.db"
+	@echo "   No login required - direct access to SQLite database"
+	@echo ""
+	@command -v open >/dev/null 2>&1 && open http://localhost:8080 || echo "   Open http://localhost:8080 in your browser"
 
 shell:
 	@docker-compose exec app /bin/bash

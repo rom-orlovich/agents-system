@@ -46,10 +46,39 @@ services:
       timeout: 5s
       retries: 5
 
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: claude-agent-redisinsight
+    ports:
+      - "8001:8001"
+    volumes:
+      - redisinsight_data:/data
+    restart: unless-stopped
+    networks:
+      - claude-network
+    depends_on:
+      - redis
+
+  sqlite-web:
+    image: coleifer/sqlite-web:latest
+    container_name: claude-agent-sqlite-web
+    ports:
+      - "8080:8080"
+    volumes:
+      - machine_data:/data
+    command: ["-x", "/data/db/machine.db", "-H", "0.0.0.0", "-p", "8080"]
+    restart: unless-stopped
+    networks:
+      - claude-network
+    depends_on:
+      - app
+
 volumes:
   machine_data:
     driver: local
   redis_data:
+    driver: local
+  redisinsight_data:
     driver: local
 
 networks:
