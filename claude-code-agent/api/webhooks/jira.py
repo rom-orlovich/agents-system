@@ -1,9 +1,3 @@
-"""
-Jira Webhook Handler
-Complete implementation: route + all supporting functions
-Handles all Jira events
-"""
-
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 import hmac
@@ -30,40 +24,31 @@ logger = structlog.get_logger()
 router = APIRouter()
 
 
-# ✅ Verification function (Jira webhook ONLY)
 async def verify_jira_signature(request: Request, body: bytes) -> None:
-    """Verify Jira webhook signature ONLY."""
     signature = request.headers.get("X-Jira-Signature", "")
     secret = os.getenv("JIRA_WEBHOOK_SECRET")
     
-    # If signature header is present, we must verify it
     if signature:
         if not secret:
             raise HTTPException(status_code=401, detail="Webhook secret not configured but signature provided")
         
-        # Compute expected signature (Jira uses HMAC-SHA256)
         expected_signature = hmac.new(
             secret.encode(),
             body,
             hashlib.sha256
         ).hexdigest()
         
-        # Compare signatures (constant-time comparison)
         if not hmac.compare_digest(signature, expected_signature):
             raise HTTPException(status_code=401, detail="Invalid signature")
     elif secret:
-        # Secret is configured but no signature provided
         logger.warning("JIRA_WEBHOOK_SECRET configured but no signature header provided")
 
 
-# ✅ Helper function: Check if assignee changed to AI Agent
 def is_assignee_changed_to_ai(payload: dict, event_type: str) -> bool:
-    """Check if assignee was changed to AI Agent."""
     from core.config import settings
     
     ai_agent_name = settings.jira_ai_agent_name or os.getenv("JIRA_AI_AGENT_NAME", "AI Agent")
     
-    # Check changelog for assignee changes
     changelog = payload.get("changelog", {})
     if changelog:
         items = changelog.get("items", [])
@@ -75,25 +60,21 @@ def is_assignee_changed_to_ai(payload: dict, event_type: str) -> bool:
                     logger.info("jira_assignee_changed_to_ai", issue_key=issue_key, new_assignee=to_value)
                     return True
     
-    # Check current assignee if changelog doesn't show the change
-    issue = payload.get("issue", {})
-    fields = issue.get("fields", {})
-    assignee = fields.get("assignee")
-    if assignee:
-        assignee_name = assignee.get("displayName", "") or assignee.get("name", "")
-        if assignee_name and ai_agent_name.lower() in assignee_name.lower():
-            # Only for update events (not just reads)
-            if event_type in ["jira:issue_updated", "issue_updated"]:
+    if event_type in ["jira:issue_created", "issue_created"]:
+        issue = payload.get("issue", {})
+        fields = issue.get("fields", {})
+        assignee = fields.get("assignee")
+        if assignee:
+            assignee_name = assignee.get("displayName", "") or assignee.get("name", "")
+            if assignee_name and ai_agent_name.lower() in assignee_name.lower():
                 issue_key = issue.get("key", "unknown")
-                logger.info("jira_current_assignee_is_ai", issue_key=issue_key, assignee=assignee_name)
+                logger.info("jira_issue_created_with_ai_assignee", issue_key=issue_key, assignee=assignee_name)
                 return True
     
     return False
 
 
-# ✅ Helper function: Generate immediate response message
 def generate_jira_immediate_message(command: WebhookCommand) -> str:
-    """Generate immediate response message based on command."""
     if command.name == "analyze":
         return "👀 AI Agent: I'll analyze this issue and provide insights shortly."
     elif command.name == "plan":
@@ -104,13 +85,11 @@ def generate_jira_immediate_message(command: WebhookCommand) -> str:
         return f"🤖 AI Agent: Processing '{command.name}' command..."
 
 
-# ✅ Immediate response function (Jira webhook ONLY)
 async def send_jira_immediate_response(
     payload: dict,
     command: WebhookCommand,
     event_type: str
 ) -> bool:
-    """Send immediate response for Jira webhook ONLY. Only posts if assignee changed to AI Agent."""
     try:
         issue = payload.get("issue", {})
         issue_key = issue.get("key", "unknown")
@@ -122,7 +101,6 @@ async def send_jira_immediate_response(
             command=command.name
         )
         
-        # Check if assignee was changed to AI Agent
         if not is_assignee_changed_to_ai(payload, event_type):
             logger.debug(
                 "jira_immediate_comment_skipped",
@@ -131,11 +109,9 @@ async def send_jira_immediate_response(
             )
             return False
         
-        # Only post comment if assignee was changed to AI Agent
         if issue_key == "unknown":
             return False
         
-        # Generate and post message
         message = generate_jira_immediate_message(command)
         await post_jira_comment(payload, message)
         logger.info("jira_immediate_comment_sent", issue_key=issue_key, command=command.name)
@@ -146,42 +122,33 @@ async def send_jira_immediate_response(
         return False
 
 
-# ✅ Command matching function (Jira webhook ONLY)
 def match_jira_command(payload: dict, event_type: str) -> Optional[WebhookCommand]:
-    """Match command for Jira webhook ONLY. Handles all Jira event types."""
-    # Extract text from payload
     text = ""
     
-    # Try to get comment body
     comment = payload.get("comment", {})
     if comment:
         text = comment.get("body", "")
     
-    # If no comment, try issue description or summary
     if not text:
         issue = payload.get("issue", {})
         fields = issue.get("fields", {})
         text = fields.get("description", "") or fields.get("summary", "")
     
     if not text:
-        # Use default command
         for cmd in JIRA_WEBHOOK.commands:
             if cmd.name == JIRA_WEBHOOK.default_command:
                 return cmd
         return JIRA_WEBHOOK.commands[0] if JIRA_WEBHOOK.commands else None
     
-    # Check prefix
     prefix = JIRA_WEBHOOK.command_prefix.lower()
     text_lower = text.lower()
     
     if prefix not in text_lower:
-        # Use default command
         for cmd in JIRA_WEBHOOK.commands:
             if cmd.name == JIRA_WEBHOOK.default_command:
                 return cmd
         return JIRA_WEBHOOK.commands[0] if JIRA_WEBHOOK.commands else None
     
-    # Find command by name or alias
     for cmd in JIRA_WEBHOOK.commands:
         if cmd.name.lower() in text_lower:
             return cmd
@@ -189,7 +156,6 @@ def match_jira_command(payload: dict, event_type: str) -> Optional[WebhookComman
             if alias.lower() in text_lower:
                 return cmd
     
-    # Fallback to default
     for cmd in JIRA_WEBHOOK.commands:
         if cmd.name == JIRA_WEBHOOK.default_command:
             return cmd
@@ -197,17 +163,18 @@ def match_jira_command(payload: dict, event_type: str) -> Optional[WebhookComman
     return JIRA_WEBHOOK.commands[0] if JIRA_WEBHOOK.commands else None
 
 
-# ✅ Task creation function (Jira webhook ONLY)
 async def create_jira_task(
     command: WebhookCommand,
     payload: dict,
     db: AsyncSession
 ) -> str:
-    """Create task for Jira webhook ONLY. Handles all Jira event types."""
-    # Render template
-    message = render_template(command.prompt_template, payload)
+    task_id = f"task-{uuid.uuid4().hex[:12]}"
     
-    # Create webhook session if needed
+    base_message = render_template(command.prompt_template, payload, task_id=task_id)
+    
+    from core.webhook_engine import wrap_prompt_with_brain_instructions
+    message = wrap_prompt_with_brain_instructions(base_message, task_id=task_id)
+    
     webhook_session_id = f"webhook-{uuid.uuid4().hex[:12]}"
     session_db = SessionDB(
         session_id=webhook_session_id,
@@ -217,21 +184,18 @@ async def create_jira_task(
     )
     db.add(session_db)
     
-    # Map agent name to AgentType
     agent_type_map = {
         "planning": AgentType.PLANNING,
         "executor": AgentType.EXECUTOR,
-        "brain": AgentType.PLANNING,  # Brain uses PLANNING type
+        "brain": AgentType.PLANNING,
     }
-    agent_type = agent_type_map.get(command.target_agent, AgentType.PLANNING)
+    agent_type = agent_type_map.get("brain", AgentType.PLANNING)
     
-    # Create task
-    task_id = f"task-{uuid.uuid4().hex[:12]}"
     task_db = TaskDB(
         task_id=task_id,
         session_id=webhook_session_id,
         user_id="webhook-system",
-        assigned_agent=command.target_agent,
+        assigned_agent="brain",
         agent_type=agent_type,
         status=TaskStatus.QUEUED,
         input_message=message,
@@ -240,22 +204,49 @@ async def create_jira_task(
             "webhook_source": "jira",
             "webhook_name": JIRA_WEBHOOK.name,
             "command": command.name,
+            "original_target_agent": command.target_agent,
             "payload": payload
         }),
     )
     db.add(task_db)
-    await db.flush()  # Flush to get task_db.id if needed
+    await db.flush()
     
-    # Create conversation immediately when task is created
+    from core.webhook_engine import generate_external_id, generate_flow_id
+    external_id = generate_external_id("jira", payload)
+    flow_id = generate_flow_id(external_id)
+    
+    source_metadata = json.loads(task_db.source_metadata or "{}")
+    source_metadata["flow_id"] = flow_id
+    source_metadata["external_id"] = external_id
+    task_db.source_metadata = json.dumps(source_metadata)
+    task_db.flow_id = flow_id
+    
     conversation_id = await create_webhook_conversation(task_db, db)
     if conversation_id:
         logger.info("jira_conversation_created", conversation_id=conversation_id, task_id=task_id)
+    
+    try:
+        from core.claude_tasks_sync import sync_task_to_claude_tasks
+        claude_task_id = sync_task_to_claude_tasks(
+            task_db=task_db,
+            flow_id=flow_id,
+            conversation_id=conversation_id
+        )
+        if claude_task_id:
+            source_metadata = json.loads(task_db.source_metadata or "{}")
+            source_metadata["claude_task_id"] = claude_task_id
+            task_db.source_metadata = json.dumps(source_metadata)
+    except Exception as sync_error:
+        logger.warning(
+            "jira_claude_tasks_sync_failed",
+            task_id=task_id,
+            error=str(sync_error)
+        )
     
     await db.commit()
     
     logger.info("jira_task_saved_to_db", task_id=task_id, session_id=webhook_session_id, agent=command.target_agent)
     
-    # Push to queue
     try:
         await redis_client.push_task(task_id)
         logger.info("jira_task_pushed_to_queue", task_id=task_id)
@@ -263,13 +254,11 @@ async def create_jira_task(
         logger.error("jira_task_queue_push_failed", task_id=task_id, error=str(e))
         raise
     
-    # Add task to session
     try:
         await redis_client.add_session_task(webhook_session_id, task_id)
         logger.info("jira_task_added_to_session", task_id=task_id, session_id=webhook_session_id)
     except Exception as e:
         logger.warning("jira_session_task_add_failed", task_id=task_id, error=str(e))
-        # Don't fail if this doesn't work
     
     logger.info("jira_task_created", task_id=task_id, command=command.name, message_preview=message[:100])
     
@@ -277,12 +266,10 @@ async def create_jira_task(
 
 
 async def post_jira_comment(payload: dict, message: str):
-    """Post comment to Jira issue."""
     try:
         from core.config import settings
         import os
         
-        # Get Jira credentials
         jira_url = settings.jira_url or os.getenv("JIRA_URL")
         jira_email = settings.jira_email or os.getenv("JIRA_EMAIL")
         jira_api_token = settings.jira_api_token or os.getenv("JIRA_API_TOKEN")
@@ -291,7 +278,6 @@ async def post_jira_comment(payload: dict, message: str):
             logger.warning("jira_credentials_missing", message="Jira API credentials not configured")
             return
         
-        # Extract issue key from payload
         issue = payload.get("issue", {})
         issue_key = issue.get("key")
         
@@ -299,15 +285,12 @@ async def post_jira_comment(payload: dict, message: str):
             logger.warning("jira_issue_key_missing", payload_keys=list(payload.keys()))
             return
         
-        # Build API URL
         api_url = f"{jira_url.rstrip('/')}/rest/api/3/issue/{issue_key}/comment"
         
-        # Create auth header (Basic auth with email:token)
         auth_string = f"{jira_email}:{jira_api_token}"
         auth_bytes = auth_string.encode('ascii')
         auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
         
-        # Post comment
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 api_url,
@@ -354,29 +337,21 @@ async def post_jira_comment(payload: dict, message: str):
         logger.error("jira_api_error", error=str(e), error_type=type(e).__name__)
 
 
-# ✅ Route handler (Jira webhook - handles all Jira events)
 @router.post("/jira")
 async def jira_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db_session)
 ):
-    """
-    Dedicated handler for Jira webhook.
-    Handles all Jira events.
-    All logic and functions in this file.
-    """
     issue_key = None
     task_id = None
     
     try:
-        # 1. Read body
         try:
             body = await request.body()
         except Exception as e:
             logger.error("jira_webhook_body_read_failed", error=str(e))
             raise HTTPException(status_code=400, detail=f"Failed to read request body: {str(e)}")
         
-        # 2. Verify signature
         try:
             await verify_jira_signature(request, body)
         except HTTPException:
@@ -385,7 +360,6 @@ async def jira_webhook(
             logger.error("jira_signature_verification_error", error=str(e))
             raise HTTPException(status_code=401, detail=f"Signature verification failed: {str(e)}")
         
-        # 3. Parse payload
         try:
             payload = json.loads(body.decode())
             payload["provider"] = "jira"
@@ -396,22 +370,31 @@ async def jira_webhook(
             logger.error("jira_payload_decode_error", error=str(e))
             raise HTTPException(status_code=400, detail=f"Failed to decode payload: {str(e)}")
         
-        # Extract issue key for logging
         issue_key = payload.get("issue", {}).get("key", "unknown")
         
-        # 4. Extract event type
         event_type = payload.get("webhookEvent", "unknown")
         
         logger.info("jira_webhook_received", event_type=event_type, issue_key=issue_key, payload_keys=list(payload.keys()))
         
-        # 5. Match command based on event type and payload
+        if not is_assignee_changed_to_ai(payload, event_type):
+            logger.info(
+                "jira_webhook_skipped_no_ai_assignee",
+                event_type=event_type,
+                issue_key=issue_key,
+                message="Assignee not changed to AI Agent, skipping webhook processing"
+            )
+            return {
+                "status": "skipped",
+                "message": "Assignee not changed to AI Agent",
+                "issue_key": issue_key
+            }
+        
         try:
             command = match_jira_command(payload, event_type)
             if not command:
                 logger.warning("jira_no_command_matched", event_type=event_type, issue_key=issue_key, payload_sample=str(payload)[:500])
-                # Still create a task with default command
                 if JIRA_WEBHOOK.commands:
-                    command = JIRA_WEBHOOK.commands[0]  # Use first command as fallback
+                    command = JIRA_WEBHOOK.commands[0]
                     logger.info("jira_using_fallback_command", command=command.name, issue_key=issue_key)
                 else:
                     return {"status": "received", "actions": 0, "message": "No commands configured"}
@@ -421,15 +404,12 @@ async def jira_webhook(
         
         logger.info("jira_command_matched", command=command.name, event_type=event_type, issue_key=issue_key)
         
-        # 6. Send immediate response
         immediate_response_sent = False
         try:
             immediate_response_sent = await send_jira_immediate_response(payload, command, event_type)
         except Exception as e:
             logger.error("jira_immediate_response_error", error=str(e), issue_key=issue_key, command=command.name)
-            # Don't fail the whole request if immediate response fails
         
-        # 7. Create task
         try:
             task_id = await create_jira_task(command, payload, db)
             logger.info("jira_task_created_success", task_id=task_id, issue_key=issue_key)
@@ -437,7 +417,6 @@ async def jira_webhook(
             logger.error("jira_task_creation_failed", error=str(e), error_type=type(e).__name__, issue_key=issue_key, command=command.name)
             raise HTTPException(status_code=500, detail=f"Task creation failed: {str(e)}")
         
-        # 8. Log event
         try:
             event_id = f"evt-{uuid.uuid4().hex[:12]}"
             event_db = WebhookEventDB(
@@ -456,7 +435,6 @@ async def jira_webhook(
             logger.info("jira_event_logged", event_id=event_id, task_id=task_id, issue_key=issue_key)
         except Exception as e:
             logger.error("jira_event_logging_failed", error=str(e), task_id=task_id, issue_key=issue_key)
-            # Don't fail the whole request if event logging fails
         
         logger.info("jira_webhook_processed", task_id=task_id, command=command.name, event_type=event_type, issue_key=issue_key)
         
@@ -478,7 +456,6 @@ async def jira_webhook(
             task_id=task_id,
             exc_info=True
         )
-        # Return error details for debugging
         return {
             "status": "error",
             "error": str(e),

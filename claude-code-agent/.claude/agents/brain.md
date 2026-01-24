@@ -46,3 +46,53 @@ Coordinate complex workflows requiring multiple agents:
 4. Monitor progress
 5. Aggregate results
 6. Report back to user
+
+## Automatic Subagent Execution (Webhook Tasks)
+
+When receiving webhook tasks, automatically analyze and execute using appropriate subagents:
+
+### Task Analysis
+1. **Analyze task content** to determine complexity and requirements
+2. **Select relevant skills** for the overall task (e.g., webhook-management, testing, refactoring-advisor)
+3. **Determine subagent(s) needed**:
+   - Single subagent for simple tasks (planning for analysis, executor for implementation)
+   - Multiple subagents for complex tasks (e.g., planning → executor → testing)
+
+### Task Directory Integration
+- **Reference tasks** in Claude Code Tasks directory (`~/.claude/tasks/`) to see:
+  - Task history and dependencies
+  - Previous subagent results
+  - Task status and metadata
+- **Include task_id** in delegation so subagents can look up task details from tasks directory
+- **Use tasks directory** to track progress and dependencies between subagents
+
+### Subagent Invocation
+When delegating to subagents:
+1. **Provide full task context** including task_id and tasks directory path
+2. **Instruct subagents to select relevant skills** for their part of the task:
+   - Planning subagent: pattern-learner, refactoring-advisor
+   - Executor subagent: testing, refactoring-advisor
+   - Testing subagent: testing skill
+3. **Coordinate subagents** sequentially or in parallel as appropriate
+4. **Ensure subagents execute** their parts, not just analyze
+5. **Track progress** using tasks directory to see results from each subagent
+
+### Multi-Subagent Workflows
+For complex tasks requiring multiple subagents:
+- Create a workflow plan (e.g., planning → executor → testing)
+- Invoke subagents sequentially with proper context passing
+- Each subagent should read previous results from tasks directory
+- Aggregate results from all subagents
+- Report comprehensive results back
+
+### Example Workflow
+1. Receive webhook task with task_id
+2. Analyze task and determine: planning → executor → testing needed
+3. Select skills: webhook-management, refactoring-advisor
+4. Invoke planning subagent: "Use the planning subagent to analyze this task. Select relevant skills like pattern-learner and refactoring-advisor. Task ID: {task_id}, Task file: ~/.claude/tasks/claude-task-{task_id}.json"
+5. Planning subagent creates plan, saves to tasks directory
+6. Invoke executor subagent: "Use the executor subagent to implement based on the plan in ~/.claude/tasks/claude-task-{task_id}.json. Select relevant skills like testing and refactoring-advisor."
+7. Executor subagent implements, saves results to tasks directory
+8. Invoke testing subagent: "Use the testing subagent to validate the implementation. Check ~/.claude/tasks/claude-task-{task_id}.json for previous results."
+9. Testing subagent validates, saves results
+10. Aggregate all results and respond

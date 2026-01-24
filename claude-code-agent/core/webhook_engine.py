@@ -399,10 +399,11 @@ async def create_webhook_conversation(
         return None
 
 
-def render_template(template: str, payload: dict) -> str:
+def render_template(template: str, payload: dict, task_id: Optional[str] = None) -> str:
     """
     Render template with payload data using {{variable}} syntax.
     Supports nested access like {{user.profile.name}} and array access {{labels.0.name}}.
+    Also supports {{task_id}} and {{task_file}} variables for task directory references.
     """
     def get_nested_value(obj: Any, path: str) -> Any:
         """Get nested value from object using dot notation."""
@@ -428,6 +429,12 @@ def render_template(template: str, payload: dict) -> str:
         
         return current
     
+    if task_id:
+        payload = {**payload, "task_id": task_id}
+        claude_task_id = f"claude-task-{task_id}"
+        task_file = f"~/.claude/tasks/{claude_task_id}.json"
+        payload["task_file"] = task_file
+    
     # Find all {{variable}} patterns
     pattern = r'\{\{([^}]+)\}\}'
     
@@ -441,6 +448,42 @@ def render_template(template: str, payload: dict) -> str:
         return str(value)
     
     return re.sub(pattern, replace_var, template)
+
+
+def wrap_prompt_with_brain_instructions(template: str, task_id: Optional[str] = None) -> str:
+    """
+    Wrap a prompt template with brain agent instructions for automatic subagent execution.
+    
+    Args:
+        template: Original prompt template
+        task_id: Optional task ID to include in instructions
+        
+    Returns:
+        Wrapped prompt with brain instructions
+    """
+    task_id_part = f"\nTask ID: {task_id}" if task_id else ""
+    task_file_part = f"\nTask file: ~/.claude/tasks/claude-task-{task_id}.json" if task_id else ""
+    task_ref_part = f"~/.claude/tasks/claude-task-{task_id}.json" if task_id else "the tasks directory"
+    
+    brain_instructions = f"""You are the brain agent. Review this task and automatically select and execute the appropriate subagent(s) to handle it.{task_id_part}{task_file_part}
+
+Instructions:
+1. Analyze the task content and determine complexity
+2. Select relevant skills for this task (e.g., webhook-management, testing, refactoring-advisor)
+3. Decide which subagent(s) are needed:
+   - Single subagent for simple tasks (planning for analysis, executor for implementation, etc.)
+   - Multiple subagents for complex tasks (e.g., planning → executor → testing)
+4. Reference this task in the tasks directory: {task_ref_part}
+5. Automatically invoke the selected subagent(s) with full task context
+6. Tell each subagent to select relevant skills for their part of the task
+7. For multi-subagent workflows, coordinate them sequentially or in parallel as needed
+8. Each subagent should execute their part, not just analyze
+9. Use the tasks directory to track dependencies and results between subagents
+
+Task:
+{template}"""
+    
+    return brain_instructions
 
 
 def match_commands(
@@ -545,7 +588,12 @@ async def action_create_task(
     try:
         task_id = f"task-{uuid.uuid4().hex[:12]}"
         
-        # Create webhook session
+        if payload.get("webhook_source") or payload.get("provider"):
+            if "{{task_id}}" in message or "{{task_file}}" in message:
+                message = render_template(message, payload, task_id=task_id)
+            message = wrap_prompt_with_brain_instructions(message, task_id=task_id)
+            agent = "brain"
+        
         webhook_session_id = f"webhook-{uuid.uuid4().hex[:12]}"
         session_db = SessionDB(
             session_id=webhook_session_id,
@@ -559,19 +607,16 @@ async def action_create_task(
         agent_type_map = {
             "planning": AgentType.PLANNING,
             "executor": AgentType.EXECUTOR,
-            "brain": AgentType.PLANNING,  # Brain uses PLANNING type
+            "brain": AgentType.PLANNING,
         }
         agent_type = agent_type_map.get(agent, AgentType.PLANNING)
         
-        # Ensure payload has webhook_source for conversation creation
         if "webhook_source" not in payload:
             payload["webhook_source"] = payload.get("provider", "unknown")
         
-        # Generate external_id and flow_id for flow tracking
         external_id = generate_external_id(payload.get("webhook_source", "unknown"), payload)
         flow_id = generate_flow_id(external_id)
         
-        # Create task with flow tracking fields
         task_db = TaskDB(
             task_id=task_id,
             session_id=webhook_session_id,
@@ -581,14 +626,13 @@ async def action_create_task(
             status=TaskStatus.QUEUED,
             input_message=message,
             source="webhook",
-            source_metadata=json.dumps(payload),
+            source_metadata=json.dumps({**payload, "original_agent": agent}),
             flow_id=flow_id,
             initiated_task_id=task_id,  # Root task - self-reference
         )
         db.add(task_db)
-        await db.flush()  # Flush to get task_db.id if needed
+        await db.flush()
         
-        # Get or create flow conversation
         conversation = await get_or_create_flow_conversation(
             flow_id=flow_id,
             external_id=external_id,
@@ -597,14 +641,12 @@ async def action_create_task(
         )
         conversation_id = conversation.conversation_id
         
-        # Update task source_metadata with flow_id and conversation_id
         source_metadata = json.loads(task_db.source_metadata or "{}")
         source_metadata["flow_id"] = flow_id
         source_metadata["conversation_id"] = conversation_id
         source_metadata["initiated_task_id"] = task_id
         task_db.source_metadata = json.dumps(source_metadata)
         
-        # Sync to Claude Code Tasks if enabled (non-blocking)
         try:
             from core.claude_tasks_sync import sync_task_to_claude_tasks
             claude_task_id = sync_task_to_claude_tasks(
@@ -648,7 +690,6 @@ async def action_create_task(
         
         await db.commit()
         
-        # Push to queue (non-blocking - task already created)
         try:
             await redis_client.push_task(task_id)
         except Exception as redis_error:
