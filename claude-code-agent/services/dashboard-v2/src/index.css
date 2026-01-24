@@ -4,14 +4,13 @@
   --color-primary: #3b82f6;
   --color-secondary: #60a5fa;
   --color-cta: #f97316;
+  
+  /* Semantic Tokens */
   --color-background-app: #f8fafc;
   --color-text-main: #1e293b;
-
-  /* Dark Mode Palette */
-  --color-dark-bg: #020617;
-  --color-dark-panel: rgba(15, 23, 42, 0.8);
-  --color-dark-border: rgba(51, 65, 85, 0.4);
-  --color-dark-text: #f1f5f9;
+  --color-panel-bg: #ffffff;
+  --color-panel-border: #e2e8f0;
+  --color-sidebar-bg: rgba(248, 250, 252, 0.5);
 
   --font-heading: "Orbitron", sans-serif;
   --font-body: "Inter", sans-serif;
@@ -44,12 +43,20 @@
   }
 }
 
+/* Custom dark variant for class-based dark mode in Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+.dark {
+  --color-background-app: #020617;
+  --color-text-main: #f1f5f9;
+  --color-panel-bg: #020617;
+  --color-panel-border: #1e293b;
+  --color-sidebar-bg: rgba(2, 6, 23, 0.5);
+}
+
 @layer base {
   body {
-    @apply bg-background-app text-text-main font-body transition-colors duration-300;
-  }
-  .dark body {
-    @apply bg-dark-bg text-dark-text;
+    @apply bg-background-app text-text-main font-body transition-colors duration-300 antialiased;
   }
   h1,
   h2,
@@ -62,17 +69,32 @@
 }
 
 @layer components {
+  .bg-panel-app {
+    @apply bg-panel-bg;
+  }
+  .bg-chat-sidebar {
+    @apply bg-sidebar-bg;
+  }
+  .border-app {
+    @apply border-panel-border;
+  }
+  .text-app-main {
+    @apply text-text-main;
+  }
+  .text-app-muted {
+    @apply text-slate-500 dark:text-slate-400;
+  }
   .glass {
     @apply backdrop-blur-md bg-white/70 dark:bg-slate-900/70 border border-white/20 dark:border-slate-700/30 shadow-xl;
   }
 
   .panel {
-    @apply bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-dark-border shadow-sm p-4 relative transition-all duration-300 overflow-hidden;
+    @apply bg-panel-bg border border-panel-border shadow-sm p-4 relative transition-all duration-300 overflow-hidden;
   }
 
   .panel::before {
     content: attr(data-label);
-    @apply absolute -top-3 left-4 bg-white dark:bg-slate-900 px-2 text-[10px] font-heading text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-dark-border;
+    @apply absolute -top-3 left-4 bg-background-app px-2 text-[10px] font-heading text-gray-400 dark:text-gray-500 border border-panel-border;
   }
 
   .btn-primary {

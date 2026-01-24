@@ -21,7 +21,7 @@ export function DashboardLayout({ children, headerSlot, sidebarSlot }: Dashboard
   }, [location.pathname]);
 
   return (
-    <div className="h-screen flex flex-col bg-background-app dark:bg-dark-bg transition-colors duration-300">
+    <div className="h-screen flex flex-col bg-background-app transition-colors duration-300">
       {headerSlot || (
         <Header 
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} 

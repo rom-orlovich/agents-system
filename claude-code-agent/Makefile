@@ -197,6 +197,10 @@ type-check:
 	@echo "🔍 Running type checker..."
 	@uv run mypy .
 
+ui-v2:
+	@echo "🚀 Running locally (no Docker)..."
+	@cd services/dashboard-v2 && pnpm run dev
+
 run-local:
 	@echo "🚀 Running locally (no Docker)..."
 	@uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000 --reload-exclude "*.venv/**" --reload-exclude "**/site-packages/**" --reload-exclude "**/__pycache__/**" --reload-exclude "**/.git/**" --reload-exclude "**/tests/**" --reload-exclude "**/scripts/**" --reload-exclude "**/.pytest_cache/**" --reload-exclude "**/.ruff_cache/**" --reload-exclude "**/.mypy_cache/**" --reload-exclude "**/.coverage" --reload-exclude "**/htmlcov/**"

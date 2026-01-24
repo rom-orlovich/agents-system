@@ -54,14 +54,13 @@ export function useChat() {
       // Use /api/chat endpoint which creates tasks and conversations
       // If no conversation is selected, conversation_id will be undefined and a new one will be created
       const sessionId = "default-session";
-      const res = await fetch("/api/chat", {
+      const params = new URLSearchParams({ session_id: sessionId });
+      if (selectedId) params.append("conversation_id", selectedId);
+      
+      const res = await fetch(`/api/chat?${params.toString()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          message: content,
-          session_id: sessionId,
-          conversation_id: selectedId || undefined,
-        }),
+        body: JSON.stringify({ message: content }),
       });
       const data = await res.json();
       return data;
@@ -111,6 +110,7 @@ export function useChat() {
     conversations,
     messages,
     isLoading: isConvLoading || isMsgLoading,
+    selectedId,
     selectedConversation: conversations?.find((c) => c.id === selectedId),
     setSelectedConversation: (conv: Conversation) => setSelectedId(conv.id),
     sendMessage: (content: string) => sendMutation.mutate(content),

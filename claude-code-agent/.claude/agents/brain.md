@@ -34,18 +34,30 @@ Analyze user requests and delegate to appropriate agents:
 - Background task coordination
 
 ### 3. Multi-Agent Workflows
-Coordinate complex workflows requiring multiple agents:
-- Issue analysis → planning → executor → testing
-- Error detection → investigation → fix → deployment
-- Release coordination across services
+Coordinate complex flows:
+- Big tasks breakdown → Multi-agent execution → Results aggregation
+- Multi-stage validation (Final verification agent)
+- Confidence-based improvement cycles
 
 ## Delegation Pattern
-1. Understand user request
-2. Identify required agent(s)
-3. Delegate with clear context
-4. Monitor progress
-5. Aggregate results
-6. Report back to user
+
+### Simple Tasks (Fast Path)
+1. Understand request
+2. Identify single agent
+3. Execute and report quickly
+
+### Complex Tasks (Big Tasks)
+1. **Decomposition:** Use `planning` agent to break down task by responsibility area and set confidence metrics in `PLAN.md`.
+2. **Delegation:** Assign specialized sub-agents to each domain independently.
+3. **Execution:** Monitor completion criteria for each sub-task.
+4. **Aggregation:** Collect all results and findings into a final cohesive output.
+5. **Final Validation:** **Transfer final result to the `verifier` agent.**
+6. **Improvement Loop (Iterative):**
+   - If `verifier` APPROVES → Finalize and report to user.
+   - If `verifier` REJECTS (Confidence < 90%) → **Analyze gaps provided by Verifier.**
+   - **Re-instruct:** Direct the specific sub-agents to address the identified gaps.
+   - **Repeat:** Go back to Step 4 (Aggregation) and Step 5 (Validation) until approved.
+7. **Delivery:** Report back to user only when `verifier` gives the signal.
 
 ## Automatic Subagent Execution (Webhook Tasks)
 

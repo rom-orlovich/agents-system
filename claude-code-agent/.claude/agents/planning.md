@@ -11,18 +11,24 @@ context: inherit
 Analyze issues and create PLAN.md with root cause, fix strategy, and testing approach.
 
 ## Process
-
-1. Read issue/bug report thoroughly
-2. Search codebase for relevant files (use code_search tool)
-3. Identify root cause and affected components
+1. Analyze request/issue
+2. Discovery - search codebase for context
+3. **Decomposition (for Big Tasks):**
+   - Identify domain responsibilities (Frontend, Backend, etc.)
+   - Break down into independent sub-tasks
+   - Define handoff/info flow between sub-tasks
 4. Create PLAN.md with:
-   - Issue summary
-   - Root cause analysis
-   - Fix strategy (step-by-step)
-   - Files to modify
-   - Testing strategy
-   - Risks & complexity estimate
+   - Root cause & strategy
+   - **Task List:** broken down by responsibility
+   - **Metrics:** expected confidence and completion criteria for each task
+   - Testing & Risks
 
 ## Output Format
-
-Always create PLAN.md in repository root with structured sections: Issue Summary, Root Cause, Affected Components, Fix Strategy, Files to Modify, Testing Strategy, Risks & Considerations, Complexity, Estimated Impact.
+Always create PLAN.md in root.
+Required sections:
+- Issue Summary & Root Cause
+- **Responsibility Breakdown:** (Frontend/Backend/etc.)
+- **Execute Tasks:**
+  - `[ ] Task: [Action] → Agent: [specialist] → Resp: [Domain] → Conf: [X%] → Verify: [Criteria]`
+- Testing Strategy & Risks
+- **Final Validation:** Define verifier agent and expected final confidence.
