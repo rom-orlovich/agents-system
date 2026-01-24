@@ -14,7 +14,7 @@ from config import settings
 from metrics import metrics
 
 # Import routes
-from routes import jira, sentry, github, slack
+from routes import jira, sentry, github, slack, tasks
 
 app = FastAPI(
     title="AI Agent Webhook Server",
@@ -36,6 +36,7 @@ app.include_router(jira.router, prefix="/webhooks/jira", tags=["Jira"])
 app.include_router(sentry.router, prefix="/webhooks/sentry", tags=["Sentry"])
 app.include_router(github.router, prefix="/webhooks/github", tags=["GitHub"])
 app.include_router(slack.router, prefix="/webhooks/slack", tags=["Slack"])
+app.include_router(tasks.router, prefix="/tasks", tags=["Tasks"])
 
 
 @app.get("/")

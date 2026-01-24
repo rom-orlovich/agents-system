@@ -354,19 +354,64 @@ class PlanningAgentWorker:
             
             logger.info(f"Claude Code CLI process started, PID: {process.pid}")
 
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=settings.PLANNING_AGENT_TIMEOUT
-            )
-            
-            output = stdout.decode("utf-8")
-            error = stderr.decode("utf-8")
-            
+            # Stream output line-by-line to Redis for real-time UI updates
+            output_lines = []
+            error_lines = []
+
+            async def read_stream(stream, is_stderr=False):
+                """Read stream line by line and log to Redis."""
+                lines = []
+                while True:
+                    line = await stream.readline()
+                    if not line:
+                        break
+
+                    decoded_line = line.decode("utf-8").rstrip()
+                    lines.append(decoded_line)
+
+                    # Log to Redis for streaming UI display
+                    log_type = "stderr" if is_stderr else "stdout"
+                    await self.queue.append_task_log(
+                        task_id,
+                        f"[{log_type}] {decoded_line}"
+                    )
+
+                    # Also log to worker logs
+                    if is_stderr:
+                        logger.warning(f"Claude CLI stderr: {decoded_line}")
+                    else:
+                        logger.info(f"Claude CLI stdout: {decoded_line}")
+
+                return lines
+
+            # Read stdout and stderr concurrently
+            try:
+                stdout_task = asyncio.create_task(read_stream(process.stdout, False))
+                stderr_task = asyncio.create_task(read_stream(process.stderr, True))
+
+                # Wait for both streams with timeout
+                output_lines, error_lines = await asyncio.wait_for(
+                    asyncio.gather(stdout_task, stderr_task),
+                    timeout=settings.PLANNING_AGENT_TIMEOUT
+                )
+
+                # Wait for process to complete
+                await process.wait()
+
+            except asyncio.TimeoutError:
+                logger.error("Claude Code CLI timeout - killing process")
+                process.kill()
+                await process.wait()
+                raise
+
+            output = "\n".join(output_lines)
+            error = "\n".join(error_lines)
+
             logger.info(
                 "Claude Code CLI process completed",
                 return_code=process.returncode,
-                stdout_length=len(output),
-                stderr_length=len(error)
+                stdout_lines=len(output_lines),
+                stderr_lines=len(error_lines)
             )
             
             if error:

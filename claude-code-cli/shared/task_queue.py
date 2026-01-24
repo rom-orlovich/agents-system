@@ -183,3 +183,54 @@ class RedisQueue:
         """
         await self.connect()
         await self.redis.delete(f"tasks:{task_id}")
+
+    async def append_task_log(self, task_id: str, log_line: str) -> None:
+        """Append a log line to task's streaming logs.
+
+        Args:
+            task_id: Task identifier
+            log_line: Log line to append
+        """
+        await self.connect()
+
+        # Append to a list with timestamp
+        log_entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "message": log_line
+        }
+        await self.redis.rpush(
+            f"tasks:{task_id}:logs",
+            json.dumps(log_entry)
+        )
+
+        # Set expiration on logs (24 hours)
+        await self.redis.expire(f"tasks:{task_id}:logs", 86400)
+
+    async def get_task_logs(self, task_id: str, offset: int = 0, limit: int = -1) -> list[Dict[str, Any]]:
+        """Get task streaming logs.
+
+        Args:
+            task_id: Task identifier
+            offset: Starting index (default 0)
+            limit: Number of logs to return (-1 for all)
+
+        Returns:
+            List of log entries
+        """
+        await self.connect()
+
+        # Get logs from Redis list
+        if limit == -1:
+            log_entries = await self.redis.lrange(f"tasks:{task_id}:logs", offset, -1)
+        else:
+            log_entries = await self.redis.lrange(f"tasks:{task_id}:logs", offset, offset + limit - 1)
+
+        # Parse JSON entries
+        logs = []
+        for entry in log_entries:
+            try:
+                logs.append(json.loads(entry))
+            except json.JSONDecodeError:
+                logs.append({"timestamp": "", "message": entry})
+
+        return logs
