@@ -17,6 +17,12 @@ Execute approved fix plans by coordinating all other skills (git-operations, tdd
 - When an execution task is received from the planning agent
 - For implementing any approved code changes
 
+## Cloud & Headless Support
+
+When running in cloud environments (e.g., Docker, CI/CD) without browser access:
+- **GitHub MCP**: Configured to use HTTP mode with `GITHUB_TOKEN` to avoid OAuth browser flows.
+
+
 ## Prerequisites
 
 1. Approved PLAN.md exists in the PR

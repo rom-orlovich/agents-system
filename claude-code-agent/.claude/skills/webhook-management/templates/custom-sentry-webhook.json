@@ -1,0 +1,63 @@
+{
+  "name": "custom-sentry-triage",
+  "endpoint": "/webhooks/custom-sentry-triage",
+  "source": "sentry",
+  "description": "Custom Sentry webhook for intelligent error triage and resolution",
+  "target_agent": "planning",
+  "command_prefix": "",
+  "commands": [
+    {
+      "name": "triage",
+      "aliases": ["analyze-error", "investigate"],
+      "description": "Triage and analyze error reports",
+      "target_agent": "planning",
+      "prompt_template": "Triage this Sentry error:\n\nError: {{event.title}}\nMessage: {{event.message}}\nLevel: {{event.level}}\nEnvironment: {{event.environment}}\n\nStack Trace:\n{{event.stacktrace}}\n\nTags: {{event.tags}}\n\nProvide:\n- Error severity assessment\n- Root cause hypothesis\n- Impact analysis\n- Reproduction steps\n- Recommended priority\n- Similar known issues",
+      "requires_approval": false
+    },
+    {
+      "name": "root-cause",
+      "aliases": ["rca", "deep-analysis"],
+      "description": "Perform root cause analysis",
+      "target_agent": "planning",
+      "prompt_template": "Perform root cause analysis for:\n\nError: {{event.title}}\nOccurrences: {{event.count}}\nFirst Seen: {{event.first_seen}}\nLast Seen: {{event.last_seen}}\n\nStack Trace:\n{{event.stacktrace}}\n\nContext:\n{{event.context}}\n\nAnalyze:\n- Code path leading to error\n- Data conditions causing failure\n- Environmental factors\n- Recent code changes correlation\n- Systematic vs isolated issue",
+      "requires_approval": false
+    },
+    {
+      "name": "auto-fix",
+      "aliases": ["fix", "resolve"],
+      "description": "Automatically create fix for common errors",
+      "target_agent": "executor",
+      "prompt_template": "Create a fix for this error:\n\nError: {{event.title}}\nMessage: {{event.message}}\n\nStack Trace:\n{{event.stacktrace}}\n\nFile: {{event.culprit}}\n\nCreate:\n1. Fix for the immediate error\n2. Tests to prevent regression\n3. Additional error handling if needed\n4. Update documentation if relevant\n\nFollow TDD workflow.",
+      "requires_approval": true
+    },
+    {
+      "name": "pattern-detection",
+      "aliases": ["patterns", "correlation"],
+      "description": "Detect error patterns and correlations",
+      "target_agent": "planning",
+      "prompt_template": "Detect patterns in this error:\n\nError: {{event.title}}\nOccurrences: {{event.count}}\nAffected Users: {{event.user_count}}\n\nFrequency Pattern: {{event.frequency}}\nAffected Endpoints: {{event.urls}}\n\nAnalyze:\n- Time-based patterns\n- User segment correlation\n- Endpoint correlation\n- Release correlation\n- Infrastructure correlation\n- Actionable insights",
+      "requires_approval": false
+    },
+    {
+      "name": "regression-check",
+      "aliases": ["regression", "new-error"],
+      "description": "Check if error is a regression from recent changes",
+      "target_agent": "planning",
+      "prompt_template": "Check for regression in:\n\nError: {{event.title}}\nFirst Seen: {{event.first_seen}}\nRelease: {{event.release}}\n\nStack Trace:\n{{event.stacktrace}}\n\nInvestigate:\n- Recent deployments timeline\n- Code changes in affected files\n- Configuration changes\n- Dependency updates\n- Database migrations\n- Rollback recommendation if needed",
+      "requires_approval": false
+    },
+    {
+      "name": "monitoring-setup",
+      "aliases": ["monitor", "alert-setup"],
+      "description": "Set up monitoring and alerting for error pattern",
+      "target_agent": "planning",
+      "prompt_template": "Set up monitoring for:\n\nError Pattern: {{event.title}}\nCurrent Rate: {{event.rate}}\n\nRecommend:\n- Alert thresholds\n- Monitoring metrics\n- Dashboard configuration\n- Notification channels\n- Escalation policy\n- SLO impact assessment",
+      "requires_approval": false
+    }
+  ],
+  "default_command": "triage",
+  "requires_signature": true,
+  "signature_header": "Sentry-Hook-Signature",
+  "secret_env_var": "SENTRY_WEBHOOK_SECRET",
+  "is_builtin": false
+}

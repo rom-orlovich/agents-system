@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__filesystem__directory_tree",
+      "Bash(python3 -c \"\nimport json\nimport base64\n\n# Read the token\nwith open\\(''$HOME/.claude/claude.json''\\) as f:\n    data = json.load\\(f\\)\n\ntoken = data.get\\(''access_token'', ''''\\)\n\n# Check if it''s a JWT \\(has 3 parts\\)\nparts = token.split\\(''.''\\)\nif len\\(parts\\) == 3:\n    # Try to decode the payload \\(second part\\)\n    payload = parts[1]\n    # Add padding if needed\n    payload += ''='' * \\(4 - len\\(payload\\) % 4\\)\n    try:\n        decoded = base64.urlsafe_b64decode\\(payload\\)\n        print\\(''JWT payload:'', decoded.decode\\(''utf-8''\\)\\)\n    except Exception as e:\n        print\\(''Not a standard JWT:'', e\\)\nelse:\n    print\\(''Token is not a JWT format, parts:'', len\\(parts\\)\\)\n    print\\(''Token prefix:'', token[:30] if len\\(token\\) > 30 else token\\)\n\")",
+      "Bash(docker-compose exec app bash -c \"echo ''=== Claude CLI version ==='' && claude --version 2>&1 || echo ''CLI not found''; echo; echo ''=== Home directory ==='' && echo $HOME; echo; echo ''=== Claude config dir ==='' && ls -la /home/claude/.claude/ 2>&1 | head -10; echo; echo ''=== Credentials file ==='' && cat /home/claude/.claude/claude.json 2>&1 | head -5 || echo ''Not found''; echo; echo ''=== Data credentials ==='' && cat /data/credentials/claude.json 2>&1 | head -5 || echo ''Not found''; echo; echo ''=== Test CLI ==='' && claude -p --dangerously-skip-permissions ''say hi'' 2>&1 | head -20\")",
+      "Bash(docker-compose exec app bash -c \"echo ''=== .credentials.json ==='' && cat /home/claude/.claude/.credentials.json 2>&1; echo; echo ''=== .claude.json ==='' && cat /home/claude/.claude/.claude.json 2>&1\")",
+      "Bash(python3:*)",
+      "Bash(docker-compose exec app bash -c \"CLAUDE_DEBUG=1 claude -p --dangerously-skip-permissions ''test'' 2>&1 | head -50\")",
+      "Bash(docker-compose exec app bash -c \"claude --help 2>&1 | grep -i ''api\\\\|key\\\\|token\\\\|auth\\\\|login'' || echo ''No relevant flags found''; echo; echo ''=== All files in .claude ==='' && ls -la /home/claude/.claude/\")",
+      "Bash(docker-compose exec app bash -c \"echo ''=== settings.local.json ==='' && cat /home/claude/.claude/settings.local.json 2>&1; echo; echo ''=== Try setup-token help ==='' && claude setup-token --help 2>&1\")",
+      "Bash(docker-compose exec app bash -c \"\necho ''=== File permissions ===''\nls -la /home/claude/.claude/*.json /home/claude/.claude/.*.json 2>/dev/null\n\necho\necho ''=== Who am I ===''\nwhoami\nid\n\necho\necho ''=== Check if credentials.json exists \\(no dot\\) ===''\nls -la /home/claude/.claude/credentials.json 2>&1 || echo ''Not found''\n\necho\necho ''=== Try copying to credentials.json ===''\ncp /home/claude/.claude/claude.json /home/claude/.claude/credentials.json\nls -la /home/claude/.claude/credentials.json\n\necho\necho ''=== Test CLI again ===''\nclaude -p --dangerously-skip-permissions ''say hi'' 2>&1 | head -5\n\")",
+      "Bash(docker-compose exec app bash -c \"\necho ''=== Run CLI with debug ===''\nclaude -p --debug ''api,auth'' --dangerously-skip-permissions ''hi'' 2>&1 | head -50\n\")",
+      "Bash(docker-compose exec app bash -c \"\n# Check what happens when we try to get auth status\necho ''=== Check auth whoami ===''\nclaude auth whoami 2>&1 || echo ''Command failed''\n\necho\necho ''=== Check auth status ===''  \nclaude auth status 2>&1 || echo ''Command failed''\n\")",
+      "Bash(docker-compose exec app bash -c \"\necho ''=== Look for any config files ===''\nfind /home/claude/.claude -name ''config*'' -o -name ''settings*'' 2>/dev/null | head -10\n\necho\necho ''=== Check statsig \\(might have auth state\\) ===''\nls -la /home/claude/.claude/statsig/\n\necho\necho ''=== Any auth related files? ===''\nfind /home/claude/.claude -name ''*auth*'' -type f 2>/dev/null | head -10\n\")",
+      "Bash(docker-compose exec app bash -c \"\necho ''=== Check all CLAUDE env vars options ===''\nclaude --help 2>&1 | grep -i env || true\n\necho\necho ''=== Try with explicit home ===''\nHOME=/home/claude claude -p --dangerously-skip-permissions ''test'' 2>&1 | head -5\n\necho\necho ''=== Check XDG dirs ===''\necho \"\"XDG_CONFIG_HOME: $XDG_CONFIG_HOME\"\"\necho \"\"XDG_DATA_HOME: $XDG_DATA_HOME\"\"\n\")",
+      "Bash(claude -p --dangerously-skip-permissions 'say just the word working')",
+      "Bash(docker-compose exec app bash -c \"\necho ''=== Compare file bytes ==='' \necho ''Host file size \\(via mount\\):''\nwc -c /home/claude/.claude/.credentials.json\n\necho\necho ''=== Check for hidden characters ===''\ncat /home/claude/.claude/.credentials.json | xxd | head -20\n\necho\necho ''=== Permissions comparison ===''\nls -la /home/claude/.claude/.credentials.json\nstat /home/claude/.claude/.credentials.json\n\")",
+      "Bash(docker-compose exec app bash -c \"\necho ''=== Check network connectivity to Anthropic ===''\ncurl -sI https://api.anthropic.com | head -5\n\necho\necho ''=== Check Node.js version ===''\nnode --version\n\necho\necho ''=== Check if there is a token refresh happening ===''\n# The CLI might need to refresh the token but can''t\nstrace -f -e trace=network claude -p --dangerously-skip-permissions ''test'' 2>&1 | head -30 || echo ''strace not available''\n\")",
+      "Bash(docker-compose exec app bash -c \"\necho ''=== Create a fresh credentials file inside container ===''\ncp /home/claude/.claude/.credentials.json /tmp/creds_backup.json\nrm -f /home/claude/.claude/.credentials.json\ncat /tmp/creds_backup.json > /home/claude/.claude/.credentials.json\nchmod 600 /home/claude/.claude/.credentials.json\nls -la /home/claude/.claude/.credentials.json\n\necho\necho ''=== Test CLI again ===''\nclaude -p --dangerously-skip-permissions ''say hi'' 2>&1 | head -5\n\")",
+      "Bash(docker-compose exec app bash:*)",
+      "Bash(cat:*)",
+      "Bash(claude --version:*)",
+      "Bash(__NEW_LINE_e5d927b0e92cf323__ echo)",
+      "Bash(node --version:*)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "filesystem",
+    "reddit",
+    "gitmcp",
+    "github"
+  ]
+}

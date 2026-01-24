@@ -1,10 +1,13 @@
 FROM python:3.11-slim
 
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 WORKDIR /app
 
-# Install dependencies
-COPY services/webhook-server/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy pyproject.toml and install dependencies
+COPY pyproject.toml .
+RUN uv pip install --no-cache --system -r pyproject.toml
 
 # Copy application code
 COPY services/webhook-server/main.py .

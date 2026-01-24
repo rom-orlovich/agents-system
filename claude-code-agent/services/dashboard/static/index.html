@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Machine Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/webhooks.css">
+    <link rel="stylesheet" href="/static/css/conversations.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div id="app-root">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-logo">
+                <button id="hamburger-btn" class="hamburger-toggle" onclick="app.toggleSidebar()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <img src="/static/assets/logo.png" alt="Claude Machine" class="logo-img">
+                <span class="logo-text">Claude Machine</span>
+            </div>
+            <div class="header-actions">
+                <div class="connection-status">
+                    <span id="machine-status" class="status-indicator"></span>
+                    <span id="machine-id">CLAUDE-MACHINE-CORE</span>
+                    <span id="cli-status" class="cli-status-indicator"></span>
+                    <span id="cli-status-text">CLI: CHECKING...</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="dashboard-container">
+            <!-- Side Menu -->
+            <aside class="side-menu">
+                <nav class="side-nav">
+                    <button class="tab-btn active" data-tab="overview" onclick="app.switchTab('overview')">
+                        <span class="icon">01</span> OVERVIEW
+                    </button>
+                    <button class="tab-btn" data-tab="analytics" onclick="app.switchTab('analytics')">
+                        <span class="icon">02</span> ANALYTICS
+                    </button>
+                    <button class="tab-btn" data-tab="tasks" onclick="app.switchTab('tasks')">
+                        <span class="icon">03</span> LEDGER
+                    </button>
+                    <button class="tab-btn" data-tab="webhooks" onclick="app.switchTab('webhooks')">
+                        <span class="icon">04</span> WEBHOOKS
+                    </button>
+                    <button class="tab-btn" data-tab="chat" onclick="app.switchTab('chat')">
+                        <span class="icon">05</span> COMMS
+                    </button>
+                </nav>
+                
+                <div class="side-menu-divider"></div>
+                
+                <div class="side-menu-actions">
+                    <button class="side-menu-btn" onclick="app.showWebhookCreate()">
+                         ADD WEBHOOK
+                    </button>
+                    <button class="side-menu-btn" onclick="app.showCredentials(event)">
+                         AUTH CONFIG
+                    </button>
+                    <button class="side-menu-btn" onclick="app.showRegistry()">
+                         REGISTRY
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="main-content">
+            <!-- Overview Tab -->
+            <div id="tab-overview" class="tab-content active">
+                <!-- Status Panel -->
+                <section class="panel status-panel" data-label="SYSTEM_STATUS">
+                    <div class="stat-box">
+                        <span class="label">QUEUE_DEPTH</span>
+                        <div id="queue-length" class="value">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <span class="label">ACTIVE_SESSIONS</span>
+                        <div id="active-sessions" class="value">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <span class="label">WIRES_CONNECTED</span>
+                        <div id="connections" class="value">0</div>
+                    </div>
+                    <div class="stat-box" data-label="BURN">
+                        <span class="label">DAILY_CREDIT_BURN</span>
+                        <div id="today-cost" class="value">$0.00</div>
+                    </div>
+                </section>
+
+                <!-- Active Tasks -->
+                <section class="panel tasks-panel" data-label="ACTIVE_PROCESSES">
+                    <h2>LIVE FEED</h2>
+                    <div id="tasks-list" class="tasks-list">
+                        <p class="empty-state">No active processes</p>
+                    </div>
+                </section>
+
+                <!-- Quick Stats -->
+                <section class="panel quick-stats-panel" data-label="AGGREGATE_METRICS">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="total-tasks">0</div>
+                            <div class="stat-label">TOTAL_JOBS</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="total-cost">$0.00</div>
+                            <div class="stat-label">CUMULATIVE_COST</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Analytics Tab -->
+            <div id="tab-analytics" class="tab-content">
+                <section class="panel chart-panel" data-label="BURN_RATE_30D">
+                    <h2>COST_TREND</h2>
+                    <canvas id="daily-costs-chart"></canvas>
+                </section>
+
+                <section class="panel chart-panel" data-label="AGENT_EFFICIENCY">
+                    <h2>SUBAGENT_STATS</h2>
+                    <canvas id="subagent-costs-chart"></canvas>
+                </section>
+            </div>
+
+            <!-- Tasks Tab -->
+            <div id="tab-tasks" class="tab-content">
+                <section class="panel tasks-table-panel" data-label="CENTRAL_LEDGER">
+                    <div class="table-controls">
+                        <div class="table-filters">
+                            <input type="text" id="filter-session" placeholder="FILTER_SESSION...">
+                            <select id="filter-status">
+                                <option value="">ALL_STATUS</option>
+                                <option value="completed">COMPLETED</option>
+                                <option value="failed">FAILED</option>
+                                <option value="running">RUNNING</option>
+                                <option value="queued">QUEUED</option>
+                            </select>
+                            <select id="filter-subagent">
+                                <option value="">ALL_SUBAGENTS</option>
+                            </select>
+                        </div>
+                        <button onclick="app.refreshTaskTable()" class="refresh-btn">REFRESH</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="tasks-table">
+                            <thead>
+                                <tr>
+                                    <th data-sort="task_id" onclick="app.sortTable('task_id')">TASK_ID</th>
+                                    <th data-sort="session_id" onclick="app.sortTable('session_id')">SESSION</th>
+                                    <th data-sort="assigned_agent" onclick="app.sortTable('assigned_agent')">AGENT</th>
+                                    <th data-sort="status" onclick="app.sortTable('status')">STATUS</th>
+                                    <th data-sort="cost_usd" onclick="app.sortTable('cost_usd')">COST</th>
+                                    <th data-sort="duration_seconds" onclick="app.sortTable('duration_seconds')">TIME</th>
+                                    <th data-sort="created_at" onclick="app.sortTable('created_at')">TIMESTAMP</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tasks-table-body">
+                                <tr><td colspan="7" class="empty-state">No records found</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-pagination">
+                        <button onclick="app.prevPage()" id="prev-page-btn">PREV</button>
+                        <span id="page-info">PAGE 1 OF 1</span>
+                        <button onclick="app.nextPage()" id="next-page-btn">NEXT</button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Webhooks Tab -->
+            <div id="tab-webhooks" class="tab-content">
+                <section class="panel status-panel" data-label="WEBHOOK_MONITOR">
+                    <div class="table-controls">
+                        <h2>VIRTUAL_RECEIVERS</h2>
+                        <button onclick="app.refreshWebhookStatus()" class="refresh-btn">REFRESH_PULSE</button>
+                    </div>
+                    <div class="webhook-stats">
+                        <div class="stat-card">
+                            <div class="stat-value" id="total-webhooks">0</div>
+                            <div class="stat-label">TOTAL_LISTENERS</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="active-webhooks">0</div>
+                            <div class="stat-label">STATUS_ACTIVE</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="webhook-domain">---</div>
+                            <div class="stat-label">PROXY_DOMAIN</div>
+                        </div>
+                    </div>
+                    
+                    <div class="webhook-urls-section">
+                        <h3>REMOTE_ENDPOINTS</h3>
+                        <div id="webhook-urls-list"></div>
+                    </div>
+                </section>
+                
+                <section class="panel tasks-table-panel" data-label="CONFIGURED_LISTENERS">
+                    <div id="webhooks-list" class="webhooks-grid">
+                        <div class="empty-state">No listeners configured</div>
+                    </div>
+                </section>
+                
+                <section class="panel tasks-table-panel" data-label="INBOUND_TRAFFIC">
+                    <div class="table-controls">
+                        <h3>EVENT_HISTORY</h3>
+                        <button onclick="app.refreshWebhookEvents()" class="refresh-btn">REFRESH_LOGS</button>
+                    </div>
+                    <div id="webhook-events-list" class="events-list">
+                        <div class="empty-state">Silence on data wire</div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Chat Tab -->
+            <div id="tab-chat" class="tab-content">
+                <div class="chat-container">
+                    <aside class="conversation-sidebar">
+                        <div class="conversation-sidebar-header">
+                            <h3>COMMS_LOG</h3>
+                            <button id="new-conversation-btn" class="icon-btn">ADD</button>
+                        </div>
+                        <div id="conversation-list" class="conversation-list">
+                            <div class="empty-state">Syncing conversations...</div>
+                        </div>
+                    </aside>
+
+                    <section class="chat-panel">
+                        <div class="chat-header">
+                            <h2 id="current-conversation-title">Select Channel</h2>
+                            <div class="chat-header-actions">
+                                <button id="clear-history-btn" class="icon-btn">CLR</button>
+                            </div>
+                        </div>
+                        <div id="chat-messages" class="chat-messages">
+                            <p class="welcome-message">Standby for transmission.</p>
+                        </div>
+                        <div class="chat-input">
+                            <input type="text" id="chat-input" placeholder="ENTER_COMMAND..." disabled>
+                            <button id="send-button" disabled>EXECUTE</button>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </main>
+        <!-- Mobile Sidebar Overlay -->
+        <div id="sidebar-overlay" class="sidebar-overlay" onclick="app.toggleSidebar()"></div>
+        </div>
+    </div>
+
+    <!-- Credentials Modal -->
+    <div id="credentials-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="app.hideCredentials()">&times;</span>
+            <h2>SECURITY_CONFIG</h2>
+            <div id="credentials-body">
+                <div class="credential-status">
+                    <h3>STATUS</h3>
+                    <div id="cred-status-display">CHECKING...</div>
+                </div>
+                <div class="credential-upload">
+                    <h3>PROVISION_FILE</h3>
+                    <p>Load <code>claude.json</code> into core storage</p>
+                    <input type="file" id="cred-file-input" accept=".json">
+                    <button onclick="app.uploadCredentials()" class="upload-btn">UPLOAD_AND_SYNC</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registry Modal -->
+    <div id="registry-modal" class="modal hidden">
+        <div class="modal-content large">
+            <span class="close" onclick="app.hideRegistry()">&times;</span>
+            <h2>ASSET_REGISTRY</h2>
+            <div class="registry-tabs">
+                <button class="registry-tab-btn active" onclick="app.switchRegistryTab('skills')">SKILLS</button>
+                <button class="registry-tab-btn" onclick="app.switchRegistryTab('agents')">AGENTS</button>
+            </div>
+            <div id="registry-skills" class="registry-content active">
+                <div class="registry-header">
+                    <button onclick="app.showSkillUpload()" class="upload-btn">INSTALL_SKILL</button>
+                </div>
+                <div id="skills-list" class="registry-list">Syncing...</div>
+            </div>
+            <div id="registry-agents" class="registry-content">
+                <div class="registry-header">
+                    <button onclick="app.showAgentUpload()" class="upload-btn">DEPLOY_AGENT</button>
+                </div>
+                <div id="agents-list" class="registry-list">Syncing...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skill Upload Modal -->
+    <div id="skill-upload-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="app.hideSkillUpload()">&times;</span>
+            <h2>PROVISION_SKILL</h2>
+            <form id="skill-upload-form">
+                <div class="form-group">
+                    <label>IDENTIFIER:</label>
+                    <input type="text" id="skill-name" required placeholder="my-skill">
+                </div>
+                <div class="form-group">
+                    <label>SOURCE_FILES:</label>
+                    <input type="file" id="skill-files" multiple required>
+                </div>
+                <button type="submit" class="upload-btn">INSTALL</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Agent Upload Modal -->
+    <div id="agent-upload-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="app.hideAgentUpload()">&times;</span>
+            <h2>DEPLOY_AGENT_ASSET</h2>
+            <form id="agent-upload-form">
+                <div class="form-group">
+                    <label>AGENT_NAME:</label>
+                    <input type="text" id="agent-name" required placeholder="my-agent">
+                </div>
+                <div class="form-group">
+                    <label>ASSET_DIR:</label>
+                    <input type="file" id="agent-files" multiple required webkitdirectory directory>
+                </div>
+                <button type="submit" class="upload-btn">DEPLOY</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Webhook Create Modal -->
+    <div id="webhook-create-modal" class="modal hidden">
+        <div class="modal-content large">
+            <span class="close" onclick="app.hideWebhookCreate()">&times;</span>
+            <h2>INIT_LISTENER</h2>
+            <form id="webhook-create-form">
+                <div class="form-group">
+                    <label>NAME:</label>
+                    <input type="text" id="webhook-name" required placeholder="GitHub Issues Tracker">
+                </div>
+                <div class="form-group">
+                    <label>PROVIDER_INTERFACE:</label>
+                    <select id="webhook-provider" required>
+                        <option value="github">GITHUB</option>
+                        <option value="jira">JIRA</option>
+                        <option value="slack">SLACK</option>
+                        <option value="sentry">SENTRY</option>
+                        <option value="custom">CUSTOM</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>SECRET_TOKEN:</label>
+                    <input type="password" id="webhook-secret" placeholder="Encrypted token">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="webhook-enabled" checked>
+                        STATUS_ACTIVE
+                    </label>
+                </div>
+                <h3>INSTRUCTION_SET</h3>
+                <div id="webhook-commands-list"></div>
+                <button type="button" onclick="app.addWebhookCommand()" class="side-menu-btn">+ NEW_COMMAND</button>
+                <div class="form-actions">
+                    <button type="submit" class="create-btn">COMMIT_WEBHOOK</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Input Modal (Generic for New/Rename) -->
+    <div id="input-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close" onclick="app.hideInputModal()">&times;</span>
+            <h2 id="input-modal-title">INPUT_REQUIRED</h2>
+            <div class="form-group">
+                <label id="input-modal-label">VALUE:</label>
+                <input type="text" id="generic-input" placeholder="Enter value...">
+            </div>
+            <div class="form-actions">
+                <button id="input-modal-submit" class="create-btn">COMMIT_CHANGES</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Detail Modal -->
+    <div id="modal" class="modal hidden">
+        <div class="modal-content brutalist">
+            <span class="close" onclick="app.hideModal()">&times;</span>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Edit File Modal -->
+    <div id="edit-file-modal" class="modal hidden">
+        <div class="modal-content large">
+            <span class="close" onclick="app.hideEditFile()">&times;</span>
+            <h2 id="edit-file-title">EDIT_ASSET</h2>
+            <div class="form-group">
+                <label id="edit-file-label">CONTENT:</label>
+                <textarea id="edit-file-content" class="code-editor" spellcheck="false"></textarea>
+            </div>
+            <div class="form-actions">
+                <button onclick="app.saveFileContent()" class="create-btn">COMMIT_CHANGES</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/conversations.js?v=5"></script>
+    <script src="/static/js/app.js?v=7"></script>
+</body>
+</html>
+

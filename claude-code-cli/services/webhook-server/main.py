@@ -6,12 +6,20 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
+import logging
+from starlette.exceptions import HTTPException
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 
 # Add shared module to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "shared"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from config import settings
-from metrics import metrics
+from shared.config import settings
+from shared.metrics import metrics
 
 # Import routes
 from routes import jira, sentry, github, slack
@@ -38,6 +46,13 @@ app.include_router(github.router, prefix="/webhooks/github", tags=["GitHub"])
 app.include_router(slack.router, prefix="/webhooks/slack", tags=["Slack"])
 
 
+@app.on_event("startup")
+async def startup_event():
+    print("Registered routes:")
+    for route in app.routes:
+        print(f"  {route.path} [{route.methods}]")
+
+
 @app.get("/")
 async def root():
     """Root endpoint."""
@@ -62,6 +77,24 @@ async def get_metrics():
     """Prometheus metrics endpoint."""
     from fastapi.responses import PlainTextResponse
     return PlainTextResponse(metrics.get_metrics())
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handler for HTTP exceptions."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
+
+
+@app.exception_handler(RecursionError)
+async def recursion_error_handler(request: Request, exc: RecursionError):
+    """Handler for recursion errors."""
+    print(f"CRITICAL: RecursionError detected: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error - recursion detected"}
+    )
 
 
 @app.exception_handler(Exception)

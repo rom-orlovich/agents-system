@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent Dashboard | Claude Code CLI</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --accent-color: #58a6ff;
+            --text-main: #c9d1d9;
+            --text-dim: #8b949e;
+            --success: #238636;
+            --warning: #d29922;
+            --error: #f85149;
+            --border: #30363d;
+            --glass: rgba(22, 27, 34, 0.8);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 1rem 0;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .card:hover {
+            border-color: var(--accent-color);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-sub {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            margin-top: 1rem;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--accent-color);
+            border-radius: 4px;
+            transition: width 0.5s ease-out;
+        }
+
+        .task-section {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background: rgba(48, 54, 61, 0.5);
+            padding: 1rem 1.5rem;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        tr:hover td {
+            background: rgba(88, 166, 255, 0.05);
+        }
+
+        .status-pill {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .status-completed { background: rgba(35, 134, 54, 0.15); color: #3fb950; }
+        .status-executing { background: rgba(88, 166, 255, 0.15); color: #58a6ff; }
+        .status-failed { background: rgba(248, 81, 73, 0.15); color: #f85149; }
+        .status-pending { background: rgba(210, 153, 34, 0.15); color: #d29922; }
+
+        .session-badge {
+            font-size: 0.7rem;
+            padding: 0.1rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .badge-active { background: #238636; color: #fff; box-shadow: 0 0 10px rgba(35, 134, 54, 0.5); }
+        .badge-idle { background: #30363d; color: var(--text-dim); }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+        .pulse { animation: pulse 2s infinite ease-in-out; }
+
+        .link-group {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .icon-link {
+            color: var(--text-dim);
+            transition: color 0.2s;
+        }
+
+        .icon-link:hover {
+            color: var(--accent-color);
+        }
+
+        .refresh-btn {
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .refresh-btn:hover {
+            filter: brightness(1.1);
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .stats-grid { grid-template-columns: 1fr; }
+            th:nth-child(4), td:nth-child(4) { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i data-lucide="bot"></i>
+                AI Agent Dashboard
+            </div>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <div id="user-info" style="text-align: right; font-size: 0.8rem; display: none;">
+                    <div id="user-id-display" style="font-weight: bold; color: var(--accent-color);"></div>
+                    <div id="user-email-display" style="color: var(--text-dim);"></div>
+                </div>
+                <select id="user-select" onchange="handleUserChange()" style="padding: 0.5rem; background: var(--card-bg); color: var(--text-main); border: 1px solid var(--border); border-radius: 6px; outline: none;">
+                    <option value="">All Users</option>
+                </select>
+                <button class="refresh-btn" onclick="fetchData()">
+                    <i data-lucide="refresh-cw"></i>
+                    Refresh
+                </button>
+            </div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="card">
+                <div class="card-header">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span>Current Session</span>
+                        <span id="session-status-badge" class="session-badge badge-idle">Idle</span>
+                    </div>
+                    <i data-lucide="clock"></i>
+                </div>
+                <div class="stat-value" id="session-cost">$0.00</div>
+                <div class="stat-sub" id="session-tasks">0 tasks today</div>
+                <div class="progress-container">
+                    <div class="progress-bar" id="session-progress" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span>Total Investment</span>
+                    <i data-lucide="dollar-sign"></i>
+                </div>
+                <div class="stat-value" id="total-cost">$0.00</div>
+                <div class="stat-sub" id="total-tokens">0 tokens processed</div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span>Efficiency</span>
+                    <i data-lucide="zap"></i>
+                </div>
+                <div class="stat-value" id="total-tasks-val">0</div>
+                <div class="stat-sub">Tasks completed successfully</div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 2rem; border-color: rgba(88, 166, 255, 0.3)">
+            <h3 style="margin-bottom: 1.5rem; color: #fff;">Plan usage limits</h3>
+            <div style="margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <div>
+                        <div style="font-weight: 600;">Current session</div>
+                        <div class="stat-sub" id="session-reset">Resets at midnight</div>
+                    </div>
+                    <div id="session-percent-text" style="font-weight: 600;">0% used</div>
+                </div>
+                <div class="progress-container" style="height: 12px; background: rgba(255,255,255,0.05);">
+                    <div class="progress-bar" id="session-limit-bar" style="width: 0%; background: var(--accent-color);"></div>
+                </div>
+            </div>
+            <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <div>
+                        <div style="font-weight: 600;">Weekly limits (All models)</div>
+                        <div class="stat-sub">Resets Monday 12:00 AM</div>
+                    </div>
+                    <div id="weekly-percent-text" style="font-weight: 600;">0% used</div>
+                </div>
+                <div class="progress-container" style="height: 12px; background: rgba(255,255,255,0.05);">
+                    <div class="progress-bar" id="weekly-limit-bar" style="width: 0%; background: #3c7ebb; opacity: 0.7;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="task-section">
+            <div class="section-header">
+                <h2>Recent Task Activity</h2>
+                <div id="last-updated" class="stat-sub">Last updated: just now</div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Task ID</th>
+                            <th>Status</th>
+                            <th>Cost</th>
+                            <th>Duration</th>
+                            <th>Connections</th>
+                            <th>Updated</th>
+                        </tr>
+                    </thead>
+                    <tbody id="task-list">
+                        <!-- Tasks hydrated via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentAccount = "";
+
+        function handleUserChange() {
+            const select = document.getElementById('user-select');
+            currentAccount = select.value;
+            fetchData();
+        }
+
+        async function fetchData() {
+            try {
+                const timestamp = new Date().getTime();
+                let tasksUrl = `/api/tasks?_t=${timestamp}`;
+                let statsUrl = `/api/stats?_t=${timestamp}`;
+                
+                if (currentAccount) {
+                    tasksUrl += `&account_id=${encodeURIComponent(currentAccount)}`;
+                    statsUrl += `&account_id=${encodeURIComponent(currentAccount)}`;
+                }
+
+                const [tasksRes, statsRes] = await Promise.all([
+                    fetch(tasksUrl),
+                    fetch(statsUrl)
+                ]);
+                
+                const tasks = await tasksRes.json();
+                const stats = await statsRes.json();
+                
+                updateStats(stats);
+                updateTasks(tasks);
+                updateUserSelect(stats.accounts);
+                
+                document.getElementById('last-updated').innerText = `Last updated: ${new Date().toLocaleTimeString()}`;
+                lucide.createIcons();
+            } catch (err) {
+                console.error("Failed to fetch dashboard data", err);
+            }
+        }
+
+        function updateUserSelect(accounts) {
+            const select = document.getElementById('user-select');
+            // Store current selection if not already global (handles first load)
+            if (!currentAccount) {
+                currentAccount = select.value;
+            }
+            
+            // Only rebuild if meaningful change or first load (simple implementation: rebuild always but set value)
+            // To prevent flickering or resetting while open, we could check diff, but this is simple enough
+            const currentOptions = Array.from(select.options).map(o => o.value);
+            const newAccountIds = accounts.map(a => a.account_id);
+            
+            // Rebuild
+            select.innerHTML = '<option value="">All Users</option>';
+            accounts.forEach(acc => {
+                const opt = document.createElement('option');
+                opt.value = acc.account_id;
+                // Display ID and email if available
+                let label = acc.account_id;
+                if (acc.email) {
+                    label += ` (${acc.email})`;
+                } else if (acc.account_id === 'unknown') {
+                    label = 'Unknown User';
+                }
+                opt.innerText = label;
+                select.appendChild(opt);
+            });
+            
+            // Restore selection
+            select.value = currentAccount;
+            
+            // Update User Info Display
+            const userInfo = document.getElementById('user-info');
+            const userIdDisplay = document.getElementById('user-id-display');
+            const userEmailDisplay = document.getElementById('user-email-display');
+            
+            if (currentAccount) {
+                const acc = accounts.find(a => a.account_id === currentAccount);
+                if (acc) {
+                    userInfo.style.display = 'block';
+                    userIdDisplay.innerText = acc.account_id;
+                    userEmailDisplay.innerText = acc.email || 'No email associated';
+                } else {
+                    userInfo.style.display = 'none';
+                }
+            } else {
+                userInfo.style.display = 'none';
+            }
+        }
+
+        function updateStats(stats) {
+            const usage = stats.session.usage_percent;
+            const bar = document.getElementById('session-progress');
+            const limitBar = document.getElementById('session-limit-bar');
+            const percentText = document.getElementById('session-percent-text');
+            
+            const usageFloat = Math.min(usage, 100);
+            bar.style.width = `${usageFloat}%`;
+            limitBar.style.width = `${usageFloat}%`;
+            percentText.innerText = `${usageFloat.toFixed(1)}% used`;
+            
+            if (usage > 90) {
+                bar.style.background = 'var(--error)';
+                limitBar.style.background = 'var(--error)';
+            } else if (usage > 70) {
+                bar.style.background = 'var(--warning)';
+                limitBar.style.background = 'var(--warning)';
+            } else {
+                bar.style.background = 'var(--accent-color)';
+                limitBar.style.background = 'var(--accent-color)';
+            }
+
+            document.getElementById('session-cost').innerText = `$${stats.session.cost_usd.toFixed(4)}`;
+            document.getElementById('session-tasks').innerText = `${stats.session.tasks} tasks in last 24h`;
+            
+            document.getElementById('total-cost').innerText = `$${stats.total.cost_usd.toFixed(2)}`;
+            document.getElementById('total-tokens').innerText = `${(stats.total.tokens / 1000).toFixed(1)}k tokens processed`;
+            
+            document.getElementById('total-tasks-val').innerText = stats.total.tasks;
+            
+            // Session Status Badge
+            const badge = document.getElementById('session-status-badge');
+            if (stats.session.status === 'active') {
+                badge.innerText = 'Active';
+                badge.className = 'session-badge badge-active pulse';
+            } else {
+                badge.innerText = 'Idle';
+                badge.className = 'session-badge badge-idle';
+            }
+
+            // Weekly simulation (just to show something)
+            const weeklyUsage = Math.min((stats.total.cost_usd / 50) * 100, 100); // Dummy 50$ weekly limit
+            document.getElementById('weekly-limit-bar').style.width = `${weeklyUsage.toFixed(1)}%`;
+            document.getElementById('weekly-percent-text').innerText = `${weeklyUsage.toFixed(1)}% used`;
+        }
+
+        function updateTasks(tasks) {
+            const list = document.getElementById('task-list');
+            list.innerHTML = tasks.map(task => {
+                const status = task.status || 'unknown';
+                const cost = parseFloat(task.cost_usd || 0).toFixed(4);
+                const duration = task.duration_seconds ? `${parseFloat(task.duration_seconds).toFixed(1)}s` : '-';
+                const time = task.updated_at ? new Date(task.updated_at).toLocaleTimeString() : '-';
+                
+                return `
+                    <tr>
+                        <td><code>${task.task_id.substring(0, 12)}...</code></td>
+                        <td><span class="status-pill status-${status}">${status.toUpperCase()}</span></td>
+                        <td>$${cost}</td>
+                        <td>${duration}</td>
+                        <td>
+                            <div class="link-group">
+                                ${task.pr_url ? `<a href="${task.pr_url}" class="icon-link" target="_blank" title="View Pull Request"><i data-lucide="git-pull-request"></i></a>` : ''}
+                                ${task.jira_url ? `<a href="${task.jira_url}" class="icon-link" target="_blank" title="View Jira Issue"><i data-lucide="external-link"></i></a>` : ''}
+                                ${task.repository_url ? `<a href="${task.repository_url}" class="icon-link" target="_blank" title="View Repository"><i data-lucide="github"></i></a>` : ''}
+                            </div>
+                        </td>
+                        <td>${time}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Initial fetch
+        fetchData();
+        // Auto refresh every 30s
+        setInterval(fetchData, 30000);
+    </script>
+</body>
+</html>

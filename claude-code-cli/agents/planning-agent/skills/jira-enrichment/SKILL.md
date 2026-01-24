@@ -18,6 +18,12 @@ This skill activates when:
 - A Jira webhook fires with `issue_created` event
 - The ticket description contains a Sentry Issue link (e.g., `JAVASCRIPT-REACT-1`)
 
+## Cloud & Headless Support
+
+When running in cloud environments (e.g., within Docker or remote workers) without a browser:
+- **GitHub MCP**: Configured via HTTP with a Bearer token (`GITHUB_TOKEN`) to bypass OAuth browser redirects and Docker-in-Docker requirements.
+
+
 ## MCP Tools Required
 
 ### 1. Sentry MCP (`@sentry/mcp-server`)
@@ -37,10 +43,10 @@ Used to access the repository, create branches, and open PRs.
 - `create_pull_request`: Open a PR with the plan
 - `create_or_update_file`: Add PLAN.md to the PR
 
-### 3. Atlassian/Jira MCP (`@anthropic-ai/atlassian-mcp`)
+### 3. Jira API (Direct REST API)
 Used to update the Jira ticket with enriched information.
 
-**Tools:**
+**Operations:**
 - `get_issue`: Fetch full ticket details
 - `update_issue`: Update description with analysis
 - `add_comment`: Add comments with progress updates
@@ -51,7 +57,7 @@ Used to update the Jira ticket with enriched information.
 Add a comment to the Jira ticket to notify that work has started.
 
 ```
-Call: mcp_atlassian.add_comment(
+Call: jira_api.add_comment(
   issue_key="PROJ-123",
   body="🤖 **AI Agent Started**\n\nThe AI Planning Agent has picked up this ticket and is now:\n- Fetching Sentry error details\n- Analyzing the codebase\n- Creating a fix plan\n\n⏳ This typically takes 2-5 minutes."
 )
@@ -132,12 +138,12 @@ Create PLAN.md with:
 Enrich the ticket with the discovered information.
 
 ```
-Call: mcp_jira.update_issue(
+Call: jira_api.update_issue(
   issue_key="PROJ-123",
   description="{enriched_description_with_analysis}"
 )
 
-Call: mcp_jira.add_comment(
+Call: jira_api.add_comment(
   issue_key="PROJ-123", 
   body="🤖 AI Analysis Complete. View the fix plan: {pr_url}"
 )

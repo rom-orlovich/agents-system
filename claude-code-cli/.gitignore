@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment files (keep .env.example)
+infrastructure/docker/.env
+.env.local
+
+# Logs
+*.log
+logs/
+ngrok.log
+
+# Cloudflare Tunnel
+~/.cloudflared/
+
+# Docker
+.docker/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude CLI (credentials are sensitive)
+# Note: .claude/ directory is needed for MCP config
+# but credentials should be mounted from host
+
+# Test artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# mypy
+.mypy_cache/
+
+# Build
+*.manifest
+*.spec
+
+# Node (for MCP servers)
+node_modules/
+npm-debug.log
+yarn-error.log
+.agent
+data/

@@ -35,6 +35,19 @@ errors_total = Counter(
     ['agent', 'error_type']
 )
 
+# Usage metrics
+claude_cost_usd_total = Counter(
+    'ai_agent_claude_cost_usd_total',
+    'Total cost of Claude API calls in USD',
+    ['agent']
+)
+
+claude_tokens_total = Counter(
+    'ai_agent_claude_tokens_total',
+    'Total tokens used by Claude API',
+    ['agent', 'token_type']
+)
+
 # Agent-specific metrics
 discovery_confidence = Histogram(
     'ai_agent_discovery_confidence',
@@ -112,13 +125,26 @@ class MetricsCollector:
         discovery_confidence.observe(confidence)
 
     @staticmethod
-    def record_approval_latency(latency_seconds: float):
-        """Record approval latency.
+    def record_usage(agent: str, cost_usd: float, input_tokens: int, output_tokens: int, cache_read_tokens: int = 0, cache_creation_tokens: int = 0):
+        """Record Claude API usage.
 
         Args:
-            latency_seconds: Time from plan ready to approval
+            agent: Agent name
+            cost_usd: Cost in USD
+            input_tokens: Input tokens
+            output_tokens: Output tokens
+            cache_read_tokens: Cache read tokens
+            cache_creation_tokens: Cache creation tokens
         """
-        approval_latency_seconds.observe(latency_seconds)
+        if cost_usd > 0:
+            claude_cost_usd_total.labels(agent=agent).inc(cost_usd)
+        
+        claude_tokens_total.labels(agent=agent, token_type='input').inc(input_tokens)
+        claude_tokens_total.labels(agent=agent, token_type='output').inc(output_tokens)
+        if cache_read_tokens > 0:
+            claude_tokens_total.labels(agent=agent, token_type='cache_read').inc(cache_read_tokens)
+        if cache_creation_tokens > 0:
+            claude_tokens_total.labels(agent=agent, token_type='cache_creation').inc(cache_creation_tokens)
 
 
 # Global metrics instance

@@ -1,21 +1,28 @@
-"""Jira webhook routes."""
+"""Jira webhook routes.
+
+Handles Jira webhooks and creates typed JiraTask objects for processing.
+"""
 
 import sys
 import re
 from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, Request, HTTPException
-from pydantic import BaseModel
+import logging
+import httpx
+import base64
 
 # Add shared module to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "shared"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from config import settings
-from models import TaskSource
-from task_queue import RedisQueue
+from shared.config import settings
+from shared.models import JiraTask
+from shared.task_queue import RedisQueue
+from shared.constants import BOT_CONFIG
 
 router = APIRouter()
 queue = RedisQueue()
+logger = logging.getLogger("jira-webhook")
 
 
 def extract_sentry_issue_id(description: str) -> Optional[str]:
@@ -118,9 +125,23 @@ async def jira_webhook(request: Request):
         labels = fields.get("labels", [])
         status = fields.get("status", {}).get("name", "")
         
+        assignee_obj = fields.get("assignee") or {}
+        
+        # Log the full assignee object for debugging
+        print(f"DEBUG: Jira Assignee Object: {assignee_obj}")
+      
+        assignee_name = (assignee_obj.get("displayName") or 
+                         assignee_obj.get("name") or 
+                         assignee_obj.get("accountId") or "")
+        
+        bot_username = BOT_CONFIG.jira_username
+        is_assigned_to_bot = (assignee_name.lower() == bot_username.lower() or 
+                              bot_username.lower() in assignee_name.lower())
+
         print(f"📨 Jira webhook received: {webhook_event} for {issue_key}")
         print(f"   Summary: {summary}")
         print(f"   Status: {status}")
+        print(f"   Assignee: '{assignee_name}' (Bot: '{bot_username}', Match: {is_assigned_to_bot})")
         print(f"   Labels: {labels}")
         
         # Detect if this ticket was created by Sentry
@@ -129,6 +150,12 @@ async def jira_webhook(request: Request):
         
         # Extract repository if available
         repository = extract_repository_from_description(description)
+        
+        # If repository not in description, try to look up from Sentry mapping
+        if not repository and sentry_issue_id:
+            repository = await queue.get_repository_by_sentry_issue(sentry_issue_id)
+            if repository:
+                print(f"🔍 Found repository in Redis mapping: {repository}")
         
         # CASE 1: Ticket transitioned to "Approved" - trigger execution
         if webhook_event == "jira:issue_updated" and status.lower() in ["approved", "in progress"]:
@@ -140,15 +167,14 @@ async def jira_webhook(request: Request):
                 if item.get("field") == "status" and item.get("toString", "").lower() in ["approved", "in progress"]:
                     print(f"✅ Ticket {issue_key} approved via Jira status transition")
                     
-                    task_data = {
-                        "source": TaskSource.JIRA.value,
-                        "action": "approve",
-                        "issue_key": issue_key,
-                        "sentry_issue_id": sentry_issue_id,
-                        "repository": repository
-                    }
+                    task = JiraTask(
+                        action="approve",
+                        issue_key=issue_key,
+                        sentry_issue_id=sentry_issue_id,
+                        repository=repository
+                    )
                     
-                    task_id = await queue.push(settings.EXECUTION_QUEUE, task_data)
+                    task_id = await queue.push_task(settings.EXECUTION_QUEUE, task)
                     
                     return {
                         "status": "approved",
@@ -156,44 +182,67 @@ async def jira_webhook(request: Request):
                         "issue_key": issue_key
                     }
         
-        # CASE 2: Sentry-created ticket - trigger enrichment
-        if webhook_event == "jira:issue_created" and is_sentry_ticket:
-            print(f"🔗 Detected Sentry-created ticket: {sentry_issue_id}")
+        # CASE 2: Sentry-created ticket or assigned to bot - trigger enrichment
+        if (webhook_event == "jira:issue_created" and (is_sentry_ticket or is_assigned_to_bot)) or \
+           (webhook_event == "jira:issue_updated" and is_assigned_to_bot):
             
-            task_data = {
-                "source": TaskSource.JIRA.value,
-                "action": "enrich",
-                "description": summary,
-                "issue_key": issue_key,
-                "sentry_issue_id": sentry_issue_id,
-                "repository": repository,
-                "full_description": description[:2000]  # Limit size
-            }
+            # Check if this was a fresh assignment to the bot
+            is_assignment_event = False
+            if webhook_event == "jira:issue_updated":
+                changelog = payload.get("changelog", {})
+                items = changelog.get("items", [])
+                for item in items:
+                    if item.get("field") == "assignee" and bot_username.lower() in str(item.get("toString", "")).lower():
+                        is_assignment_event = True
+                        break
             
-            task_id = await queue.push(settings.PLANNING_QUEUE, task_data)
+            # Only trigger enrichment if it's sentry OR assigned to bot
+            if is_sentry_ticket:
+                print(f"🔗 Detected Sentry ticket: {sentry_issue_id}")
+                action = "enrich"
+                status_msg = "queued_for_enrichment"
+            else:
+                print(f"👤 Ticket assigned to agent: {issue_key}")
+                action = "fix"
+                status_msg = "queued"
+
+            task = JiraTask(
+                action=action,  # type: ignore  # action is validated by Pydantic
+                issue_key=issue_key,
+                description=summary,
+                sentry_issue_id=sentry_issue_id,
+                repository=repository,
+                full_description=description[:10000]
+            )
             
-            print(f"📥 Sentry ticket enrichment queued: {task_id} (Issue: {issue_key}, Sentry: {sentry_issue_id})")
+            task_id = await queue.push_task(settings.PLANNING_QUEUE, task)
+            
+            print(f"📥 Jira task queued: {task_id} (Issue: {issue_key}, Action: {action})")
+            
+            # Post comment to Jira if assigned to bot
+            if is_assigned_to_bot:
+                await post_jira_comment(issue_key, "🤖 AI Agent has identified this ticket and started the planning phase.")
+
             
             return {
-                "status": "queued_for_enrichment",
+                "status": status_msg,
                 "task_id": task_id,
                 "issue_key": issue_key,
                 "sentry_issue_id": sentry_issue_id
             }
         
-        # CASE 3: Manual AI-Fix request (via label)
+        # CASE 3: Manual AI-Fix request (via label) - fallback
         if webhook_event == "jira:issue_created" and "AI-Fix" in labels:
-            task_data = {
-                "source": TaskSource.JIRA.value,
-                "action": "fix",
-                "description": summary,
-                "issue_key": issue_key,
-                "repository": repository
-            }
+            task = JiraTask(
+                action="fix",
+                issue_key=issue_key,
+                description=summary,
+                repository=repository
+            )
             
-            task_id = await queue.push(settings.PLANNING_QUEUE, task_data)
+            task_id = await queue.push_task(settings.PLANNING_QUEUE, task)
             
-            print(f"📥 Manual AI-Fix queued: {task_id} (Issue: {issue_key})")
+            print(f"📥 Manual AI-Fix (via label) queued: {task_id} (Issue: {issue_key})")
             
             return {
                 "status": "queued",
@@ -214,6 +263,51 @@ async def jira_webhook(request: Request):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+async def post_jira_comment(issue_key: str, message: str):
+    """Post a comment to a Jira issue."""
+    if not (settings.JIRA_URL and settings.JIRA_EMAIL and settings.JIRA_API_TOKEN):
+        print(f"⚠️ Jira not configured, skipping comment on {issue_key}")
+        return
+
+    url = f"{settings.JIRA_URL}/rest/api/3/issue/{issue_key}/comment"
+    
+    auth_str = f"{settings.JIRA_EMAIL}:{settings.JIRA_API_TOKEN}"
+    auth_bytes = auth_str.encode("ascii")
+    base64_auth = base64.b64encode(auth_bytes).decode("ascii")
+    
+    headers = {
+        "Authorization": f"Basic {base64_auth}",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    
+    payload = {
+        "body": {
+            "type": "doc",
+            "version": 1,
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [
+                        {
+                            "text": message,
+                            "type": "text"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, json=payload, timeout=10.0)
+            response.raise_for_status()
+            print(f"✅ Posted comment on Jira ticket {issue_key}")
+    except Exception as e:
+        print(f"❌ Failed to post Jira comment: {e}")
 
 
 @router.get("/test")

@@ -1,0 +1,55 @@
+{
+  "name": "custom-jira-sprint",
+  "endpoint": "/webhooks/custom-jira-sprint",
+  "source": "jira",
+  "description": "Custom Jira webhook for sprint planning and execution",
+  "target_agent": "brain",
+  "command_prefix": "@agent",
+  "commands": [
+    {
+      "name": "sprint-plan",
+      "aliases": ["plan-sprint", "analyze-sprint"],
+      "description": "Analyze and plan sprint work",
+      "target_agent": "planning",
+      "prompt_template": "Analyze this sprint planning ticket:\n\nTicket: {{issue.key}}\nSummary: {{issue.fields.summary}}\nDescription: {{issue.fields.description}}\n\nProject: {{issue.fields.project.name}}\nSprint: {{issue.fields.sprint.name}}\n\nProvide:\n- Work breakdown structure\n- Effort estimation\n- Risk analysis\n- Dependencies identification\n- Suggested task ordering",
+      "requires_approval": false
+    },
+    {
+      "name": "estimate",
+      "aliases": ["story-points", "estimate-work"],
+      "description": "Provide effort estimation for ticket",
+      "target_agent": "planning",
+      "prompt_template": "Estimate the effort for this ticket:\n\n{{issue.key}}: {{issue.fields.summary}}\n\nDescription:\n{{issue.fields.description}}\n\nConsider:\n- Complexity\n- Dependencies\n- Technical debt\n- Testing requirements\n\nProvide story point estimate and justification.",
+      "requires_approval": false
+    },
+    {
+      "name": "implement",
+      "aliases": ["execute", "develop"],
+      "description": "Implement the ticket requirements",
+      "target_agent": "executor",
+      "prompt_template": "Implement this Jira ticket:\n\n{{issue.key}}: {{issue.fields.summary}}\n\nDescription:\n{{issue.fields.description}}\n\nAcceptance Criteria:\n{{issue.fields.acceptance_criteria}}\n\nProject: {{issue.fields.project.name}}\nAssignee: {{issue.fields.assignee.displayName}}\n\nFollow TDD workflow and create tests first.",
+      "requires_approval": true
+    },
+    {
+      "name": "block-analysis",
+      "aliases": ["blocked", "analyze-blocker"],
+      "description": "Analyze blocked ticket and suggest resolution",
+      "target_agent": "planning",
+      "prompt_template": "This ticket is blocked:\n\n{{issue.key}}: {{issue.fields.summary}}\n\nBlocker Information:\n{{issue.fields.blocker_description}}\n\nAnalyze:\n- Root cause of blocker\n- Potential workarounds\n- Impact on sprint goals\n- Recommended actions\n- Alternative approaches",
+      "requires_approval": false
+    },
+    {
+      "name": "retrospective",
+      "aliases": ["retro", "lessons-learned"],
+      "description": "Generate retrospective insights from completed work",
+      "target_agent": "planning",
+      "prompt_template": "Generate retrospective insights for:\n\n{{issue.key}}: {{issue.fields.summary}}\n\nCompleted work:\n{{issue.fields.resolution_description}}\n\nAnalyze:\n- What went well\n- What could be improved\n- Action items for next sprint\n- Process improvements\n- Technical learnings",
+      "requires_approval": false
+    }
+  ],
+  "default_command": "sprint-plan",
+  "requires_signature": true,
+  "signature_header": "X-Jira-Signature",
+  "secret_env_var": "JIRA_WEBHOOK_SECRET",
+  "is_builtin": false
+}
