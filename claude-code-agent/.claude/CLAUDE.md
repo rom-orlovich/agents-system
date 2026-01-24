@@ -23,14 +23,47 @@ See `.claude/agents/planning.md` for complete capabilities and process.
 
 See `.claude/agents/executor.md` for complete capabilities and TDD workflow. See `docs/TDD-METHODOLOGY.md` for the complete TDD methodology guide.
 
-### orchestration
-**Location:** `.claude/agents/orchestration.md`
-**Use for:** Webhook management, skill uploads, system operations
-**Invoke with:** "Use the orchestration subagent to create [webhook]"
+### service-integrator
+**Location:** `.claude/agents/service-integrator.md`
+**Use for:** Cross-service workflows (GitHub, Jira, Slack, Sentry)
+**Invoke with:** "Use the service-integrator subagent to [integrate with service]"
 **Model:** sonnet (standard system operations)
-**Tools:** Read, Write, Edit, Bash (system operations)
+**Skills:** github-operations, jira-operations, slack-operations, sentry-operations
 
-See `.claude/agents/orchestration.md` for complete capabilities and workflows.
+See `.claude/agents/service-integrator.md` for complete capabilities and workflows.
+
+### self-improvement
+**Location:** `.claude/agents/self-improvement.md`
+**Use for:** Code analysis, pattern identification, refactoring opportunities
+**Invoke with:** "Use the self-improvement subagent to analyze [codebase]"
+**Model:** sonnet
+**Skills:** pattern-learner, refactoring-advisor
+
+### agent-creator
+**Location:** `.claude/agents/agent-creator.md`
+**Use for:** Creating new agents with proper configuration
+**Invoke with:** "Use the agent-creator subagent to create [agent name]"
+**Model:** sonnet
+**Skills:** agent-generator
+
+### skill-creator
+**Location:** `.claude/agents/skill-creator.md`
+**Use for:** Creating new skills following best practices
+**Invoke with:** "Use the skill-creator subagent to create [skill name]"
+**Model:** sonnet
+**Skills:** skill-generator
+
+### verifier
+**Location:** `.claude/agents/verifier.md`
+**Use for:** Final verification and validation of implementations
+**Invoke with:** "Use the verifier subagent to verify [implementation]"
+**Model:** sonnet
+
+### webhook-generator
+**Location:** `.claude/agents/webhook-generator.md`
+**Use for:** Creating and configuring webhooks dynamically
+**Invoke with:** "Use the webhook-generator subagent to create [webhook]"
+**Model:** sonnet
 
 ## Your Capabilities
 
@@ -53,7 +86,12 @@ See `.claude/agents/orchestration.md` for complete capabilities and workflows.
 When delegating to sub-agents, consider their model configuration:
 - **planning** (opus): Complex analysis, multi-step reasoning, architecture decisions
 - **executor** (sonnet): Code implementation, debugging, standard development tasks
-- **orchestration** (sonnet): System operations, webhook management, skill uploads
+- **service-integrator** (sonnet): Cross-service workflows, API integrations
+- **self-improvement** (sonnet): Code analysis, refactoring, pattern identification
+- **agent-creator** (sonnet): Agent creation and validation
+- **skill-creator** (sonnet): Skill creation and validation
+- **verifier** (sonnet): Final verification and validation
+- **webhook-generator** (sonnet): Webhook creation and configuration
 
 For direct tasks, use sonnet (default) unless complexity requires opus.
 
@@ -127,7 +165,7 @@ Context:
 
 ### System Operations
 ```
-Use the orchestration subagent to create a GitHub webhook for issue tracking
+Use the webhook-generator subagent to create a GitHub webhook for issue tracking
 
 Context:
 - Provider: GitHub
@@ -210,11 +248,20 @@ Refer to these resources when you need detailed information about system compone
 
 ## Current State
 
-This is a new machine running in a Docker container with FastAPI serving the dashboard.
+This is a machine running in a Docker container with FastAPI serving the dashboard v2 (React-based).
 
-**Available sub-agents:** planning, executor, orchestration
+**Available sub-agents:** planning, executor, service-integrator, self-improvement, agent-creator, skill-creator, verifier, webhook-generator
+
+**Dashboard Features:**
+- Overview: System metrics, task monitoring, OAuth usage
+- Analytics: Cost tracking, usage patterns, conversation analytics
+- Ledger: Transaction history and filtering
+- Webhooks: Webhook management and event monitoring
+- Chat: Persistent conversations with context awareness
+- Registry: Skills and agents management
 
 **Configuration:**
 - Default model: sonnet (balanced performance)
 - Context mode: inherit (sub-agents receive parent context)
 - Tool permissions: Appropriate for each agent's role
+- Dashboard: React + TypeScript with real-time WebSocket updates
