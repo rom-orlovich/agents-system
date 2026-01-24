@@ -151,3 +151,75 @@ async def test_cli_runner_json_parsing():
     assert result.success is True
     assert "JSON output" in result.output
     assert "Plain text line" in result.output
+
+
+async def test_cli_runner_logs_chunks():
+    """Test that CLI runner processes content chunks (logging verified manually via Docker logs)."""
+    output_queue = asyncio.Queue()
+
+    mock_proc = AsyncMock()
+    mock_proc.returncode = 0
+
+    output_lines = [
+        b'{"type": "content", "content": "First chunk"}\n',
+        b'{"type": "content", "content": " Second chunk"}\n',
+        b'{"type": "result", "cost_usd": 0.01, "usage": {"input_tokens": 10, "output_tokens": 5}}\n',
+    ]
+
+    mock_proc.stdout = MockAsyncIterator(output_lines)
+    mock_proc.stderr = MockAsyncIterator([])
+    mock_proc.wait = AsyncMock()
+
+    with patch('asyncio.create_subprocess_exec', return_value=mock_proc):
+        result = await run_claude_cli(
+            prompt="Test prompt",
+            working_dir=Path("/tmp"),
+            output_queue=output_queue,
+            task_id="test-chunk-log",
+            timeout_seconds=60
+        )
+
+    # Verify chunks were queued
+    chunks = []
+    while not output_queue.empty():
+        chunk = await output_queue.get()
+        if chunk is not None:
+            chunks.append(chunk)
+    
+    assert chunks == ["First chunk", " Second chunk"]
+    assert result.success is True
+    # Note: logger.debug("chunk_received") calls verified manually via:
+    # docker-compose logs -f app | grep chunk_received
+
+
+async def test_cli_runner_rate_limit_error():
+    """Test CLI runner extracts rate limit error from JSON result."""
+    output_queue = asyncio.Queue()
+
+    mock_proc = AsyncMock()
+    mock_proc.returncode = 1  # Non-zero exit code
+
+    # Simulate rate limit response from Claude CLI
+    output_lines = [
+        b'{"type":"system","subtype":"init","cwd":"/app","session_id":"test-session"}\n',
+        b'{"type":"assistant","message":{"content":[{"type":"text","text":"You\'ve hit your limit \\u00b7 resets 4pm (UTC)"}]},"error":"rate_limit"}\n',
+        b'{"type":"result","subtype":"success","is_error":true,"result":"You\'ve hit your limit \\u00b7 resets 4pm (UTC)","total_cost_usd":0}\n',
+    ]
+
+    mock_proc.stdout = MockAsyncIterator(output_lines)
+    mock_proc.stderr = MockAsyncIterator([])
+    mock_proc.wait = AsyncMock()
+
+    with patch('asyncio.create_subprocess_exec', return_value=mock_proc):
+        result = await run_claude_cli(
+            prompt="Test prompt",
+            working_dir=Path("/tmp"),
+            output_queue=output_queue,
+            task_id="test-rate-limit",
+            timeout_seconds=60
+        )
+
+    assert result.success is False
+    # Should contain the real error message, not just "Exit code: 1"
+    assert "hit your limit" in result.error
+    assert "4pm (UTC)" in result.error

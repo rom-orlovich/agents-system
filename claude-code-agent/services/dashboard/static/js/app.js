@@ -19,6 +19,7 @@ class DashboardApp {
             dailyCosts: null,
             subagentCosts: null
         };
+        this.viewingTaskId = null;  // Track which task's logs modal is open
 
         this.init();
     }
@@ -183,6 +184,10 @@ class DashboardApp {
                 break;
             case 'task.output':
                 this.updateTaskOutput(message.task_id, message.chunk);
+                // Real-time streaming to logs modal if viewing this task
+                if (this.viewingTaskId === message.task_id) {
+                    this.appendToLogsModal(message.task_id, message.chunk);
+                }
                 break;
             case 'task.metrics':
                 this.updateTaskMetrics(message.task_id, message);
@@ -1104,6 +1109,9 @@ class DashboardApp {
             `;
             document.getElementById('modal').classList.remove('hidden');
 
+            // Set viewing task for WebSocket streaming
+            this.viewingTaskId = taskId;
+
             // Load logs
             await this.refreshTaskLogs(taskId);
 
@@ -1147,6 +1155,34 @@ class DashboardApp {
         }
     }
 
+    appendToLogsModal(taskId, chunk) {
+        const logsElement = document.getElementById(`task-logs-${taskId}`);
+        if (!logsElement) return;
+
+        // Split chunk into lines and filter empty
+        const lines = chunk.split('\n').filter(l => l.trim());
+        if (lines.length === 0) return;
+
+        // Get current line count
+        const currentLineCount = logsElement.querySelectorAll('.log-line').length;
+
+        // Append new lines
+        lines.forEach((line, index) => {
+            const lineNum = currentLineCount + index + 1;
+            const lineEl = document.createElement('div');
+            lineEl.className = 'log-line';
+            lineEl.style.animationDelay = `${Math.min(index * 20, 500)}ms`;
+            lineEl.innerHTML = `
+                <span class="line-number">${lineNum}</span>
+                <span class="line-content">${this.escapeHtml(line)}</span>
+            `;
+            logsElement.appendChild(lineEl);
+        });
+
+        // Auto-scroll to bottom
+        logsElement.scrollTop = logsElement.scrollHeight;
+    }
+
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
@@ -1175,6 +1211,9 @@ class DashboardApp {
 
     hideModal() {
         document.getElementById('modal').classList.add('hidden');
+
+        // Clear viewing task
+        this.viewingTaskId = null;
 
         // Stop logs polling if active
         if (this.logsPollingInterval) {

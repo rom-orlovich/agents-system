@@ -31,6 +31,7 @@ async def run_claude_cli(
     model: Optional[str] = None,
     allowed_tools: Optional[str] = None,
     agents: Optional[str] = None,
+    debug_mode: Optional[str] = None,
 ) -> CLIResult:
     """
     Execute Claude Code CLI in headless mode.
@@ -44,6 +45,7 @@ async def run_claude_cli(
         model: Optional model name (e.g., "opus", "sonnet")
         allowed_tools: Comma-separated list of allowed tools (e.g., "Read,Edit,Bash")
         agents: JSON string defining sub-agents for the session
+        debug_mode: Optional debug filter (e.g., "api", "!statsig", empty for all)
 
     Returns:
         CLIResult with output, cost, and token counts
@@ -58,7 +60,15 @@ async def run_claude_cli(
         "--output-format", "stream-json",
         "--verbose",
         "--dangerously-skip-permissions",
+        "--include-partial-messages",  # Stream partial message chunks as they arrive
     ]
+    
+    # Add debug mode for detailed logging
+    if debug_mode is not None:
+        if debug_mode:
+            cmd.extend(["--debug", debug_mode])
+        else:
+            cmd.append("--debug")
 
     if model:
         cmd.extend(["--model", model])
@@ -90,10 +100,11 @@ async def run_claude_cli(
     cost_usd = 0.0
     input_tokens = 0
     output_tokens = 0
+    cli_error_message = None  # Capture error from JSON response
 
     try:
         async def read_stdout():
-            nonlocal cost_usd, input_tokens, output_tokens
+            nonlocal cost_usd, input_tokens, output_tokens, cli_error_message
 
             if not process.stdout:
                 return
@@ -116,6 +127,21 @@ async def run_claude_cli(
                             accumulated_output.append(init_content)
                             await output_queue.put(init_content)
                     
+                    elif msg_type == "assistant":
+                        # Check for error in assistant message (e.g., rate limit)
+                        error_type = data.get("error")
+                        message = data.get("message", {})
+                        content_blocks = message.get("content", [])
+                        
+                        if error_type and content_blocks:
+                            # Extract error text from content blocks
+                            for block in content_blocks:
+                                if isinstance(block, dict) and block.get("type") == "text":
+                                    error_text = block.get("text", "")
+                                    if error_text:
+                                        cli_error_message = f"{error_text} (error type: {error_type})"
+                                        break
+                    
                     elif msg_type == "message":
                         role = data.get("role", "")
                         content = data.get("content", "")
@@ -127,6 +153,7 @@ async def run_claude_cli(
                     elif msg_type == "content":
                         chunk = data.get("content", "")
                         if chunk:
+                            logger.debug("chunk_received", task_id=task_id, chunk_len=len(chunk))
                             accumulated_output.append(chunk)
                             await output_queue.put(chunk)
                     
@@ -135,11 +162,14 @@ async def run_claude_cli(
                         usage = data.get("usage", {})
                         input_tokens = usage.get("input_tokens", 0)
                         output_tokens = usage.get("output_tokens", 0)
+                        
+                        # Capture error from result if is_error is true
+                        if data.get("is_error"):
+                            result_text = data.get("result", "")
+                            if result_text:
+                                cli_error_message = result_text
 
-                        result_text = data.get("result", "")
-                        if result_text:
-                            accumulated_output.append(result_text)
-                            await output_queue.put(result_text)
+
 
                 except json.JSONDecodeError as e:
                     accumulated_output.append(line_str + "\n")
@@ -182,7 +212,11 @@ async def run_claude_cli(
 
         error_msg = None
         if process.returncode != 0:
-            if stderr_lines:
+            # Priority 1: Use error captured from JSON response (most informative)
+            if cli_error_message:
+                error_msg = cli_error_message
+            # Priority 2: Use stderr if available
+            elif stderr_lines:
                 full_stderr = "\n".join(stderr_lines)
                 
                 error_text = full_stderr
@@ -197,6 +231,7 @@ async def run_claude_cli(
                     error_msg = f"{error_text}\n\n(Exit code: {process.returncode})"
                 else:
                     error_msg = f"{full_stderr}\n\n(Exit code: {process.returncode})"
+            # Priority 3: Generic exit code message
             else:
                 error_msg = f"Exit code: {process.returncode}"
         
