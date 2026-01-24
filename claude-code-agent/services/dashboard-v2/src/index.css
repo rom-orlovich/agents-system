@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #3b82f6;
+  --color-secondary: #60a5fa;
+  --color-cta: #f97316;
+  
+  /* Semantic Tokens */
+  --color-background-app: #f8fafc;
+  --color-text-main: #1e293b;
+  --color-panel-bg: #ffffff;
+  --color-panel-border: #e2e8f0;
+  --color-sidebar-bg: rgba(248, 250, 252, 0.5);
+  
+  --color-input-bg: #ffffff;
+  --color-input-border: #e2e8f0;
+  --color-input-text: #1e293b;
+  --color-modal-bg: #ffffff;
+  --color-modal-border: #f1f5f9;
+
+  --font-heading: "Orbitron", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "Fira Code", monospace;
+
+  --animate-pulse-glow: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-spin-slow: spin 3s linear infinite;
+  --animate-blink: blink 1s step-end infinite;
+
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      opacity: 1;
+      filter: drop-shadow(0 0 5px var(--color-primary));
+    }
+    50% {
+      opacity: 0.7;
+      filter: drop-shadow(0 0 15px var(--color-primary));
+    }
+  }
+
+  @keyframes blink {
+    from,
+    to {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+}
+
+/* Custom dark variant for class-based dark mode in Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+.dark {
+  --color-background-app: #020617;
+  --color-text-main: #f1f5f9;
+  --color-panel-bg: #020617;
+  --color-panel-border: #1e293b;
+  --color-sidebar-bg: rgba(2, 6, 23, 0.5);
+  
+  --color-input-bg: #0f172a;
+  --color-input-border: #1e293b;
+  --color-input-text: #f1f5f9;
+  --color-modal-bg: #020617;
+  --color-modal-border: #1e293b;
+}
+
+@layer base {
+  body {
+    @apply bg-background-app text-text-main font-body transition-colors duration-300 antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading uppercase tracking-wider;
+  }
+}
+
+@layer components {
+  .bg-panel-app {
+    @apply bg-panel-bg;
+  }
+  .bg-chat-sidebar {
+    @apply bg-sidebar-bg;
+  }
+  .border-app {
+    @apply border-panel-border;
+  }
+  .text-app-main {
+    @apply text-text-main;
+  }
+  .text-app-muted {
+    @apply text-slate-500 dark:text-slate-400;
+  }
+  .glass {
+    @apply backdrop-blur-md bg-white/70 dark:bg-slate-900/70 border border-white/20 dark:border-slate-700/30 shadow-xl;
+  }
+
+  .panel {
+    @apply bg-panel-bg border border-panel-border shadow-sm p-4 relative transition-all duration-300 overflow-hidden;
+  }
+
+  .panel::before {
+    content: attr(data-label);
+    @apply absolute -top-3 left-4 bg-background-app px-2 text-[10px] font-heading text-gray-400 dark:text-gray-500 border border-panel-border;
+  }
+
+  .btn-primary {
+    @apply bg-cta text-white px-4 py-2 font-heading transition-all duration-200 hover:opacity-90 active:scale-95 cursor-pointer;
+  }
+
+  .monitoring-grid {
+    @apply fixed inset-0 pointer-events-none opacity-[0.02] md:opacity-[0.03] dark:opacity-[0.05] dark:md:opacity-[0.08] bg-[radial-gradient(#000_1px,transparent_1px)] dark:bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px];
+  }
+}

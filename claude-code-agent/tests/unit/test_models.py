@@ -1,7 +1,7 @@
 """Unit tests for Pydantic models."""
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 
 from shared import (
     Task,
@@ -123,7 +123,7 @@ class TestClaudeCredentials:
     def test_credentials_status(self):
         """Credentials status is calculated correctly."""
         # Valid credentials
-        future_time = int((datetime.utcnow().timestamp() + 7200) * 1000)  # 2 hours from now
+        future_time = int((datetime.now(timezone.utc).timestamp() + 7200) * 1000)  # 2 hours from now
         creds = ClaudeCredentials(
             access_token="token123456789",
             refresh_token="refresh123456789",
@@ -134,7 +134,7 @@ class TestClaudeCredentials:
         assert not creds.needs_refresh
 
         # Expired credentials
-        past_time = int((datetime.utcnow().timestamp() - 3600) * 1000)  # 1 hour ago
+        past_time = int((datetime.now(timezone.utc).timestamp() - 3600) * 1000)  # 1 hour ago
         expired_creds = ClaudeCredentials(
             access_token="token123456789",
             refresh_token="refresh123456789",
@@ -142,6 +142,18 @@ class TestClaudeCredentials:
         )
         assert expired_creds.is_expired
         assert expired_creds.get_status() == AuthStatus.EXPIRED
+
+    def test_credentials_user_id_attribute(self):
+        """Credentials should have user_id attribute or property for compatibility."""
+        creds = ClaudeCredentials(
+            access_token="token123456789",
+            refresh_token="refresh123456789",
+            expires_at=int(datetime.now(timezone.utc).timestamp() * 1000),
+            account_id="test-account-id"
+        )
+        # This is expected to FAIL until we add the property or attribute
+        assert hasattr(creds, "user_id")
+        assert creds.user_id == "test-account-id"
 
 
 class TestWebhookConfig:

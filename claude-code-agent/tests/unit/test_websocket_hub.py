@@ -6,9 +6,6 @@ from datetime import datetime
 
 from core.websocket_hub import WebSocketHub
 from shared import TaskOutputMessage, TaskCompletedMessage, TaskStatus
-
-
-@pytest.mark.asyncio
 async def test_websocket_connect():
     """Test WebSocket connection registration."""
     hub = WebSocketHub()
@@ -19,9 +16,6 @@ async def test_websocket_connect():
     assert hub.get_session_count() == 1
     assert hub.get_connection_count() == 1
     mock_ws.accept.assert_called_once()
-
-
-@pytest.mark.asyncio
 async def test_websocket_disconnect():
     """Test WebSocket disconnection."""
     hub = WebSocketHub()
@@ -33,9 +27,6 @@ async def test_websocket_disconnect():
     hub.disconnect(mock_ws, "session-001")
     assert hub.get_session_count() == 0
     assert hub.get_connection_count() == 0
-
-
-@pytest.mark.asyncio
 async def test_multiple_connections_same_session():
     """Test multiple connections to same session."""
     hub = WebSocketHub()
@@ -47,9 +38,6 @@ async def test_multiple_connections_same_session():
 
     assert hub.get_session_count() == 1
     assert hub.get_connection_count() == 2
-
-
-@pytest.mark.asyncio
 async def test_multiple_sessions():
     """Test multiple sessions with different connections."""
     hub = WebSocketHub()
@@ -61,9 +49,6 @@ async def test_multiple_sessions():
 
     assert hub.get_session_count() == 2
     assert hub.get_connection_count() == 2
-
-
-@pytest.mark.asyncio
 async def test_send_to_session():
     """Test sending message to specific session."""
     hub = WebSocketHub()
@@ -80,9 +65,6 @@ async def test_send_to_session():
     # Only session-001 should receive the message
     mock_ws1.send_json.assert_called_once()
     mock_ws2.send_json.assert_not_called()
-
-
-@pytest.mark.asyncio
 async def test_broadcast_to_all():
     """Test broadcasting message to all sessions."""
     hub = WebSocketHub()
@@ -103,9 +85,6 @@ async def test_broadcast_to_all():
     # Both sessions should receive the message
     mock_ws1.send_json.assert_called_once()
     mock_ws2.send_json.assert_called_once()
-
-
-@pytest.mark.asyncio
 async def test_dead_connection_cleanup():
     """Test cleanup of dead connections."""
     hub = WebSocketHub()
@@ -126,9 +105,6 @@ async def test_dead_connection_cleanup():
     # Dead connection should be cleaned up
     # Note: The cleanup happens but we can't easily verify the exact count
     # because the mock doesn't actually fail the same way a real connection would
-
-
-@pytest.mark.asyncio
 async def test_disconnect_nonexistent_session():
     """Test disconnecting from nonexistent session doesn't crash."""
     hub = WebSocketHub()
@@ -138,9 +114,6 @@ async def test_disconnect_nonexistent_session():
     hub.disconnect(mock_ws, "nonexistent-session")
 
     assert hub.get_session_count() == 0
-
-
-@pytest.mark.asyncio
 async def test_send_to_nonexistent_session():
     """Test sending to nonexistent session doesn't crash."""
     hub = WebSocketHub()
@@ -148,9 +121,6 @@ async def test_send_to_nonexistent_session():
 
     # Should not raise exception
     await hub.send_to_session("nonexistent-session", message)
-
-
-@pytest.mark.asyncio
 async def test_message_serialization():
     """Test messages are properly serialized to JSON."""
     hub = WebSocketHub()

@@ -3,15 +3,12 @@
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
+from datetime import datetime, timezone
 
 from workers.task_worker import TaskWorker
 from core.websocket_hub import WebSocketHub
 from shared import TaskStatus
 from core.database.models import TaskDB
-
-
-@pytest.mark.asyncio
 async def test_worker_processes_task(redis_mock):
     """Test worker processes a task from queue."""
     ws_hub = WebSocketHub()
@@ -27,7 +24,7 @@ async def test_worker_processes_task(redis_mock):
         status=TaskStatus.QUEUED,
         input_message="Test task",
         source="dashboard",
-        created_at=datetime.utcnow()
+        created_at=datetime.now(timezone.utc)
     )
 
     # Mock redis to return our task
@@ -67,9 +64,6 @@ async def test_worker_processes_task(redis_mock):
                 # Verify task was processed
                 assert task_db.status == TaskStatus.COMPLETED
                 assert task_db.result == "Task completed"
-
-
-@pytest.mark.asyncio
 async def test_worker_handles_missing_task():
     """Test worker handles missing task gracefully."""
     ws_hub = WebSocketHub()
@@ -90,9 +84,6 @@ async def test_worker_handles_missing_task():
 
             # Should handle missing task without crashing
             await worker._process_task("nonexistent-task")
-
-
-@pytest.mark.asyncio
 async def test_worker_get_agent_dir():
     """Test worker resolves agent directories correctly."""
     from core.config import settings
@@ -112,9 +103,6 @@ async def test_worker_get_agent_dir():
     planning_dir = worker._get_agent_dir("planning")
     # Should return either agents/planning or fall back to brain
     assert planning_dir is not None
-
-
-@pytest.mark.asyncio
 async def test_worker_stop():
     """Test worker can be stopped."""
     ws_hub = WebSocketHub()
