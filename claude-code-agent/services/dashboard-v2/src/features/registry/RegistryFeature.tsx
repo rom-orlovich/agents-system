@@ -49,14 +49,14 @@ export function RegistryFeature() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 relative">
-      <div className="flex justify-between items-center bg-white p-4 border border-gray-200">
+      <div className="flex justify-between items-center bg-panel-bg p-4 border border-panel-border rounded-lg shadow-sm">
         <div className="flex gap-4">
           <button
             type="button"
             onClick={() => setActiveTab("skills")}
             className={clsx(
-              "px-4 py-2 font-heading text-[11px] font-bold tracking-widest uppercase transition-colors",
-              activeTab === "skills" ? "bg-primary text-white" : "border border-gray-200 text-gray-400 hover:bg-gray-50"
+              "px-4 py-2 font-heading text-[11px] font-bold tracking-widest uppercase transition-all rounded-sm",
+              activeTab === "skills" ? "bg-primary text-white shadow-lg shadow-primary/20" : "border border-panel-border text-app-muted hover:bg-background-app hover:text-text-main"
             )}
           >
             SKILLS_REGISTRY
@@ -65,8 +65,8 @@ export function RegistryFeature() {
             type="button"
             onClick={() => setActiveTab("agents")}
             className={clsx(
-              "px-4 py-2 font-heading text-[11px] font-bold tracking-widest uppercase transition-colors",
-              activeTab === "agents" ? "bg-primary text-white" : "border border-gray-200 text-gray-400 hover:bg-gray-50"
+              "px-4 py-2 font-heading text-[11px] font-bold tracking-widest uppercase transition-all rounded-sm",
+              activeTab === "agents" ? "bg-primary text-white shadow-lg shadow-primary/20" : "border border-panel-border text-app-muted hover:bg-background-app hover:text-text-main"
             )}
           >
             AGENTS_REGISTRY
@@ -76,7 +76,7 @@ export function RegistryFeature() {
           <button
             type="button"
             onClick={refresh}
-            className="p-2 border border-gray-200 text-gray-400 hover:text-primary hover:bg-gray-50 transition-colors"
+            className="p-2 border border-panel-border text-app-muted hover:text-primary hover:bg-background-app transition-colors rounded-sm"
             title="REFRESH_REGISTRY"
           >
             <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
@@ -106,11 +106,11 @@ export function RegistryFeature() {
       {/* Content Editor Drawer */}
       {editingAsset && (
         <div 
-          className="fixed inset-0 z-[100] flex justify-end bg-black/50 backdrop-blur-sm animate-in fade-in duration-300"
+          className="fixed inset-0 z-[100] flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
           onClick={() => setEditingAsset(null)}
         >
           <div 
-            className="w-full max-w-3xl bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 border-l border-gray-200"
+            className="w-full max-w-3xl bg-modal-bg shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 border-l border-modal-border"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-4 bg-primary text-white shadow-md">
@@ -129,27 +129,27 @@ export function RegistryFeature() {
               </button>
             </div>
             
-            <div className="flex-1 p-0 overflow-hidden relative bg-slate-50">
-              <div className="absolute top-3 right-6 text-[9px] font-mono text-slate-400 pointer-events-none uppercase tracking-widest">
+            <div className="flex-1 p-0 overflow-hidden relative bg-input-bg">
+              <div className="absolute top-3 right-6 text-[9px] font-mono text-app-muted pointer-events-none uppercase tracking-widest">
                 Markdown Editor // RAW_CONTENT
               </div>
               <textarea 
                 value={assetContent}
                 onChange={(e) => setAssetContent(e.target.value)}
-                className="w-full h-full bg-transparent text-slate-800 p-8 font-mono text-sm leading-relaxed outline-none resize-none selection:bg-primary/20"
+                className="w-full h-full bg-transparent text-input-text p-8 font-mono text-sm leading-relaxed outline-none resize-none selection:bg-primary/20"
                 spellCheck={false}
               />
             </div>
 
-            <div className="p-4 border-t border-gray-100 flex justify-between items-center bg-white">
-              <div className="text-[10px] font-mono text-slate-400 uppercase tracking-widest px-2">
+            <div className="p-4 border-t border-modal-border flex justify-between items-center bg-modal-bg">
+              <div className="text-[10px] font-mono text-app-muted uppercase tracking-widest px-2">
                 {assetContent.length} Characters • UTF-8
               </div>
               <div className="flex gap-4">
                 <button
                   type="button"
                   onClick={() => setEditingAsset(null)}
-                  className="px-6 py-2 text-[10px] font-heading font-black text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-[0.1em]"
+                  className="px-6 py-2 text-[10px] font-heading font-black text-app-muted hover:text-text-main transition-colors uppercase tracking-[0.1em]"
                 >
                   DISCARD_CHANGES
                 </button>
@@ -167,11 +167,11 @@ export function RegistryFeature() {
         </div>
       )}
 
-      {(selectedAsset || isAdding) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200">
-          <div className="bg-white border border-gray-200 shadow-2xl w-full max-w-lg mx-4 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/80">
-              <h3 className="font-heading font-bold text-xs uppercase tracking-widest">
+       {(selectedAsset || isAdding) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-[4px] animate-in fade-in duration-200">
+          <div className="bg-modal-bg border border-modal-border shadow-2xl w-full max-w-lg mx-4 animate-in zoom-in-95 duration-200 rounded-none">
+            <div className="flex items-center justify-between p-4 border-b border-modal-border bg-panel-bg">
+              <h3 className="font-heading font-bold text-xs uppercase tracking-widest text-text-main">
                 {isAdding ? "REGISTER_NEW_ASSET" : `CONFIGURE_${selectedAsset?.type.toUpperCase()}`}
               </h3>
               <button
@@ -180,7 +180,7 @@ export function RegistryFeature() {
                   setSelectedAsset(null);
                   setIsAdding(false);
                 }}
-                className="p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-gray-600 transition-colors"
+                className="p-1 hover:bg-background-app rounded text-app-muted hover:text-text-main transition-colors"
               >
                 <X size={16} />
               </button>
@@ -188,28 +188,28 @@ export function RegistryFeature() {
             
             <div className="p-6 space-y-6">
               <div className="space-y-1">
-                <div className="text-[10px] text-gray-400 font-heading">ASSET_NAME</div>
+                <div className="text-[10px] text-app-muted font-heading">ASSET_NAME</div>
                 <input 
                   type="text" 
                   defaultValue={selectedAsset?.name || ""} 
                   readOnly={!!selectedAsset}
-                  className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-xs font-mono outline-none focus:border-primary transition-colors"
+                  className="w-full bg-input-bg border border-input-border px-3 py-2 text-xs font-mono outline-none focus:border-primary transition-colors text-input-text"
                 />
               </div>
 
               <div className="space-y-1">
-                <div className="text-[10px] text-gray-400 font-heading">DESCRIPTION</div>
+                <div className="text-[10px] text-app-muted font-heading">DESCRIPTION</div>
                 <textarea 
                   defaultValue={selectedAsset?.description || ""}
                   rows={3}
-                  className="w-full bg-gray-50 border border-gray-200 px-3 py-2 text-xs font-mono outline-none focus:border-primary transition-colors resize-none"
+                  className="w-full bg-input-bg border border-input-border px-3 py-2 text-xs font-mono outline-none focus:border-primary transition-colors resize-none text-input-text"
                 />
               </div>
 
               {!isAdding && (
                 <div className="space-y-1">
-                  <div className="text-[10px] text-gray-400 font-heading">RAW_CONFIGURATION (.json)</div>
-                  <div className="bg-gray-950 p-4 font-mono text-[10px] text-green-400 border border-gray-800 shadow-inner overflow-x-auto">
+                  <div className="text-[10px] text-app-muted font-heading">RAW_CONFIGURATION (.json)</div>
+                  <div className="bg-slate-950 p-4 font-mono text-[10px] text-green-400 border border-slate-800 shadow-inner overflow-x-auto">
                     {JSON.stringify({
                       version: selectedAsset?.version || "1.0.0",
                       is_builtin: selectedAsset?.is_builtin,
@@ -221,14 +221,14 @@ export function RegistryFeature() {
               )}
             </div>
 
-            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+            <div className="p-4 bg-panel-bg border-t border-modal-border flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => {
                   setSelectedAsset(null);
                   setIsAdding(false);
                 }}
-                className="px-4 py-2 text-[10px] font-heading font-bold text-gray-400 hover:text-gray-600 uppercase tracking-widest"
+                className="px-4 py-2 text-[10px] font-heading font-bold text-app-muted hover:text-text-main uppercase tracking-widest"
               >
                 CANCEL
               </button>
@@ -255,29 +255,29 @@ function AssetCard({ asset, onConfig, onEdit }: { asset: RegistryAsset; onConfig
   const { name, type, version } = asset;
   return (
     <div
-      className="panel group hover:border-primary transition-all duration-300 border-gray-200 bg-white"
+      className="panel group hover:border-primary transition-all duration-300 bg-panel-bg"
       data-label={type.toUpperCase()}
     >
       <div className="flex items-start justify-between">
-        <div className="p-2 bg-gray-50 text-gray-400 group-hover:text-white group-hover:bg-primary transition-all">
+        <div className="p-2 bg-background-app text-app-muted group-hover:text-white group-hover:bg-primary transition-all rounded-lg">
           {type === "skill" ? <Package size={20} /> : <Shield size={20} />}
         </div>
-        <div className="text-[10px] font-mono text-gray-300">v{version || "1.0.0"}</div>
+        <div className="text-[10px] font-mono text-app-muted opacity-40">v{version || "1.0.0"}</div>
       </div>
       <div className="mt-4">
-        <div className="text-xs font-heading font-black truncate">{name}</div>
+        <div className="text-xs font-heading font-black truncate text-text-main">{name}</div>
         <div className="mt-4 flex gap-2">
           <button
             type="button"
             onClick={onConfig}
-            className="flex-1 py-1.5 text-[10px] font-heading font-bold tracking-wider border border-gray-200 hover:bg-gray-50 uppercase shadow-sm active:bg-gray-100 transition-colors"
+            className="flex-1 py-1.5 text-[10px] font-heading font-bold tracking-wider border border-panel-border text-app-muted hover:bg-background-app hover:text-primary uppercase shadow-sm active:bg-background-app transition-all rounded-sm"
           >
             CONFIG
           </button>
           <button
             type="button"
             onClick={onEdit}
-            className="p-1.5 border border-gray-200 hover:bg-slate-50 hover:text-primary hover:border-primary transition-all active:scale-90"
+            className="p-1.5 border border-panel-border text-app-muted hover:bg-background-app hover:text-primary hover:border-primary transition-all active:scale-90 rounded-sm"
             title="EDIT_CONTENT"
           >
             <Settings size={14} />

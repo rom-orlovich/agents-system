@@ -72,3 +72,32 @@ jira issue move PROJ-123 --sprint 42
 jira issue list -q "project=PROJ AND fixVersion='1.2.0'"
 jira issue move PROJ-123 "Done"
 ```
+
+## Automation Scripts
+
+### Post Analysis Results to Jira
+```bash
+# Post comment with analysis results
+.claude/skills/jira-operations/scripts/post_comment.sh PROJ-123 "Analysis complete: Bug found in authentication module"
+
+# Format markdown analysis to ADF (Atlassian Document Format)
+FORMATTED=$(./claude/skills/jira-operations/scripts/format_analysis.sh "# Analysis Results
+## Findings
+- Issue in login.py line 45
+- Memory leak detected")
+echo $FORMATTED | jq .
+```
+
+### Automated Ticket Updates from CI/CD
+```bash
+# Example: Post build status to Jira ticket
+BUILD_STATUS="✅ Build #123 succeeded. Tests: 150 passed, 0 failed."
+.claude/skills/jira-operations/scripts/post_comment.sh $JIRA_TICKET "$BUILD_STATUS"
+```
+
+### Integration with GitHub
+```bash
+# Post PR analysis to related Jira ticket
+ANALYSIS_RESULT=$(gh pr view 42 --json title,body | jq -r '.title + "\n\n" + .body')
+.claude/skills/jira-operations/scripts/post_comment.sh PROJ-123 "$ANALYSIS_RESULT"
+```

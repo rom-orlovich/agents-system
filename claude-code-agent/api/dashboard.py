@@ -42,7 +42,7 @@ class TaskTableRow(BaseModel):
     created_at: str
     completed_at: Optional[str]
     cost_usd: float
-    duration_seconds: Optional[int]
+    duration_seconds: Optional[float]
     input_message: str
     
     @classmethod

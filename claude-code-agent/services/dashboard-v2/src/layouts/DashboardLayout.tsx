@@ -2,6 +2,7 @@ import { type ReactNode, useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { Header } from "../components/ui/Header";
 import { Sidebar } from "../components/ui/Sidebar";
+import { TaskStatusModal } from "../components/TaskStatusModal";
 import { clsx } from "clsx";
 
 interface DashboardLayoutProps {
@@ -49,6 +50,7 @@ export function DashboardLayout({ children, headerSlot, sidebarSlot }: Dashboard
           </div>
         </main>
       </div>
+      <TaskStatusModal />
     </div>
   );
 }

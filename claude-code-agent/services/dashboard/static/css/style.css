@@ -321,9 +321,12 @@ body {
 /* MAIN CONTENT */
 .main-content {
     flex: 1;
-    overflow-y: auto;
+    overflow: hidden; /* Changed from overflow-y: hidden to ensure layout constraint */
     padding: 2rem;
     background: transparent;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Add min-height: 0 for flex children overflow control */
 }
 
 .tab-content {
@@ -338,7 +341,24 @@ body {
     grid-template-columns: repeat(12, 1fr);
     gap: 1.5rem;
     grid-auto-rows: min-content;
-    height: 100%; /* Ensure full height for specialized layouts like chat */
+    height: 100%;
+}
+
+/* Chat Tab Specific Overrides */
+#tab-chat.active {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    grid-column: span 12;
+    overflow: hidden;
+}
+
+#tab-chat .chat-container {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    border: none; /* Remove border if double bordering */
 }
 
 /* Ensure full width for containers inside the grid */
@@ -711,8 +731,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); box-sh
 /* CHAT INTERFACE (Consolidated) */
 .chat-container {
     display: grid;
-    grid-template-columns: 300px 1fr; /* Optimized sidebar width */
-    height: calc(100vh - 128px);
+    grid-template-columns: 300px 1fr;
+    height: 100%; /* Changed from calc to 100% */
     border: 1px solid var(--border);
     background: var(--bg-panel);
     overflow: hidden;
@@ -723,7 +743,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); box-sh
     display: flex; 
     flex-direction: column; 
     height: 100%;
-    min-height: 0;
+    min-height: 0; /* GRID FIX */
 }
 .conversation-sidebar-header { padding: 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
 .conversation-sidebar-header h3 { font-family: var(--font-heading); font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); }
@@ -738,7 +758,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); box-sh
     font-size: 10px;
 }
 .icon-btn:hover { border-color: var(--primary); color: var(--primary); }
-.conversation-list { overflow-y: auto; flex: 1; }
+.conversation-list { overflow-y: auto; flex: 1; min-height: 0; }
 .conversation-item { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: var(--transition); }
 .conversation-item:hover { background: rgba(255,255,255,0.02); }
 .conversation-item.active { background: rgba(255,255,255,0.05); border-left: 2px solid var(--primary); }

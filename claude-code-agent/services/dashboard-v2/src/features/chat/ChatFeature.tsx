@@ -1,13 +1,15 @@
 import { clsx } from "clsx";
 import { Bot, Clock, MessageSquare, Plus, Trash2, User, X, Check } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useChat } from "./hooks/useChat";
 import { useCLIStatus } from "../../hooks/useCLIStatus";
+import { useTaskModal } from "../../hooks/useTaskModal";
 
 export function ChatFeature() {
   const { conversations, messages, selectedId, selectedConversation, setSelectedConversation, sendMessage, createConversation, deleteConversation } =
     useChat();
   const { active: cliActive } = useCLIStatus();
+  const { openTask } = useTaskModal();
   const [input, setInput] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -43,23 +45,49 @@ export function ChatFeature() {
   
   const isDisabled = cliActive === false;
 
+  const renderMessageContent = (content: string) => {
+    // Regex to match task- followed by alphanumeric characters
+    const taskRegex = /task-[a-zA-Z0-9]+/g;
+    const parts = content.split(taskRegex);
+    const matches = content.match(taskRegex);
+
+    if (!matches) return content;
+
+    return parts.reduce((acc: (React.ReactNode)[], part, i) => {
+      acc.push(part);
+      if (matches[i]) {
+        acc.push(
+          <button
+            key={`${i}-task`}
+            type="button"
+            onClick={() => openTask(matches[i])}
+            className="text-primary hover:underline font-bold cursor-pointer bg-primary/10 px-1 rounded-sm transition-colors hover:bg-primary/20"
+          >
+            {matches[i]}
+          </button>
+        );
+      }
+      return acc;
+    }, []);
+  };
+
   return (
-    <div className="flex h-full border border-app bg-panel-app animate-in fade-in duration-500 overflow-hidden rounded-xl shadow-xl dark:shadow-slate-950/50">
+    <div className="flex h-full border border-panel-border bg-background-app animate-in fade-in duration-500 overflow-hidden rounded-xl shadow-xl dark:shadow-slate-950/50">
       {/* Sidebar */}
-      <aside className="w-64 border-r border-app flex flex-col bg-chat-sidebar min-h-0">
-        <div className="p-4 border-b border-app bg-white dark:bg-slate-900/50 flex justify-between items-center">
-          <span className="font-heading text-[10px] font-bold text-slate-400 dark:text-slate-500 tracking-widest">COMMS_CHANNELS</span>
+      <aside className="w-64 border-r border-panel-border flex flex-col bg-sidebar-bg min-h-0">
+        <div className="p-4 border-b border-panel-border bg-panel-bg flex justify-between items-center">
+          <span className="font-heading text-[10px] font-bold text-app-muted tracking-widest">COMMS_CHANNELS</span>
           <button 
             type="button"
             onClick={() => setIsCreating(true)}
-            className="p-1 hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-400 hover:text-primary rounded transition-colors"
+            className="p-1 hover:bg-background-app text-app-muted hover:text-primary rounded transition-colors"
           >
             <Plus size={14} />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto">
           {isCreating && (
-            <div className="p-2 m-2 bg-white dark:bg-slate-800 border border-primary/20 rounded shadow-sm">
+            <div className="p-2 m-2 bg-panel-bg border border-primary/20 rounded shadow-sm">
               <form onSubmit={handleCreate}>
                  <input
                   ref={titleInputRef}
@@ -67,7 +95,7 @@ export function ChatFeature() {
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="CHANNEL_NAME..."
-                  className="w-full text-[11px] font-heading font-bold mb-2 outline-none placeholder:text-gray-300 dark:bg-transparent dark:text-white"
+                  className="w-full text-[11px] font-heading font-bold mb-2 outline-none placeholder:text-gray-300 bg-transparent text-app-main"
                   onKeyDown={(e) => {
                     if (e.key === "Escape") {
                       setIsCreating(false);
@@ -82,7 +110,7 @@ export function ChatFeature() {
                       setIsCreating(false);
                       setNewTitle("");
                     }}
-                    className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded transition-colors"
+                    className="p-1 text-app-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded transition-colors"
                   >
                     <X size={12} />
                   </button>
@@ -98,13 +126,15 @@ export function ChatFeature() {
           )}
           
           {conversations?.map((conv) => (
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={0}
               key={conv.id}
               onClick={() => setSelectedConversation(conv)}
+              onKeyDown={(e) => e.key === "Enter" && setSelectedConversation(conv)}
               className={clsx(
-                "w-full text-left p-4 transition-all border-b border-app hover:bg-white dark:hover:bg-slate-900 group relative",
-                selectedConversation?.id === conv.id ? "bg-white dark:bg-slate-800/50" : "",
+                "w-full text-left p-4 transition-all border-b border-panel-border hover:bg-panel-bg group relative cursor-pointer outline-none",
+                selectedConversation?.id === conv.id ? "bg-panel-bg shadow-inner" : "",
               )}
             >
               {selectedConversation?.id === conv.id && (
@@ -141,33 +171,33 @@ export function ChatFeature() {
                       deleteConversation(conv.id);
                     }
                   }}
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all text-slate-400 dark:text-slate-600"
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all text-app-muted"
                   title="DELETE_CONVERSATION"
                 >
                   <Trash2 size={12} />
                 </button>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       </aside>
 
       {/* Main Chat Area */}
-      <section className="flex-1 flex flex-col bg-white dark:bg-slate-900 overflow-hidden relative">
+      <section className="flex-1 flex flex-col bg-panel-bg overflow-hidden relative">
         {selectedId ? (
           <>
-            <div className="p-4 border-b border-app flex justify-between items-center bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm z-10 sticky top-0">
-              <h2 className="text-xs font-heading font-black dark:text-white">
+            <div className="p-4 border-b border-panel-border flex justify-between items-center bg-panel-bg/90 backdrop-blur-sm z-10 sticky top-0">
+              <h2 className="text-xs font-heading font-black text-app-main">
                 {selectedConversation?.title || "Establishment in progress..."}
               </h2>
-              <div className="text-[10px] font-heading text-green-500 font-bold border border-green-100 dark:border-green-900/30 px-2 py-0.5 rounded uppercase">
+              <div className="text-[10px] font-heading text-green-500 font-bold border border-green-500/20 px-2 py-0.5 rounded uppercase">
                 ENCRYPTED_STREAM
               </div>
             </div>
 
             <div 
               ref={scrollRef}
-              className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth bg-gray-50/20 dark:bg-slate-950/20"
+              className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth bg-background-app/20"
             >
               <div className="max-w-3xl mx-auto w-full">
                 {messages?.map((msg) => (
@@ -182,26 +212,26 @@ export function ChatFeature() {
                       className={clsx(
                         "w-8 h-8 flex items-center justify-center flex-shrink-0 border shadow-sm transition-all duration-300",
                         msg.role === "user"
-                          ? "border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-full group-hover:border-primary/30"
+                          ? "border-input-border bg-panel-bg rounded-full group-hover:border-primary/30"
                           : "border-primary/20 bg-primary/5 text-primary rounded-none group-hover:bg-primary group-hover:text-white",
                       )}
                     >
-                      {msg.role === "user" ? <User size={14} className="dark:text-slate-300" /> : <Bot size={14} />}
+                      {msg.role === "user" ? <User size={14} className="text-app-main" /> : <Bot size={14} />}
                     </div>
                     <div
                       className={clsx(
                         "p-4 text-[11px] leading-relaxed border shadow-sm max-w-[80%] transition-all",
                         msg.role === "user"
-                          ? "bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 rounded-2xl rounded-tr-none text-slate-600 dark:text-slate-300"
-                          : "bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700 rounded-2xl rounded-tl-none text-gray-800 dark:text-slate-200",
+                          ? "bg-background-app border-panel-border rounded-2xl rounded-tr-none text-app-main/80"
+                          : "bg-panel-bg border-panel-border rounded-2xl rounded-tl-none text-app-main",
                       )}
                     >
                       <div className="font-mono whitespace-pre-wrap selection:bg-primary/20 leading-relaxed text-[11px]">
-                        {msg.content}
+                        {renderMessageContent(msg.content)}
                       </div>
                       <div className="mt-3 flex items-center justify-between gap-4 opacity-0 group-hover:opacity-40 transition-opacity">
-                        <span className="text-[9px] font-mono tracking-tighter uppercase font-bold">{msg.role}</span>
-                        <span className="text-[9px] font-mono">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="text-[9px] font-mono tracking-tighter uppercase font-bold text-app-muted">{msg.role}</span>
+                        <span className="text-[9px] font-mono text-app-muted">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     </div>
                   </div>
@@ -210,21 +240,21 @@ export function ChatFeature() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center bg-gray-50/10 dark:bg-slate-950/10">
+          <div className="flex-1 flex items-center justify-center bg-background-app/10">
             <div className="text-center group max-w-sm px-8 animate-in zoom-in-95 duration-500">
-              <div className="w-20 h-20 border border-gray-100 dark:border-slate-800 rounded-3xl flex items-center justify-center mx-auto mb-8 text-gray-200 dark:text-slate-800 group-hover:text-primary transition-all duration-500 group-hover:scale-110 group-hover:rotate-12 bg-white dark:bg-slate-900 shadow-sm shadow-gray-200/50 dark:shadow-black">
+              <div className="w-20 h-20 border border-panel-border rounded-3xl flex items-center justify-center mx-auto mb-8 text-app-muted/30 group-hover:text-primary transition-all duration-500 group-hover:scale-110 group-hover:rotate-12 bg-panel-bg shadow-sm">
                 <MessageSquare size={36} strokeWidth={1.5} />
               </div>
-              <div className="font-heading text-[11px] font-black text-gray-400 dark:text-gray-600 tracking-[0.2em] uppercase mb-3">
+              <div className="font-heading text-[11px] font-black text-app-muted tracking-[0.2em] uppercase mb-3">
                 NO_ACTIVE_TRANSMISSION
               </div>
-              <p className="font-mono text-[10px] text-gray-400/60 dark:text-gray-500 leading-relaxed mb-8">
+              <p className="font-mono text-[10px] text-app-muted/60 leading-relaxed mb-8">
                 Select a frequency from correctly established channels or initialize a new secure uplink
               </p>
               <button
                 type="button"
                 onClick={() => setIsCreating(true)}
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 text-[10px] font-heading font-black text-gray-400 dark:text-gray-500 hover:text-primary hover:border-primary/20 transition-all uppercase tracking-widest rounded-lg shadow-sm hover:shadow-md active:scale-95"
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-panel-bg border border-input-border text-[10px] font-heading font-black text-app-muted hover:text-primary hover:border-primary/20 transition-all uppercase tracking-widest rounded-lg shadow-sm hover:shadow-md active:scale-95"
               >
                 <Plus size={14} />
                 INITIALIZE_CHANNEL
@@ -234,7 +264,7 @@ export function ChatFeature() {
         )}
         
         {/* Input form always visible at bottom */}
-        <div className="p-4 border-t border-app bg-white dark:bg-slate-900 z-10">
+        <div className="p-4 border-t border-panel-border bg-panel-bg z-10">
           <form onSubmit={handleSend} className="max-w-3xl mx-auto flex gap-2">
             <input
               type="text"
@@ -243,7 +273,7 @@ export function ChatFeature() {
               placeholder={isDisabled ? "CLI INACTIVE - Cannot send messages" : selectedId ? "ENTER_COMMAND..." : "ENTER_COMMAND... (will create new conversation)"}
               disabled={isDisabled}
               className={clsx(
-                "flex-1 bg-gray-50 dark:bg-slate-950 border border-app px-4 py-2 text-xs font-mono focus:border-primary focus:bg-white dark:focus:bg-slate-900 transition-all outline-none rounded-sm dark:text-white",
+                "flex-1 bg-background-app border border-input-border px-4 py-2 text-xs font-mono focus:border-primary focus:bg-panel-bg transition-all outline-none rounded-sm text-input-text",
                 isDisabled && "opacity-50 cursor-not-allowed"
               )}
             />
@@ -253,7 +283,7 @@ export function ChatFeature() {
               className={clsx(
                 "px-4 py-2 transition-all active:scale-95 font-heading text-[10px] font-bold tracking-widest uppercase",
                 isDisabled
-                  ? "bg-gray-300 dark:bg-slate-800 text-gray-500 dark:text-slate-600 cursor-not-allowed"
+                  ? "bg-slate-200 text-slate-400 cursor-not-allowed"
                   : "bg-primary text-white hover:opacity-90"
               )}
             >

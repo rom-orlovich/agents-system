@@ -143,6 +143,18 @@ class TestClaudeCredentials:
         assert expired_creds.is_expired
         assert expired_creds.get_status() == AuthStatus.EXPIRED
 
+    def test_credentials_user_id_attribute(self):
+        """Credentials should have user_id attribute or property for compatibility."""
+        creds = ClaudeCredentials(
+            access_token="token123456789",
+            refresh_token="refresh123456789",
+            expires_at=int(datetime.now(timezone.utc).timestamp() * 1000),
+            account_id="test-account-id"
+        )
+        # This is expected to FAIL until we add the property or attribute
+        assert hasattr(creds, "user_id")
+        assert creds.user_id == "test-account-id"
+
 
 class TestWebhookConfig:
     """Test WebhookConfig model."""

@@ -341,6 +341,11 @@ class ClaudeCredentials(BaseModel):
         return cls(**normalized)
 
     @property
+    def user_id(self) -> Optional[str]:
+        """Alias for account_id to maintain backward compatibility."""
+        return self.account_id
+
+    @property
     def expires_at_datetime(self) -> datetime:
         """Convert to datetime."""
         return datetime.fromtimestamp(self.expires_at / 1000, tz=timezone.utc)

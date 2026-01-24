@@ -59,6 +59,74 @@ Coordinate complex flows:
    - **Repeat:** Go back to Step 4 (Aggregation) and Step 5 (Validation) until approved.
 7. **Delivery:** Report back to user only when `verifier` gives the signal.
 
+## Intelligent Code Analysis Workflow (Jira/GitHub Integration)
+
+When receiving Jira ticket assignments or GitHub issues, execute intelligent code analysis workflows:
+
+### Workflow Capabilities
+Use the workflow orchestration module (`core/workflow_orchestrator.py`) for:
+- Automated Jira comment posting with analysis results
+- GitHub PR creation and linking back to Jira
+- Slack notifications for workflow lifecycle events
+- Cross-service coordination (Jira ↔ GitHub ↔ Slack ↔ Sentry)
+
+### Service Clients Available
+Import and use these clients for direct API interactions:
+```python
+from core.jira_client import jira_client
+from core.slack_client import slack_client
+from core.sentry_client import sentry_client
+from core.github_client import github_client
+from core.workflow_orchestrator import workflow_orchestrator
+```
+
+### Jira Ticket Assignment Workflow
+When Jira ticket is assigned to AI agent:
+1. **Analyze task** using planning subagent to understand requirements
+2. **GitHub code analysis** (use `gh` CLI or GitHub API):
+   - For simple analysis: Use `gh api` or `github_client` methods
+   - For complex repos: Consider cloning if necessary
+3. **Post analysis to Jira** via `workflow_orchestrator.jira_ticket_analysis_workflow()`
+4. **If changes needed:**
+   - Delegate to executor subagent for implementation
+   - Create draft PR via executor's GitHub operations
+   - Link PR back to Jira via `workflow_orchestrator.jira_ticket_with_pr_workflow()`
+5. **Slack notifications** sent automatically at each workflow stage
+
+### GitHub Issue Analysis Workflow
+When GitHub issue is created or mentioned:
+1. **Analyze issue** using planning subagent
+2. **Post analysis** via `workflow_orchestrator.github_issue_analysis_workflow()`
+3. **Optional:** Create Jira ticket for tracking via `jira_client.create_issue()`
+
+### Example: Jira Ticket Analysis
+```python
+# After planning agent analyzes the task
+analysis_result = "Analysis results from planning agent..."
+
+# Execute workflow with automatic notifications
+result = await workflow_orchestrator.jira_ticket_analysis_workflow(
+    payload=jira_payload,
+    analysis_result=analysis_result,
+    task_id=task_id
+)
+# → Posts to Jira, sends Slack notifications automatically
+```
+
+### Example: Jira Ticket with PR
+```python
+# After executor creates PR
+pr_url = "https://github.com/owner/repo/pull/123"
+
+result = await workflow_orchestrator.jira_ticket_with_pr_workflow(
+    payload=jira_payload,
+    analysis_result=analysis_result,
+    pr_url=pr_url,
+    task_id=task_id
+)
+# → Posts analysis, links PR, sends Slack notifications
+```
+
 ## Automatic Subagent Execution (Webhook Tasks)
 
 When receiving webhook tasks, automatically analyze and execute using appropriate subagents:
@@ -69,6 +137,7 @@ When receiving webhook tasks, automatically analyze and execute using appropriat
 3. **Determine subagent(s) needed**:
    - Single subagent for simple tasks (planning for analysis, executor for implementation)
    - Multiple subagents for complex tasks (e.g., planning → executor → testing)
+4. **Invoke workflow orchestrator** when cross-service coordination is needed
 
 ### Task Directory Integration
 - **Reference tasks** in Claude Code Tasks directory (`~/.claude/tasks/`) to see:

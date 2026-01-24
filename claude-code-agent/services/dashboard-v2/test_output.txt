@@ -1,0 +1,3710 @@
+
+> dashboard-v2@0.0.0 test /Users/romo/projects/agents-prod/claude-code-agent/services/dashboard-v2
+> vitest -- --run
+
+
+[1m[44m DEV [49m[22m [34mv4.0.18 [39m[90m/Users/romo/projects/agents-prod/claude-code-agent/services/dashboard-v2[39m
+
+ [31m❯[39m src/features/chat/Chat.test.tsx [2m([22m[2m3 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[32m 15[2mms[22m[39m
+[31m   [31m×[31m renders conversation list[39m[32m 10[2mms[22m[39m
+[31m   [31m×[31m renders chat messages[39m[32m 2[2mms[22m[39m
+[31m   [31m×[31m renders input area[39m[32m 1[2mms[22m[39m
+[90mstdout[2m | src/components/ui/Header.test.tsx[2m > [22m[2mHeader - CLI Status Indicator[2m > [22m[2mshould show checking state when loading
+[22m[39mWebSocket disconnected, reconnecting...
+
+[90mstderr[2m | src/components/ui/Header.test.tsx[2m > [22m[2mHeader - CLI Status Indicator[2m > [22m[2mshould show checking state when loading
+[22m[39mWebSocket error Event { isTrusted: [36m[Getter][39m }
+
+[90mstdout[2m | src/components/ui/Header.test.tsx[2m > [22m[2mHeader - CLI Status Indicator[2m > [22m[2mshould show active state when CLI is active
+[22m[39mWebSocket disconnected, reconnecting...
+
+[90mstderr[2m | src/components/ui/Header.test.tsx[2m > [22m[2mHeader - CLI Status Indicator[2m > [22m[2mshould show active state when CLI is active
+[22m[39mWebSocket error Event { isTrusted: [36m[Getter][39m }
+
+[90mstdout[2m | src/components/ui/Header.test.tsx[2m > [22m[2mHeader - CLI Status Indicator[2m > [22m[2mshould show inactive state when CLI is inactive
+[22m[39mWebSocket disconnected, reconnecting...
+
+[90mstderr[2m | src/components/ui/Header.test.tsx[2m > [22m[2mHeader - CLI Status Indicator[2m > [22m[2mshould show inactive state when CLI is inactive
+[22m[39mWebSocket error Event { isTrusted: [36m[Getter][39m }
+
+[90mstdout[2m | src/components/ui/Header.test.tsx[2m > [22m[2mHeader - CLI Status Indicator[2m > [22m[2mshould call useCLIStatus hook
+[22m[39mWebSocket disconnected, reconnecting...
+
+[90mstderr[2m | src/components/ui/Header.test.tsx[2m > [22m[2mHeader - CLI Status Indicator[2m > [22m[2mshould call useCLIStatus hook
+[22m[39mWebSocket error Event { isTrusted: [36m[Getter][39m }
+
+[90mstdout[2m | src/components/ui/Header.test.tsx[2m > [22m[2mHeader - CLI Status Indicator[2m > [22m[2mshould display CLI status indicator in header
+[22m[39mWebSocket disconnected, reconnecting...
+
+[90mstderr[2m | src/components/ui/Header.test.tsx[2m > [22m[2mHeader - CLI Status Indicator[2m > [22m[2mshould display CLI status indicator in header
+[22m[39mWebSocket error Event { isTrusted: [36m[Getter][39m }
+
+[90mstdout[2m | src/components/ui/Header.test.tsx[2m > [22m[2mHeader - CLI Status Indicator[2m > [22m[2mshould handle error state
+[22m[39mWebSocket disconnected, reconnecting...
+
+[90mstderr[2m | src/components/ui/Header.test.tsx[2m > [22m[2mHeader - CLI Status Indicator[2m > [22m[2mshould handle error state
+[22m[39mWebSocket error Event { isTrusted: [36m[Getter][39m }
+
+ [31m❯[39m src/components/ui/Header.test.tsx [2m([22m[2m6 tests[22m[2m | [22m[31m6 failed[39m[2m)[22m[32m 44[2mms[22m[39m
+[31m     [31m×[31m should show checking state when loading[39m[32m 20[2mms[22m[39m
+[31m     [31m×[31m should show active state when CLI is active[39m[32m 4[2mms[22m[39m
+[31m     [31m×[31m should show inactive state when CLI is inactive[39m[32m 5[2mms[22m[39m
+[31m     [31m×[31m should call useCLIStatus hook[39m[32m 3[2mms[22m[39m
+[31m     [31m×[31m should display CLI status indicator in header[39m[32m 7[2mms[22m[39m
+[31m     [31m×[31m should handle error state[39m[32m 3[2mms[22m[39m
+ [32m✓[39m src/features/ledger/Ledger.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 73[2mms[22m[39m
+ [32m✓[39m src/features/overview/Overview.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 63[2mms[22m[39m
+[90mstderr[2m | src/features/analytics/Analytics.test.tsx[2m > [22m[2mrenders analytics titles
+[22m[39mThe tag <stop> is unrecognized in this browser. If you meant to render a React component, start its name with an uppercase letter.
+<linearGradient /> is using incorrect casing. Use PascalCase for React components, or lowercase for HTML elements.
+The tag <linearGradient> is unrecognized in this browser. If you meant to render a React component, start its name with an uppercase letter.
+The tag <defs> is unrecognized in this browser. If you meant to render a React component, start its name with an uppercase letter.
+
+[90mstderr[2m | src/features/analytics/Analytics.test.tsx[2m > [22m[2mrenders chart containers
+[22m[39m<linearGradient /> is using incorrect casing. Use PascalCase for React components, or lowercase for HTML elements.
+
+ [31m❯[39m src/features/analytics/Analytics.test.tsx [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 39[2mms[22m[39m
+[31m   [31m×[31m renders analytics titles[39m[32m 32[2mms[22m[39m
+[31m   [31m×[31m renders chart containers[39m[32m 6[2mms[22m[39m
+ [32m✓[39m src/features/overview/hooks/useMetrics.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 499[2mms[22m[39m
+ [32m✓[39m src/features/webhooks/Webhooks.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 46[2mms[22m[39m
+ [31m❯[39m src/hooks/useCLIStatus.test.tsx [2m([22m[2m6 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 2137[2mms[22m[39m
+     [32m✓[39m should start with loading state[32m 10[2mms[22m[39m
+     [32m✓[39m should load active status successfully[32m 56[2mms[22m[39m
+     [32m✓[39m should load inactive status successfully[32m 55[2mms[22m[39m
+[31m     [31m×[31m should handle fetch errors gracefully[39m[33m 1009[2mms[22m[39m
+[31m     [31m×[31m should handle non-ok responses[39m[33m 1004[2mms[22m[39m
+     [32m✓[39m should use correct query key[32m 2[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 13 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/hooks/useCLIStatus.test.tsx[2m > [22museCLIStatus[2m > [22mshould handle fetch errors gracefully
+[31m[1mAssertionError[22m: expected true to be false // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[31m
+  [36m<head />[31m
+  [36m<body>[31m
+    [36m<div />[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m src/hooks/useCLIStatus.test.tsx:[2m84:40[22m[39m
+    [90m 82| [39m    
+    [90m 83| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m {
+    [90m 84| [39m      [34mexpect[39m(result[33m.[39mcurrent[33m.[39misLoading)[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   | [39m                                       [31m^[39m
+    [90m 85| [39m    })[33m;[39m
+    [90m 86| [39m    
+[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
+[90m [2m❯[22m checkCallback node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
+[90m [2m❯[22m Timeout.checkRealTimersCallback node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/hooks/useCLIStatus.test.tsx[2m > [22museCLIStatus[2m > [22mshould handle non-ok responses
+[31m[1mAssertionError[22m: expected true to be false // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[31m
+  [36m<head />[31m
+  [36m<body>[31m
+    [36m<div />[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m src/hooks/useCLIStatus.test.tsx:[2m102:40[22m[39m
+    [90m100| [39m    
+    [90m101| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m {
+    [90m102| [39m      [34mexpect[39m(result[33m.[39mcurrent[33m.[39misLoading)[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   | [39m                                       [31m^[39m
+    [90m103| [39m    })[33m;[39m
+    [90m104| [39m    
+[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
+[90m [2m❯[22m checkCallback node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
+[90m [2m❯[22m Timeout.checkRealTimersCallback node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/components/ui/Header.test.tsx[2m > [22mHeader - CLI Status Indicator[2m > [22mshould show checking state when loading
+[41m[1m FAIL [22m[49m src/components/ui/Header.test.tsx[2m > [22mHeader - CLI Status Indicator[2m > [22mshould show active state when CLI is active
+[41m[1m FAIL [22m[49m src/components/ui/Header.test.tsx[2m > [22mHeader - CLI Status Indicator[2m > [22mshould show inactive state when CLI is inactive
+[41m[1m FAIL [22m[49m src/components/ui/Header.test.tsx[2m > [22mHeader - CLI Status Indicator[2m > [22mshould call useCLIStatus hook
+[41m[1m FAIL [22m[49m src/components/ui/Header.test.tsx[2m > [22mHeader - CLI Status Indicator[2m > [22mshould display CLI status indicator in header
+[41m[1m FAIL [22m[49m src/components/ui/Header.test.tsx[2m > [22mHeader - CLI Status Indicator[2m > [22mshould handle error state
+[31m[1mTypeError[22m: window.matchMedia is not a function[39m
+[36m [2m❯[22m src/components/ui/Header.tsx:[2m21:31[22m[39m
+    [90m 19| [39m    [90m// Check local storage or system preference[39m
+    [90m 20| [39m    [35mconst[39m saved [33m=[39m localStorage[33m.[39m[34mgetItem[39m([32m"theme"[39m)[33m;[39m
+    [90m 21| [39m    const systemDark = window.matchMedia("(prefers-color-scheme: dark)…
+    [90m   | [39m                              [31m^[39m
+    [90m 22| [39m    [35mif[39m (saved [33m===[39m [32m"dark"[39m [33m||[39m ([33m![39msaved [33m&&[39m systemDark)) {
+    [90m 23| [39m      [34msetIsDark[39m([35mtrue[39m)[33m;[39m
+[90m [2m❯[22m Object.react_stack_bottom_frame node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m25989:20[22m[39m
+[90m [2m❯[22m runWithFiberInDEV node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m874:13[22m[39m
+[90m [2m❯[22m commitHookEffectListMount node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m13249:29[22m[39m
+[90m [2m❯[22m commitHookPassiveMountEffects node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m13336:11[22m[39m
+[90m [2m❯[22m commitPassiveMountOnFiber node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m15484:13[22m[39m
+[90m [2m❯[22m recursivelyTraversePassiveMountEffects node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m15439:11[22m[39m
+[90m [2m❯[22m commitPassiveMountOnFiber node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m15718:11[22m[39m
+[90m [2m❯[22m recursivelyTraversePassiveMountEffects node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m15439:11[22m[39m
+[90m [2m❯[22m commitPassiveMountOnFiber node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m15476:11[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/features/analytics/Analytics.test.tsx[2m > [22mrenders analytics titles
+[31m[1mTestingLibraryElementError[22m[39m: Unable to find an element with the text: BURN_RATE_OVER_TIME. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-6 animate-in fade-in duration-500 pb-12"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"panel flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-3"[39m
+          [36m>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-xl md:text-2xl font-heading font-bold tracking-wider text-text-main dark:text-dark-text"[39m
+            [36m>[39m
+              [0mSYSTEM_ANALYTICS[0m
+            [36m</h1>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs font-mono text-gray-500 mt-2 flex items-center gap-2"[39m
+          [36m>[39m
+            [0mREAL_TIME_MONITORING[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"opacity-30"[39m
+            [36m>[39m
+              [0m//[0m
+            [36m</span>[39m
+            [0mNODE: ALPHA_7[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col items-start md:items-end gap-3 w-full md:w-auto"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1 text-[10px] font-heading font-medium rounded transition-all text-gray-500 hover:text-gray-900 dark:hover:text-gray-300"[39m
+            [36m>[39m
+              [0m24H[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1 text-[10px] font-heading font-medium rounded transition-all bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"[39m
+            [36m>[39m
+              [0m7D[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1 text-[10px] font-heading font-medium rounded transition-all text-gray-500 hover:text-gray-900 dark:hover:text-gray-300"[39m
+            [36m>[39m
+              [0m30D[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"[39m
+              [36m/>[39m
+              [0mONLINE[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid grid-cols-1 lg:grid-cols-2 gap-6"[39m
+      [36m>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"FINANCIAL_TELEMETRY"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-blue-500 transition-colors"[39m
+            [36m>[39m
+              [0mBURN_RATE_TREND [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mAVG: --/day[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"area-chart"[39m
+              [36m>[39m
+                [36m<defs>[39m
+                  [36m<lineargradient[39m
+                    [33mid[39m=[32m"colorCost"[39m
+                    [33mx1[39m=[32m"0"[39m
+                    [33mx2[39m=[32m"0"[39m
+                    [33my1[39m=[32m"0"[39m
+                    [33my2[39m=[32m"1"[39m
+                  [36m>[39m
+                    [36m<stop[39m
+                      [33moffset[39m=[32m"5%"[39m
+                      [33mstop-color[39m=[32m"#3B82F6"[39m
+                      [33mstop-opacity[39m=[32m"0.4"[39m
+                    [36m/>[39m
+                    [36m<stop[39m
+                      [33moffset[39m=[32m"95%"[39m
+                      [33mstop-color[39m=[32m"#3B82F6"[39m
+                      [33mstop-opacity[39m=[32m"0"[39m
+                    [36m/>[39m
+                  [36m</lineargradient>[39m
+                [36m</defs>[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"TOKEN_THROUGHPUT"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-amber-400 transition-colors"[39m
+            [36m>[39m
+              [0mTOKEN_CONSUMPTION [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mTOTAL: --[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"bar-chart"[39m
+              [36m>[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"NETWORK_LATENCY"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-emerald-400 transition-colors"[39m
+            [36m>[39m
+              [0mSYSTEM_LATENCY [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mAVG: --ms[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"recharts-wrapper"[39m
+                [33mstyle[39m=[32m"position: relative; cursor: default;"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"AGENT_PERFORMANCE"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-purple-400 transition-colors"[39m
+            [36m>[39m
+              [0mAGENT_LEADERBOARD [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mACTIVE: [0m
+              [0m0[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"bar-chart"[39m
+              [36m>[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m❯[22m Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m76:38[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m❯[22m src/features/analytics/Analytics.test.tsx:[2m47:17[22m[39m
+    [90m 45| [39m  [34mrender[39m([33m<[39m[33mAnalyticsFeature[39m [33m/[39m[33m>[39m)[33m;[39m
+    [90m 46| [39m
+    [90m 47| [39m  [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([32m"BURN_RATE_OVER_TIME"[39m))[33m.[39m[34mtoBeDefined[39m()[33m;[39m
+    [90m   | [39m                [31m^[39m
+    [90m 48| [39m  expect(screen.getByText("COMPUTE_DISTRIBUTION_BY_AGENT")).toBeDefine…
+    [90m 49| [39m})[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/features/analytics/Analytics.test.tsx[2m > [22mrenders chart containers
+[31m[1mTestingLibraryElementError[22m[39m: Found multiple elements by: [data-testid="bar-chart"]
+
+Here are the matching elements:
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33mdata-testid[39m=[32m"bar-chart"[39m
+[36m>[39m
+  [36m<div />[39m
+  [36m<div />[39m
+  [36m<div />[39m
+  [36m<div />[39m
+[36m</div>[39m
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33mdata-testid[39m=[32m"bar-chart"[39m
+[36m>[39m
+  [36m<div />[39m
+  [36m<div />[39m
+  [36m<div />[39m
+  [36m<div />[39m
+  [36m<div />[39m
+  [36m<div />[39m
+[36m</div>[39m
+
+(If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-6 animate-in fade-in duration-500 pb-12"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"panel flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-3"[39m
+          [36m>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-xl md:text-2xl font-heading font-bold tracking-wider text-text-main dark:text-dark-text"[39m
+            [36m>[39m
+              [0mSYSTEM_ANALYTICS[0m
+            [36m</h1>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs font-mono text-gray-500 mt-2 flex items-center gap-2"[39m
+          [36m>[39m
+            [0mREAL_TIME_MONITORING[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"opacity-30"[39m
+            [36m>[39m
+              [0m//[0m
+            [36m</span>[39m
+            [0mNODE: ALPHA_7[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col items-start md:items-end gap-3 w-full md:w-auto"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1 text-[10px] font-heading font-medium rounded transition-all text-gray-500 hover:text-gray-900 dark:hover:text-gray-300"[39m
+            [36m>[39m
+              [0m24H[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1 text-[10px] font-heading font-medium rounded transition-all bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"[39m
+            [36m>[39m
+              [0m7D[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1 text-[10px] font-heading font-medium rounded transition-all text-gray-500 hover:text-gray-900 dark:hover:text-gray-300"[39m
+            [36m>[39m
+              [0m30D[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"[39m
+              [36m/>[39m
+              [0mONLINE[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid grid-cols-1 lg:grid-cols-2 gap-6"[39m
+      [36m>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"FINANCIAL_TELEMETRY"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-blue-500 transition-colors"[39m
+            [36m>[39m
+              [0mBURN_RATE_TREND [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mAVG: --/day[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"area-chart"[39m
+              [36m>[39m
+                [36m<defs>[39m
+                  [36m<lineargradient[39m
+                    [33mid[39m=[32m"colorCost"[39m
+                    [33mx1[39m=[32m"0"[39m
+                    [33mx2[39m=[32m"0"[39m
+                    [33my1[39m=[32m"0"[39m
+                    [33my2[39m=[32m"1"[39m
+                  [36m>[39m
+                    [36m<stop[39m
+                      [33moffset[39m=[32m"5%"[39m
+                      [33mstop-color[39m=[32m"#3B82F6"[39m
+                      [33mstop-opacity[39m=[32m"0.4"[39m
+                    [36m/>[39m
+                    [36m<stop[39m
+                      [33moffset[39m=[32m"95%"[39m
+                      [33mstop-color[39m=[32m"#3B82F6"[39m
+                      [33mstop-opacity[39m=[32m"0"[39m
+                    [36m/>[39m
+                  [36m</lineargradient>[39m
+                [36m</defs>[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"TOKEN_THROUGHPUT"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-amber-400 transition-colors"[39m
+            [36m>[39m
+              [0mTOKEN_CONSUMPTION [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mTOTAL: --[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"bar-chart"[39m
+              [36m>[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"NETWORK_LATENCY"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-emerald-400 transition-colors"[39m
+            [36m>[39m
+              [0mSYSTEM_LATENCY [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mAVG: --ms[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"recharts-wrapper"[39m
+                [33mstyle[39m=[32m"position: relative; cursor: default;"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"AGENT_PERFORMANCE"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-purple-400 transition-colors"[39m
+            [36m>[39m
+              [0mAGENT_LEADERBOARD [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mACTIVE: [0m
+              [0m0[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"bar-chart"[39m
+              [36m>[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m❯[22m Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m❯[22m getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m20:35[22m[39m
+[90m [2m❯[22m getMultipleElementsFoundError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m23:10[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m55:13[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m❯[22m src/features/analytics/Analytics.test.tsx:[2m55:17[22m[39m
+    [90m 53| [39m
+    [90m 54| [39m  [34mexpect[39m(screen[33m.[39m[34mgetByTestId[39m([32m"area-chart"[39m))[33m.[39m[34mtoBeDefined[39m()[33m;[39m
+    [90m 55| [39m  [34mexpect[39m(screen[33m.[39m[34mgetByTestId[39m([32m"bar-chart"[39m))[33m.[39m[34mtoBeDefined[39m()[33m;[39m
+    [90m   | [39m                [31m^[39m
+    [90m 56| [39m})[33m;[39m
+    [90m 57| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/13]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/features/chat/Chat.test.tsx[2m > [22mrenders conversation list
+[41m[1m FAIL [22m[49m src/features/chat/Chat.test.tsx[2m > [22mrenders chat messages
+[41m[1m FAIL [22m[49m src/features/chat/Chat.test.tsx[2m > [22mrenders input area
+[31m[1mError[22m: No QueryClient set, use QueryClientProvider to set one[39m
+[90m [2m❯[22m useQueryClient node_modules/.pnpm/@tanstack+react-query@5.90.19_react@19.2.3/node_modules/@tanstack/react-query/build/modern/QueryClientProvider.js:[2m15:11[22m[39m
+[90m [2m❯[22m useBaseQuery node_modules/.pnpm/@tanstack+react-query@5.90.19_react@19.2.3/node_modules/@tanstack/react-query/build/modern/useBaseQuery.js:[2m30:18[22m[39m
+[90m [2m❯[22m useQuery node_modules/.pnpm/@tanstack+react-query@5.90.19_react@19.2.3/node_modules/@tanstack/react-query/build/modern/useQuery.js:[2m7:10[22m[39m
+[36m [2m❯[22m useCLIStatus src/hooks/useCLIStatus.ts:[2m9:38[22m[39m
+    [90m  7| [39m
+    [90m  8| [39m[35mexport[39m [35mfunction[39m [34museCLIStatus[39m() {
+    [90m  9| [39m  [35mconst[39m { data[33m,[39m isLoading[33m,[39m error } [33m=[39m useQuery[33m<[39m[33mCLIStatusResponse[39m[33m>[39m({
+    [90m   | [39m                                     [31m^[39m
+    [90m 10| [39m    queryKey[33m:[39m [[32m"cli-status"[39m][33m,[39m
+    [90m 11| [39m    queryFn[33m:[39m [35masync[39m () [33m=>[39m {
+[90m [2m❯[22m ChatFeature src/features/chat/ChatFeature.tsx:[2m11:33[22m[39m
+[90m [2m❯[22m Object.react_stack_bottom_frame node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m25904:20[22m[39m
+[90m [2m❯[22m renderWithHooks node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m7662:22[22m[39m
+[90m [2m❯[22m updateFunctionComponent node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m10166:19[22m[39m
+[90m [2m❯[22m beginWork node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m11778:18[22m[39m
+[90m [2m❯[22m runWithFiberInDEV node_modules/.pnpm/react-dom@19.2.3_react@19.2.3/node_modules/react-dom/cjs/react-dom-client.development.js:[2m874:13[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/13]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m4 failed[39m[22m[2m | [22m[1m[32m4 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[31m13 failed[39m[22m[2m | [22m[1m[32m31 passed[39m[22m[90m (44)[39m
+[2m   Start at [22m 21:15:57
+[2m   Duration [22m 3.01s[2m (transform 569ms, setup 460ms, import 2.43s, tests 2.92s, environment 3.28s)[22m
+
+[1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/features/chat/Chat.test.tsx [22m[34mx1 [34m[39m
+
+ [31m❯[39m src/hooks/useCLIStatus.test.tsx [2m([22m[2m6 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 2137[2mms[22m[39m
+     [32m✓[39m should start with loading state[32m 10[2mms[22m[39m
+     [32m✓[39m should load active status successfully[32m 56[2mms[22m[39m
+     [32m✓[39m should load inactive status successfully[32m 55[2mms[22m[39m
+[31m     [31m×[31m should handle fetch errors gracefully[39m[33m 1009[2mms[22m[39m
+[31m     [31m×[31m should handle non-ok responses[39m[33m 1004[2mms[22m[39m
+     [32m✓[39m should use correct query key[32m 2[2mms[22m[39m
+ [31m❯[39m src/components/ui/Header.test.tsx [2m([22m[2m6 tests[22m[2m | [22m[31m6 failed[39m[2m)[22m[32m 44[2mms[22m[39m
+[31m     [31m×[31m should show checking state when loading[39m[32m 20[2mms[22m[39m
+[31m     [31m×[31m should show active state when CLI is active[39m[32m 4[2mms[22m[39m
+[31m     [31m×[31m should show inactive state when CLI is inactive[39m[32m 5[2mms[22m[39m
+[31m     [31m×[31m should call useCLIStatus hook[39m[32m 3[2mms[22m[39m
+[31m     [31m×[31m should display CLI status indicator in header[39m[32m 7[2mms[22m[39m
+[31m     [31m×[31m should handle error state[39m[32m 3[2mms[22m[39m
+ [31m❯[39m src/features/analytics/Analytics.test.tsx [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 39[2mms[22m[39m
+[31m   [31m×[31m renders analytics titles[39m[32m 32[2mms[22m[39m
+[31m   [31m×[31m renders chart containers[39m[32m 6[2mms[22m[39m
+[90mstderr[2m | src/features/chat/Chat.test.tsx[2m > [22m[2mrenders conversation list
+[22m[39mIn HTML, <button> cannot be a descendant of <button>.
+This will cause a hydration error.
+
+  <ChatFeature>
+    <div className="flex h-ful...">
+      <aside className="w-64 borde...">
+        <div>
+        <div className="flex-1 ove...">
+>         <button
+>           type="button"
+>           onClick={function onClick}
+>           className="w-full text-left p-4 transition-all border-b border-panel-border hover:bg-panel-bg group relati..."
+>         >
+            <div>
+            <div>
+            <div>
+            <div className="flex items...">
+              <div>
+>             <button
+>               type="button"
+>               onClick={function onClick}
+>               className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all text-app-muted"
+>               title="DELETE_CONVERSATION"
+>             >
+          ...
+      ...
+
+<button> cannot contain a nested <button>.
+See this log for the ancestor stack trace.
+
+ [31m❯[39m src/features/chat/Chat.test.tsx [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 53[2mms[22m[39m
+   [32m✓[39m renders conversation list[32m 35[2mms[22m[39m
+[31m   [31m×[31m renders chat messages[39m[32m 11[2mms[22m[39m
+[31m   [31m×[31m renders input area[39m[32m 6[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/features/chat/Chat.test.tsx[2m > [22mrenders chat messages
+[31m[1mTestingLibraryElementError[22m[39m: Unable to find an element with the text: Run security scan.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full border border-panel-border bg-background-app animate-in fade-in duration-500 overflow-hidden rounded-xl shadow-xl dark:shadow-slate-950/50"[39m
+    [36m>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"w-64 border-r border-panel-border flex flex-col bg-sidebar-bg min-h-0"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 border-b border-panel-border bg-panel-bg flex justify-between items-center"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"font-heading text-[10px] font-bold text-app-muted tracking-widest"[39m
+          [36m>[39m
+            [0mCOMMS_CHANNELS[0m
+          [36m</span>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"p-1 hover:bg-background-app text-app-muted hover:text-primary rounded transition-colors"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-plus"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"14"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"14"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 12h14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 5v14"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex-1 overflow-y-auto"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"w-full text-left p-4 transition-all border-b border-panel-border hover:bg-panel-bg group relative bg-panel-bg shadow-inner"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"absolute left-0 top-0 bottom-0 w-1 bg-primary animate-in slide-in-from-left duration-300"[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex justify-between items-start mb-1"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-[11px] font-heading font-black truncate transition-colors tracking-tight text-primary"[39m
+              [36m>[39m
+                [0mTask Execution Log[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 shrink-0 ml-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"w-1 h-1 rounded-full bg-green-500 animate-pulse"[39m
+                [36m/>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-[8px] font-heading font-bold text-green-500 tracking-tighter uppercase opacity-80"[39m
+                [36m>[39m
+                  [0mLIVE[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-[10px] text-app-muted truncate mt-1 font-mono opacity-60"[39m
+            [36m>[39m
+              [0mProcess finished with success.[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between mt-4"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 text-[10px] font-mono text-app-muted"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-clock shrink-0 opacity-40"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"10"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"10"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M12 6v6l4 2"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"12"[39m
+                    [33mcy[39m=[32m"12"[39m
+                    [33mr[39m=[32m"10"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0m11:00 PM[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all text-app-muted"[39m
+                [33mtitle[39m=[32m"DELETE_CONVERSATION"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-trash2 lucide-trash-2"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"12"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"12"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M10 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M14 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 6h18"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"w-full text-left p-4 transition-all border-b border-panel-border hover:bg-panel-bg group relative"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex justify-between items-start mb-1"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-[11px] font-heading font-black truncate transition-colors tracking-tight text-app-main group-hover:text-primary"[39m
+              [36m>[39m
+                [0mSystem Alerts[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 shrink-0 ml-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"w-1 h-1 rounded-full bg-green-500 animate-pulse"[39m
+                [36m/>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-[8px] font-heading font-bold text-green-500 tracking-tighter uppercase opacity-80"[39m
+                [36m>[39m
+                  [0mLIVE[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-[10px] text-app-muted truncate mt-1 font-mono opacity-60"[39m
+            [36m>[39m
+              [0mMemory usage high.[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between mt-4"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 text-[10px] font-mono text-app-muted"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-clock shrink-0 opacity-40"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"10"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"10"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M12 6v6l4 2"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"12"[39m
+                    [33mcy[39m=[32m"12"[39m
+                    [33mr[39m=[32m"10"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0m10:55 PM[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all text-app-muted"[39m
+                [33mtitle[39m=[32m"DELETE_CONVERSATION"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-trash2 lucide-trash-2"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"12"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"12"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M10 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M14 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 6h18"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</aside>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"flex-1 flex flex-col bg-panel-bg overflow-hidden relative"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex-1 flex items-center justify-center bg-background-app/10"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"text-center group max-w-sm px-8 animate-in zoom-in-95 duration-500"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-20 h-20 border border-panel-border rounded-3xl flex items-center justify-center mx-auto mb-8 text-app-muted/30 group-hover:text-primary transition-all duration-500 group-hover:scale-110 group-hover:rotate-12 bg-panel-bg shadow-sm"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-message-square"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"36"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.5"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"36"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"font-heading text-[11px] font-black text-app-muted tracking-[0.2em] uppercase mb-3"[39m
+            [36m>[39m
+              [0mNO_ACTIVE_TRANSMISSION[0m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"font-mono text-[10px] text-app-muted/60 leading-relaxed mb-8"[39m
+            [36m>[39m
+              [0mSelect a frequency from correctly established channels or initialize a new secure uplink[0m
+            [36m</p>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-2 px-6 py-2.5 bg-panel-bg border border-input-border text-[10px] font-heading font-black text-app-muted hover:text-primary hover:border-primary/20 transition-all uppercase tracking-widest rounded-lg shadow-sm hover:shadow-md active:scale-95"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-plus"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"14"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"14"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M5 12h14"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 5v14"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0mINITIALIZE_CHANNEL[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 border-t border-panel-border bg-panel-bg z-10"[39m
+        [36m>[39m
+          [36m<form[39m
+            [33mclass[39m=[32m"max-w-3xl mx-auto flex gap-2"[39m
+          [36m>[39m
+            [36m<input[39m
+              [33mclass[39m=[32m"flex-1 bg-background-app border border-input-border px-4 py-2 text-xs font-mono focus:border-primary focus:bg-panel-bg transition-all outline-none rounded-sm text-input-text"[39m
+              [33mplaceholder[39m=[32m"ENTER_COMMAND... (will create new conversation)"[39m
+              [33mtype[39m=[32m"text"[39m
+              [33mvalue[39m=[32m""[39m
+            [36m/>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-4 py-2 transition-all active:scale-95 font-heading text-[10px] font-bold tracking-widest uppercase bg-primary text-white hover:opacity-90"[39m
+              [33mtype[39m=[32m"submit"[39m
+            [36m>[39m
+              [0mEXECUTE[0m
+            [36m</button>[39m
+          [36m</form>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m❯[22m Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m76:38[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m❯[22m src/features/chat/Chat.test.tsx:[2m37:17[22m[39m
+    [90m 35| [39m  [34mrender[39m([33m<[39m[33mChatFeature[39m [33m/[39m[33m>[39m)[33m;[39m
+    [90m 36| [39m
+    [90m 37| [39m  [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([32m"Run security scan."[39m))[33m.[39m[34mtoBeDefined[39m()[33m;[39m
+    [90m   | [39m                [31m^[39m
+    [90m 38| [39m  [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([32m"No critical threats found."[39m))[33m.[39m[34mtoBeDefined[39m()[33m;[39m
+    [90m 39| [39m})[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/features/chat/Chat.test.tsx[2m > [22mrenders input area
+[31m[1mTestingLibraryElementError[22m[39m: Unable to find an element with the placeholder text of: ENTER_COMMAND...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full border border-panel-border bg-background-app animate-in fade-in duration-500 overflow-hidden rounded-xl shadow-xl dark:shadow-slate-950/50"[39m
+    [36m>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"w-64 border-r border-panel-border flex flex-col bg-sidebar-bg min-h-0"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 border-b border-panel-border bg-panel-bg flex justify-between items-center"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"font-heading text-[10px] font-bold text-app-muted tracking-widest"[39m
+          [36m>[39m
+            [0mCOMMS_CHANNELS[0m
+          [36m</span>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"p-1 hover:bg-background-app text-app-muted hover:text-primary rounded transition-colors"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-plus"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"14"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"14"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 12h14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 5v14"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex-1 overflow-y-auto"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"w-full text-left p-4 transition-all border-b border-panel-border hover:bg-panel-bg group relative bg-panel-bg shadow-inner"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"absolute left-0 top-0 bottom-0 w-1 bg-primary animate-in slide-in-from-left duration-300"[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex justify-between items-start mb-1"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-[11px] font-heading font-black truncate transition-colors tracking-tight text-primary"[39m
+              [36m>[39m
+                [0mTask Execution Log[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 shrink-0 ml-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"w-1 h-1 rounded-full bg-green-500 animate-pulse"[39m
+                [36m/>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-[8px] font-heading font-bold text-green-500 tracking-tighter uppercase opacity-80"[39m
+                [36m>[39m
+                  [0mLIVE[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-[10px] text-app-muted truncate mt-1 font-mono opacity-60"[39m
+            [36m>[39m
+              [0mProcess finished with success.[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between mt-4"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 text-[10px] font-mono text-app-muted"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-clock shrink-0 opacity-40"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"10"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"10"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M12 6v6l4 2"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"12"[39m
+                    [33mcy[39m=[32m"12"[39m
+                    [33mr[39m=[32m"10"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0m11:00 PM[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all text-app-muted"[39m
+                [33mtitle[39m=[32m"DELETE_CONVERSATION"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-trash2 lucide-trash-2"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"12"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"12"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M10 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M14 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 6h18"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"w-full text-left p-4 transition-all border-b border-panel-border hover:bg-panel-bg group relative"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex justify-between items-start mb-1"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-[11px] font-heading font-black truncate transition-colors tracking-tight text-app-main group-hover:text-primary"[39m
+              [36m>[39m
+                [0mSystem Alerts[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 shrink-0 ml-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"w-1 h-1 rounded-full bg-green-500 animate-pulse"[39m
+                [36m/>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-[8px] font-heading font-bold text-green-500 tracking-tighter uppercase opacity-80"[39m
+                [36m>[39m
+                  [0mLIVE[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-[10px] text-app-muted truncate mt-1 font-mono opacity-60"[39m
+            [36m>[39m
+              [0mMemory usage high.[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between mt-4"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 text-[10px] font-mono text-app-muted"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-clock shrink-0 opacity-40"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"10"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"10"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M12 6v6l4 2"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"12"[39m
+                    [33mcy[39m=[32m"12"[39m
+                    [33mr[39m=[32m"10"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0m10:55 PM[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all text-app-muted"[39m
+                [33mtitle[39m=[32m"DELETE_CONVERSATION"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-trash2 lucide-trash-2"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"12"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"12"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M10 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M14 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 6h18"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</aside>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"flex-1 flex flex-col bg-panel-bg overflow-hidden relative"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex-1 flex items-center justify-center bg-background-app/10"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"text-center group max-w-sm px-8 animate-in zoom-in-95 duration-500"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-20 h-20 border border-panel-border rounded-3xl flex items-center justify-center mx-auto mb-8 text-app-muted/30 group-hover:text-primary transition-all duration-500 group-hover:scale-110 group-hover:rotate-12 bg-panel-bg shadow-sm"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-message-square"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"36"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.5"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"36"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"font-heading text-[11px] font-black text-app-muted tracking-[0.2em] uppercase mb-3"[39m
+            [36m>[39m
+              [0mNO_ACTIVE_TRANSMISSION[0m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"font-mono text-[10px] text-app-muted/60 leading-relaxed mb-8"[39m
+            [36m>[39m
+              [0mSelect a frequency from correctly established channels or initialize a new secure uplink[0m
+            [36m</p>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-2 px-6 py-2.5 bg-panel-bg border border-input-border text-[10px] font-heading font-black text-app-muted hover:text-primary hover:border-primary/20 transition-all uppercase tracking-widest rounded-lg shadow-sm hover:shadow-md active:scale-95"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-plus"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"14"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"14"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M5 12h14"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 5v14"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0mINITIALIZE_CHANNEL[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 border-t border-panel-border bg-panel-bg z-10"[39m
+        [36m>[39m
+          [36m<form[39m
+            [33mclass[39m=[32m"max-w-3xl mx-auto flex gap-2"[39m
+          [36m>[39m
+            [36m<input[39m
+              [33mclass[39m=[32m"flex-1 bg-background-app border border-input-border px-4 py-2 text-xs font-mono focus:border-primary focus:bg-panel-bg transition-all outline-none rounded-sm text-input-text"[39m
+              [33mplaceholder[39m=[32m"ENTER_COMMAND... (will create new conversation)"[39m
+              [33mtype[39m=[32m"text"[39m
+              [33mvalue[39m=[32m""[39m
+            [36m/>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-4 py-2 transition-all active:scale-95 font-heading text-[10px] font-bold tracking-widest uppercase bg-primary text-white hover:opacity-90"[39m
+              [33mtype[39m=[32m"submit"[39m
+            [36m>[39m
+              [0mEXECUTE[0m
+            [36m</button>[39m
+          [36m</form>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m❯[22m Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m76:38[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m❯[22m src/features/chat/Chat.test.tsx:[2m44:17[22m[39m
+    [90m 42| [39m  [34mrender[39m([33m<[39m[33mChatFeature[39m [33m/[39m[33m>[39m)[33m;[39m
+    [90m 43| [39m
+    [90m 44| [39m  expect(screen.getByPlaceholderText("ENTER_COMMAND...")).toBeDefined(…
+    [90m   | [39m                [31m^[39m
+    [90m 45| [39m})[33m;[39m
+    [90m 46| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m4 failed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[31m12 failed[39m[22m[2m | [22m[1m[32m5 passed[39m[22m[90m (17)[39m
+[2m   Start at [22m 21:16:10
+[2m   Duration [22m 216ms
+
+[1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/test/setup.ts [22m[39m
+
+[90mstderr[2m | src/features/chat/Chat.test.tsx[2m > [22m[2mrenders conversation list
+[22m[39mIn HTML, <button> cannot be a descendant of <button>.
+This will cause a hydration error.
+
+  <ChatFeature>
+    <div className="flex h-ful...">
+      <aside className="w-64 borde...">
+        <div>
+        <div className="flex-1 ove...">
+>         <button
+>           type="button"
+>           onClick={function onClick}
+>           className="w-full text-left p-4 transition-all border-b border-panel-border hover:bg-panel-bg group relati..."
+>         >
+            <div>
+            <div>
+            <div>
+            <div className="flex items...">
+              <div>
+>             <button
+>               type="button"
+>               onClick={function onClick}
+>               className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all text-app-muted"
+>               title="DELETE_CONVERSATION"
+>             >
+          ...
+      ...
+
+<button> cannot contain a nested <button>.
+See this log for the ancestor stack trace.
+
+ [32m✓[39m src/features/ledger/Ledger.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 156[2mms[22m[39m
+[90mstdout[2m | src/components/ui/Header.test.tsx
+[22m[39mWebSocket disconnected, reconnecting...
+
+[90mstderr[2m | src/components/ui/Header.test.tsx
+[22m[39mWebSocket error Event { isTrusted: [36m[Getter][39m }
+
+[90mstdout[2m | src/components/ui/Header.test.tsx
+[22m[39mWebSocket disconnected, reconnecting...
+
+[90mstderr[2m | src/components/ui/Header.test.tsx
+[22m[39mWebSocket error Event { isTrusted: [36m[Getter][39m }
+
+[90mstdout[2m | src/components/ui/Header.test.tsx
+[22m[39mWebSocket disconnected, reconnecting...
+
+[90mstderr[2m | src/components/ui/Header.test.tsx
+[22m[39mWebSocket error Event { isTrusted: [36m[Getter][39m }
+
+[90mstdout[2m | src/components/ui/Header.test.tsx
+[22m[39mWebSocket disconnected, reconnecting...
+
+[90mstderr[2m | src/components/ui/Header.test.tsx
+[22m[39mWebSocket error Event { isTrusted: [36m[Getter][39m }
+
+[90mstdout[2m | src/components/ui/Header.test.tsx
+[22m[39mWebSocket disconnected, reconnecting...
+
+[90mstderr[2m | src/components/ui/Header.test.tsx
+[22m[39mWebSocket error Event { isTrusted: [36m[Getter][39m }
+
+[90mstdout[2m | src/components/ui/Header.test.tsx
+[22m[39mWebSocket disconnected, reconnecting...
+
+[90mstderr[2m | src/components/ui/Header.test.tsx
+[22m[39mWebSocket error Event { isTrusted: [36m[Getter][39m }
+
+ [32m✓[39m src/components/ui/Header.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 211[2mms[22m[39m
+ [31m❯[39m src/features/chat/Chat.test.tsx [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 146[2mms[22m[39m
+   [32m✓[39m renders conversation list[32m 78[2mms[22m[39m
+[31m   [31m×[31m renders chat messages[39m[32m 29[2mms[22m[39m
+[31m   [31m×[31m renders input area[39m[32m 37[2mms[22m[39m
+ [32m✓[39m src/features/overview/Overview.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 191[2mms[22m[39m
+[90mstderr[2m | src/features/analytics/Analytics.test.tsx[2m > [22m[2mrenders analytics titles
+[22m[39mThe tag <stop> is unrecognized in this browser. If you meant to render a React component, start its name with an uppercase letter.
+<linearGradient /> is using incorrect casing. Use PascalCase for React components, or lowercase for HTML elements.
+The tag <linearGradient> is unrecognized in this browser. If you meant to render a React component, start its name with an uppercase letter.
+The tag <defs> is unrecognized in this browser. If you meant to render a React component, start its name with an uppercase letter.
+
+[90mstderr[2m | src/features/analytics/Analytics.test.tsx[2m > [22m[2mrenders chart containers
+[22m[39m<linearGradient /> is using incorrect casing. Use PascalCase for React components, or lowercase for HTML elements.
+
+ [31m❯[39m src/features/analytics/Analytics.test.tsx [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 48[2mms[22m[39m
+[31m   [31m×[31m renders analytics titles[39m[32m 39[2mms[22m[39m
+[31m   [31m×[31m renders chart containers[39m[32m 8[2mms[22m[39m
+ [32m✓[39m src/features/overview/hooks/useMetrics.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 530[2mms[22m[39m
+ [32m✓[39m src/features/webhooks/Webhooks.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 45[2mms[22m[39m
+ [31m❯[39m src/hooks/useCLIStatus.test.tsx [2m([22m[2m6 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 2161[2mms[22m[39m
+     [32m✓[39m should start with loading state[32m 13[2mms[22m[39m
+     [32m✓[39m should load active status successfully[32m 73[2mms[22m[39m
+     [32m✓[39m should load inactive status successfully[32m 57[2mms[22m[39m
+[31m     [31m×[31m should handle fetch errors gracefully[39m[33m 1010[2mms[22m[39m
+[31m     [31m×[31m should handle non-ok responses[39m[33m 1003[2mms[22m[39m
+     [32m✓[39m should use correct query key[32m 2[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 6 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/hooks/useCLIStatus.test.tsx[2m > [22museCLIStatus[2m > [22mshould handle fetch errors gracefully
+[31m[1mAssertionError[22m: expected true to be false // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[31m
+  [36m<head />[31m
+  [36m<body>[31m
+    [36m<div />[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m src/hooks/useCLIStatus.test.tsx:[2m84:40[22m[39m
+    [90m 82| [39m    
+    [90m 83| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m {
+    [90m 84| [39m      [34mexpect[39m(result[33m.[39mcurrent[33m.[39misLoading)[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   | [39m                                       [31m^[39m
+    [90m 85| [39m    })[33m;[39m
+    [90m 86| [39m    
+[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
+[90m [2m❯[22m checkCallback node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
+[90m [2m❯[22m Timeout.checkRealTimersCallback node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/hooks/useCLIStatus.test.tsx[2m > [22museCLIStatus[2m > [22mshould handle non-ok responses
+[31m[1mAssertionError[22m: expected true to be false // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[31m
+  [36m<head />[31m
+  [36m<body>[31m
+    [36m<div />[31m
+  [36m</body>[31m
+[36m</html>[31m[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m src/hooks/useCLIStatus.test.tsx:[2m102:40[22m[39m
+    [90m100| [39m    
+    [90m101| [39m    [35mawait[39m [34mwaitFor[39m(() [33m=>[39m {
+    [90m102| [39m      [34mexpect[39m(result[33m.[39mcurrent[33m.[39misLoading)[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   | [39m                                       [31m^[39m
+    [90m103| [39m    })[33m;[39m
+    [90m104| [39m    
+[90m [2m❯[22m runWithExpensiveErrorDiagnosticsDisabled node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m47:12[22m[39m
+[90m [2m❯[22m checkCallback node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:[2m124:77[22m[39m
+[90m [2m❯[22m Timeout.checkRealTimersCallback node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:[2m118:16[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/features/analytics/Analytics.test.tsx[2m > [22mrenders analytics titles
+[31m[1mTestingLibraryElementError[22m[39m: Unable to find an element with the text: COMPUTE_DISTRIBUTION_BY_AGENT. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-6 animate-in fade-in duration-500 pb-12"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"panel flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-3"[39m
+          [36m>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-xl md:text-2xl font-heading font-bold tracking-wider text-text-main dark:text-dark-text"[39m
+            [36m>[39m
+              [0mSYSTEM_ANALYTICS[0m
+            [36m</h1>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs font-mono text-gray-500 mt-2 flex items-center gap-2"[39m
+          [36m>[39m
+            [0mREAL_TIME_MONITORING[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"opacity-30"[39m
+            [36m>[39m
+              [0m//[0m
+            [36m</span>[39m
+            [0mNODE: ALPHA_7[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col items-start md:items-end gap-3 w-full md:w-auto"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1 text-[10px] font-heading font-medium rounded transition-all text-gray-500 hover:text-gray-900 dark:hover:text-gray-300"[39m
+            [36m>[39m
+              [0m24H[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1 text-[10px] font-heading font-medium rounded transition-all bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"[39m
+            [36m>[39m
+              [0m7D[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1 text-[10px] font-heading font-medium rounded transition-all text-gray-500 hover:text-gray-900 dark:hover:text-gray-300"[39m
+            [36m>[39m
+              [0m30D[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"[39m
+              [36m/>[39m
+              [0mONLINE[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid grid-cols-1 lg:grid-cols-2 gap-6"[39m
+      [36m>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"FINANCIAL_TELEMETRY"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-blue-500 transition-colors"[39m
+            [36m>[39m
+              [0mBURN_RATE_TREND [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mAVG: --/day[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"area-chart"[39m
+              [36m>[39m
+                [36m<defs>[39m
+                  [36m<lineargradient[39m
+                    [33mid[39m=[32m"colorCost"[39m
+                    [33mx1[39m=[32m"0"[39m
+                    [33mx2[39m=[32m"0"[39m
+                    [33my1[39m=[32m"0"[39m
+                    [33my2[39m=[32m"1"[39m
+                  [36m>[39m
+                    [36m<stop[39m
+                      [33moffset[39m=[32m"5%"[39m
+                      [33mstop-color[39m=[32m"#3B82F6"[39m
+                      [33mstop-opacity[39m=[32m"0.4"[39m
+                    [36m/>[39m
+                    [36m<stop[39m
+                      [33moffset[39m=[32m"95%"[39m
+                      [33mstop-color[39m=[32m"#3B82F6"[39m
+                      [33mstop-opacity[39m=[32m"0"[39m
+                    [36m/>[39m
+                  [36m</lineargradient>[39m
+                [36m</defs>[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"TOKEN_THROUGHPUT"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-amber-400 transition-colors"[39m
+            [36m>[39m
+              [0mTOKEN_CONSUMPTION [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mTOTAL: --[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"bar-chart"[39m
+              [36m>[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"NETWORK_LATENCY"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-emerald-400 transition-colors"[39m
+            [36m>[39m
+              [0mSYSTEM_LATENCY [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mAVG: --ms[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"recharts-wrapper"[39m
+                [33mstyle[39m=[32m"position: relative; cursor: default;"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"AGENT_PERFORMANCE"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-purple-400 transition-colors"[39m
+            [36m>[39m
+              [0mAGENT_LEADERBOARD [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mACTIVE: [0m
+              [0m0[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"bar-chart"[39m
+              [36m>[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m❯[22m Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m76:38[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[90m [2m❯[22m src/features/analytics/Analytics.test.tsx:[2m48:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/features/analytics/Analytics.test.tsx[2m > [22mrenders chart containers
+[31m[1mTestingLibraryElementError[22m[39m: Found multiple elements by: [data-testid="bar-chart"]
+
+Here are the matching elements:
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33mdata-testid[39m=[32m"bar-chart"[39m
+[36m>[39m
+  [36m<div />[39m
+  [36m<div />[39m
+  [36m<div />[39m
+  [36m<div />[39m
+[36m</div>[39m
+
+Ignored nodes: comments, script, style
+[36m<div[39m
+  [33mdata-testid[39m=[32m"bar-chart"[39m
+[36m>[39m
+  [36m<div />[39m
+  [36m<div />[39m
+  [36m<div />[39m
+  [36m<div />[39m
+  [36m<div />[39m
+  [36m<div />[39m
+[36m</div>[39m
+
+(If this is intentional, then use the `*AllBy*` variant of the query (like `queryAllByText`, `getAllByText`, or `findAllByText`)).
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-6 animate-in fade-in duration-500 pb-12"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"panel flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-3"[39m
+          [36m>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-xl md:text-2xl font-heading font-bold tracking-wider text-text-main dark:text-dark-text"[39m
+            [36m>[39m
+              [0mSYSTEM_ANALYTICS[0m
+            [36m</h1>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs font-mono text-gray-500 mt-2 flex items-center gap-2"[39m
+          [36m>[39m
+            [0mREAL_TIME_MONITORING[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"opacity-30"[39m
+            [36m>[39m
+              [0m//[0m
+            [36m</span>[39m
+            [0mNODE: ALPHA_7[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col items-start md:items-end gap-3 w-full md:w-auto"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1 text-[10px] font-heading font-medium rounded transition-all text-gray-500 hover:text-gray-900 dark:hover:text-gray-300"[39m
+            [36m>[39m
+              [0m24H[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1 text-[10px] font-heading font-medium rounded transition-all bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"[39m
+            [36m>[39m
+              [0m7D[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1 text-[10px] font-heading font-medium rounded transition-all text-gray-500 hover:text-gray-900 dark:hover:text-gray-300"[39m
+            [36m>[39m
+              [0m30D[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"[39m
+              [36m/>[39m
+              [0mONLINE[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid grid-cols-1 lg:grid-cols-2 gap-6"[39m
+      [36m>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"FINANCIAL_TELEMETRY"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-blue-500 transition-colors"[39m
+            [36m>[39m
+              [0mBURN_RATE_TREND [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mAVG: --/day[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"area-chart"[39m
+              [36m>[39m
+                [36m<defs>[39m
+                  [36m<lineargradient[39m
+                    [33mid[39m=[32m"colorCost"[39m
+                    [33mx1[39m=[32m"0"[39m
+                    [33mx2[39m=[32m"0"[39m
+                    [33my1[39m=[32m"0"[39m
+                    [33my2[39m=[32m"1"[39m
+                  [36m>[39m
+                    [36m<stop[39m
+                      [33moffset[39m=[32m"5%"[39m
+                      [33mstop-color[39m=[32m"#3B82F6"[39m
+                      [33mstop-opacity[39m=[32m"0.4"[39m
+                    [36m/>[39m
+                    [36m<stop[39m
+                      [33moffset[39m=[32m"95%"[39m
+                      [33mstop-color[39m=[32m"#3B82F6"[39m
+                      [33mstop-opacity[39m=[32m"0"[39m
+                    [36m/>[39m
+                  [36m</lineargradient>[39m
+                [36m</defs>[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"TOKEN_THROUGHPUT"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-amber-400 transition-colors"[39m
+            [36m>[39m
+              [0mTOKEN_CONSUMPTION [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mTOTAL: --[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"bar-chart"[39m
+              [36m>[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"NETWORK_LATENCY"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-emerald-400 transition-colors"[39m
+            [36m>[39m
+              [0mSYSTEM_LATENCY [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mAVG: --ms[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"recharts-wrapper"[39m
+                [33mstyle[39m=[32m"position: relative; cursor: default;"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"AGENT_PERFORMANCE"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-purple-400 transition-colors"[39m
+            [36m>[39m
+              [0mAGENT_LEADERBOARD [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mACTIVE: [0m
+              [0m0[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"bar-chart"[39m
+              [36m>[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m❯[22m Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m❯[22m getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m20:35[22m[39m
+[90m [2m❯[22m getMultipleElementsFoundError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m23:10[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m55:13[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[90m [2m❯[22m src/features/analytics/Analytics.test.tsx:[2m55:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/features/chat/Chat.test.tsx[2m > [22mrenders chat messages
+[31m[1mTestingLibraryElementError[22m[39m: Unable to find an element with the text: Run security scan.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full border border-panel-border bg-background-app animate-in fade-in duration-500 overflow-hidden rounded-xl shadow-xl dark:shadow-slate-950/50"[39m
+    [36m>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"w-64 border-r border-panel-border flex flex-col bg-sidebar-bg min-h-0"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 border-b border-panel-border bg-panel-bg flex justify-between items-center"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"font-heading text-[10px] font-bold text-app-muted tracking-widest"[39m
+          [36m>[39m
+            [0mCOMMS_CHANNELS[0m
+          [36m</span>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"p-1 hover:bg-background-app text-app-muted hover:text-primary rounded transition-colors"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-plus"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"14"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"14"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 12h14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 5v14"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex-1 overflow-y-auto"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"w-full text-left p-4 transition-all border-b border-panel-border hover:bg-panel-bg group relative bg-panel-bg shadow-inner"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"absolute left-0 top-0 bottom-0 w-1 bg-primary animate-in slide-in-from-left duration-300"[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex justify-between items-start mb-1"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-[11px] font-heading font-black truncate transition-colors tracking-tight text-primary"[39m
+              [36m>[39m
+                [0mTask Execution Log[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 shrink-0 ml-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"w-1 h-1 rounded-full bg-green-500 animate-pulse"[39m
+                [36m/>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-[8px] font-heading font-bold text-green-500 tracking-tighter uppercase opacity-80"[39m
+                [36m>[39m
+                  [0mLIVE[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-[10px] text-app-muted truncate mt-1 font-mono opacity-60"[39m
+            [36m>[39m
+              [0mProcess finished with success.[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between mt-4"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 text-[10px] font-mono text-app-muted"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-clock shrink-0 opacity-40"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"10"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"10"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M12 6v6l4 2"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"12"[39m
+                    [33mcy[39m=[32m"12"[39m
+                    [33mr[39m=[32m"10"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0m11:00 PM[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all text-app-muted"[39m
+                [33mtitle[39m=[32m"DELETE_CONVERSATION"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-trash2 lucide-trash-2"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"12"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"12"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M10 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M14 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 6h18"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"w-full text-left p-4 transition-all border-b border-panel-border hover:bg-panel-bg group relative"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex justify-between items-start mb-1"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-[11px] font-heading font-black truncate transition-colors tracking-tight text-app-main group-hover:text-primary"[39m
+              [36m>[39m
+                [0mSystem Alerts[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 shrink-0 ml-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"w-1 h-1 rounded-full bg-green-500 animate-pulse"[39m
+                [36m/>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-[8px] font-heading font-bold text-green-500 tracking-tighter uppercase opacity-80"[39m
+                [36m>[39m
+                  [0mLIVE[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-[10px] text-app-muted truncate mt-1 font-mono opacity-60"[39m
+            [36m>[39m
+              [0mMemory usage high.[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between mt-4"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 text-[10px] font-mono text-app-muted"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-clock shrink-0 opacity-40"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"10"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"10"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M12 6v6l4 2"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"12"[39m
+                    [33mcy[39m=[32m"12"[39m
+                    [33mr[39m=[32m"10"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0m10:55 PM[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all text-app-muted"[39m
+                [33mtitle[39m=[32m"DELETE_CONVERSATION"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-trash2 lucide-trash-2"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"12"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"12"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M10 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M14 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 6h18"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</aside>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"flex-1 flex flex-col bg-panel-bg overflow-hidden relative"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex-1 flex items-center justify-center bg-background-app/10"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"text-center group max-w-sm px-8 animate-in zoom-in-95 duration-500"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-20 h-20 border border-panel-border rounded-3xl flex items-center justify-center mx-auto mb-8 text-app-muted/30 group-hover:text-primary transition-all duration-500 group-hover:scale-110 group-hover:rotate-12 bg-panel-bg shadow-sm"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-message-square"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"36"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.5"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"36"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"font-heading text-[11px] font-black text-app-muted tracking-[0.2em] uppercase mb-3"[39m
+            [36m>[39m
+              [0mNO_ACTIVE_TRANSMISSION[0m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"font-mono text-[10px] text-app-muted/60 leading-relaxed mb-8"[39m
+            [36m>[39m
+              [0mSelect a frequency from correctly established channels or initialize a new secure uplink[0m
+            [36m</p>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-2 px-6 py-2.5 bg-panel-bg border border-input-border text-[10px] font-heading font-black text-app-muted hover:text-primary hover:border-primary/20 transition-all uppercase tracking-widest rounded-lg shadow-sm hover:shadow-md active:scale-95"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-plus"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"14"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"14"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M5 12h14"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 5v14"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0mINITIALIZE_CHANNEL[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 border-t border-panel-border bg-panel-bg z-10"[39m
+        [36m>[39m
+          [36m<form[39m
+            [33mclass[39m=[32m"max-w-3xl mx-auto flex gap-2"[39m
+          [36m>[39m
+            [36m<input[39m
+              [33mclass[39m=[32m"flex-1 bg-background-app border border-input-border px-4 py-2 text-xs font-mono focus:border-primary focus:bg-panel-bg transition-all outline-none rounded-sm text-input-text"[39m
+              [33mplaceholder[39m=[32m"ENTER_COMMAND... (will create new conversation)"[39m
+              [33mtype[39m=[32m"text"[39m
+              [33mvalue[39m=[32m""[39m
+            [36m/>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-4 py-2 transition-all active:scale-95 font-heading text-[10px] font-bold tracking-widest uppercase bg-primary text-white hover:opacity-90"[39m
+              [33mtype[39m=[32m"submit"[39m
+            [36m>[39m
+              [0mEXECUTE[0m
+            [36m</button>[39m
+          [36m</form>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m❯[22m Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m76:38[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m❯[22m src/features/chat/Chat.test.tsx:[2m37:17[22m[39m
+    [90m 35| [39m  [34mrender[39m([33m<[39m[33mChatFeature[39m [33m/[39m[33m>[39m)[33m;[39m
+    [90m 36| [39m
+    [90m 37| [39m  [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([32m"Run security scan."[39m))[33m.[39m[34mtoBeDefined[39m()[33m;[39m
+    [90m   | [39m                [31m^[39m
+    [90m 38| [39m  [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([32m"No critical threats found."[39m))[33m.[39m[34mtoBeDefined[39m()[33m;[39m
+    [90m 39| [39m})[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/features/chat/Chat.test.tsx[2m > [22mrenders input area
+[31m[1mTestingLibraryElementError[22m[39m: Unable to find an element with the placeholder text of: ENTER_COMMAND...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full border border-panel-border bg-background-app animate-in fade-in duration-500 overflow-hidden rounded-xl shadow-xl dark:shadow-slate-950/50"[39m
+    [36m>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"w-64 border-r border-panel-border flex flex-col bg-sidebar-bg min-h-0"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 border-b border-panel-border bg-panel-bg flex justify-between items-center"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"font-heading text-[10px] font-bold text-app-muted tracking-widest"[39m
+          [36m>[39m
+            [0mCOMMS_CHANNELS[0m
+          [36m</span>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"p-1 hover:bg-background-app text-app-muted hover:text-primary rounded transition-colors"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-plus"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"14"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"14"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 12h14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 5v14"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex-1 overflow-y-auto"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"w-full text-left p-4 transition-all border-b border-panel-border hover:bg-panel-bg group relative bg-panel-bg shadow-inner"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"absolute left-0 top-0 bottom-0 w-1 bg-primary animate-in slide-in-from-left duration-300"[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex justify-between items-start mb-1"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-[11px] font-heading font-black truncate transition-colors tracking-tight text-primary"[39m
+              [36m>[39m
+                [0mTask Execution Log[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 shrink-0 ml-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"w-1 h-1 rounded-full bg-green-500 animate-pulse"[39m
+                [36m/>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-[8px] font-heading font-bold text-green-500 tracking-tighter uppercase opacity-80"[39m
+                [36m>[39m
+                  [0mLIVE[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-[10px] text-app-muted truncate mt-1 font-mono opacity-60"[39m
+            [36m>[39m
+              [0mProcess finished with success.[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between mt-4"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 text-[10px] font-mono text-app-muted"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-clock shrink-0 opacity-40"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"10"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"10"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M12 6v6l4 2"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"12"[39m
+                    [33mcy[39m=[32m"12"[39m
+                    [33mr[39m=[32m"10"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0m11:00 PM[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all text-app-muted"[39m
+                [33mtitle[39m=[32m"DELETE_CONVERSATION"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-trash2 lucide-trash-2"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"12"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"12"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M10 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M14 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 6h18"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"w-full text-left p-4 transition-all border-b border-panel-border hover:bg-panel-bg group relative"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex justify-between items-start mb-1"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-[11px] font-heading font-black truncate transition-colors tracking-tight text-app-main group-hover:text-primary"[39m
+              [36m>[39m
+                [0mSystem Alerts[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 shrink-0 ml-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"w-1 h-1 rounded-full bg-green-500 animate-pulse"[39m
+                [36m/>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-[8px] font-heading font-bold text-green-500 tracking-tighter uppercase opacity-80"[39m
+                [36m>[39m
+                  [0mLIVE[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-[10px] text-app-muted truncate mt-1 font-mono opacity-60"[39m
+            [36m>[39m
+              [0mMemory usage high.[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between mt-4"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 text-[10px] font-mono text-app-muted"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-clock shrink-0 opacity-40"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"10"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"10"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M12 6v6l4 2"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"12"[39m
+                    [33mcy[39m=[32m"12"[39m
+                    [33mr[39m=[32m"10"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0m10:55 PM[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all text-app-muted"[39m
+                [33mtitle[39m=[32m"DELETE_CONVERSATION"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-trash2 lucide-trash-2"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"12"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"12"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M10 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M14 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 6h18"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</aside>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"flex-1 flex flex-col bg-panel-bg overflow-hidden relative"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex-1 flex items-center justify-center bg-background-app/10"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"text-center group max-w-sm px-8 animate-in zoom-in-95 duration-500"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"w-20 h-20 border border-panel-border rounded-3xl flex items-center justify-center mx-auto mb-8 text-app-muted/30 group-hover:text-primary transition-all duration-500 group-hover:scale-110 group-hover:rotate-12 bg-panel-bg shadow-sm"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-message-square"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"36"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"1.5"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"36"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"font-heading text-[11px] font-black text-app-muted tracking-[0.2em] uppercase mb-3"[39m
+            [36m>[39m
+              [0mNO_ACTIVE_TRANSMISSION[0m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"font-mono text-[10px] text-app-muted/60 leading-relaxed mb-8"[39m
+            [36m>[39m
+              [0mSelect a frequency from correctly established channels or initialize a new secure uplink[0m
+            [36m</p>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-2 px-6 py-2.5 bg-panel-bg border border-input-border text-[10px] font-heading font-black text-app-muted hover:text-primary hover:border-primary/20 transition-all uppercase tracking-widest rounded-lg shadow-sm hover:shadow-md active:scale-95"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-plus"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"14"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"14"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M5 12h14"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M12 5v14"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [0mINITIALIZE_CHANNEL[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 border-t border-panel-border bg-panel-bg z-10"[39m
+        [36m>[39m
+          [36m<form[39m
+            [33mclass[39m=[32m"max-w-3xl mx-auto flex gap-2"[39m
+          [36m>[39m
+            [36m<input[39m
+              [33mclass[39m=[32m"flex-1 bg-background-app border border-input-border px-4 py-2 text-xs font-mono focus:border-primary focus:bg-panel-bg transition-all outline-none rounded-sm text-input-text"[39m
+              [33mplaceholder[39m=[32m"ENTER_COMMAND... (will create new conversation)"[39m
+              [33mtype[39m=[32m"text"[39m
+              [33mvalue[39m=[32m""[39m
+            [36m/>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-4 py-2 transition-all active:scale-95 font-heading text-[10px] font-bold tracking-widest uppercase bg-primary text-white hover:opacity-90"[39m
+              [33mtype[39m=[32m"submit"[39m
+            [36m>[39m
+              [0mEXECUTE[0m
+            [36m</button>[39m
+          [36m</form>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m❯[22m Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m76:38[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m❯[22m src/features/chat/Chat.test.tsx:[2m44:17[22m[39m
+    [90m 42| [39m  [34mrender[39m([33m<[39m[33mChatFeature[39m [33m/[39m[33m>[39m)[33m;[39m
+    [90m 43| [39m
+    [90m 44| [39m  expect(screen.getByPlaceholderText("ENTER_COMMAND...")).toBeDefined(…
+    [90m   | [39m                [31m^[39m
+    [90m 45| [39m})[33m;[39m
+    [90m 46| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m5 passed[39m[22m[90m (8)[39m
+[2m      Tests [22m [1m[31m6 failed[39m[22m[2m | [22m[1m[32m38 passed[39m[22m[90m (44)[39m
+[2m   Start at [22m 21:16:29
+[2m   Duration [22m 9.40s
+
+[1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/features/analytics/Analytics.test.tsx [22m[34mx2 [34m[39m
+
+ [31m❯[39m src/hooks/useCLIStatus.test.tsx [2m([22m[2m6 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 2161[2mms[22m[39m
+     [32m✓[39m should start with loading state[32m 13[2mms[22m[39m
+     [32m✓[39m should load active status successfully[32m 73[2mms[22m[39m
+     [32m✓[39m should load inactive status successfully[32m 57[2mms[22m[39m
+[31m     [31m×[31m should handle fetch errors gracefully[39m[33m 1010[2mms[22m[39m
+[31m     [31m×[31m should handle non-ok responses[39m[33m 1003[2mms[22m[39m
+     [32m✓[39m should use correct query key[32m 2[2mms[22m[39m
+ [31m❯[39m src/features/chat/Chat.test.tsx [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 146[2mms[22m[39m
+   [32m✓[39m renders conversation list[32m 78[2mms[22m[39m
+[31m   [31m×[31m renders chat messages[39m[32m 29[2mms[22m[39m
+[31m   [31m×[31m renders input area[39m[32m 37[2mms[22m[39m
+[90mstderr[2m | src/features/analytics/Analytics.test.tsx[2m > [22m[2mrenders analytics titles
+[22m[39mThe tag <stop> is unrecognized in this browser. If you meant to render a React component, start its name with an uppercase letter.
+<linearGradient /> is using incorrect casing. Use PascalCase for React components, or lowercase for HTML elements.
+The tag <linearGradient> is unrecognized in this browser. If you meant to render a React component, start its name with an uppercase letter.
+The tag <defs> is unrecognized in this browser. If you meant to render a React component, start its name with an uppercase letter.
+
+[90mstderr[2m | src/features/analytics/Analytics.test.tsx[2m > [22m[2mrenders chart containers
+[22m[39m<linearGradient /> is using incorrect casing. Use PascalCase for React components, or lowercase for HTML elements.
+
+ [31m❯[39m src/features/analytics/Analytics.test.tsx [2m([22m[2m2 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 42[2mms[22m[39m
+[31m   [31m×[31m renders analytics titles[39m[32m 35[2mms[22m[39m
+   [32m✓[39m renders chart containers[32m 6[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/features/analytics/Analytics.test.tsx[2m > [22mrenders analytics titles
+[31m[1mTestingLibraryElementError[22m[39m: Unable to find an element with the text: COMPUTE_DISTRIBUTION_BY_AGENT. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-6 animate-in fade-in duration-500 pb-12"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"panel flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex items-center gap-3"[39m
+          [36m>[39m
+            [36m<h1[39m
+              [33mclass[39m=[32m"text-xl md:text-2xl font-heading font-bold tracking-wider text-text-main dark:text-dark-text"[39m
+            [36m>[39m
+              [0mSYSTEM_ANALYTICS[0m
+            [36m</h1>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-xs font-mono text-gray-500 mt-2 flex items-center gap-2"[39m
+          [36m>[39m
+            [0mREAL_TIME_MONITORING[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"opacity-30"[39m
+            [36m>[39m
+              [0m//[0m
+            [36m</span>[39m
+            [0mNODE: ALPHA_7[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col items-start md:items-end gap-3 w-full md:w-auto"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1 text-[10px] font-heading font-medium rounded transition-all text-gray-500 hover:text-gray-900 dark:hover:text-gray-300"[39m
+            [36m>[39m
+              [0m24H[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1 text-[10px] font-heading font-medium rounded transition-all bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"[39m
+            [36m>[39m
+              [0m7D[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"px-3 py-1 text-[10px] font-heading font-medium rounded transition-all text-gray-500 hover:text-gray-900 dark:hover:text-gray-300"[39m
+            [36m>[39m
+              [0m30D[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"px-2 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"[39m
+              [36m/>[39m
+              [0mONLINE[0m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid grid-cols-1 lg:grid-cols-2 gap-6"[39m
+      [36m>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"FINANCIAL_TELEMETRY"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-blue-500 transition-colors"[39m
+            [36m>[39m
+              [0mBURN_RATE_TREND [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mAVG: --/day[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"area-chart"[39m
+              [36m>[39m
+                [36m<defs>[39m
+                  [36m<lineargradient[39m
+                    [33mid[39m=[32m"colorCost"[39m
+                    [33mx1[39m=[32m"0"[39m
+                    [33mx2[39m=[32m"0"[39m
+                    [33my1[39m=[32m"0"[39m
+                    [33my2[39m=[32m"1"[39m
+                  [36m>[39m
+                    [36m<stop[39m
+                      [33moffset[39m=[32m"5%"[39m
+                      [33mstop-color[39m=[32m"#3B82F6"[39m
+                      [33mstop-opacity[39m=[32m"0.4"[39m
+                    [36m/>[39m
+                    [36m<stop[39m
+                      [33moffset[39m=[32m"95%"[39m
+                      [33mstop-color[39m=[32m"#3B82F6"[39m
+                      [33mstop-opacity[39m=[32m"0"[39m
+                    [36m/>[39m
+                  [36m</lineargradient>[39m
+                [36m</defs>[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"TOKEN_THROUGHPUT"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-amber-400 transition-colors"[39m
+            [36m>[39m
+              [0mTOKEN_CONSUMPTION [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mTOTAL: --[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"bar-chart"[39m
+              [36m>[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"NETWORK_LATENCY"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-emerald-400 transition-colors"[39m
+            [36m>[39m
+              [0mSYSTEM_LATENCY [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mAVG: --ms[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"recharts-wrapper"[39m
+                [33mstyle[39m=[32m"position: relative; cursor: default;"[39m
+              [36m/>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"panel group min-h-[400px]"[39m
+          [33mdata-label[39m=[32m"AGENT_PERFORMANCE"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex justify-between items-center mb-6"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"text-sm font-heading text-gray-400 group-hover:text-purple-400 transition-colors"[39m
+            [36m>[39m
+              [0mAGENT_LEADERBOARD [[0m
+              [0m7D[0m
+              [0m][0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-xs font-mono text-gray-500"[39m
+            [36m>[39m
+              [0mACTIVE: [0m
+              [0m0[0m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"h-[300px] w-full"[39m
+            [33mstyle[39m=[32m"min-height: 300px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mdata-testid[39m=[32m"responsive-container"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mdata-testid[39m=[32m"bar-chart"[39m
+              [36m>[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+                [36m<div />[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2m❯[22m Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m76:38[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m❯[22m src/features/analytics/Analytics.test.tsx:[2m48:17[22m[39m
+    [90m 46| [39m
+    [90m 47| [39m  [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([36m/BURN_RATE_TREND/[39m))[33m.[39m[34mtoBeDefined[39m()[33m;[39m
+    [90m 48| [39m  expect(screen.getByText("COMPUTE_DISTRIBUTION_BY_AGENT")).toBeDefine…
+    [90m   | [39m                [31m^[39m
+    [90m 49| [39m})[33m;[39m
+    [90m 50| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m3 failed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m6 passed[39m[22m[90m (11)[39m
+[2m   Start at [22m 21:16:34
+[2m   Duration [22m 271ms
+
+[1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/features/chat/ChatFeature.tsx [22m[34mx3 [34m[39m
+
+ [31m❯[39m src/hooks/useCLIStatus.test.tsx [2m([22m[2m6 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 2161[2mms[22m[39m
+     [32m✓[39m should start with loading state[32m 13[2mms[22m[39m
+     [32m✓[39m should load active status successfully[32m 73[2mms[22m[39m
+     [32m✓[39m should load inactive status successfully[32m 57[2mms[22m[39m
+[31m     [31m×[31m should handle fetch errors gracefully[39m[33m 1010[2mms[22m[39m
+[31m     [31m×[31m should handle non-ok responses[39m[33m 1003[2mms[22m[39m
+     [32m✓[39m should use correct query key[32m 2[2mms[22m[39m
+ [31m❯[39m src/features/analytics/Analytics.test.tsx [2m([22m[2m2 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 42[2mms[22m[39m
+[31m   [31m×[31m renders analytics titles[39m[32m 35[2mms[22m[39m
+   [32m✓[39m renders chart containers[32m 6[2mms[22m[39m
+ [31m❯[39m src/features/chat/Chat.test.tsx [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 61[2mms[22m[39m
+   [32m✓[39m renders conversation list[32m 37[2mms[22m[39m
+[31m   [31m×[31m renders chat messages[39m[32m 14[2mms[22m[39m
+[31m   [31m×[31m renders input area[39m[32m 8[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/features/chat/Chat.test.tsx[2m > [22mrenders chat messages
+[31m[1mTestingLibraryElementError[22m[39m: Unable to find an element with the text: Run security scan.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full border border-panel-border bg-background-app animate-in fade-in duration-500 overflow-hidden rounded-xl shadow-xl dark:shadow-slate-950/50"[39m
+    [36m>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"w-64 border-r border-panel-border flex flex-col bg-sidebar-bg min-h-0"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 border-b border-panel-border bg-panel-bg flex justify-between items-center"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"font-heading text-[10px] font-bold text-app-muted tracking-widest"[39m
+          [36m>[39m
+            [0mCOMMS_CHANNELS[0m
+          [36m</span>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"p-1 hover:bg-background-app text-app-muted hover:text-primary rounded transition-colors"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-plus"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"14"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"14"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 12h14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 5v14"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex-1 overflow-y-auto"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"w-full text-left p-4 transition-all border-b border-panel-border hover:bg-panel-bg group relative cursor-pointer outline-none bg-panel-bg shadow-inner"[39m
+            [33mrole[39m=[32m"button"[39m
+            [33mtabindex[39m=[32m"0"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"absolute left-0 top-0 bottom-0 w-1 bg-primary animate-in slide-in-from-left duration-300"[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex justify-between items-start mb-1"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-[11px] font-heading font-black truncate transition-colors tracking-tight text-primary"[39m
+              [36m>[39m
+                [0mTask Execution Log[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 shrink-0 ml-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"w-1 h-1 rounded-full bg-green-500 animate-pulse"[39m
+                [36m/>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-[8px] font-heading font-bold text-green-500 tracking-tighter uppercase opacity-80"[39m
+                [36m>[39m
+                  [0mLIVE[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-[10px] text-app-muted truncate mt-1 font-mono opacity-60"[39m
+            [36m>[39m
+              [0mProcess finished with success.[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between mt-4"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 text-[10px] font-mono text-app-muted"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-clock shrink-0 opacity-40"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"10"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"10"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M12 6v6l4 2"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"12"[39m
+                    [33mcy[39m=[32m"12"[39m
+                    [33mr[39m=[32m"10"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0m11:00 PM[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all text-app-muted"[39m
+                [33mtitle[39m=[32m"DELETE_CONVERSATION"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-trash2 lucide-trash-2"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"12"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"12"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M10 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M14 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 6h18"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"[39m
+                  [36m/>[39m
+              ...
+[90m [2m❯[22m Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m76:38[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m❯[22m src/features/chat/Chat.test.tsx:[2m37:17[22m[39m
+    [90m 35| [39m  [34mrender[39m([33m<[39m[33mChatFeature[39m [33m/[39m[33m>[39m)[33m;[39m
+    [90m 36| [39m
+    [90m 37| [39m  [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([32m"Run security scan."[39m))[33m.[39m[34mtoBeDefined[39m()[33m;[39m
+    [90m   | [39m                [31m^[39m
+    [90m 38| [39m  [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([32m"No critical threats found."[39m))[33m.[39m[34mtoBeDefined[39m()[33m;[39m
+    [90m 39| [39m})[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/features/chat/Chat.test.tsx[2m > [22mrenders input area
+[31m[1mTestingLibraryElementError[22m[39m: Unable to find an element with the placeholder text of: ENTER_COMMAND...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full border border-panel-border bg-background-app animate-in fade-in duration-500 overflow-hidden rounded-xl shadow-xl dark:shadow-slate-950/50"[39m
+    [36m>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"w-64 border-r border-panel-border flex flex-col bg-sidebar-bg min-h-0"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4 border-b border-panel-border bg-panel-bg flex justify-between items-center"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"font-heading text-[10px] font-bold text-app-muted tracking-widest"[39m
+          [36m>[39m
+            [0mCOMMS_CHANNELS[0m
+          [36m</span>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"p-1 hover:bg-background-app text-app-muted hover:text-primary rounded transition-colors"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-plus"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"14"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"14"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 12h14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 5v14"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex-1 overflow-y-auto"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"w-full text-left p-4 transition-all border-b border-panel-border hover:bg-panel-bg group relative cursor-pointer outline-none bg-panel-bg shadow-inner"[39m
+            [33mrole[39m=[32m"button"[39m
+            [33mtabindex[39m=[32m"0"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"absolute left-0 top-0 bottom-0 w-1 bg-primary animate-in slide-in-from-left duration-300"[39m
+            [36m/>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex justify-between items-start mb-1"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"text-[11px] font-heading font-black truncate transition-colors tracking-tight text-primary"[39m
+              [36m>[39m
+                [0mTask Execution Log[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 shrink-0 ml-2"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"w-1 h-1 rounded-full bg-green-500 animate-pulse"[39m
+                [36m/>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"text-[8px] font-heading font-bold text-green-500 tracking-tighter uppercase opacity-80"[39m
+                [36m>[39m
+                  [0mLIVE[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"text-[10px] text-app-muted truncate mt-1 font-mono opacity-60"[39m
+            [36m>[39m
+              [0mProcess finished with success.[0m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between mt-4"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center gap-1.5 text-[10px] font-mono text-app-muted"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-clock shrink-0 opacity-40"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"10"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"10"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M12 6v6l4 2"[39m
+                  [36m/>[39m
+                  [36m<circle[39m
+                    [33mcx[39m=[32m"12"[39m
+                    [33mcy[39m=[32m"12"[39m
+                    [33mr[39m=[32m"10"[39m
+                  [36m/>[39m
+                [36m</svg>[39m
+                [36m<span>[39m
+                  [0m11:00 PM[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all text-app-muted"[39m
+                [33mtitle[39m=[32m"DELETE_CONVERSATION"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-trash2 lucide-trash-2"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"12"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox[39m=[32m"0 0 24 24"[39m
+                  [33mwidth[39m=[32m"12"[39m
+                  [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                [36m>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M10 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M14 11v6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M3 6h18"[39m
+                  [36m/>[39m
+                  [36m<path[39m
+                    [33md[39m=[32m"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"[39m
+                  [36m/>[39m
+              ...
+[90m [2m❯[22m Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m76:38[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m❯[22m node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m❯[22m src/features/chat/Chat.test.tsx:[2m44:17[22m[39m
+    [90m 42| [39m  [34mrender[39m([33m<[39m[33mChatFeature[39m [33m/[39m[33m>[39m)[33m;[39m
+    [90m 43| [39m
+    [90m 44| [39m  expect(screen.getByPlaceholderText("ENTER_COMMAND...")).toBeDefined(…
+    [90m   | [39m                [31m^[39m
+    [90m 45| [39m})[33m;[39m
+    [90m 46| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m3 failed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m6 passed[39m[22m[90m (11)[39m
+[2m   Start at [22m 21:17:37
+[2m   Duration [22m 244ms
+
+[1m[41m FAIL [49m[22m [31mTests failed. Watching for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/features/chat/Chat.test.tsx [22m[34mx4 [34m[39m
+
+ [31m❯[39m src/hooks/useCLIStatus.test.tsx [2m([22m[2m6 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 2161[2mms[22m[39m
+     [32m✓[39m should start with loading state[32m 13[2mms[22m[39m
+     [32m✓[39m should load active status successfully[32m 73[2mms[22m[39m
+     [32m✓[39m should load inactive status successfully[32m 57[2mms[22m[39m
+[31m     [31m×[31m should handle fetch errors gracefully[39m[33m 1010[2mms[22m[39m
+[31m     [31m×[31m should handle non-ok responses[39m[33m 1003[2mms[22m[39m
+     [32m✓[39m should use correct query key[32m 2[2mms[22m[39m
+ [31m❯[39m src/features/analytics/Analytics.test.tsx [2m([22m[2m2 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 42[2mms[22m[39m
+[31m   [31m×[31m renders analytics titles[39m[32m 35[2mms[22m[39m
+   [32m✓[39m renders chart containers[32m 6[2mms[22m[39m
+ [32m✓[39m src/features/chat/Chat.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 50[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m8 passed[39m[22m[90m (11)[39m
+[2m   Start at [22m 21:17:39
+[2m   Duration [22m 237ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/features/analytics/Analytics.test.tsx [22m[34mx3 [34m[39m
+
+ [31m❯[39m src/hooks/useCLIStatus.test.tsx [2m([22m[2m6 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 2161[2mms[22m[39m
+     [32m✓[39m should start with loading state[32m 13[2mms[22m[39m
+     [32m✓[39m should load active status successfully[32m 73[2mms[22m[39m
+     [32m✓[39m should load inactive status successfully[32m 57[2mms[22m[39m
+[31m     [31m×[31m should handle fetch errors gracefully[39m[33m 1010[2mms[22m[39m
+[31m     [31m×[31m should handle non-ok responses[39m[33m 1003[2mms[22m[39m
+     [32m✓[39m should use correct query key[32m 2[2mms[22m[39m
+[90mstderr[2m | src/features/analytics/Analytics.test.tsx[2m > [22m[2mrenders analytics titles
+[22m[39mThe tag <stop> is unrecognized in this browser. If you meant to render a React component, start its name with an uppercase letter.
+<linearGradient /> is using incorrect casing. Use PascalCase for React components, or lowercase for HTML elements.
+The tag <linearGradient> is unrecognized in this browser. If you meant to render a React component, start its name with an uppercase letter.
+The tag <defs> is unrecognized in this browser. If you meant to render a React component, start its name with an uppercase letter.
+
+[90mstderr[2m | src/features/analytics/Analytics.test.tsx[2m > [22m[2mrenders chart containers
+[22m[39m<linearGradient /> is using incorrect casing. Use PascalCase for React components, or lowercase for HTML elements.
+
+ [32m✓[39m src/features/analytics/Analytics.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 37[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m6 passed[39m[22m[90m (8)[39m
+[2m   Start at [22m 21:17:41
+[2m   Duration [22m 329ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/features/webhooks/CreateWebhookModal.tsx [22m[34mx2 [34m[39m
+
+ [31m❯[39m src/hooks/useCLIStatus.test.tsx [2m([22m[2m6 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 2161[2mms[22m[39m
+     [32m✓[39m should start with loading state[32m 13[2mms[22m[39m
+     [32m✓[39m should load active status successfully[32m 73[2mms[22m[39m
+     [32m✓[39m should load inactive status successfully[32m 57[2mms[22m[39m
+[31m     [31m×[31m should handle fetch errors gracefully[39m[33m 1010[2mms[22m[39m
+[31m     [31m×[31m should handle non-ok responses[39m[33m 1003[2mms[22m[39m
+     [32m✓[39m should use correct query key[32m 2[2mms[22m[39m
+ [32m✓[39m src/features/webhooks/Webhooks.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 187[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m7 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 21:23:01
+[2m   Duration [22m 1.50s
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/features/ledger/LedgerFeature.tsx [22m[34mx2 [34m[39m
+
+ [31m❯[39m src/hooks/useCLIStatus.test.tsx [2m([22m[2m6 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 2161[2mms[22m[39m
+     [32m✓[39m should start with loading state[32m 13[2mms[22m[39m
+     [32m✓[39m should load active status successfully[32m 73[2mms[22m[39m
+     [32m✓[39m should load inactive status successfully[32m 57[2mms[22m[39m
+[31m     [31m×[31m should handle fetch errors gracefully[39m[33m 1010[2mms[22m[39m
+[31m     [31m×[31m should handle non-ok responses[39m[33m 1003[2mms[22m[39m
+     [32m✓[39m should use correct query key[32m 2[2mms[22m[39m
+ [32m✓[39m src/features/ledger/Ledger.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 174[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m7 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 21:23:16
+[2m   Duration [22m 897ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
+c[3J[1m[44m RERUN [49m[22m [34m[2msrc/features/chat/hooks/useChat.ts [22m[34mx5 [34m[39m
+
+ [31m❯[39m src/hooks/useCLIStatus.test.tsx [2m([22m[2m6 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 2161[2mms[22m[39m
+     [32m✓[39m should start with loading state[32m 13[2mms[22m[39m
+     [32m✓[39m should load active status successfully[32m 73[2mms[22m[39m
+     [32m✓[39m should load inactive status successfully[32m 57[2mms[22m[39m
+[31m     [31m×[31m should handle fetch errors gracefully[39m[33m 1010[2mms[22m[39m
+[31m     [31m×[31m should handle non-ok responses[39m[33m 1003[2mms[22m[39m
+     [32m✓[39m should use correct query key[32m 2[2mms[22m[39m
+ [32m✓[39m src/features/chat/Chat.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 169[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m7 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 21:23:18
+[2m   Duration [22m 473ms
+
+[1m[42m PASS [49m[22m [32mWaiting for file changes...[39m
+       [2mpress [22m[1mh[22m[2m to show help[22m[2m, [22m[2mpress [22m[1mq[22m[2m to quit[22m
