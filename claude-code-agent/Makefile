@@ -199,16 +199,14 @@ type-check:
 
 run-local:
 	@echo "🚀 Running locally (no Docker)..."
-	@uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000 --reload-exclude "*.venv/**" --reload-exclude "**/site-packages/**" --reload-exclude "**/__pycache__/**" --reload-exclude "**/.git/**" --reload-exclude "**/tests/**" --reload-exclude "**/scripts/**"
+	@uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000 --reload-exclude "*.venv/**" --reload-exclude "**/site-packages/**" --reload-exclude "**/__pycache__/**" --reload-exclude "**/.git/**" --reload-exclude "**/tests/**" --reload-exclude "**/scripts/**" --reload-exclude "**/.pytest_cache/**" --reload-exclude "**/.ruff_cache/**" --reload-exclude "**/.mypy_cache/**" --reload-exclude "**/.coverage" --reload-exclude "**/htmlcov/**"
 
 # =============================================================================
 # 🔧 UTILITIES
 # =============================================================================
 
 oauth:
-	@echo "🔑 Checking Claude CLI OAuth..."
-	@test -d ~/.claude && echo "✅ Claude CLI configured at ~/.claude" || echo "❌ Run 'claude login' first"
-	@test -f ~/.claude/config.json && echo "✅ Config found" || echo "⚠️  No config.json"
+	@./scripts/extract_oauth_creds.sh
 
 env:
 	@test -f .env || cp .env.example .env
