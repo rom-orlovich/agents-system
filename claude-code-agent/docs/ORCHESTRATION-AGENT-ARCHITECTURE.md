@@ -18,7 +18,9 @@ Brain Agent (.claude/agents/brain.md)
 ├─→ Service Integrator Agent (external services)
 ├─→ Self-Improvement Agent (code analysis)
 ├─→ Agent Creator Agent (create agents)
-└─→ Skill Creator Agent (create skills)
+├─→ Skill Creator Agent (create skills)
+├─→ Verifier Agent (validation, verification)
+└─→ Webhook Generator Agent (webhook creation)
 ```
 
 ---
@@ -56,6 +58,8 @@ The Brain is the main orchestrator that:
 - **Code Improvement** → `self-improvement` agent
 - **Create Agents** → `agent-creator` agent
 - **Create Skills** → `skill-creator` agent
+- **Verification** → `verifier` agent
+- **Webhook Creation** → `webhook-generator` agent
 - **Webhook Management** → Handle directly via webhook-management skill
 
 ---
@@ -191,6 +195,40 @@ The Brain is the main orchestrator that:
 - **Skills**: skill-generator
 - **Permission Mode**: acceptEdits
 
+### Verifier Agent
+
+**File**: `.claude/agents/verifier.md`
+
+**Purpose**: Validates implementations and performs final verification
+
+**Capabilities:**
+- Final verification of implementations
+- Test result validation
+- Code quality checks
+- Compliance verification
+
+**Configuration:**
+- **Model**: sonnet
+- **Tools**: Read, Grep, FindByName, ListDir, Bash
+- **Permission Mode**: default
+
+### Webhook Generator Agent
+
+**File**: `.claude/agents/webhook-generator.md`
+
+**Purpose**: Creates and configures webhooks dynamically
+
+**Capabilities:**
+- Generates webhook configurations
+- Creates webhook commands and triggers
+- Validates webhook structure
+- Tests webhook endpoints
+
+**Configuration:**
+- **Model**: sonnet
+- **Tools**: Read, Write, Edit, Grep, Bash
+- **Permission Mode**: acceptEdits
+
 ---
 
 ## Skills System
@@ -262,10 +300,17 @@ Include error details and stack trace.
 
 **User**: "Create a GitHub webhook for issue tracking"
 
-**Brain** (handles directly via webhook-management skill):
-- Uses webhook-management skill
+**Brain → Webhook Generator Agent:**
+```
+Create a GitHub webhook for issue tracking.
+Configure triggers for issue opened and commented events.
+Set up command matching for @agent mentions.
+```
+
+**Webhook Generator Agent:**
 - Creates webhook configuration
 - Sets up triggers and commands
+- Validates webhook structure
 - Tests webhook endpoint
 
 ### Example 4: Multi-Agent Workflow
@@ -319,6 +364,8 @@ Include error details and stack trace.
 | Code Improvement | self-improvement | sonnet | Pattern analysis |
 | Create Agent | agent-creator | sonnet | Structured generation |
 | Create Skill | skill-creator | sonnet | Structured generation |
+| Verification | verifier | sonnet | Validation tasks |
+| Webhook Creation | webhook-generator | sonnet | Structured generation |
 | Webhook Management | brain | opus | Direct via skill |
 
 ---
