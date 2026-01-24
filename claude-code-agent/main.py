@@ -18,7 +18,6 @@ from core import (
 from core.database import init_db, async_session_factory
 from core.database.redis_client import redis_client
 from core.database.models import SessionDB
-from core.cli_access import test_cli_access
 from api import credentials, dashboard, registry, analytics, websocket, conversations
 from api import webhooks_dynamic, webhook_status
 from api import subagents, container, accounts, sessions
@@ -50,33 +49,17 @@ async def lifespan(app: FastAPI):
     # Validate webhook configurations
     validate_webhook_configs()
 
-    # Check credentials and test CLI (NON-BLOCKING - don't fail startup)
+    # Check credentials (CLI test only runs after credentials upload, not on startup)
     creds_path = settings.credentials_path
     if creds_path.exists():
         try:
-            # Load credentials to get user_id
+            # Load credentials to get user_id for logging
             creds_data = json.loads(creds_path.read_text())
-            creds = ClaudeCredentials(**creds_data)
+            creds = ClaudeCredentials.from_dict(creds_data)
             user_id = creds.user_id or creds.account_id
             
             if user_id:
-                # Run test (don't await - run in background to not block startup)
-                try:
-                    is_active = await test_cli_access()
-                    
-                    # Update sessions for this user
-                    async with async_session_factory() as session:
-                        await session.execute(
-                            update(SessionDB)
-                            .where(SessionDB.user_id == user_id)
-                            .values(active=is_active)
-                        )
-                        await session.commit()
-                    
-                    logger.info("CLI test completed", active=is_active, user_id=user_id)
-                except Exception as test_error:
-                    # Don't fail startup - just log error
-                    logger.warning("CLI test failed during startup", error=str(test_error), user_id=user_id)
+                logger.info("Credentials found", user_id=user_id)
             else:
                 logger.warning("No user_id found in credentials")
         except Exception as e:

@@ -310,6 +310,36 @@ class ClaudeCredentials(BaseModel):
     token_type: str = Field(default="Bearer")
     account_id: Optional[str] = None
 
+    @classmethod
+    def normalize_credentials_data(cls, creds_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Normalize credentials data from either format:
+        1. Direct format: {"access_token": "...", "refresh_token": "...", ...}
+        2. Wrapped format: {"claudeAiOauth": {"accessToken": "...", "refreshToken": "...", ...}}
+        
+        Returns normalized dict with snake_case keys.
+        """
+        # Handle wrapped format with claudeAiOauth
+        if "claudeAiOauth" in creds_data:
+            oauth_data = creds_data["claudeAiOauth"]
+            # Convert camelCase to snake_case for ClaudeCredentials model
+            return {
+                "access_token": oauth_data.get("accessToken") or oauth_data.get("access_token"),
+                "refresh_token": oauth_data.get("refreshToken") or oauth_data.get("refresh_token"),
+                "expires_at": oauth_data.get("expiresAt") or oauth_data.get("expires_at"),
+                "token_type": oauth_data.get("tokenType", "Bearer"),
+                "account_id": oauth_data.get("accountId") or oauth_data.get("account_id"),
+            }
+        
+        # Already in direct format, return as-is
+        return creds_data
+
+    @classmethod
+    def from_dict(cls, creds_data: Dict[str, Any]) -> "ClaudeCredentials":
+        """Create ClaudeCredentials from dict, handling both formats."""
+        normalized = cls.normalize_credentials_data(creds_data)
+        return cls(**normalized)
+
     @property
     def expires_at_datetime(self) -> datetime:
         """Convert to datetime."""

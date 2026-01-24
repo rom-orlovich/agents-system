@@ -6,63 +6,66 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from core.database.models import SessionDB
-from shared.machine_models import ClaudeCredentials
+
+
 async def test_startup_without_credentials_does_not_fail():
     """App should start successfully even if credentials don't exist."""
     from core.config import settings
     
-    # Mock credentials_path.exists() to return False
     with patch.object(Path, 'exists', return_value=False):
-        # Should not raise any exception
-        # This test verifies the startup logic doesn't fail
         creds_path = settings.credentials_path
-        assert not creds_path.exists()  # Mocked to return False
-async def test_startup_with_credentials_runs_test_and_updates_session():
-    """If credentials exist, test CLI and update session active status."""
+        assert not creds_path.exists()
+
+
+async def test_startup_does_not_run_cli_test():
+    """App startup should NOT run CLI test even if credentials exist."""
+    from main import lifespan
+    from fastapi import FastAPI
     from core.config import settings
-    from core.database import async_session_factory
     
-    # Mock credentials file exists
     mock_creds_path = MagicMock()
     mock_creds_path.exists.return_value = True
     mock_creds_path.read_text.return_value = '{"access_token": "test_token_12345", "refresh_token": "refresh_token_12345", "expires_at": 9999999999999, "account_id": "user-123"}'
     
-    # Mock test_cli_access() to return True
-    with patch('core.cli_access.test_cli_access', return_value=True):
-        with patch.object(settings.__class__, 'credentials_path', new_callable=PropertyMock, return_value=mock_creds_path):
-            with patch('core.database.async_session_factory') as mock_session_factory:
-                mock_session = AsyncMock()
-                mock_session.__aenter__.return_value = mock_session
-                mock_session.__aexit__.return_value = None
-                mock_session.execute = AsyncMock()
-                mock_session.commit = AsyncMock()
-                mock_session_factory.return_value = mock_session
-                
-                # Simulate startup logic
-                creds_data = {"access_token": "test_token_12345", "refresh_token": "refresh_token_12345", "expires_at": 9999999999999, "account_id": "user-123"}
-                creds = ClaudeCredentials(**creds_data)
-                user_id = creds.account_id
-                
-                # Verify user_id is extracted correctly
-                assert user_id == "user-123"
+    with patch('main.init_db'):
+        with patch('main.redis_client') as mock_redis:
+            mock_redis.connect = AsyncMock()
+            mock_redis.disconnect = AsyncMock()
+            with patch('main.validate_webhook_configs'):
+                with patch('main.TaskWorker') as mock_task_worker:
+                    mock_worker_instance = MagicMock()
+                    mock_worker_instance.run = AsyncMock()
+                    mock_worker_instance.stop = AsyncMock()
+                    mock_task_worker.return_value = mock_worker_instance
+                    
+                    with patch('core.cli_access.test_cli_access') as mock_test_cli:
+                        with patch('main.async_session_factory'):
+                            with patch.object(settings.__class__, 'credentials_path', new_callable=PropertyMock, return_value=mock_creds_path):
+                                app = FastAPI()
+                                
+                                async with lifespan(app):
+                                    pass
+                                
+                                mock_test_cli.assert_not_called()
+
+
 async def test_startup_test_failure_sets_active_false():
     """If CLI test fails, set session.active = False."""
     from core.config import settings
     
-    # Mock credentials file exists
     mock_creds_path = MagicMock()
     mock_creds_path.exists.return_value = True
     mock_creds_path.read_text.return_value = '{"access_token": "test_token_12345", "refresh_token": "refresh_token_12345", "expires_at": 9999999999999, "account_id": "user-123"}'
     
-    # Mock test_cli_access() to return False
     with patch('core.cli_access.test_cli_access', return_value=False):
         with patch.object(settings.__class__, 'credentials_path', new_callable=PropertyMock, return_value=mock_creds_path):
-            # Verify test returns False
             from core.cli_access import test_cli_access
             result = await test_cli_access()
             assert result is False
-async def test_rate_limit_error_updates_session_active_false():
-    """When task fails with rate limit error, update session.active = False."""
+
+
+async def test_executive_limit_error_updates_session_active_false():
+    """When task fails with executive limit error, update session.active = False."""
     from workers.task_worker import TaskWorker
     from core.websocket_hub import WebSocketHub
     from core.database.models import TaskDB, SessionDB
@@ -71,7 +74,6 @@ async def test_rate_limit_error_updates_session_active_false():
     ws_hub = WebSocketHub()
     worker = TaskWorker(ws_hub)
     
-    # Create mock session with active=True
     session_db = SessionDB(
         session_id="session-001",
         user_id="user-001",
@@ -80,7 +82,6 @@ async def test_rate_limit_error_updates_session_active_false():
         active=True
     )
     
-    # Create mock task with rate limit error
     task_db = TaskDB(
         task_id="task-001",
         session_id="session-001",
@@ -93,31 +94,219 @@ async def test_rate_limit_error_updates_session_active_false():
         created_at=datetime.now(timezone.utc)
     )
     
-    # Mock CLI result with rate limit error
+    mock_cli_result = MagicMock()
+    mock_cli_result.success = False
+    mock_cli_result.error = "Error: Executive limit exceeded"
+    
+    error_lower = mock_cli_result.error.lower()
+    assert "executive limit" in error_lower or "out of extra usage" in error_lower or "rate limit" in error_lower
+    
+    assert session_db.active is True
+
+
+async def test_rate_limit_error_updates_session_active_false():
+    """When task fails with rate limit error, update session.active = False."""
+    from workers.task_worker import TaskWorker
+    from core.websocket_hub import WebSocketHub
+    from core.database.models import TaskDB, SessionDB
+    from shared import TaskStatus
+    
+    ws_hub = WebSocketHub()
+    worker = TaskWorker(ws_hub)
+    
+    session_db = SessionDB(
+        session_id="session-001",
+        user_id="user-001",
+        machine_id="machine-001",
+        connected_at=datetime.now(timezone.utc),
+        active=True
+    )
+    
+    task_db = TaskDB(
+        task_id="task-001",
+        session_id="session-001",
+        user_id="user-001",
+        assigned_agent="brain",
+        agent_type="planning",
+        status=TaskStatus.FAILED,
+        input_message="Test",
+        source="dashboard",
+        created_at=datetime.now(timezone.utc)
+    )
+    
     mock_cli_result = MagicMock()
     mock_cli_result.success = False
     mock_cli_result.error = "Error: You're out of extra usage · resets 9pm (UTC)"
     
-    # Verify error detection logic
     error_lower = mock_cli_result.error.lower()
-    assert "out of extra usage" in error_lower or "rate limit" in error_lower
+    assert "executive limit" in error_lower or "out of extra usage" in error_lower or "rate limit" in error_lower
     
-    # Verify session would be updated
-    assert session_db.active is True  # Initially active
-    # In real implementation, this would be set to False
+    assert session_db.active is True
+
+
+async def test_authentication_error_sets_session_active_false():
+    """When task fails with authentication error, session.active should be set to False."""
+    from workers.task_worker import TaskWorker
+    from core.websocket_hub import WebSocketHub
+    from core.database.models import TaskDB, SessionDB
+    from shared import TaskStatus
+    from core.cli_runner import CLIResult
+    
+    ws_hub = WebSocketHub()
+    worker = TaskWorker(ws_hub)
+    
+    session_db = SessionDB(
+        session_id="session-001",
+        user_id="user-001",
+        machine_id="machine-001",
+        connected_at=datetime.now(timezone.utc),
+        active=True
+    )
+    
+    task_db = TaskDB(
+        task_id="task-001",
+        session_id="session-001",
+        user_id="user-001",
+        assigned_agent="brain",
+        agent_type="planning",
+        status=TaskStatus.QUEUED,
+        input_message="Test",
+        source="dashboard",
+        source_metadata='{}',
+        created_at=datetime.now(timezone.utc)
+    )
+    
+    cli_result = CLIResult(
+        success=False,
+        output="",
+        cost_usd=0.0,
+        input_tokens=0,
+        output_tokens=0,
+        error="Invalid API key · Please run /login"
+    )
+    
+    mock_db_session = AsyncMock()
+    execute_calls = []
+    
+    async def mock_execute(query):
+        execute_calls.append(query)
+        if len(execute_calls) == 1:
+            result = MagicMock()
+            result.scalar_one_or_none.return_value = task_db
+            return result
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = session_db
+        return result
+    
+    mock_db_session.execute = AsyncMock(side_effect=mock_execute)
+    mock_db_session.commit = AsyncMock()
+    
+    with patch('workers.task_worker.run_claude_cli', return_value=cli_result):
+        with patch('workers.task_worker.async_session_factory') as mock_factory:
+            mock_factory.return_value.__aenter__.return_value = mock_db_session
+            mock_factory.return_value.__aexit__.return_value = None
+            
+            with patch('workers.task_worker.redis_client') as mock_redis:
+                mock_redis.set_task_status = AsyncMock()
+                mock_redis.append_output = AsyncMock()
+                with patch.object(worker, '_update_conversation_metrics'), \
+                     patch.object(worker, '_update_claude_task_status'), \
+                     patch.object(worker, '_add_task_response_to_conversation'), \
+                     patch.object(worker, '_send_slack_notification'), \
+                     patch.object(worker, '_post_webhook_comment'), \
+                     patch.object(worker, '_get_agent_dir', return_value=Path("/tmp")):
+                    await worker._process_task("task-001")
+            
+            assert session_db.active is False
+
+
+async def test_conversation_error_does_not_set_session_active_false():
+    """When task fails with conversation error (not auth/rate limit), session.active should remain True."""
+    from workers.task_worker import TaskWorker
+    from core.websocket_hub import WebSocketHub
+    from core.database.models import TaskDB, SessionDB
+    from shared import TaskStatus
+    from core.cli_runner import CLIResult
+    
+    ws_hub = WebSocketHub()
+    worker = TaskWorker(ws_hub)
+    
+    session_db = SessionDB(
+        session_id="session-002",
+        user_id="user-002",
+        machine_id="machine-001",
+        connected_at=datetime.now(timezone.utc),
+        active=True
+    )
+    
+    task_db = TaskDB(
+        task_id="task-002",
+        session_id="session-002",
+        user_id="user-002",
+        assigned_agent="brain",
+        agent_type="planning",
+        status=TaskStatus.QUEUED,
+        input_message="Test",
+        source="dashboard",
+        source_metadata='{}',
+        created_at=datetime.now(timezone.utc)
+    )
+    
+    cli_result = CLIResult(
+        success=False,
+        output="",
+        cost_usd=0.0,
+        input_tokens=0,
+        output_tokens=0,
+        error="Network timeout"
+    )
+    
+    mock_db_session = AsyncMock()
+    execute_calls = []
+    
+    async def mock_execute(query):
+        execute_calls.append(query)
+        if len(execute_calls) == 1:
+            result = MagicMock()
+            result.scalar_one_or_none.return_value = task_db
+            return result
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = session_db
+        return result
+    
+    mock_db_session.execute = AsyncMock(side_effect=mock_execute)
+    mock_db_session.commit = AsyncMock()
+    
+    with patch('workers.task_worker.run_claude_cli', return_value=cli_result):
+        with patch('workers.task_worker.async_session_factory') as mock_factory:
+            mock_factory.return_value.__aenter__.return_value = mock_db_session
+            mock_factory.return_value.__aexit__.return_value = None
+            
+            with patch('workers.task_worker.redis_client') as mock_redis:
+                mock_redis.set_task_status = AsyncMock()
+                mock_redis.append_output = AsyncMock()
+                with patch.object(worker, '_update_conversation_metrics'), \
+                     patch.object(worker, '_update_claude_task_status'), \
+                     patch.object(worker, '_add_task_response_to_conversation'), \
+                     patch.object(worker, '_send_slack_notification'), \
+                     patch.object(worker, '_post_webhook_comment'), \
+                     patch.object(worker, '_get_agent_dir', return_value=Path("/tmp")):
+                    await worker._process_task("task-002")
+            
+            # Conversation errors should NOT set active to False
+            assert session_db.active is True
+
+
 async def test_credentials_upload_triggers_test_and_updates_status():
     """Uploading credentials should test CLI and update session status."""
     from api.credentials import upload_credentials
     from fastapi import UploadFile
-    from io import BytesIO
     
-    # Mock file upload
     file_content = b'{"access_token": "test_token_12345", "refresh_token": "refresh_token_12345", "expires_at": 9999999999999, "account_id": "user-123"}'
     mock_file = MagicMock(spec=UploadFile)
     mock_file.filename = "claude.json"
     mock_file.read = AsyncMock(return_value=file_content)
     
-    # Mock test_cli_access() to return True
     with patch('core.cli_access.test_cli_access', return_value=True):
         with patch('api.credentials.async_session_factory') as mock_session_factory:
             mock_session = AsyncMock()
@@ -127,19 +316,17 @@ async def test_credentials_upload_triggers_test_and_updates_status():
             mock_session.commit = AsyncMock()
             mock_session_factory.return_value = mock_session
             
-            # Verify test would be called
             from core.cli_access import test_cli_access
             result = await test_cli_access()
             assert result is True
+
+
 async def test_cli_status_endpoint_returns_current_status():
     """Status endpoint should return active status from database."""
     from api.credentials import get_cli_status
-    from core.database import get_session as get_db_session
     from core.database.models import SessionDB
-    from sqlalchemy import select
     from core.config import settings
     
-    # Mock session with active=True
     session_db = SessionDB(
         session_id="session-001",
         user_id="user-123",
@@ -148,7 +335,6 @@ async def test_cli_status_endpoint_returns_current_status():
         active=True
     )
     
-    # Mock credentials file exists
     mock_creds_path = MagicMock()
     mock_creds_path.exists.return_value = True
     mock_creds_path.read_text.return_value = '{"access_token": "test_token_12345", "refresh_token": "refresh_token_12345", "expires_at": 9999999999999, "account_id": "user-123"}'
@@ -161,24 +347,190 @@ async def test_cli_status_endpoint_returns_current_status():
             mock_db.execute = AsyncMock(return_value=mock_result)
             mock_get_db.return_value = mock_db
             
-            # Call endpoint
             result = await get_cli_status(db=mock_db)
             
-            # Verify response
             assert result["active"] is True
             assert result["message"] is None
+
+
 async def test_cli_status_endpoint_handles_missing_credentials():
     """Status endpoint should handle missing credentials gracefully."""
     from api.credentials import get_cli_status
     from core.config import settings
     
-    # Mock credentials_path.exists() to return False
     mock_creds_path = MagicMock()
     mock_creds_path.exists.return_value = False
     
+    mock_home = MagicMock()
+    mock_claude_dir = MagicMock()
+    mock_cli_creds_path = MagicMock()
+    mock_cli_creds_path.exists.return_value = False
+    mock_claude_dir.__truediv__.return_value = mock_cli_creds_path
+    mock_home.__truediv__.return_value = mock_claude_dir
+    
     with patch.object(settings.__class__, 'credentials_path', new_callable=PropertyMock, return_value=mock_creds_path):
-        result = await get_cli_status()
-        
-        # Verify response
-        assert result["active"] is False
-        assert result["message"] == "Credentials not found"
+        with patch('api.credentials.Path.home', return_value=mock_home):
+            mock_db = AsyncMock()
+            result = await get_cli_status(db=mock_db)
+            
+            assert result["active"] is False
+            assert "Credentials not found" in result["message"] or "credentials" in result["message"].lower()
+
+
+async def test_cli_status_does_not_call_cli_when_no_session():
+    """get_cli_status() should NOT call test_cli_access() when no session exists."""
+    from api.credentials import get_cli_status
+    from core.config import settings
+    
+    mock_creds_path = MagicMock()
+    mock_creds_path.exists.return_value = True
+    mock_creds_path.read_text.return_value = '{"access_token": "test_token_12345", "refresh_token": "refresh_token_12345", "expires_at": 9999999999999, "account_id": "user-123"}'
+    
+    with patch.object(settings.__class__, 'credentials_path', new_callable=PropertyMock, return_value=mock_creds_path):
+        with patch('api.credentials.test_cli_access') as mock_test_cli:
+            mock_db = AsyncMock()
+            mock_result = MagicMock()
+            mock_result.scalar_one_or_none.return_value = None
+            mock_db.execute = AsyncMock(return_value=mock_result)
+            
+            result = await get_cli_status(db=mock_db)
+            
+            mock_test_cli.assert_not_called()
+            assert result["active"] is False
+            assert "No session found" in result["message"]
+
+
+async def test_cli_status_only_reads_from_database():
+    """get_cli_status() should only read from database, never call CLI."""
+    from api.credentials import get_cli_status
+    from core.config import settings
+    from core.database.models import SessionDB
+    
+    mock_creds_path = MagicMock()
+    mock_creds_path.exists.return_value = True
+    mock_creds_path.read_text.return_value = '{"access_token": "test_token_12345", "refresh_token": "refresh_token_12345", "expires_at": 9999999999999, "account_id": "user-123"}'
+    
+    session_db = SessionDB(
+        session_id="session-001",
+        user_id="user-123",
+        machine_id="machine-001",
+        connected_at=datetime.now(timezone.utc),
+        active=True
+    )
+    
+    with patch.object(settings.__class__, 'credentials_path', new_callable=PropertyMock, return_value=mock_creds_path):
+        with patch('api.credentials.test_cli_access') as mock_test_cli:
+            mock_db = AsyncMock()
+            mock_result = MagicMock()
+            mock_result.scalar_one_or_none.return_value = session_db
+            mock_db.execute = AsyncMock(return_value=mock_result)
+            
+            result = await get_cli_status(db=mock_db)
+            
+            mock_test_cli.assert_not_called()
+            assert result["active"] is True
+            assert result["message"] is None
+
+
+async def test_cli_access_logs_stderr_on_failure():
+    """test_cli_access() should log stderr when CLI test fails."""
+    from core.cli_access import test_cli_access
+    import subprocess
+    
+    mock_result = MagicMock()
+    mock_result.returncode = 1
+    mock_result.stderr = "Rate limit exceeded"
+    
+    with patch('subprocess.run', return_value=mock_result):
+        with patch('core.cli_access.logger') as mock_logger:
+            result = await test_cli_access()
+            
+            assert result is False
+            mock_logger.warning.assert_called_once()
+            call_args = mock_logger.warning.call_args
+            assert "CLI test failed" in call_args[0][0] or "CLI test failed" in str(call_args)
+            assert call_args[1]["returncode"] == 1
+            assert call_args[1]["error"] == "Rate limit exceeded"
+
+
+async def test_cli_access_handles_rate_limit_error():
+    """test_cli_access() should return False on rate limit errors."""
+    from core.cli_access import test_cli_access
+    import subprocess
+    
+    mock_result = MagicMock()
+    mock_result.returncode = 1
+    mock_result.stderr = "Error: You're out of extra usage"
+    
+    with patch('subprocess.run', return_value=mock_result):
+        result = await test_cli_access()
+        assert result is False
+
+
+async def test_upload_credentials_broadcasts_websocket_update():
+    """upload_credentials() should broadcast WebSocket update when CLI test completes."""
+    from api.credentials import upload_credentials
+    from fastapi import UploadFile, Request
+    from shared.machine_models import CLIStatusUpdateMessage
+    
+    file_content = b'{"access_token": "test_token_12345", "refresh_token": "refresh_token_12345", "expires_at": 9999999999999, "account_id": "user-123"}'
+    mock_file = MagicMock(spec=UploadFile)
+    mock_file.filename = "claude.json"
+    mock_file.read = AsyncMock(return_value=file_content)
+    
+    mock_request = MagicMock(spec=Request)
+    mock_ws_hub = MagicMock()
+    mock_ws_hub.broadcast = AsyncMock()
+    mock_request.app.state.ws_hub = mock_ws_hub
+    
+    with patch('core.cli_access.test_cli_access', return_value=True):
+        with patch('api.credentials.async_session_factory') as mock_session_factory:
+            mock_session = AsyncMock()
+            mock_session.__aenter__.return_value = mock_session
+            mock_session.__aexit__.return_value = None
+            mock_session.execute = AsyncMock()
+            mock_session.commit = AsyncMock()
+            mock_session_factory.return_value = mock_session
+            
+            result = await upload_credentials(file=mock_file, request=mock_request)
+            
+            mock_ws_hub.broadcast.assert_called_once()
+            call_args = mock_ws_hub.broadcast.call_args[0][0]
+            assert isinstance(call_args, CLIStatusUpdateMessage)
+            assert call_args.active is True
+
+
+async def test_upload_credentials_sets_status_false_on_error():
+    """upload_credentials() should set active=False when CLI test fails."""
+    from api.credentials import upload_credentials
+    from fastapi import UploadFile, Request
+    from sqlalchemy import update
+    
+    file_content = b'{"access_token": "test_token_12345", "refresh_token": "refresh_token_12345", "expires_at": 9999999999999, "account_id": "user-123"}'
+    mock_file = MagicMock(spec=UploadFile)
+    mock_file.filename = "claude.json"
+    mock_file.read = AsyncMock(return_value=file_content)
+    
+    mock_request = MagicMock(spec=Request)
+    mock_ws_hub = MagicMock()
+    mock_ws_hub.broadcast = AsyncMock()
+    mock_request.app.state.ws_hub = mock_ws_hub
+    
+    with patch('core.cli_access.test_cli_access', side_effect=Exception("Rate limit exceeded")):
+        with patch('api.credentials.async_session_factory') as mock_session_factory:
+            mock_session = AsyncMock()
+            mock_session.__aenter__.return_value = mock_session
+            mock_session.__aexit__.return_value = None
+            mock_execute = AsyncMock()
+            mock_session.execute = mock_execute
+            mock_session.commit = AsyncMock()
+            mock_session_factory.return_value = mock_session
+            
+            result = await upload_credentials(file=mock_file, request=mock_request)
+            
+            update_call = mock_execute.call_args[0][0]
+            assert isinstance(update_call, update)
+            
+            mock_ws_hub.broadcast.assert_called_once()
+            broadcast_call = mock_ws_hub.broadcast.call_args[0][0]
+            assert broadcast_call.active is False

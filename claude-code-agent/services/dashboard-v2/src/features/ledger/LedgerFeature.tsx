@@ -19,8 +19,8 @@ export function LedgerFeature() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <section className="panel" data-label="CENTRAL_LEDGER">
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-6">
-          <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center mb-6 w-full">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center w-full md:w-auto">
             <div className="flex items-center gap-2 px-3 py-1.5 border border-gray-200 bg-gray-50 text-gray-400">
               <Filter size={14} />
               <span className="text-[10px] font-heading font-bold">FILTERS</span>
@@ -29,13 +29,13 @@ export function LedgerFeature() {
             <input
               type="text"
               placeholder="FILTER_SESSION..."
-              className="px-3 py-1.5 border border-gray-200 text-xs font-mono focus:border-primary outline-none bg-white"
+              className="px-3 py-1.5 border border-gray-200 text-xs font-mono focus:border-primary outline-none bg-white w-full sm:w-auto"
               value={filters.session_id}
               onChange={(e) => setFilters({ session_id: e.target.value })}
             />
 
             <select
-              className="px-3 py-1.5 border border-gray-200 text-xs font-heading focus:border-primary outline-none bg-white"
+              className="px-3 py-1.5 border border-gray-200 text-xs font-heading focus:border-primary outline-none bg-white w-full sm:w-auto"
               value={filters.status}
               onChange={(e) => setFilters({ status: e.target.value })}
             >
@@ -47,7 +47,7 @@ export function LedgerFeature() {
             </select>
 
             <select
-              className="px-3 py-1.5 border border-gray-200 text-xs font-heading focus:border-primary outline-none bg-white"
+              className="px-3 py-1.5 border border-gray-200 text-xs font-heading focus:border-primary outline-none bg-white w-full sm:w-auto"
               value={filters.assigned_agent}
               onChange={(e) => setFilters({ assigned_agent: e.target.value })}
             >

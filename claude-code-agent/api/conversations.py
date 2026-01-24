@@ -70,9 +70,9 @@ class MessageResponse(BaseModel):
             message_id=msg.message_id,
             conversation_id=msg.conversation_id,
             role=msg.role,
-            content=msg.content,
+            content=msg.content or "",
             task_id=msg.task_id,
-            created_at=msg.created_at.isoformat(),
+            created_at=msg.created_at.isoformat() if msg.created_at else datetime.now(timezone.utc).isoformat(),
             metadata=safe_json_loads(msg.metadata_json),
         )
 
@@ -226,19 +226,42 @@ async def get_conversation(
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
     
-    if include_messages:
-        # Eager load messages
-        await db.refresh(conversation, ["messages"])
-        return ConversationDetailResponse.from_db_with_messages(conversation)
-    else:
-        count_query = select(func.count()).select_from(ConversationMessageDB).where(
-            ConversationMessageDB.conversation_id == conversation_id
-        )
-        count = (await db.execute(count_query)).scalar() or 0
-        return ConversationDetailResponse(
-            **ConversationResponse.from_db(conversation, message_count=count).dict(),
-            messages=[]
-        )
+    try:
+        if include_messages:
+            messages_query = select(ConversationMessageDB).where(
+                ConversationMessageDB.conversation_id == conversation_id
+            ).order_by(ConversationMessageDB.created_at.asc())
+            messages_result = await db.execute(messages_query)
+            messages = messages_result.scalars().all()
+            
+            return ConversationDetailResponse(
+                conversation_id=conversation.conversation_id,
+                user_id=conversation.user_id,
+                title=conversation.title,
+                created_at=conversation.created_at.isoformat() if conversation.created_at else datetime.now(timezone.utc).isoformat(),
+                updated_at=conversation.updated_at.isoformat() if conversation.updated_at else datetime.now(timezone.utc).isoformat(),
+                is_archived=conversation.is_archived,
+                metadata=safe_json_loads(conversation.metadata_json),
+                message_count=len(messages),
+                total_cost_usd=conversation.total_cost_usd or 0.0,
+                total_tasks=conversation.total_tasks or 0,
+                total_duration_seconds=conversation.total_duration_seconds or 0.0,
+                started_at=conversation.started_at.isoformat() if conversation.started_at else None,
+                completed_at=conversation.completed_at.isoformat() if conversation.completed_at else None,
+                messages=[MessageResponse.from_db(msg) for msg in messages],
+            )
+        else:
+            count_query = select(func.count()).select_from(ConversationMessageDB).where(
+                ConversationMessageDB.conversation_id == conversation_id
+            )
+            count = (await db.execute(count_query)).scalar() or 0
+            return ConversationDetailResponse(
+                **ConversationResponse.from_db(conversation, message_count=count).dict(),
+                messages=[]
+            )
+    except Exception as e:
+        logger.error("Failed to get conversation", conversation_id=conversation_id, error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to load conversation: {str(e)}")
 
 
 @router.put("/conversations/{conversation_id}", response_model=ConversationResponse)

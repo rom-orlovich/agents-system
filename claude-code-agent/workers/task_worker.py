@@ -282,7 +282,17 @@ class TaskWorker:
 
                     # Then update database
                     task_db.status = TaskStatus.FAILED
-                    task_db.error = result.error
+                    
+                    error_text = ""
+                    if result.error:
+                        error_text += result.error
+                    if result.output:
+                        if error_text:
+                            error_text += "\n" + result.output
+                        else:
+                            error_text = result.output
+                    
+                    task_db.error = error_text if error_text else None
                     task_db.completed_at = datetime.now(timezone.utc)
                     task_db.duration_seconds = (
                         (task_db.completed_at - task_db.started_at).total_seconds()
@@ -296,29 +306,58 @@ class TaskWorker:
                     # Update Claude Code Task status if synced
                     await self._update_claude_task_status(task_db)
 
-                    # Check for rate limit errors and update session
-                    if result.error:
-                        error_lower = result.error.lower()
-                        if "out of extra usage" in error_lower or "rate limit" in error_lower:
-                            # Get session from database and update active status
+                    if error_text:
+                        error_lower = error_text.lower()
+                        error_type = "unknown"
+                        should_mark_inactive = False
+                        
+                        if "executive limit" in error_lower or "out of extra usage" in error_lower:
+                            error_type = "executive_limit"
+                            should_mark_inactive = True
+                        elif "rate limit" in error_lower:
+                            error_type = "rate_limit"
+                            should_mark_inactive = True
+                        elif "invalid api key" in error_lower or "please run /login" in error_lower or "authentication" in error_lower:
+                            error_type = "authentication"
+                            should_mark_inactive = True
+                        
+                        if should_mark_inactive:
                             session_result = await session.execute(
-                                select(SessionDB).where(SessionDB.session_id == task_db.session_id)
+                                select(SessionDB).where(SessionDB.user_id == task_db.user_id)
                             )
-                            session_db = session_result.scalar_one_or_none()
-                            if session_db:
-                                session_db.active = False
-                                
-                                # Broadcast WebSocket update
-                                from shared.machine_models import CLIStatusUpdateMessage
-                                await self.ws_hub.broadcast(
-                                    CLIStatusUpdateMessage(session_id=task_db.session_id, active=False)
-                                )
+                            sessions = session_result.scalars().all()
+                            
+                            if sessions:
+                                updated_count = 0
+                                for session_db in sessions:
+                                    if session_db.active:
+                                        session_db.active = False
+                                        session.add(session_db)
+                                        updated_count += 1
+                                        
+                                        from shared.machine_models import CLIStatusUpdateMessage
+                                        await self.ws_hub.broadcast(
+                                            CLIStatusUpdateMessage(session_id=session_db.session_id, active=False)
+                                        )
                                 
                                 logger.warning(
-                                    "Rate limit detected - session marked inactive",
+                                    "CLI error detected - sessions marked inactive",
                                     task_id=task_id,
-                                    session_id=task_db.session_id
+                                    user_id=task_db.user_id,
+                                    sessions_updated=updated_count,
+                                    error_type=error_type,
+                                    error_preview=result.error[:200] if result.error else None,
+                                    output_preview=result.output[:200] if result.output else None
                                 )
+                        else:
+                            logger.warning(
+                                "CLI error detected - session remains active",
+                                task_id=task_id,
+                                session_id=task_db.session_id,
+                                error_type=error_type,
+                                error_preview=result.error[:200] if result.error else None,
+                                output_preview=result.output[:200] if result.output else None
+                            )
 
                     # Log failure details
                     logger.warning(

@@ -299,13 +299,35 @@ async def update_conversation_metrics(
     
     # Update started_at (earliest task start)
     if task.started_at:
-        if conversation.started_at is None or task.started_at < conversation.started_at:
-            conversation.started_at = task.started_at
+        # Ensure timezone-aware comparison
+        task_started = task.started_at
+        if task_started.tzinfo is None:
+            task_started = task_started.replace(tzinfo=timezone.utc)
+        
+        if conversation.started_at is None:
+            conversation.started_at = task_started
+        else:
+            conv_started = conversation.started_at
+            if conv_started.tzinfo is None:
+                conv_started = conv_started.replace(tzinfo=timezone.utc)
+            if task_started < conv_started:
+                conversation.started_at = task_started
     
     # Update completed_at (latest task completion)
     if task.completed_at:
-        if conversation.completed_at is None or task.completed_at > conversation.completed_at:
-            conversation.completed_at = task.completed_at
+        # Ensure timezone-aware comparison
+        task_completed = task.completed_at
+        if task_completed.tzinfo is None:
+            task_completed = task_completed.replace(tzinfo=timezone.utc)
+        
+        if conversation.completed_at is None:
+            conversation.completed_at = task_completed
+        else:
+            conv_completed = conversation.completed_at
+            if conv_completed.tzinfo is None:
+                conv_completed = conv_completed.replace(tzinfo=timezone.utc)
+            if task_completed > conv_completed:
+                conversation.completed_at = task_completed
     
     # Update updated_at timestamp
     conversation.updated_at = datetime.now(timezone.utc)

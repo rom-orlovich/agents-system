@@ -124,16 +124,24 @@ class DashboardApp {
         if (active) {
             indicator.className = 'cli-status-indicator active';
             text.textContent = 'CLI: ACTIVE';
-            // Enable send button when CLI is active
             if (typeof conversationManager !== 'undefined' && conversationManager) {
                 conversationManager.enableChatInput();
+            } else {
+                const input = document.getElementById('chat-input');
+                const button = document.getElementById('send-button');
+                if (input) input.disabled = false;
+                if (button) button.disabled = false;
             }
         } else {
             indicator.className = 'cli-status-indicator inactive';
             text.textContent = 'CLI: INACTIVE';
-            // Disable send button when CLI is inactive
             if (typeof conversationManager !== 'undefined' && conversationManager) {
                 conversationManager.disableChatInput();
+            } else {
+                const input = document.getElementById('chat-input');
+                const button = document.getElementById('send-button');
+                if (input) input.disabled = true;
+                if (button) button.disabled = true;
             }
         }
     }
@@ -368,6 +376,22 @@ class DashboardApp {
             content.classList.remove('active');
         });
         document.getElementById(`tab-${tabName}`).classList.add('active');
+
+        // Auto-close sidebar on mobile
+        const sidebar = document.querySelector('.side-menu');
+        const hamburger = document.getElementById('hamburger-btn');
+        if (window.innerWidth <= 1024) {
+            sidebar.classList.remove('open');
+            hamburger.classList.remove('active');
+            document.body.classList.remove('sidebar-open'); // Added for potential future overflow locking
+        }
+    }
+
+    toggleSidebar() {
+        const sidebar = document.querySelector('.side-menu');
+        const hamburger = document.getElementById('hamburger-btn');
+        sidebar.classList.toggle('open');
+        hamburger.classList.toggle('active');
     }
 
     async loadDailyCostsChart() {
@@ -935,29 +959,27 @@ class DashboardApp {
 
         if (!message) return;
 
-        // Use conversation manager if available
         let conversationId = null;
-        if (typeof conversationManager !== 'undefined') {
-            conversationId = await conversationManager.sendMessage(message);
-            if (!conversationId) return; // Conversation manager will show error
+        if (typeof conversationManager !== 'undefined' && conversationManager.currentConversationId) {
+            conversationId = conversationManager.currentConversationId;
+            await conversationManager.sendMessage(message);
         } else {
             this.addChatMessage('user', message);
         }
 
-        input.value = '';
-
         try {
-            const url = conversationId
-                ? `/api/chat?session_id=${this.sessionId}&conversation_id=${conversationId}`
-                : `/api/chat?session_id=${this.sessionId}`;
+            const url = new URL('/api/chat', window.location.origin);
+            url.searchParams.set('session_id', this.sessionId);
+            if (conversationId) {
+                url.searchParams.set('conversation_id', conversationId);
+            }
 
-            const response = await fetch(url, {
+            const response = await fetch(url.toString(), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    type: 'chat.message',
                     message: message
                 })
             });
@@ -965,7 +987,19 @@ class DashboardApp {
             const data = await response.json();
 
             if (data.success) {
+                input.value = '';
+
                 const taskId = data.data.task_id;
+                const newConversationId = data.data.conversation_id;
+
+                if (newConversationId && typeof conversationManager !== 'undefined') {
+                    if (!conversationManager.currentConversationId) {
+                        await conversationManager.loadConversations();
+                    }
+                    await conversationManager.selectConversation(newConversationId);
+                } else if (conversationId && typeof conversationManager !== 'undefined') {
+                    await conversationManager.selectConversation(conversationId);
+                }
 
                 this.tasks.set(taskId, {
                     id: taskId,
@@ -976,9 +1010,9 @@ class DashboardApp {
                 });
                 this.renderTasks();
 
-                // Track task for conversation updates
-                if (conversationId && typeof conversationManager !== 'undefined') {
-                    this.trackTaskForConversation(taskId, conversationId);
+                const finalConversationId = newConversationId || conversationId;
+                if (finalConversationId && typeof conversationManager !== 'undefined') {
+                    this.trackTaskForConversation(taskId, finalConversationId);
                 }
             } else {
                 const errorMsg = `Error: ${data.message}`;

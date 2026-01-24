@@ -206,34 +206,6 @@ export function ChatFeature() {
                 ))}
               </div>
             </div>
-
-            <div className="p-4 border-t border-gray-200 bg-white z-10">
-              <form onSubmit={handleSend} className="max-w-3xl mx-auto flex gap-2">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={isDisabled ? "CLI INACTIVE - Cannot send messages" : "ENTER_COMMAND..."}
-                  disabled={isDisabled}
-                  className={clsx(
-                    "flex-1 bg-gray-50 border border-gray-200 px-4 py-2 text-xs font-mono focus:border-primary focus:bg-white transition-all outline-none rounded-sm",
-                    isDisabled && "opacity-50 cursor-not-allowed"
-                  )}
-                />
-                <button
-                  type="submit"
-                  disabled={isDisabled}
-                  className={clsx(
-                    "px-4 py-2 transition-all active:scale-95 font-heading text-[10px] font-bold tracking-widest uppercase",
-                    isDisabled
-                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      : "bg-primary text-white hover:opacity-90"
-                  )}
-                >
-                  SEND
-                </button>
-              </form>
-            </div>
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center bg-gray-50/10">
@@ -258,6 +230,35 @@ export function ChatFeature() {
             </div>
           </div>
         )}
+        
+        {/* Input form always visible at bottom */}
+        <div className="p-4 border-t border-gray-200 bg-white z-10">
+          <form onSubmit={handleSend} className="max-w-3xl mx-auto flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={isDisabled ? "CLI INACTIVE - Cannot send messages" : selectedConversation ? "ENTER_COMMAND..." : "ENTER_COMMAND... (will create new conversation)"}
+              disabled={isDisabled}
+              className={clsx(
+                "flex-1 bg-gray-50 border border-gray-200 px-4 py-2 text-xs font-mono focus:border-primary focus:bg-white transition-all outline-none rounded-sm",
+                isDisabled && "opacity-50 cursor-not-allowed"
+              )}
+            />
+            <button
+              type="submit"
+              disabled={isDisabled}
+              className={clsx(
+                "px-4 py-2 transition-all active:scale-95 font-heading text-[10px] font-bold tracking-widest uppercase",
+                isDisabled
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-primary text-white hover:opacity-90"
+              )}
+            >
+              EXECUTE
+            </button>
+          </form>
+        </div>
       </section>
     </div>
   );

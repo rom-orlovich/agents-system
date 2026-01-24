@@ -51,15 +51,32 @@ export function useChat() {
 
   const sendMutation = useMutation({
     mutationFn: async (content: string) => {
-      const res = await fetch(`/api/conversations/${selectedId}/messages`, {
+      // Use /api/chat endpoint which creates tasks and conversations
+      // If no conversation is selected, conversation_id will be undefined and a new one will be created
+      const sessionId = "default-session";
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "user", content }),
+        body: JSON.stringify({ 
+          message: content,
+          session_id: sessionId,
+          conversation_id: selectedId || undefined,
+        }),
       });
-      return res.json();
+      const data = await res.json();
+      return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["messages", selectedId] });
+    onSuccess: (data) => {
+      // If a new conversation was created, select it
+      if (data.data?.conversation_id) {
+        if (!selectedId) {
+          setSelectedId(data.data.conversation_id);
+        }
+        // Invalidate conversations list to show new conversation
+        queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        // Invalidate messages for the conversation (new or existing)
+        queryClient.invalidateQueries({ queryKey: ["messages", data.data.conversation_id] });
+      }
     },
   });
 

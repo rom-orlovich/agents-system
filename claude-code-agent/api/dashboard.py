@@ -19,13 +19,17 @@ from shared import (
     TaskStatus,
     AgentType,
     APIResponse,
-    ChatMessage,
 )
 import structlog
 
 logger = structlog.get_logger()
 
 router = APIRouter()
+
+
+class ChatRequest(BaseModel):
+    """Request model for chat endpoint."""
+    message: str
 
 
 class TaskTableRow(BaseModel):
@@ -284,45 +288,72 @@ async def stop_task(
 
 @router.post("/chat")
 async def chat_with_brain(
-    message: ChatMessage,
-    session_id: str,
-    conversation_id: Optional[str] = None,
+    request: ChatRequest,
+    session_id: str = Query(...),
+    conversation_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db_session)
 ):
-    """Send chat message to Brain with conversation context support."""
+    """Send chat message to Brain with conversation context support. Creates new conversation if conversation_id is not provided."""
     from core.database.models import ConversationDB, ConversationMessageDB
     import json
     
-    # Create or get session
     result = await db.execute(
         select(SessionDB).where(SessionDB.session_id == session_id)
     )
     session_db = result.scalar_one_or_none()
 
     if not session_db:
-        # Create new session
+        user_id = "default-user"
+        active = True
+        
+        try:
+            from core.config import settings
+            from api.credentials import ClaudeCredentials
+            import json
+            
+            creds_path = settings.credentials_path
+            if creds_path.exists():
+                creds_data = json.loads(creds_path.read_text())
+                creds = ClaudeCredentials.from_dict(creds_data)
+                user_id = creds.account_id
+                
+                if not user_id:
+                    import hashlib
+                    token_hash = hashlib.sha256(creds.access_token.encode()).hexdigest()[:16]
+                    user_id = f"user-{token_hash}"
+                
+                existing_sessions_result = await db.execute(
+                    select(SessionDB)
+                    .where(SessionDB.user_id == user_id)
+                    .order_by(SessionDB.connected_at.desc())
+                    .limit(1)
+                )
+                existing_session = existing_sessions_result.scalar_one_or_none()
+                if existing_session:
+                    active = existing_session.active
+        except Exception:
+            pass
+        
         session_db = SessionDB(
             session_id=session_id,
-            user_id="default-user",  # TODO: Get from auth
+            user_id=user_id,
             machine_id="claude-agent-001",
             connected_at=datetime.now(timezone.utc),
+            active=active
         )
         db.add(session_db)
         await db.commit()
 
-    # Handle conversation context
     conversation = None
     conversation_context = ""
     
     if conversation_id:
-        # Get existing conversation
         conv_result = await db.execute(
             select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
         )
         conversation = conv_result.scalar_one_or_none()
         
         if conversation:
-            # Get recent messages for context (last 20 messages)
             msg_result = await db.execute(
                 select(ConversationMessageDB)
                 .where(ConversationMessageDB.conversation_id == conversation_id)
@@ -336,11 +367,25 @@ async def chat_with_brain(
                 for msg in recent_messages:
                     conversation_context += f"**{msg.role.capitalize()}**: {msg.content[:500]}\n"
                 conversation_context += "\n## Current Message:\n"
+    else:
+        conversation_id = f"conv-{uuid.uuid4().hex[:12]}"
+        conversation_title = request.message[:50] + "..." if len(request.message) > 50 else request.message
+        
+        conversation = ConversationDB(
+            conversation_id=conversation_id,
+            user_id=session_db.user_id,
+            title=conversation_title,
+            metadata_json=json.dumps({
+                "source": "dashboard",
+                "created_from": "execute_chat"
+            }),
+        )
+        db.add(conversation)
+        await db.commit()
+        logger.info("New conversation created for execute chat", conversation_id=conversation_id, session_id=session_id)
     
-    # Build input message with context
-    full_input_message = conversation_context + message.message if conversation_context else message.message
+    full_input_message = conversation_context + request.message if conversation_context else request.message
     
-    # Create task
     task_id = f"task-{uuid.uuid4().hex[:12]}"
     task_db = TaskDB(
         task_id=task_id,
@@ -354,26 +399,23 @@ async def chat_with_brain(
         source_metadata=json.dumps({
             "conversation_id": conversation_id,
             "has_context": bool(conversation_context)
-        }) if conversation_id else "{}",
+        }),
     )
     db.add(task_db)
     await db.commit()
     
-    # Add user message to conversation
-    if conversation:
-        user_msg_id = f"msg-{uuid.uuid4().hex[:12]}"
-        user_message = ConversationMessageDB(
-            message_id=user_msg_id,
-            conversation_id=conversation_id,
-            role="user",
-            content=message.message,
-            task_id=task_id,
-        )
-        db.add(user_message)
-        conversation.updated_at = datetime.now(timezone.utc)
-        await db.commit()
+    user_msg_id = f"msg-{uuid.uuid4().hex[:12]}"
+    user_message = ConversationMessageDB(
+        message_id=user_msg_id,
+        conversation_id=conversation_id,
+        role="user",
+        content=request.message,
+        task_id=task_id,
+    )
+    db.add(user_message)
+    conversation.updated_at = datetime.now(timezone.utc)
+    await db.commit()
 
-    # Push to queue
     await redis_client.push_task(task_id)
     await redis_client.add_session_task(session_id, task_id)
 
