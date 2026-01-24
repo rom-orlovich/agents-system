@@ -61,7 +61,6 @@ class Settings(BaseSettings):
 
     # Claude CLI Configuration
     default_allowed_tools: str = "Read,Edit,Bash,Glob,Grep,Write"  # Pre-approved tools
-    enable_subagents: bool = True  # Enable sub-agent execution
     
     # Claude Code Tasks Integration
     sync_to_claude_tasks: bool = False  # Sync orchestration tasks to Claude Code Tasks directory

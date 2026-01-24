@@ -342,28 +342,6 @@ def test_command_builder_basic(dry_run_mode):
     assert True, "Command builder logic validated"
 
 
-@pytest.mark.dry_run
-def test_subagent_config_loading(dry_run_mode):
-    """Test sub-agent configuration loading (no execution)."""
-    from core.subagent_config import get_default_subagents
-    import json
-
-    # Load default config
-    config_str = get_default_subagents()
-    assert config_str is not None
-
-    # Parse and validate
-    config = json.loads(config_str)
-    assert isinstance(config, dict)
-    assert len(config) > 0
-
-    # Validate structure
-    for name, definition in config.items():
-        assert "description" in definition
-        assert "skills" in definition
-        assert isinstance(definition["skills"], list)
-
-
 # ============================================================================
 # Real CLI Tests (Expensive - Optional)
 # ============================================================================

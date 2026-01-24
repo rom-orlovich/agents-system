@@ -208,30 +208,6 @@ async def test_cli_full_command(fake_claude_cli):
 
 
 @pytest.mark.cli_integration
-async def test_subagent_config_loading():
-    """Test that sub-agent configuration loading works."""
-    from core.subagent_config import load_subagent_config, get_default_subagents
-    import json
-
-    # Test default sub-agents
-    default_config = get_default_subagents()
-    assert default_config is not None
-    assert isinstance(default_config, str)
-
-    # Should be valid JSON
-    parsed = json.loads(default_config)
-    assert isinstance(parsed, dict)
-    assert len(parsed) > 0
-
-    # Should have expected structure
-    for name, definition in parsed.items():
-        assert isinstance(definition, dict)
-        assert "description" in definition
-        assert "skills" in definition
-        assert isinstance(definition["skills"], list)
-
-
-@pytest.mark.cli_integration
 async def test_cli_command_builder(fake_claude_cli, monkeypatch):
     """Test that our CLI command builder produces valid commands."""
     from core.cli_runner import run_claude_cli
