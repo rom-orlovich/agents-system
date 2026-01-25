@@ -1,31 +1,93 @@
 ---
 name: verification
-description: Multi-stage verification and confidence assessment. Evaluates task results against completion criteria and determines if further improvement is needed.
+description: Script-based verification with confidence scoring.
 ---
 
 # Verification Skill
 
-> Quality control and confidence assessment for agentic workflows.
+> Run scripts → Score objectively → No opinions.
 
-## Core Principles
+## Core Rule
 
-1. **Criteria-Based Review:** Every assessment must be mapped to the original "Completion Criteria".
-2. **Confidence Scoring:** Assign a numeric score (0-100%) based on evidence.
-3. **Actionable Gaps:** If confidence is < 90%, identify exactly what is missing or incorrect.
-4. **Iterative Loop:** Feedback must be specific enough for the `brain` to guide sub-agents effectively.
+**NEVER approve without running scripts.** Exit codes are truth.
 
-## Confidence Assessment Rubric
+---
 
-| Component | Weight | Check |
-|-----------|--------|-------|
-| **Completeness** | 40% | Are all requirements met? |
-| **Correctness** | 30% | Is the code/result bug-free and functional? |
-| **Consistency** | 20% | Does it follow project patterns and styles? |
-| **Documentation** | 10% | Is the change properly explained/documented? |
+## Scripts (Mandatory)
 
-## Feedback Protocol
+```bash
+# Run ALL before scoring
+.claude/scripts/verification/test.sh      # 40% weight
+.claude/scripts/verification/build.sh     # 20% weight
+.claude/scripts/verification/lint.sh      # 20% weight
+.claude/scripts/verification/typecheck.sh # 20% weight
+```
 
-When a result is rejected, format the feedback as:
-1. **Confidence Score:** X%
-2. **Identified Gaps:** List specific missing or failing items.
-3. **Improvement Instructions:** Clear, actionable steps for the `brain` to re-delegate.
+## Score Calculation
+
+```
+Score = (test×0.4) + (build×0.2) + (lint×0.2) + (typecheck×0.2)
+Where: pass=100, fail=0
+```
+
+| Total Score | Decision |
+|-------------|----------|
+| ≥90% | APPROVE |
+| <90% | REJECT with gaps |
+
+---
+
+## Verification Steps
+
+1. **Read** PLAN.md criteria
+2. **Run** each script, capture exit code + output
+3. **Map** criteria to script results
+4. **Calculate** weighted score
+5. **Format** response (APPROVE or REJECT)
+
+---
+
+## Script Result Recording
+
+| Script | Exit | Weight | Score |
+|--------|------|--------|-------|
+| test.sh | 0/1 | 40% | 0/40 |
+| build.sh | 0/1 | 20% | 0/20 |
+| lint.sh | 0/1 | 20% | 0/20 |
+| typecheck.sh | 0/1 | 20% | 0/20 |
+| **Total** | - | 100% | **X%** |
+
+---
+
+## Gap Analysis (For Rejections)
+
+Each gap must include:
+```
+Gap: [Title]
+- Script: Which failed
+- Output: Relevant error
+- Agent: Who should fix
+- Fix: Specific instruction
+```
+
+---
+
+## Iteration Handling
+
+| Iteration | Tone |
+|-----------|------|
+| 1 | Detailed, educational |
+| 2 | Direct, focused on remaining |
+| 3 (final) | Force decision |
+
+**At iteration 3:** Either "Deliver with caveats" OR "Escalate to user"
+
+---
+
+## Anti-Patterns
+
+| Don't | Do |
+|-------|-----|
+| "Looks good to me" | Run scripts, show exit codes |
+| Approve to end loop | Score based on evidence |
+| Vague feedback | Specific file:line fixes |
