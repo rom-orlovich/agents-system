@@ -87,6 +87,8 @@ start:
 	@echo "🚀 Starting services..."
 	@docker-compose up -d
 	@sleep 5
+	@echo "🧪 Verifying Claude CLI status..."
+	@docker-compose exec -T app uv run python scripts/test_cli_after_build.py || echo "⚠️  CLI check failed or credentials not configured"
 	@echo ""
 	@echo "╔══════════════════════════════════════════════════════════════╗"
 	@echo "║        ✅ System Ready!                                      ║"
@@ -228,7 +230,6 @@ tunnel:
 	@echo "  Jira:    https://$(NGROK_DOMAIN)/webhooks/jira"
 	@echo "  Sentry:  https://$(NGROK_DOMAIN)/webhooks/sentry"
 	@echo "  Slack:   https://$(NGROK_DOMAIN)/webhooks/slack"
-	@echo "  GitLab:  https://$(NGROK_DOMAIN)/webhooks/gitlab"
 	@echo "  Custom:  https://$(NGROK_DOMAIN)/webhooks/custom/{id}"
 	@echo ""
 	@echo "💡 Dashboard will show these URLs automatically"
