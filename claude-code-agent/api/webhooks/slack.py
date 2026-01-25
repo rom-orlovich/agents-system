@@ -16,6 +16,7 @@ from typing import Optional
 import httpx
 import structlog
 
+from core.config import settings
 from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB, SessionDB, TaskDB
 from core.database.redis_client import redis_client
@@ -31,7 +32,7 @@ router = APIRouter()
 # ✅ Verification function (Slack webhook ONLY)
 async def verify_slack_signature(request: Request, body: bytes) -> None:
     """Verify Slack webhook signature ONLY."""
-    secret = os.getenv("SLACK_WEBHOOK_SECRET")
+    secret = os.getenv("SLACK_WEBHOOK_SECRET") or settings.slack_webhook_secret
     if not secret:
         logger.warning("SLACK_WEBHOOK_SECRET not configured, skipping verification")
         return
@@ -79,7 +80,7 @@ async def send_slack_immediate_response(
         text = event.get("text", "")
         
         if channel and user:
-            slack_token = os.getenv("SLACK_BOT_TOKEN")
+            slack_token = os.getenv("SLACK_BOT_TOKEN") or settings.slack_bot_token
             if slack_token:
                 async with httpx.AsyncClient() as client:
                     await client.post(
@@ -366,7 +367,7 @@ async def slack_webhook(
 # ✅ Slack Interactivity Handler (Button clicks)
 async def post_github_comment(repo: str, pr_number: int, comment: str) -> bool:
     """Post a comment to a GitHub PR."""
-    github_token = os.getenv("GITHUB_TOKEN")
+    github_token = os.getenv("GITHUB_TOKEN") or settings.github_token
     if not github_token:
         logger.error("GITHUB_TOKEN not configured")
         return False
@@ -392,7 +393,7 @@ async def post_github_comment(repo: str, pr_number: int, comment: str) -> bool:
 
 async def update_slack_message(channel: str, ts: str, text: str) -> bool:
     """Update the original Slack message to show action taken."""
-    slack_token = os.getenv("SLACK_BOT_TOKEN")
+    slack_token = os.getenv("SLACK_BOT_TOKEN") or settings.slack_bot_token
     if not slack_token:
         return False
 

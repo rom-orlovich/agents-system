@@ -404,6 +404,142 @@ class GitHubClient:
             logger.error("github_code_search_failed", query=query, error=str(e))
             raise
 
+    async def get_pull_request(
+        self,
+        repo_owner: str,
+        repo_name: str,
+        pr_number: int
+    ) -> Dict[str, Any]:
+        """
+        Get pull request details.
+
+        Args:
+            repo_owner: Repository owner
+            repo_name: Repository name
+            pr_number: PR number
+
+        Returns:
+            PR data dict with title, body, state, files changed, etc.
+        """
+        url = f"{self.base_url}/repos/{repo_owner}/{repo_name}/pulls/{pr_number}"
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    url,
+                    headers=self.headers,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+
+                logger.info("github_pr_fetched", repo=f"{repo_owner}/{repo_name}", pr=pr_number)
+                return response.json()
+
+        except Exception as e:
+            logger.error("github_get_pr_failed", repo=f"{repo_owner}/{repo_name}", pr=pr_number, error=str(e))
+            raise
+
+    async def get_pr_files(
+        self,
+        repo_owner: str,
+        repo_name: str,
+        pr_number: int
+    ) -> List[Dict[str, Any]]:
+        """
+        Get list of files changed in a pull request.
+
+        Args:
+            repo_owner: Repository owner
+            repo_name: Repository name
+            pr_number: PR number
+
+        Returns:
+            List of file change dicts with filename, additions, deletions, patch, etc.
+        """
+        url = f"{self.base_url}/repos/{repo_owner}/{repo_name}/pulls/{pr_number}/files"
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    url,
+                    headers=self.headers,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+
+                files = response.json()
+                logger.info(
+                    "github_pr_files_fetched",
+                    repo=f"{repo_owner}/{repo_name}",
+                    pr=pr_number,
+                    files_count=len(files)
+                )
+                return files
+
+        except Exception as e:
+            logger.error("github_get_pr_files_failed", repo=f"{repo_owner}/{repo_name}", pr=pr_number, error=str(e))
+            raise
+
+    async def get_file_content(
+        self,
+        repo_owner: str,
+        repo_name: str,
+        file_path: str,
+        ref: Optional[str] = None
+    ) -> str:
+        """
+        Get file content from repository at specific ref/branch.
+
+        Args:
+            repo_owner: Repository owner
+            repo_name: Repository name
+            file_path: Path to file in repository
+            ref: Optional git ref (branch, tag, commit SHA). Defaults to default branch.
+
+        Returns:
+            File content as string (decoded from base64)
+        """
+        url = f"{self.base_url}/repos/{repo_owner}/{repo_name}/contents/{file_path}"
+        
+        params = {}
+        if ref:
+            params["ref"] = ref
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    url,
+                    headers=self.headers,
+                    params=params,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+
+                data = response.json()
+                
+                # GitHub returns content as base64-encoded
+                import base64
+                content_b64 = data.get("content", "")
+                content = base64.b64decode(content_b64).decode("utf-8")
+
+                logger.info(
+                    "github_file_content_fetched",
+                    repo=f"{repo_owner}/{repo_name}",
+                    file=file_path,
+                    ref=ref or "default"
+                )
+                return content
+
+        except Exception as e:
+            logger.error(
+                "github_get_file_content_failed",
+                repo=f"{repo_owner}/{repo_name}",
+                file=file_path,
+                ref=ref,
+                error=str(e)
+            )
+            raise
+
 
 # Global client instance
 github_client = GitHubClient()

@@ -373,6 +373,7 @@ make up
 - **README.md**: Complete documentation
 - **docs/CONVERSATION-QUICKSTART.md**: Conversation management guide
 - **docs/WEBHOOK-SETUP.md**: Webhook configuration guide
+- **docs/SERVICE-INTEGRATION-GUIDE.md**: Service-specific integration guide (GitHub, Jira, etc.)
 - **docs/TDD-METHODOLOGY.md**: Test-driven development methodology guide
 - **.claude/CLAUDE.md**: Main brain configuration
 - **.claude/agents/*.md**: Agent definitions

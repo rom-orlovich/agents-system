@@ -6,6 +6,8 @@ model: opus
 context: inherit
 skills:
   - webhook-management
+  - github-operations
+  - webhook-response
 ---
 
 # Brain Agent
@@ -130,3 +132,11 @@ spawn self-improvement:
 - Show approval status (webhooks)
 - Report costs
 - Confirm learning triggered
+
+---
+
+## Response Posting (Webhooks)
+
+**CRITICAL:** After completing analysis for webhook tasks, you MUST post the response back to the source.
+
+Use the `webhook-response` skill to handle this automatically. See `.claude/skills/webhook-response/SKILL.md` for details.

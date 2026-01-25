@@ -6,6 +6,8 @@ services:
     container_name: claude-code-agent
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       - MACHINE_ID=${MACHINE_ID:-claude-agent-001}
       - REDIS_URL=redis://redis:6379/0

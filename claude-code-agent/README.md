@@ -40,7 +40,7 @@ A self-managing machine where FastAPI runs as a daemon and Claude Code CLI is sp
 - 🧠 **Brain Orchestrator**: Main Claude CLI instance that manages sub-agents
 - 💬 **Persistent Conversations**: Inbox-style UI with context awareness (Dashboard v2)
 - 🔄 **Task Flow Tracking**: End-to-end flow tracking with flow_id across webhook → analysis → execution
-- 📡 **Unified Webhooks**: Fully configurable GitHub, Jira, Slack, Sentry integration
+- 📡 **Unified Webhooks**: Fully configurable [GitHub, Jira, Slack, Sentry integration](file:///Users/romo/projects/agents-prod/claude-code-agent/docs/SERVICE-INTEGRATION-GUIDE.md)
 - 🤖 **9 Specialized Agents**: Brain, Planning, Executor, Service Integrator, Self-Improvement, Agent Creator, Skill Creator, Verifier, Webhook Generator
 - 📊 **Advanced Analytics**: Cost tracking, usage metrics, OAuth monitoring, conversation analytics
 - 🗄️ **Dual Storage**: Redis (queue/cache) + SQLite (persistence)
