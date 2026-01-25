@@ -11,12 +11,19 @@ export function OverviewFeature() {
   const { data: globalLogs } = useGlobalLogs();
   
   const logEndRef = useRef<HTMLDivElement>(null);
+  const logContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (logEndRef.current) {
       logEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [taskLogs?.output]);
+
+  const scrollToTop = () => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = 0;
+    }
+  };
 
   if (isLoading) return <div className="p-8 text-center font-heading">SYNCING_METRICS...</div>;
   if (error)
@@ -213,12 +220,20 @@ export function OverviewFeature() {
                 </div>
               </div>
 
-              <div className="rounded bg-gray-950 p-4 font-mono text-[10px] text-gray-300 space-y-1 overflow-y-auto max-h-48 border border-gray-800 shadow-inner">
-                <div className="text-gray-500 mb-2 border-b border-gray-800 pb-1 flex justify-between">
+              <div ref={logContainerRef} className="rounded bg-gray-950 p-4 font-mono text-[10px] text-gray-300 space-y-1 overflow-y-auto max-h-48 md:max-h-96 border border-gray-800 shadow-inner relative">
+                <div className="text-gray-500 mb-2 border-b border-gray-800 pb-1 flex justify-between items-center sticky top-0 bg-gray-950/90 backdrop-blur-sm z-10">
                   <span>LIVE_LOGS_STREAM</span>
-                  {taskLogs?.is_live && (
-                    <span className="text-blue-500 animate-pulse text-[8px] font-bold">● LIVE</span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <button
+                       onClick={scrollToTop}
+                       className="text-[9px] px-1.5 py-0.5 border border-gray-700 rounded hover:bg-gray-800 hover:text-white transition-colors cursor-pointer"
+                    >
+                      SCROLL_TOP
+                    </button>
+                    {taskLogs?.is_live && (
+                      <span className="text-blue-500 animate-pulse text-[8px] font-bold">● LIVE</span>
+                    )}
+                  </div>
                 </div>
                 {isLogsLoading ? (
                   <div className="text-gray-600 animate-pulse">CONNECTING_TO_STREAM...</div>

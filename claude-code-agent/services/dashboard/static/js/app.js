@@ -1103,6 +1103,7 @@ class DashboardApp {
 
                     <div class="logs-controls">
                         <button onclick="app.refreshTaskLogs('${taskId}')" class="refresh-btn">REFRESH_PULSE</button>
+                        <button onclick="app.scrollToTop('${taskId}')" class="refresh-btn">SCROLL_TOP</button>
                         ${isRunning ? '<span class="auto-refresh-notice">Auto-sync active (2s)</span>' : ''}
                     </div>
                 </div>
@@ -1187,6 +1188,13 @@ class DashboardApp {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    scrollToTop(taskId) {
+        const logsElement = document.getElementById(`task-logs-${taskId}`);
+        if (logsElement) {
+            logsElement.scrollTop = 0;
+        }
     }
 
     startTaskLogsPolling(taskId) {
