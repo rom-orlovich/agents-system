@@ -1,206 +1,93 @@
 ---
 name: verification
-description: Multi-stage verification with confidence scoring, critical thinking, and actionable feedback for the Brain.
+description: Script-based verification with confidence scoring.
 ---
 
 # Verification Skill
 
-> Quality control and confidence assessment for complex multi-agent workflows.
+> Run scripts → Score objectively → No opinions.
+
+## Core Rule
+
+**NEVER approve without running scripts.** Exit codes are truth.
 
 ---
 
-## Core Principles
+## Scripts (Mandatory)
 
-1. **Evidence-Based:** Every score must be backed by specific evidence
-2. **Criteria-Mapped:** Assessment maps to PLAN.md completion criteria
-3. **Actionable Gaps:** Rejections include specific fixes for specific agents
-4. **Iteration-Aware:** Feedback urgency scales with iteration count
-
----
-
-## Confidence Scoring Rubric
-
-| Component | Weight | 100% | 75% | 50% | 25% |
-|-----------|--------|------|-----|-----|-----|
-| **Completeness** | 40% | All criteria met | Minor gaps | Several gaps | Major missing |
-| **Correctness** | 30% | Tests pass, no bugs | Minor issues | Some bugs | Broken |
-| **Consistency** | 20% | Follows all patterns | Minor deviations | Inconsistent | Violates patterns |
-| **Documentation** | 10% | Clear, complete | Adequate | Sparse | Missing |
-
-### Score Calculation
-```
-Score = (Completeness × 0.4) + (Correctness × 0.3) + (Consistency × 0.2) + (Documentation × 0.1)
-```
-
-### Threshold
-- **≥ 90%:** APPROVE
-- **< 90%:** REJECT with gap analysis
-
----
-
-## Critical Thinking Questions
-
-Before scoring, systematically ask:
-
-| Category | Question |
-|----------|----------|
-| **Function** | Does it actually work? Did you test it? |
-| **Edge Cases** | What happens with null/empty/extreme inputs? |
-| **Requirements** | Does it match what the user asked for? |
-| **Completeness** | Check each PLAN.md criterion — any missing? |
-| **Regression** | Could this break existing functionality? |
-| **Security** | Any injection, XSS, auth bypass risks? |
-| **Finish** | Any TODOs, placeholders, or incomplete logic? |
-
----
-
-## Verification Procedure
-
-### Step 1: Gather Inputs
-```
-- Original user request
-- PLAN.md with completion criteria
-- Agent outputs (code, docs, tests)
-- Current iteration number
-```
-
-### Step 2: Validate Each Criterion
-For each criterion in PLAN.md:
-```
-Criterion: [description]
-├── Status: MET / PARTIAL / NOT MET
-├── Evidence: [what proves the status]
-└── Notes: [concerns or observations]
-```
-
-### Step 3: Run Tests (if applicable)
 ```bash
-# Unit tests
-pytest tests/unit/ -v --tb=short
-
-# Check for regressions
-pytest tests/ -x --lf
-
-# Build verification
-make build 2>&1 | tail -20
-
-# Type check
-mypy src/ --strict
+# Run ALL before scoring
+.claude/scripts/verification/test.sh      # 40% weight
+.claude/scripts/verification/build.sh     # 20% weight
+.claude/scripts/verification/lint.sh      # 20% weight
+.claude/scripts/verification/typecheck.sh # 20% weight
 ```
 
-### Step 4: Score Components
-Calculate each component score:
+## Score Calculation
+
 ```
-Completeness: X/100
-Correctness:  X/100
-Consistency:  X/100
-Documentation: X/100
-─────────────────────
-Weighted Total: X%
+Score = (test×0.4) + (build×0.2) + (lint×0.2) + (typecheck×0.2)
+Where: pass=100, fail=0
 ```
 
-### Step 5: Formulate Response
-Based on score, use appropriate template.
+| Total Score | Decision |
+|-------------|----------|
+| ≥90% | APPROVE |
+| <90% | REJECT with gaps |
 
 ---
 
-## Gap Analysis Format
+## Verification Steps
 
-When rejecting, structure gaps clearly:
-
-```
-## Gap Analysis
-
-### Gap 1: {Title}
-- **Problem:** What is wrong or missing
-- **Impact:** Why it matters for the user
-- **Evidence:** How you discovered it
-- **Agent:** Which sub-agent should fix
-- **Fix:** Specific actionable instruction
-
-### Gap 2: {Title}
-...
-```
+1. **Read** PLAN.md criteria
+2. **Run** each script, capture exit code + output
+3. **Map** criteria to script results
+4. **Calculate** weighted score
+5. **Format** response (APPROVE or REJECT)
 
 ---
 
-## Iteration-Adjusted Feedback
+## Script Result Recording
 
-| Iteration | Tone | Detail Level | Focus |
-|-----------|------|--------------|-------|
-| 1 | Educational | High | Explain gaps thoroughly |
-| 2 | Direct | Medium | Focus on remaining gaps |
-| 3 (Final) | Decisive | Summary | Force decision |
+| Script | Exit | Weight | Score |
+|--------|------|--------|-------|
+| test.sh | 0/1 | 40% | 0/40 |
+| build.sh | 0/1 | 20% | 0/20 |
+| lint.sh | 0/1 | 20% | 0/20 |
+| typecheck.sh | 0/1 | 20% | 0/20 |
+| **Total** | - | 100% | **X%** |
 
-### Iteration 3 Guidance
+---
+
+## Gap Analysis (For Rejections)
+
+Each gap must include:
 ```
-If still rejecting at iteration 3:
-
-"Brain, this is iteration 3 of 3. Confidence remains at X%.
-
-Unresolved gaps:
-1. [gap]
-2. [gap]
-
-Recommended action:
-[ ] Deliver with documented limitations:
-    - [limitation 1]
-    - [limitation 2]
-
-[ ] Escalate to user for decision:
-    - Explain tradeoffs
-    - Let user choose acceptable quality level
-
-Do NOT loop back. End the verification cycle."
+Gap: [Title]
+- Script: Which failed
+- Output: Relevant error
+- Agent: Who should fix
+- Fix: Specific instruction
 ```
 
 ---
 
-## Test Verification Checklist
+## Iteration Handling
 
-```
-[ ] Unit tests exist and pass
-[ ] Edge cases covered (null, empty, max)
-[ ] Error cases handled
-[ ] Integration tests pass (if applicable)
-[ ] No regression in existing tests
-[ ] Test coverage adequate for changes
-```
+| Iteration | Tone |
+|-----------|------|
+| 1 | Detailed, educational |
+| 2 | Direct, focused on remaining |
+| 3 (final) | Force decision |
 
----
-
-## Code Review Checklist
-
-```
-[ ] Logic correct and complete
-[ ] No hardcoded values that should be config
-[ ] Error handling present where needed
-[ ] No security vulnerabilities (injection, XSS)
-[ ] Follows project code style
-[ ] No TODOs or placeholder code
-[ ] Performance acceptable
-```
+**At iteration 3:** Either "Deliver with caveats" OR "Escalate to user"
 
 ---
 
 ## Anti-Patterns
 
-| Avoid | Instead |
-|-------|---------|
-| Vague gaps ("needs improvement") | Specific gaps with exact fixes |
-| Scoring on effort | Score on results only |
-| Approving to end loop | Honest scoring every time |
-| Same feedback repeatedly | Escalate if gap persists |
-| Ignoring iteration count | Adjust urgency per iteration |
-
----
-
-## Integration with Memory
-
-After APPROVE:
-- Brain should write successful patterns to `.claude/memory/project/patterns.md`
-- Any lessons learned to appropriate memory file
-
-After REJECT:
-- Brain should read `.claude/memory/project/failures.md` before re-delegating
-- Look for similar past failures to avoid repeating
+| Don't | Do |
+|-------|-----|
+| "Looks good to me" | Run scripts, show exit codes |
+| Approve to end loop | Score based on evidence |
+| Vague feedback | Specific file:line fixes |

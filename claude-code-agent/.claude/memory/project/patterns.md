@@ -1,49 +1,61 @@
 # Successful Patterns
 
-> Learnings from verified successful implementations. Updated after confidence ≥ 90%.
+> Read at complex task start. **Max 30 entries. Auto-prune >30 days unused.**
+
+---
+
+## Entry Format
+```
+### [ID] Pattern Name
+Context: When to use | Evidence: Why it works | Added: YYYY-MM-DD
+```
 
 ---
 
 ## Code Patterns
 
-### Async I/O
-- Use async for all I/O operations (DB, HTTP, file)
-- Prefer `asyncio.gather()` for parallel operations
-- Always use async context managers for resource cleanup
+### [C01] Async All I/O
+Context: DB, HTTP, file operations | Evidence: Non-blocking, better throughput | Added: 2025-01-25
 
-### Error Handling
-- Wrap external service calls with try/except for graceful degradation
-- Log errors with full context before re-raising
-- Use custom exception types for domain-specific errors
+### [C02] TDD Workflow
+Context: Any code implementation | Evidence: Catches bugs early, cleaner design | Added: 2025-01-25
 
-### Testing
-- Write tests before implementation (TDD)
-- Use fixtures for complex test data
-- Test edge cases: empty, null, max values
+### [C03] Pydantic Validation
+Context: API inputs, config, domain models | Evidence: Type safety, auto-validation | Added: 2025-01-25
+
+### [C04] Error Wrap External Calls
+Context: Service integrations | Evidence: Graceful degradation | Added: 2025-01-25
 
 ---
 
 ## Agent Patterns
 
-### Delegation
-- Always provide context when delegating
-- Include task_id for task directory lookups
-- Specify expected output format
+### [A01] Always Provide Context
+Context: Delegation to sub-agents | Evidence: Prevents misunderstanding | Added: 2025-01-25
 
-### Verification Loop
-- Pass iteration count to verifier
-- Only re-instruct failing criteria
-- Write to memory only after successful verification
+### [A02] Include Iteration Count
+Context: Verification loop | Evidence: Enables escalation logic | Added: 2025-01-25
 
----
-
-## Architecture Patterns
-
-### Service Integration
-- Use workflow orchestrator for cross-service operations
-- Post status to originating service (Jira, GitHub)
-- Send Slack notifications for async operations
+### [A03] Re-instruct Only Failures
+Context: After verification rejection | Evidence: Preserves working parts | Added: 2025-01-25
 
 ---
 
-*Last updated: System initialization*
+## Workflow Patterns
+
+### [W01] Post Status to Source
+Context: Cross-service workflows | Evidence: Maintains traceability | Added: 2025-01-25
+
+### [W02] Slack Notify Async Ops
+Context: Long-running tasks | Evidence: Keeps stakeholders informed | Added: 2025-01-25
+
+---
+
+## Pruning Rules
+
+| Trigger | Action |
+|---------|--------|
+| Entry >30 days unused | Archive to memory/archive/ |
+| Entry unused >10 tasks | Flag for review |
+| Count >30 | Remove oldest |
+| Similar entries exist | Consolidate (self-improvement) |
