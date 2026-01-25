@@ -8,7 +8,7 @@ A comprehensive suite of AI-powered agents that automate the software developmen
 
 ## ✨ Overview
 
-This monorepo contains four interconnected systems that demonstrate different approaches to building autonomous AI agents:
+This monorepo contains five interconnected systems that demonstrate different approaches to building autonomous AI agents:
 
 | System | Description | Use Case |
 |--------|-------------|----------|
@@ -16,6 +16,7 @@ This monorepo contains four interconnected systems that demonstrate different ap
 | **[Multiple Agents System](./multiple-agents-system/)** | Distributed AWS architecture | Production Deployment |
 | **[Claude Code CLI](./claude-code-cli/)** | Production-ready two-agent system | **Enterprise Production** |
 | **[Claude Code CLI POC](./claude-code-cli-poc/)** | Docker-based two-agent system | Quick Proof of Concept |
+| **[Claude Code Agent](./claude-code-agent/)** ⭐ | Native Claude Code agents/skills architecture | **Recommended Production** |
 
 ---
 
@@ -55,14 +56,16 @@ This monorepo contains four interconnected systems that demonstrate different ap
 
 ## 🏗️ Architecture Comparison
 
-| Feature | Single Agent | Multiple Agents | Claude Code CLI | CLI POC |
-|---------|--------------|-----------------|-----------------|---------|
-| **LLM Provider** | AWS Bedrock | AWS Bedrock | Claude CLI | Claude CLI |
-| **Orchestration** | Python | Step Functions | Kubernetes | Docker Compose |
-| **Tool Access** | AgentCore MCP | AgentCore MCP | MCP Servers | MCP Servers |
-| **State Storage** | In-memory | DynamoDB | PostgreSQL + Redis | File-based |
-| **Scaling** | Single instance | AWS native | Auto-scaling | Fixed |
-| **Best For** | Local dev | AWS Production | Cloud Production | Quick demos |
+| Feature | Single Agent | Multiple Agents | Claude Code CLI | CLI POC | Claude Code Agent ⭐ |
+|---------|--------------|-----------------|-----------------|---------|---------------------|
+| **LLM Provider** | AWS Bedrock | AWS Bedrock | Claude CLI | Claude CLI | Claude CLI |
+| **Orchestration** | Python | Step Functions | Kubernetes | Docker Compose | Native Sub-Agents |
+| **Tool Access** | AgentCore MCP | AgentCore MCP | MCP Servers | MCP Servers | Skills + MCP |
+| **State Storage** | In-memory | DynamoDB | PostgreSQL + Redis | File-based | SQLite + Redis |
+| **Human Approval** | Manual | Manual | Manual | Required | **Slack → GitHub** |
+| **Self-Improvement** | None | None | None | None | **Auto after verify** |
+| **Scaling** | Single instance | AWS native | Auto-scaling | Fixed | Concurrent tasks |
+| **Best For** | Local dev | AWS Production | Cloud Production | Quick demos | **Modern Production** |
 
 ---
 
