@@ -19,6 +19,10 @@ from core.webhook_engine import (
     generate_webhook_conversation_title,
     action_comment
 )
+from core.github_client import github_client
+from core.jira_client import jira_client
+from core.slack_client import slack_client
+from core.sentry_client import sentry_client
 from shared import TaskStatus, TaskOutputMessage, TaskCompletedMessage, TaskFailedMessage
 from sqlalchemy import select, update
 from datetime import datetime, timezone
@@ -568,20 +572,40 @@ class TaskWorker:
                         webhook_source=webhook_source
                     )
             
-            # Always add a new message to the conversation (even if reusing conversation)
-            user_message_id = f"msg-{uuid.uuid4().hex[:12]}"
-            user_message = ConversationMessageDB(
-                message_id=user_message_id,
-                conversation_id=conversation_id,
-                role="user",
-                content=task_db.input_message,
-                task_id=task_db.task_id,
-                metadata_json=json.dumps({
-                    "webhook_source": webhook_source,
-                    "command": command
-                }),
+            # Only add message if not already added by webhook handler
+            # Check if a message with this task_id already exists
+            existing_message_result = await session.execute(
+                select(ConversationMessageDB)
+                .where(ConversationMessageDB.task_id == task_db.task_id)
+                .where(ConversationMessageDB.conversation_id == conversation_id)
             )
-            session.add(user_message)
+            existing_message = existing_message_result.scalar_one_or_none()
+
+            if not existing_message:
+                user_message_id = f"msg-{uuid.uuid4().hex[:12]}"
+                user_message = ConversationMessageDB(
+                    message_id=user_message_id,
+                    conversation_id=conversation_id,
+                    role="user",
+                    content=task_db.input_message,
+                    task_id=task_db.task_id,
+                    metadata_json=json.dumps({
+                        "webhook_source": webhook_source,
+                        "command": command
+                    }),
+                )
+                session.add(user_message)
+                logger.info(
+                    "webhook_conversation_message_added",
+                    task_id=task_db.task_id,
+                    conversation_id=conversation_id
+                )
+            else:
+                logger.info(
+                    "webhook_conversation_message_already_exists",
+                    task_id=task_db.task_id,
+                    conversation_id=conversation_id
+                )
             
             # Update task metadata with conversation_id
             source_metadata["conversation_id"] = conversation_id
@@ -748,75 +772,124 @@ class TaskWorker:
         message: str,
         success: bool
     ) -> bool:
-        """Post comment back to webhook source (Jira, GitHub, Slack) after task completion."""
+        """Post comment back to webhook source (Jira, GitHub, Slack, Sentry) after task completion."""
         try:
             # Parse source_metadata to get payload
             source_metadata = json.loads(task_db.source_metadata or "{}")
             payload = source_metadata.get("payload", {})
-            webhook_source = source_metadata.get("webhook_source", "unknown")
-            
+            webhook_source = source_metadata.get("webhook_source", "unknown").lower()
+
             if not payload:
                 logger.debug("no_payload_for_webhook_comment", task_id=task_db.task_id)
                 return False
-            
-            # Ensure payload has provider field
-            if "provider" not in payload:
-                payload["provider"] = webhook_source
-            
-            # Get platform for formatting
-            platform = payload.get("provider", webhook_source).lower()
-            
-            # Format message based on success/failure and platform
+
+            # Format message based on success/failure
             if success:
-                status_prefix = "✅"
-                formatted_message = f"{status_prefix} {message}"
+                formatted_message = f"✅ {message}"
             else:
-                # Format error message for platform
-                formatted_message = self._format_error_for_platform(message, platform)
-            
+                formatted_message = self._format_error_for_platform(message, webhook_source)
+
             # Truncate message if too long (most APIs have limits)
-            # Use higher limit for error messages to preserve important details
             max_length = 8000 if not success else 4000
-            truncated_message = formatted_message[:max_length] if len(formatted_message) > max_length else formatted_message
             if len(formatted_message) > max_length:
-                # Try to truncate at sentence boundary
+                truncated_message = formatted_message[:max_length]
                 last_period = truncated_message.rfind(".")
                 last_newline = truncated_message.rfind("\n")
                 truncate_at = max(last_period, last_newline)
-                if truncate_at > max_length * 0.8:  # Only truncate at boundary if it's reasonable
+                if truncate_at > max_length * 0.8:
                     truncated_message = truncated_message[:truncate_at + 1]
-                truncated_message += "\n\n... (message truncated)"
-            
-            formatted_message = truncated_message
-            
+                formatted_message = truncated_message + "\n\n... (message truncated)"
+
             # Add cost info if available and successful
             if success and task_db.cost_usd > 0:
                 formatted_message += f"\n\n💰 Cost: ${task_db.cost_usd:.4f}"
-            
-            # Post comment using webhook_engine action_comment
-            result = await action_comment(payload, formatted_message)
-            
-            if result.get("status") == "sent":
+
+            # Post to the appropriate service based on webhook_source
+            posted = False
+
+            if webhook_source == "github":
+                # Handle GitHub issues and PRs
+                repo = payload.get("repository", {})
+                owner = repo.get("owner", {}).get("login", "")
+                repo_name = repo.get("name", "")
+
+                if owner and repo_name:
+                    # Check if this is a PR or issue
+                    pr = payload.get("pull_request", {})
+                    issue = payload.get("issue", {})
+
+                    if pr and pr.get("number"):
+                        # Post to PR
+                        pr_number = pr.get("number")
+                        await github_client.post_pr_comment(owner, repo_name, pr_number, formatted_message)
+                        logger.info("github_pr_comment_posted", pr_number=pr_number, task_id=task_db.task_id)
+                        posted = True
+                    elif issue and issue.get("number"):
+                        # Post to issue
+                        issue_number = issue.get("number")
+                        await github_client.post_issue_comment(owner, repo_name, issue_number, formatted_message)
+                        logger.info("github_issue_comment_posted", issue_number=issue_number, task_id=task_db.task_id)
+                        posted = True
+                    else:
+                        logger.warning("github_no_issue_or_pr_found", task_id=task_db.task_id)
+
+            elif webhook_source == "jira":
+                # Handle Jira tickets
+                issue = payload.get("issue", {})
+                issue_key = issue.get("key")
+
+                if issue_key:
+                    await jira_client.post_comment(issue_key, formatted_message)
+                    logger.info("jira_comment_posted", issue_key=issue_key, task_id=task_db.task_id)
+                    posted = True
+                else:
+                    logger.warning("jira_no_issue_key_found", task_id=task_db.task_id)
+
+            elif webhook_source == "slack":
+                # Handle Slack messages
+                event = payload.get("event", {})
+                channel = event.get("channel")
+                thread_ts = event.get("ts")
+
+                if channel:
+                    await slack_client.post_message(
+                        channel=channel,
+                        text=formatted_message,
+                        thread_ts=thread_ts
+                    )
+                    logger.info("slack_message_posted", channel=channel, task_id=task_db.task_id)
+                    posted = True
+                else:
+                    logger.warning("slack_no_channel_found", task_id=task_db.task_id)
+
+            elif webhook_source == "sentry":
+                # Handle Sentry issues
+                issue_data = payload.get("data", {}).get("issue", {})
+                issue_id = issue_data.get("id")
+
+                if issue_id:
+                    await sentry_client.add_comment(issue_id, formatted_message)
+                    logger.info("sentry_comment_posted", issue_id=issue_id, task_id=task_db.task_id)
+                    posted = True
+                else:
+                    logger.warning("sentry_no_issue_id_found", task_id=task_db.task_id)
+            else:
+                logger.warning("unknown_webhook_source", webhook_source=webhook_source, task_id=task_db.task_id)
+
+            if posted:
                 logger.info(
                     "webhook_comment_posted",
                     task_id=task_db.task_id,
-                    provider=payload.get("provider"),
+                    webhook_source=webhook_source,
                     success=success
                 )
-                return True
-            else:
-                logger.warning(
-                    "webhook_comment_failed",
-                    task_id=task_db.task_id,
-                    provider=payload.get("provider"),
-                    error=result.get("error")
-                )
-                return False
-                
+            return posted
+
         except Exception as e:
             logger.error(
                 "webhook_comment_error",
                 task_id=task_db.task_id,
+                webhook_source=source_metadata.get("webhook_source", "unknown") if 'source_metadata' in dir() else "unknown",
                 error=str(e)
             )
             return False

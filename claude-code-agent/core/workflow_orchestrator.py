@@ -407,6 +407,96 @@ class WorkflowOrchestrator:
 
             return result
 
+    async def github_pr_analysis_workflow(
+        self,
+        payload: Dict[str, Any],
+        analysis_result: str,
+        task_id: str
+    ) -> Dict[str, Any]:
+        """
+        Execute workflow for GitHub PR → analysis → comment.
+
+        Args:
+            payload: GitHub webhook payload
+            analysis_result: Analysis text
+            task_id: Task ID
+
+        Returns:
+            Workflow result dict
+        """
+        pr = payload.get("pull_request", {})
+        repo = payload.get("repository", {})
+        owner = repo.get("owner", {}).get("login")
+        repo_name = repo.get("name")
+        pr_number = pr.get("number")
+
+        workflow_name = f"GitHub PR Review: {owner}/{repo_name}#{pr_number}"
+
+        logger.info("github_pr_workflow_start", repo=f"{owner}/{repo_name}", pr=pr_number, task_id=task_id)
+
+        # Send start notification
+        thread_ts = await self.notify_workflow_start(
+            workflow_name,
+            {
+                "Repository": f"{owner}/{repo_name}",
+                "PR": f"#{pr_number}",
+                "Title": pr.get("title", "N/A"),
+                "Task ID": task_id
+            }
+        )
+
+        result = {
+            "workflow": "github_pr_analysis",
+            "repo": f"{owner}/{repo_name}",
+            "pr_number": pr_number,
+            "task_id": task_id,
+            "steps": []
+        }
+
+        try:
+            # Post analysis to GitHub PR
+            await self.notify_workflow_progress(
+                workflow_name,
+                "in_progress",
+                {"Step": "Posting review to GitHub PR"},
+                thread_ts
+            )
+
+            await self.github.post_pr_comment(owner, repo_name, pr_number, analysis_result)
+
+            result["steps"].append({
+                "name": "post_pr_comment",
+                "status": "completed",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            })
+
+            # Workflow complete
+            await self.notify_workflow_complete(
+                workflow_name,
+                {
+                    "Repository": f"{owner}/{repo_name}",
+                    "PR": f"#{pr_number}",
+                    "Status": "Review posted to GitHub PR"
+                },
+                thread_ts
+            )
+
+            result["status"] = "completed"
+            logger.info("github_pr_workflow_complete", repo=f"{owner}/{repo_name}", pr=pr_number)
+
+            return result
+
+        except Exception as e:
+            error_msg = str(e)
+            logger.error("github_pr_workflow_failed", repo=f"{owner}/{repo_name}", pr=pr_number, error=error_msg)
+
+            result["status"] = "failed"
+            result["error"] = error_msg
+
+            await self.notify_workflow_failure(workflow_name, error_msg, thread_ts)
+
+            return result
+
 
 # Global orchestrator instance
 workflow_orchestrator = WorkflowOrchestrator()

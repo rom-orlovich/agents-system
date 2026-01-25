@@ -53,10 +53,25 @@ async def post_webhook_response(
         
         # Post based on source
         if webhook_source == "github":
-            await workflow_orchestrator.github_issue_analysis_workflow(
-                payload, analysis_result, task_id
-            )
-            logger.info("webhook_response_posted", source="github", task_id=task_id)
+            # Check if this is a PR or an issue
+            pr = payload.get("pull_request", {})
+            issue = payload.get("issue", {})
+
+            if pr and pr.get("number"):
+                # This is a PR
+                await workflow_orchestrator.github_pr_analysis_workflow(
+                    payload, analysis_result, task_id
+                )
+                logger.info("webhook_response_posted", source="github_pr", task_id=task_id)
+            elif issue and issue.get("number"):
+                # This is an issue
+                await workflow_orchestrator.github_issue_analysis_workflow(
+                    payload, analysis_result, task_id
+                )
+                logger.info("webhook_response_posted", source="github_issue", task_id=task_id)
+            else:
+                logger.warning("github_no_pr_or_issue_in_payload", task_id=task_id)
+                return False
             return True
             
         elif webhook_source == "jira":

@@ -322,31 +322,63 @@ async def chat_with_brain(
 
     conversation = None
     conversation_context = ""
-    
+    task_history_context = ""
+
     if conversation_id:
         conv_result = await db.execute(
             select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
         )
         conversation = conv_result.scalar_one_or_none()
-        
-            if conversation:
-                msg_result = await db.execute(
-                    select(ConversationMessageDB)
-                    .where(ConversationMessageDB.conversation_id == conversation_id)
-                    .order_by(ConversationMessageDB.created_at.desc())
-                    .limit(50)
-                )
-                recent_messages = list(reversed(msg_result.scalars().all()))
-                
-                if recent_messages:
-                    conversation_context = "\n\n## Previous Conversation Context:\n"
-                    for msg in recent_messages:
-                        # Use larger context window (10k chars) instead of 500
-                        content_preview = msg.content[:10000]
-                        if len(msg.content) > 10000:
-                            content_preview += "... (truncated)"
-                        conversation_context += f"**{msg.role.capitalize()}**: {content_preview}\n"
-                    conversation_context += "\n## Current Message:\n"
+
+        if conversation:
+            # Get previous messages
+            msg_result = await db.execute(
+                select(ConversationMessageDB)
+                .where(ConversationMessageDB.conversation_id == conversation_id)
+                .order_by(ConversationMessageDB.created_at.desc())
+                .limit(50)
+            )
+            recent_messages = list(reversed(msg_result.scalars().all()))
+
+            if recent_messages:
+                conversation_context = "\n\n## Previous Conversation Context:\n"
+                for msg in recent_messages:
+                    # Use larger context window (10k chars) instead of 500
+                    content_preview = msg.content[:10000]
+                    if len(msg.content) > 10000:
+                        content_preview += "... (truncated)"
+                    conversation_context += f"**{msg.role.capitalize()}**: {content_preview}\n"
+                conversation_context += "\n## Current Message:\n"
+
+            # Get last 10 tasks for this conversation
+            tasks_result = await db.execute(
+                select(TaskDB)
+                .where(TaskDB.source_metadata.like(f'%"conversation_id": "{conversation_id}"%'))
+                .order_by(TaskDB.created_at.desc())
+                .limit(10)
+            )
+            recent_tasks = list(reversed(tasks_result.scalars().all()))
+
+            if recent_tasks:
+                task_history_context = "\n\n## Recent Tasks in This Conversation:\n"
+                for task in recent_tasks:
+                    status_emoji = {
+                        TaskStatus.COMPLETED: "✅",
+                        TaskStatus.FAILED: "❌",
+                        TaskStatus.RUNNING: "🔄",
+                        TaskStatus.QUEUED: "⏳",
+                        TaskStatus.CANCELLED: "🚫"
+                    }.get(task.status, "❓")
+
+                    task_summary = task.input_message[:200] + "..." if len(task.input_message or "") > 200 else task.input_message or ""
+                    task_result_preview = ""
+                    if task.result:
+                        task_result_preview = f" | Result: {task.result[:200]}..." if len(task.result) > 200 else f" | Result: {task.result}"
+                    elif task.error:
+                        task_result_preview = f" | Error: {task.error[:100]}..."
+
+                    task_history_context += f"- {status_emoji} **{task.task_id}** ({task.status}): {task_summary}{task_result_preview}\n"
+                task_history_context += "\n"
     else:
         conversation_id = f"conv-{uuid.uuid4().hex[:12]}"
         conversation_title = request.message[:50] + "..." if len(request.message) > 50 else request.message
@@ -364,7 +396,15 @@ async def chat_with_brain(
         await db.commit()
         logger.info("New conversation created for execute chat", conversation_id=conversation_id, session_id=session_id)
     
-    full_input_message = conversation_context + request.message if conversation_context else request.message
+    # Combine context: task history + conversation context + current message
+    context_parts = []
+    if task_history_context:
+        context_parts.append(task_history_context)
+    if conversation_context:
+        context_parts.append(conversation_context)
+    context_parts.append(request.message)
+
+    full_input_message = "".join(context_parts)
     
     task_id = f"task-{uuid.uuid4().hex[:12]}"
     task_db = TaskDB(
@@ -378,7 +418,8 @@ async def chat_with_brain(
         source="dashboard",
         source_metadata=json.dumps({
             "conversation_id": conversation_id,
-            "has_context": bool(conversation_context)
+            "has_context": bool(conversation_context),
+            "has_task_history": bool(task_history_context)
         }),
     )
     db.add(task_db)
