@@ -20,7 +20,7 @@ GITHUB_WEBHOOK: WebhookConfig = WebhookConfig(
             aliases=["analysis", "analyze-issue"],
             description="Analyze an issue or PR",
             target_agent="planning",
-            prompt_template="Analyze this GitHub {{event_type}}:\n\nTitle: {{issue.title}}\nBody: {{issue.body}}\n\nRepository: {{repository.full_name}}\nIssue/PR: #{{issue.number}}",
+            prompt_template="Analyze GitHub {{event_type}} #{{issue.number}} in repository {{repository.full_name}}.\n\nTitle: {{issue.title}}\n\nUse the github-operations skill to fetch full details if needed.",
             requires_approval=False,
         ),
         WebhookCommand(
@@ -28,7 +28,7 @@ GITHUB_WEBHOOK: WebhookConfig = WebhookConfig(
             aliases=["plan-fix", "create-plan"],
             description="Create a plan to fix an issue",
             target_agent="planning",
-            prompt_template="Create a detailed plan to fix this issue:\n\n{{issue.title}}\n\n{{issue.body}}\n\nRepository: {{repository.full_name}}\nIssue: #{{issue.number}}",
+            prompt_template="Create a detailed plan to fix issue #{{issue.number}} in repository {{repository.full_name}}.\n\nTitle: {{issue.title}}\n\nUse the github-operations skill to fetch full issue details if needed.",
             requires_approval=False,
         ),
         WebhookCommand(
@@ -36,7 +36,7 @@ GITHUB_WEBHOOK: WebhookConfig = WebhookConfig(
             aliases=["implement", "execute"],
             description="Implement a fix for an issue",
             target_agent="executor",
-            prompt_template="Implement a fix for this issue:\n\n{{issue.title}}\n\n{{issue.body}}\n\nRepository: {{repository.full_name}}\nIssue: #{{issue.number}}",
+            prompt_template="Implement a fix for issue #{{issue.number}} in repository {{repository.full_name}}.\n\nTitle: {{issue.title}}\n\nUse the github-operations skill to fetch full issue details if needed.",
             requires_approval=True,
         ),
         WebhookCommand(
@@ -44,7 +44,7 @@ GITHUB_WEBHOOK: WebhookConfig = WebhookConfig(
             aliases=["code-review", "review-pr"],
             description="Review a pull request",
             target_agent="planning",
-            prompt_template="Review this pull request:\n\nTitle: {{pull_request.title}}\nBody: {{pull_request.body}}\n\nRepository: {{repository.full_name}}\nPR: #{{pull_request.number}}",
+            prompt_template="Review pull request #{{pull_request.number}} in repository {{repository.full_name}}.\n\nTitle: {{pull_request.title}}\n\nUse the github-operations skill to fetch the PR details:\npython .claude/skills/github-operations/scripts/review_pr.py {{repository.owner.login}} {{repository.name}} {{pull_request.number}}",
             requires_approval=False,
         ),
     ],
