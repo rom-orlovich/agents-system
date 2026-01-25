@@ -365,26 +365,62 @@ Dashboard shows aggregated metrics for conversation
 - No context injection needed - agents read task directory instead
 - More efficient than injecting large conversation history
 
-### Webhook Flow
+### Webhook Flow with Human Approval
 
-**Static Route Flow** (Hard-Coded):
+```
+Webhook (Jira/GitHub/Sentry)
+        ↓
+    Brain (classify task)
+        ↓
+    Planning Agent
+    ├─ Invoke discovery skill
+    ├─ Create PLAN.md
+    ├─ Create Draft PR
+    └─ Send Slack notification
+        ↓
+    WAIT FOR HUMAN APPROVAL ← Required for webhook tasks
+    (GitHub: @agent approve | Slack: Approve button)
+        ↓
+    Executor Agent
+    ├─ Verify approval exists
+    ├─ TDD implementation
+    └─ Update PR (remove draft)
+        ↓
+    Verifier Agent (loop ×3)
+        ↓
+    Self-Improvement Agent ← Auto-triggered on success
+```
+
+**Slack Notification includes:**
+- 📖 Background - Context and why change is needed
+- ✅ What Was Done - Summary of planning agent work
+- 💡 Key Insights - Root cause, affected components, risk level
+- 📁 Files Affected - List of files to be modified
+
+**Approval Options:**
+| Source | Approve | Reject |
+|--------|---------|--------|
+| GitHub PR | `@agent approve`, `LGTM` | `@agent reject` |
+| Slack button | Posts `@agent approve` to PR | Posts `@agent reject` to PR |
+
+### Static Route Flow (Hard-Coded)
 1. Webhook received at `/webhooks/github` (or jira/slack/sentry)
 2. Signature verified (provider-specific)
 3. Command matched by name/aliases + prefix (e.g., `@agent analyze`)
 4. Immediate response sent (GitHub reaction, Slack ephemeral message)
-5. Task created and queued
+5. Task created and queued → **follows Human Approval workflow above**
 6. Slack notification sent on completion
 
-**Dynamic Route Flow** (Database-Driven):
+### Dynamic Route Flow (Database-Driven)
 1. Webhook received at `/webhooks/{provider}/{webhook_id}`
 2. HMAC signature verified (if configured)
 3. Payload matched against **WebhookCommands** (trigger + conditions)
 4. Actions executed in **Priority Order**:
    - `github_reaction`: Add 👀 or 👍
    - `github_label`: Add labels like "bot-processing"
-   - `create_task`: Create agent task with template rendering
+   - `create_task`: Create agent task → **follows Human Approval workflow**
    - `comment`: Post acknowledgment back to source
-5. TaskWorker processes created tasks as usual
+5. TaskWorker processes created tasks with approval gate
 
 ### 4. Dashboard v2 (React-based)
 
