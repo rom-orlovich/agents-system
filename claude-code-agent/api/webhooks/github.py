@@ -23,6 +23,7 @@ from core.database.redis_client import redis_client
 from core.webhook_configs import GITHUB_WEBHOOK, get_webhook_by_endpoint
 from core.webhook_engine import render_template, create_webhook_conversation
 from core.github_client import github_client
+from core.routing_metadata import extract_github_metadata
 from shared.machine_models import WebhookCommand
 from shared import TaskStatus, AgentType
 
@@ -220,6 +221,9 @@ async def create_github_task(
     }
     agent_type = agent_type_map.get("brain", AgentType.PLANNING)
     
+    # Extract clean routing metadata for response posting
+    routing = extract_github_metadata(payload)
+
     task_db = TaskDB(
         task_id=task_id,
         session_id=webhook_session_id,
@@ -233,7 +237,8 @@ async def create_github_task(
             "webhook_source": "github",
             "webhook_name": GITHUB_WEBHOOK.name,
             "command": command.name,
-            "original_target_agent": command.target_agent,  # Preserve original for reference
+            "original_target_agent": command.target_agent,
+            "routing": routing,  # Clean routing info for response posting
             "payload": payload
         }),
     )
