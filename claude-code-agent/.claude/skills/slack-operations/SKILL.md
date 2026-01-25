@@ -159,3 +159,68 @@ Task ID: task-abc123
 Summary: Analysis complete: Found authentication bug in login.py
 Cost: $0.05
 ```
+
+## Response Posting (Webhook Tasks)
+
+When a task originates from Slack (mention, slash command), post response back:
+
+```bash
+# Post response to originating Slack thread
+post_response() {
+    CHANNEL_ID=$1
+    THREAD_TS=$2
+    RESULT=$3
+
+    curl -X POST https://slack.com/api/chat.postMessage \
+      -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{
+        \"channel\": \"$CHANNEL_ID\",
+        \"thread_ts\": \"$THREAD_TS\",
+        \"text\": \"$RESULT\"
+      }"
+}
+
+# Example usage:
+post_response "C123456" "1234567890.123456" "Analysis complete: Found 3 issues"
+```
+
+### Rich Response with Blocks
+
+```bash
+curl -X POST https://slack.com/api/chat.postMessage \
+  -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channel": "'$CHANNEL_ID'",
+    "thread_ts": "'$THREAD_TS'",
+    "blocks": [
+      {
+        "type": "header",
+        "text": {"type": "plain_text", "text": "Analysis Complete"}
+      },
+      {
+        "type": "section",
+        "text": {"type": "mrkdwn", "text": "'$RESULT'"}
+      },
+      {
+        "type": "context",
+        "elements": [{"type": "mrkdwn", "text": "_Automated response by Claude Agent_"}]
+      }
+    ]
+  }'
+```
+
+### Task Metadata Required
+
+For Slack response routing, task must include:
+```json
+{
+  "source": "slack",
+  "source_metadata": {
+    "channel_id": "C123456",
+    "thread_ts": "1234567890.123456",
+    "user_id": "U123456"
+  }
+}
+```

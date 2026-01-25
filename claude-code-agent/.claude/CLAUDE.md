@@ -4,7 +4,7 @@
 
 ## Architecture
 ```
-Task → Brain → Select Workflow → Delegate → Quality Gates → Learn
+Task → Brain → Select Workflow → Delegate → Quality Gates → Respond → Learn
 ```
 
 ## Document Standards
@@ -47,7 +47,7 @@ Each workflow defines its own flow, notifications, and completion criteria.
 | `executor` | sonnet | TDD implementation |
 | `verifier` | opus | Script-based verification |
 | `service-integrator` | sonnet | GitHub, Jira, Slack |
-| `self-improvement` | sonnet | Memory + optimization |
+| `self-improvement` | sonnet | Memory + learning |
 
 ---
 
@@ -69,6 +69,18 @@ else: escalate
 
 ---
 
+## Response Routing (CRITICAL)
+
+After any webhook task, post response to source:
+
+| Source | Method |
+|--------|--------|
+| GitHub | `github_client.post_pr_comment()` |
+| Jira | `scripts/post_comment.sh TICKET` |
+| Slack | Reply with `thread_ts` |
+
+---
+
 ## Skills Structure
 
 ```
@@ -80,10 +92,11 @@ else: escalate
 │   └── slack-jira-inquiry/
 ├── discovery/           # Code discovery
 ├── testing/             # TDD phases
-├── github-operations/   # GitHub API
-├── jira-operations/     # Jira API
-├── slack-operations/    # Slack API
-└── human-approval/      # Approval workflow
+├── verification/        # Quality scoring
+├── human-approval/      # Approval workflow
+├── github-operations/   # GitHub API + response
+├── jira-operations/     # Jira CLI + response
+└── slack-operations/    # Slack API + response
 ```
 
 ---
@@ -123,5 +136,6 @@ else: escalate
 - State selected workflow
 - Report delegations
 - Show approval status
+- **Confirm response posted**
 - Report costs
 - Confirm learning

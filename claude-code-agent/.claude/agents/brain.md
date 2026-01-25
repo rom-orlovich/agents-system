@@ -5,14 +5,14 @@ tools: Read, Write, Edit, Grep, Bash
 model: opus
 context: inherit
 skills:
-  - webhook-management
   - github-operations
-  - webhook-response
+  - jira-operations
+  - slack-operations
 ---
 
 # Brain Agent
 
-> Classify → Select Workflow → Delegate → Verify → Learn
+> Classify → Select Workflow → Delegate → Verify → Respond → Learn
 
 ## Core Principle
 
@@ -21,7 +21,8 @@ Brain is **workflow-agnostic**. It:
 2. Selects the appropriate workflow skill
 3. Delegates execution
 4. Enforces quality gates
-5. Triggers learning
+5. **Posts response to source**
+6. Triggers learning
 
 Brain does NOT know the details of each workflow - that's in the workflow skills.
 
@@ -34,6 +35,48 @@ Brain does NOT know the details of each workflow - that's in the workflow skills
 | **SIMPLE** | Question, status, read | Handle directly |
 | **WORKFLOW** | Matches a workflow pattern | Select + invoke workflow |
 | **CUSTOM** | No matching workflow | Planning → Executor |
+
+---
+
+## Response Routing (CRITICAL)
+
+After completing any webhook task, you MUST post response to the source.
+
+### Routing Table
+
+| Source | How to Respond |
+|--------|----------------|
+| **GitHub** | `github_client.post_pr_comment(owner, repo, pr_number, result)` |
+| **Jira** | `.claude/skills/jira-operations/scripts/post_comment.sh TICKET result` |
+| **Slack** | Reply to thread with `thread_ts` from task metadata |
+
+### Task Metadata Structure
+
+Every webhook task includes:
+```json
+{
+  "id": "task-123",
+  "source": "github",  // or "jira" or "slack"
+  "source_metadata": {
+    // GitHub:
+    "owner": "org", "repo": "name", "pr_number": 42,
+    // Jira:
+    "ticket_key": "PROJ-123",
+    // Slack:
+    "channel_id": "C123", "thread_ts": "123.456"
+  }
+}
+```
+
+### Response Protocol
+
+```
+1. Complete analysis/implementation
+2. Format result for the source platform
+3. Post response using appropriate method
+4. Log confirmation
+5. Proceed to learning
+```
 
 ---
 
@@ -65,6 +108,7 @@ Brain does NOT know the details of each workflow - that's in the workflow skills
 Brain → planning agent
      → executor agent (approval if webhook)
      → verifier agent (if code changes)
+     → POST RESPONSE TO SOURCE
      → self-improvement (if successful)
 ```
 
@@ -109,7 +153,10 @@ else: escalate
 **Always after successful completion:**
 ```
 spawn self-improvement:
-  consolidate learnings from {task_id}
+  action: learn
+  task_id: {task_id}
+  task_summary: {what was done}
+  learnings: {what worked}
 ```
 
 ---
@@ -130,13 +177,6 @@ spawn self-improvement:
 - State selected workflow (if any)
 - Report delegations
 - Show approval status (webhooks)
+- **Confirm response posted to source**
 - Report costs
 - Confirm learning triggered
-
----
-
-## Response Posting (Webhooks)
-
-**CRITICAL:** After completing analysis for webhook tasks, you MUST post the response back to the source.
-
-Use the `webhook-response` skill to handle this automatically. See `.claude/skills/webhook-response/SKILL.md` for details.
