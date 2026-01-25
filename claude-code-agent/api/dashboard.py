@@ -329,20 +329,24 @@ async def chat_with_brain(
         )
         conversation = conv_result.scalar_one_or_none()
         
-        if conversation:
-            msg_result = await db.execute(
-                select(ConversationMessageDB)
-                .where(ConversationMessageDB.conversation_id == conversation_id)
-                .order_by(ConversationMessageDB.created_at.desc())
-                .limit(20)
-            )
-            recent_messages = list(reversed(msg_result.scalars().all()))
-            
-            if recent_messages:
-                conversation_context = "\n\n## Previous Conversation Context:\n"
-                for msg in recent_messages:
-                    conversation_context += f"**{msg.role.capitalize()}**: {msg.content[:500]}\n"
-                conversation_context += "\n## Current Message:\n"
+            if conversation:
+                msg_result = await db.execute(
+                    select(ConversationMessageDB)
+                    .where(ConversationMessageDB.conversation_id == conversation_id)
+                    .order_by(ConversationMessageDB.created_at.desc())
+                    .limit(50)
+                )
+                recent_messages = list(reversed(msg_result.scalars().all()))
+                
+                if recent_messages:
+                    conversation_context = "\n\n## Previous Conversation Context:\n"
+                    for msg in recent_messages:
+                        # Use larger context window (10k chars) instead of 500
+                        content_preview = msg.content[:10000]
+                        if len(msg.content) > 10000:
+                            content_preview += "... (truncated)"
+                        conversation_context += f"**{msg.role.capitalize()}**: {content_preview}\n"
+                    conversation_context += "\n## Current Message:\n"
     else:
         conversation_id = f"conv-{uuid.uuid4().hex[:12]}"
         conversation_title = request.message[:50] + "..." if len(request.message) > 50 else request.message

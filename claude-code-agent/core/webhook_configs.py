@@ -20,7 +20,15 @@ GITHUB_WEBHOOK: WebhookConfig = WebhookConfig(
             aliases=["analysis", "analyze-issue"],
             description="Analyze an issue or PR",
             target_agent="planning",
-            prompt_template="Analyze GitHub {{event_type}} #{{issue.number}} in repository {{repository.full_name}}.\n\nTitle: {{issue.title}}\n\nUse the github-operations skill to fetch full details if needed.",
+            prompt_template="""Analyze GitHub {{event_type}} #{{issue.number}} in repository {{repository.full_name}}.
+
+Title: {{issue.title}}
+
+1. Use the github-operations skill to fetch full details if needed.
+2. Perform comprehensive analysis.
+3. Save analysis to a file (e.g., analysis.md).
+4. Post the analysis back to the issue:
+   python .claude/skills/github-operations/scripts/post_comment.py {{repository.owner.login}} {{repository.name}} {{issue.number}} analysis.md""",
             requires_approval=False,
         ),
         WebhookCommand(
@@ -28,7 +36,15 @@ GITHUB_WEBHOOK: WebhookConfig = WebhookConfig(
             aliases=["plan-fix", "create-plan"],
             description="Create a plan to fix an issue",
             target_agent="planning",
-            prompt_template="Create a detailed plan to fix issue #{{issue.number}} in repository {{repository.full_name}}.\n\nTitle: {{issue.title}}\n\nUse the github-operations skill to fetch full issue details if needed.",
+            prompt_template="""Create a detailed plan to fix issue #{{issue.number}} in repository {{repository.full_name}}.
+
+Title: {{issue.title}}
+
+1. Use the github-operations skill to fetch details.
+2. Create the plan.
+3. Save plan to a file (e.g., plan.md).
+4. Post the plan back to the issue:
+   python .claude/skills/github-operations/scripts/post_comment.py {{repository.owner.login}} {{repository.name}} {{issue.number}} plan.md""",
             requires_approval=False,
         ),
         WebhookCommand(
@@ -36,7 +52,14 @@ GITHUB_WEBHOOK: WebhookConfig = WebhookConfig(
             aliases=["implement", "execute"],
             description="Implement a fix for an issue",
             target_agent="executor",
-            prompt_template="Implement a fix for issue #{{issue.number}} in repository {{repository.full_name}}.\n\nTitle: {{issue.title}}\n\nUse the github-operations skill to fetch full issue details if needed.",
+            prompt_template="""Implement a fix for issue #{{issue.number}} in repository {{repository.full_name}}.
+
+Title: {{issue.title}}
+
+1. Implement the fix.
+2. Summarize what was done in a file (e.g., summary.md).
+3. Post the summary back to the issue:
+   python .claude/skills/github-operations/scripts/post_comment.py {{repository.owner.login}} {{repository.name}} {{issue.number}} summary.md""",
             requires_approval=True,
         ),
         WebhookCommand(
@@ -44,7 +67,19 @@ GITHUB_WEBHOOK: WebhookConfig = WebhookConfig(
             aliases=["code-review", "review-pr"],
             description="Review a pull request",
             target_agent="planning",
-            prompt_template="Review pull request #{{pull_request.number}} in repository {{repository.full_name}}.\n\nTitle: {{pull_request.title}}\n\nUse the github-operations skill to fetch the PR details:\npython .claude/skills/github-operations/scripts/review_pr.py {{repository.owner.login}} {{repository.name}} {{pull_request.number}}",
+            prompt_template="""Review pull request #{{pull_request.number}} in repository {{repository.full_name}}.
+
+Title: {{pull_request.title}}
+
+1. Use github-operations skill to fetch PR details:
+   python .claude/skills/github-operations/scripts/review_pr.py {{repository.owner.login}} {{repository.name}} {{pull_request.number}}
+
+2. Analyze the PR and generate a comprehensive review.
+
+3. Save review to a file (e.g., review.md).
+
+4. Post the review back to the PR:
+   python .claude/skills/github-operations/scripts/post_comment.py {{repository.owner.login}} {{repository.name}} {{pull_request.number}} review.md""",
             requires_approval=False,
         ),
     ],
@@ -72,7 +107,18 @@ JIRA_WEBHOOK: WebhookConfig = WebhookConfig(
             aliases=["analysis", "analyze-ticket"],
             description="Analyze a Jira ticket",
             target_agent="planning",
-            prompt_template="Analyze this Jira ticket:\n\nKey: {{issue.key}}\nSummary: {{issue.fields.summary}}\nDescription: {{issue.fields.description}}\n\nProject: {{issue.fields.project.name}}",
+            prompt_template="""Analyze this Jira ticket:
+
+Key: {{issue.key}}
+Summary: {{issue.fields.summary}}
+Description: {{issue.fields.description}}
+
+Project: {{issue.fields.project.name}}
+
+1. Perform analysis.
+2. Save to file (e.g., analysis.md).
+3. Post analysis back to Jira:
+   python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} analysis.md""",
             requires_approval=False,
         ),
         WebhookCommand(
@@ -80,7 +126,18 @@ JIRA_WEBHOOK: WebhookConfig = WebhookConfig(
             aliases=["plan-fix", "create-plan"],
             description="Create a plan to resolve a Jira ticket",
             target_agent="planning",
-            prompt_template="Create a detailed plan to resolve this Jira ticket:\n\n{{issue.key}}: {{issue.fields.summary}}\n\n{{issue.fields.description}}\n\nProject: {{issue.fields.project.name}}",
+            prompt_template="""Create a detailed plan to resolve this Jira ticket:
+
+{{issue.key}}: {{issue.fields.summary}}
+
+{{issue.fields.description}}
+
+Project: {{issue.fields.project.name}}
+
+1. Create plan.
+2. Save to file (e.g., plan.md).
+3. Post plan back to Jira:
+   python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} plan.md""",
             requires_approval=False,
         ),
         WebhookCommand(
@@ -88,7 +145,18 @@ JIRA_WEBHOOK: WebhookConfig = WebhookConfig(
             aliases=["implement", "execute"],
             description="Implement a fix for a Jira ticket",
             target_agent="executor",
-            prompt_template="Implement a fix for this Jira ticket:\n\n{{issue.key}}: {{issue.fields.summary}}\n\n{{issue.fields.description}}\n\nProject: {{issue.fields.project.name}}",
+            prompt_template="""Implement a fix for this Jira ticket:
+
+{{issue.key}}: {{issue.fields.summary}}
+
+{{issue.fields.description}}
+
+Project: {{issue.fields.project.name}}
+
+1. Implement fix.
+2. Save summary to file.
+3. Post summary back to Jira:
+   python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} summary.md""",
             requires_approval=True,
         ),
     ],
@@ -116,7 +184,12 @@ SLACK_WEBHOOK: WebhookConfig = WebhookConfig(
             aliases=["commands", "what-can-you-do"],
             description="Show available commands",
             target_agent="brain",
-            prompt_template="User asked for help in Slack. Show available commands and how to use them.",
+            prompt_template="""User asked for help in Slack.
+
+1. Generate help message with available commands.
+2. Save to file.
+3. Post response back to Slack:
+   python .claude/skills/slack-operations/scripts/post_message.py {{event.channel}} help.md {{event.ts}}""",
             requires_approval=False,
         ),
         WebhookCommand(
@@ -124,7 +197,17 @@ SLACK_WEBHOOK: WebhookConfig = WebhookConfig(
             aliases=["analysis"],
             description="Analyze a request from Slack",
             target_agent="brain",
-            prompt_template="Analyze this Slack message:\n\n{{event.text}}\n\nUser: {{event.user}}\nChannel: {{event.channel}}",
+            prompt_template="""Analyze this Slack message:
+
+{{event.text}}
+
+User: {{event.user}}
+Channel: {{event.channel}}
+
+1. Perform analysis.
+2. Save to file.
+3. Post response back to Slack:
+   python .claude/skills/slack-operations/scripts/post_message.py {{event.channel}} analysis.md {{event.ts}}""",
             requires_approval=False,
         ),
         WebhookCommand(
@@ -132,7 +215,17 @@ SLACK_WEBHOOK: WebhookConfig = WebhookConfig(
             aliases=["do", "run"],
             description="Execute a command from Slack",
             target_agent="executor",
-            prompt_template="Execute this request from Slack:\n\n{{event.text}}\n\nUser: {{event.user}}\nChannel: {{event.channel}}",
+            prompt_template="""Execute this request from Slack:
+
+{{event.text}}
+
+User: {{event.user}}
+Channel: {{event.channel}}
+
+1. Execute request.
+2. Save result/summary to file.
+3. Post response back to Slack:
+   python .claude/skills/slack-operations/scripts/post_message.py {{event.channel}} result.md {{event.ts}}""",
             requires_approval=True,
         ),
     ],
