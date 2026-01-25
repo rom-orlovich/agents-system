@@ -47,14 +47,16 @@ async def get_analytics_summary(
     db: AsyncSession = Depends(get_db_session)
 ) -> AnalyticsSummary:
     """Get overall analytics summary."""
-    today = datetime.now(timezone.utc).date()
+    # Use datetime range for SQLite compatibility instead of func.date()
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     
     # Today's stats
     today_q = select(
         func.sum(TaskDB.cost_usd),
         func.count(TaskDB.task_id)
     ).where(
-        func.date(TaskDB.created_at) == today
+        TaskDB.created_at >= today_start
     )
     today_r = (await db.execute(today_q)).one()
     
