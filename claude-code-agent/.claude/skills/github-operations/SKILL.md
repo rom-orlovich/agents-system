@@ -1,53 +1,92 @@
 ---
 name: github-operations
-description: GitHub CLI commands, API operations, and repository workflow for issues, PRs, actions, releases, and branch management
+description: GitHub API operations and repository workflow for issues, PRs, actions, releases, and branch management
 user-invocable: false
 ---
 
-GitHub operations using `gh` CLI and GitHub API, including repository workflow management.
+GitHub operations using Python GitHub API client (HTTP-based), including repository workflow management.
+
+> **IMPORTANT:** This skill uses the Python GitHub client (`core.github_client`) instead of `gh` CLI, as `gh` is not available in the Docker container. All operations use HTTP requests via `httpx`.
 
 ## Environment
-- `GITHUB_TOKEN` - GitHub personal access token
+- `GITHUB_TOKEN` - GitHub personal access token (required for API authentication)
 
 ## API Operations
 
 ### Issues
-```bash
-gh issue list --state open --limit 20
-gh issue create --title "Bug: ..." --body "Description" --label bug
-gh issue close 123 --comment "Fixed in PR #456"
-gh issue list --search "is:open label:bug author:username"
+```python
+from core.github_client import github_client
+import asyncio
+
+# Get issue details
+issue = await github_client.get_issue("owner", "repo", 123)
+
+# Post comment on issue
+await github_client.post_issue_comment("owner", "repo", 123, "Fixed in PR #456")
+
+# Update issue labels
+await github_client.update_issue_labels("owner", "repo", 123, ["bug", "fixed"])
 ```
 
 ### Pull Requests
-```bash
-gh pr create --title "Fix: ..." --body "Description" --base main
-gh pr review 123 --approve
-gh pr merge 123 --squash --delete-branch
-gh pr view 123 --json state,statusCheckRollup
-```
+```python
+from core.github_client import github_client
+import asyncio
 
-### GitHub Actions
-```bash
-gh run list --workflow ci.yml --limit 10
-gh run view 123456
-gh run rerun 123456 --failed
-gh run view 123456 --log
-```
+# Get PR details
+pr = await github_client.get_pull_request("owner", "repo", 123)
+print(f"PR #{pr['number']}: {pr['title']}")
+print(f"State: {pr['state']}, Mergeable: {pr['mergeable']}")
 
-### Releases
-```bash
-gh release create v1.0.0 --title "Release 1.0.0" --notes "Release notes"
-gh release list --limit 10
-gh release upload v1.0.0 ./dist/app.zip
+# Get files changed in PR
+files = await github_client.get_pr_files("owner", "repo", 123)
+for file in files:
+    print(f"  {file['filename']}: +{file['additions']} -{file['deletions']}")
+
+# Post review comment
+await github_client.post_pr_comment("owner", "repo", 123, "LGTM! ✅")
+
+# Create new PR
+pr_data = await github_client.create_pull_request(
+    "owner", "repo",
+    title="Fix: Authentication bug",
+    head="fix/auth-bug",
+    base="main",
+    body="Fixes #123",
+    draft=True
+)
 ```
 
 ### Repository Operations
-```bash
-gh repo view --json name,description,stargazersCount,forksCount
-gh api repos/{owner}/{repo}/stats/contributors
-gh api repos/{owner}/{repo}/traffic/views
-gh api rate_limit
+```python
+from core.github_client import github_client
+import asyncio
+
+# Get repository information
+repo_info = await github_client.get_repository_info("owner", "repo")
+print(f"Name: {repo_info['name']}")
+print(f"Description: {repo_info['description']}")
+print(f"Stars: {repo_info['stargazers_count']}")
+
+# Get repository languages
+languages = await github_client.get_repository_languages("owner", "repo")
+for lang, bytes_count in languages.items():
+    print(f"{lang}: {bytes_count} bytes")
+
+# Search code in repository
+results = await github_client.search_code(
+    "def authenticate",
+    repo_owner="owner",
+    repo_name="repo",
+    max_results=10
+)
+
+# Get file content
+content = await github_client.get_file_content(
+    "owner", "repo",
+    "path/to/file.py",
+    ref="main"  # or branch name, tag, commit SHA
+)
 ```
 
 ## Repository Workflow

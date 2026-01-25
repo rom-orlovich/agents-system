@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from typing import Optional
 import structlog
 
+from core.config import settings
 from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB, SessionDB, TaskDB
 from core.database.redis_client import redis_client
@@ -31,7 +32,7 @@ router = APIRouter()
 async def verify_sentry_signature(request: Request, body: bytes) -> None:
     """Verify Sentry webhook signature ONLY."""
     signature = request.headers.get("Sentry-Hook-Signature", "")
-    secret = os.getenv("SENTRY_WEBHOOK_SECRET")
+    secret = os.getenv("SENTRY_WEBHOOK_SECRET") or settings.sentry_webhook_secret
     
     # If signature header is present, we must verify it
     if signature:

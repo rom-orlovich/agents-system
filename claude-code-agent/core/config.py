@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     # Webhook Security
     github_webhook_secret: str | None = None
     jira_webhook_secret: str | None = None
+    slack_webhook_secret: str | None = None
+    sentry_webhook_secret: str | None = None
+    
+    # API Tokens
+    github_token: str | None = None
+    slack_bot_token: str | None = None
     
     # Jira API Configuration
     jira_url: str | None = None  # e.g., "https://yourcompany.atlassian.net"

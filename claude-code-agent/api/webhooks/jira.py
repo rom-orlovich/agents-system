@@ -17,6 +17,7 @@ from core.webhook_configs import JIRA_WEBHOOK
 from core.webhook_engine import render_template, create_webhook_conversation
 import base64
 import httpx
+from core.config import settings
 from shared.machine_models import WebhookCommand
 from shared import TaskStatus, AgentType
 
@@ -26,7 +27,7 @@ router = APIRouter()
 
 async def verify_jira_signature(request: Request, body: bytes) -> None:
     signature = request.headers.get("X-Jira-Signature", "")
-    secret = os.getenv("JIRA_WEBHOOK_SECRET")
+    secret = os.getenv("JIRA_WEBHOOK_SECRET") or settings.jira_webhook_secret
     
     if signature:
         if not secret:
@@ -270,9 +271,9 @@ async def post_jira_comment(payload: dict, message: str):
         from core.config import settings
         import os
         
-        jira_url = settings.jira_url or os.getenv("JIRA_URL")
-        jira_email = settings.jira_email or os.getenv("JIRA_EMAIL")
-        jira_api_token = settings.jira_api_token or os.getenv("JIRA_API_TOKEN")
+        jira_url = os.getenv("JIRA_URL") or settings.jira_url
+        jira_email = os.getenv("JIRA_EMAIL") or settings.jira_email
+        jira_api_token = os.getenv("JIRA_API_TOKEN") or settings.jira_api_token
         
         if not jira_url or not jira_api_token or not jira_email:
             logger.warning("jira_credentials_missing", message="Jira API credentials not configured")

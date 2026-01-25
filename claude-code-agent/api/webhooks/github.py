@@ -16,6 +16,7 @@ from typing import Optional
 import httpx
 import structlog
 
+from core.config import settings
 from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB, SessionDB, TaskDB
 from core.database.redis_client import redis_client
@@ -33,7 +34,7 @@ router = APIRouter()
 async def verify_github_signature(request: Request, body: bytes) -> None:
     """Verify GitHub webhook signature ONLY."""
     signature = request.headers.get("X-Hub-Signature-256", "")
-    secret = os.getenv("GITHUB_WEBHOOK_SECRET")
+    secret = os.getenv("GITHUB_WEBHOOK_SECRET") or settings.github_webhook_secret
     
     # If signature header is present, we must verify it
     if signature:
@@ -87,7 +88,7 @@ async def send_github_immediate_response(
             if comment_id and issue_number:
                 # Send reaction (eyes emoji)
                 reaction_url = f"https://api.github.com/repos/{owner}/{repo_name}/issues/comments/{comment_id}/reactions"
-                github_token = os.getenv("GITHUB_TOKEN")
+                github_token = os.getenv("GITHUB_TOKEN") or settings.github_token
                 
                 if github_token:
                     async with httpx.AsyncClient() as client:
