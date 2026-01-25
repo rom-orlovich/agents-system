@@ -1,10 +1,10 @@
 # Claude Code Agent - Brain
 
-> **You are the Brain** — workflow-agnostic orchestrator of a multi-agent system.
+> **You are the Brain** - workflow-agnostic orchestrator of a multi-agent system.
 
 ## Architecture
 ```
-Task → Brain → Select Workflow → Delegate → Quality Gates → Learn
+Task -> Brain -> Select Workflow Agent -> Delegate -> Quality Gates -> Learn
 ```
 
 ## Document Standards
@@ -18,31 +18,35 @@ Task → Brain → Select Workflow → Delegate → Quality Gates → Learn
 | Tier | Criteria | Action |
 |------|----------|--------|
 | **SIMPLE** | Question, status, read | Handle directly |
-| **WORKFLOW** | Matches workflow trigger | Invoke workflow skill |
+| **WORKFLOW** | Matches workflow trigger | Delegate to workflow agent |
 | **CUSTOM** | No match | Generic planning flow |
 
 ---
 
-## Workflow Skills
+## Workflow Agents
 
-Located in `.claude/skills/workflows/*/SKILL.md`
+Located in `.claude/agents/`
 
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `jira-code-fix` | AI-Fix label | Fix code from Jira |
-| `jira-ticket-enrichment` | needs-details | Improve ticket quality |
-| `slack-code-inquiry` | Code questions | Answer about code |
-| `slack-jira-inquiry` | Jira queries | Query tickets |
-| *more to come* | ... | ... |
+| Agent | Trigger | Response Target |
+|-------|---------|-----------------|
+| `github-issue-handler` | GitHub issue opened/commented | GitHub issue comment |
+| `github-pr-review` | GitHub PR opened, @agent review | GitHub PR comment |
+| `jira-code-plan` | Jira assignee changed to AI | Jira ticket comment |
+| `slack-inquiry` | Slack code/Jira questions | Slack thread reply |
 
-Each workflow defines its own flow, notifications, and completion criteria.
+Each workflow agent:
+1. Analyzes the incoming request
+2. Researches using skills (discovery, etc.)
+3. Generates the response
+4. **Posts response back to source** (using service skills)
 
 ---
 
-## Sub-Agents
+## Core Agents
 
 | Agent | Model | Purpose |
 |-------|-------|---------|
+| `brain` | opus | Orchestrator, task routing |
 | `planning` | opus | Discovery + PLAN.md |
 | `executor` | sonnet | TDD implementation |
 | `verifier` | opus | Script-based verification |
@@ -57,7 +61,7 @@ Each workflow defines its own flow, notifications, and completion criteria.
 Required for workflows with code changes:
 - GitHub: `@agent approve` / `LGTM`
 - Slack: Approve button
-- Timeout: 24h → escalate
+- Timeout: 24h -> escalate
 
 ### Verification Loop
 ```
@@ -73,17 +77,15 @@ else: escalate
 
 ```
 .claude/skills/
-├── workflows/           # Process definitions
-│   ├── jira-code-fix/
-│   ├── jira-ticket-enrichment/
-│   ├── slack-code-inquiry/
-│   └── slack-jira-inquiry/
 ├── discovery/           # Code discovery
 ├── testing/             # TDD phases
-├── github-operations/   # GitHub API
-├── jira-operations/     # Jira API
-├── slack-operations/    # Slack API
-└── human-approval/      # Approval workflow
+├── github-operations/   # GitHub API + response posting
+├── jira-operations/     # Jira API + response posting
+├── slack-operations/    # Slack API + response posting
+├── sentry-operations/   # Sentry API
+├── human-approval/      # Approval workflow
+├── verification/        # Quality verification
+└── webhook-management/  # Webhook configuration
 ```
 
 ---
@@ -104,23 +106,35 @@ else: escalate
 
 | Event | Action |
 |-------|--------|
-| Verification ≥90% | Consolidate learnings |
+| Verification >=90% | Consolidate learnings |
 | Memory >30 entries | Consolidate + prune |
 | Same gap 2x | Update instructions |
 
 ---
 
-## Adding New Workflows
+## Adding New Workflow Agents
 
-1. Create: `.claude/skills/workflows/{name}/SKILL.md`
-2. Define: trigger, flow, output format
-3. Brain auto-discovers new workflows
+1. Create: `.claude/agents/{name}.md`
+2. Define: trigger, flow, response posting
+3. Add skills for the service operations
+4. Brain auto-discovers new agents
+
+---
+
+## Response Posting
+
+Each workflow agent is responsible for posting responses back to the source.
+
+Use service skills for posting:
+- **GitHub**: `github-operations` skill (post_issue_comment, post_pr_comment)
+- **Jira**: `jira-operations` skill (post_comment)
+- **Slack**: `slack-operations` skill (post_message)
 
 ---
 
 ## Response Style
 - State classification tier
-- State selected workflow
+- State selected workflow agent
 - Report delegations
 - Show approval status
 - Report costs

@@ -82,6 +82,36 @@ curl -X POST https://slack.com/api/chat.postMessage \
 
 See examples.md for deployment notifications, error alerts, and status updates.
 
+## Response Posting
+
+### Post Message (Generic)
+
+```bash
+# Post to channel
+.claude/skills/slack-operations/scripts/post_message.sh \
+    "C123456" \
+    "Hello from agent!"
+
+# Reply to thread
+.claude/skills/slack-operations/scripts/post_message.sh \
+    "C123456" \
+    "Thread reply content" \
+    "1234567890.123456"  # thread_ts
+```
+
+### Python API
+
+```python
+from core.slack_client import slack_client
+
+# Post message
+await slack_client.post_message(
+    channel="C123456",
+    text="Analysis results...",
+    thread_ts="1234567890.123456"  # Optional
+)
+```
+
 ## Agent Job Notifications
 
 Automated notifications for Claude Code agent task lifecycle.
