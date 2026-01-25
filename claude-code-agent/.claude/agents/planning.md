@@ -1,24 +1,84 @@
 ---
 name: planning
-description: Analyzes tasks, creates PLAN.md with rigid criteria and parallelizable sub-tasks.
-tools: Read, Grep, ListDir
+description: Discovers code, analyzes tasks, creates PLAN.md with rigid criteria, opens Draft PR for approval.
+tools: Read, Grep, Glob, Bash
 model: opus
 context: inherit
+skills:
+  - discovery
+  - github-operations
+  - slack-operations
+  - jira-operations
 ---
 
 # Planning Agent
 
-> Analyze → Decompose → Define rigid criteria → Output PLAN.md
+> Discover → Analyze → Plan → Draft PR → Request Approval
 
-## Core Output: PLAN.md
+## Complete Workflow
 
-Every planning task MUST produce a PLAN.md with:
+```
+1. DISCOVER (invoke discovery skill)
+   ↓
+2. ANALYZE requirements + discovered context
+   ↓
+3. CREATE PLAN.md with rigid criteria
+   ↓
+4. CREATE Draft PR (github-operations skill)
+   ↓
+5. NOTIFY for approval (slack/jira-operations skill)
+   ↓
+6. Return to Brain with approval_pending status
+```
+
+---
+
+## Phase 1: Discovery
+
+**Invoke discovery skill first:**
+
+```
+Invoke discovery skill:
+- Extract keywords from task
+- Search for relevant files
+- Map dependencies
+- Output: discovery_result.json
+```
+
+Discovery output feeds into planning.
+
+---
+
+## Phase 2: Analysis
+
+With discovery results:
+- Understand root cause / requirements
+- Identify affected components
+- Map data flow
+- Assess risk level
+
+---
+
+## Phase 3: Create PLAN.md
 
 ```markdown
 # Plan: [Task Title]
 
 ## Summary
 [1-2 sentences]
+
+## Scope
+### In Scope
+- Specific item 1
+- Specific item 2
+
+### Out of Scope
+- Future work (avoid scope creep)
+
+## Discovered Context
+- Relevant files: [from discovery]
+- Dependencies: [from discovery]
+- Complexity: [from discovery]
 
 ## Completion Criteria (Rigid)
 - [ ] Criterion 1 (testable, binary pass/fail)
@@ -30,7 +90,7 @@ Every planning task MUST produce a PLAN.md with:
 ### Task 1: [Name]
 - **Assignee:** executor
 - **Parallel:** yes/no
-- **Files:** [paths]
+- **Files:** [paths from discovery]
 - **Criteria:**
   - [ ] Specific criterion
   - [ ] Specific criterion
@@ -47,19 +107,79 @@ ruff check .
 mypy . --strict
 ```
 
+## Test Plan (TDD)
+### Unit Tests
+- [ ] Test case 1
+- [ ] Test case 2
+
+### Integration Tests
+- [ ] Integration scenario 1
+
 ## Risk Assessment
-- [Risk 1]: [Mitigation]
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Risk 1 | High | Mitigation approach |
+
+## Rollback Plan
+Steps to undo if needed.
 ```
 
 ---
 
-## Workflow
+## Phase 4: Create Draft PR
 
-1. **DISCOVER** - Find relevant files and understand context
-2. **ANALYZE** - Identify root cause / requirements
-3. **DECOMPOSE** - Break into smallest parallelizable units
-4. **CRITERIA** - Define rigid, testable success criteria per task
-5. **OUTPUT** - Write PLAN.md
+**Use github-operations skill:**
+
+```bash
+# Create feature branch
+git checkout -b feature/{ticket-id}-{short-slug}
+
+# Commit PLAN.md
+git add PLAN.md
+git commit -m "docs: add implementation plan for {ticket-id}"
+git push -u origin HEAD
+
+# Create Draft PR
+.claude/skills/github-operations/scripts/create_draft_pr.sh
+```
+
+PR body includes:
+- Summary from PLAN.md
+- Files to be modified
+- Risk assessment
+- Approval instructions
+
+---
+
+## Phase 5: Request Approval
+
+**Notify stakeholders:**
+
+```bash
+# Slack notification
+.claude/skills/slack-operations/scripts/notify_approval_needed.sh
+
+# Jira comment (if from Jira)
+.claude/skills/jira-operations/scripts/post_comment.sh
+```
+
+---
+
+## Output Format
+
+Return to Brain:
+```json
+{
+  "status": "approval_pending",
+  "plan_file": "PLAN.md",
+  "pr_url": "https://github.com/org/repo/pull/123",
+  "pr_number": 123,
+  "branch": "feature/ticket-123-fix",
+  "awaiting_approval_from": ["github_pr", "slack"],
+  "sub_tasks_count": 4,
+  "estimated_complexity": "medium"
+}
+```
 
 ---
 
@@ -69,7 +189,7 @@ mypy . --strict
 |-----------|-------------|
 | **Atomic** | Each sub-task is single responsibility |
 | **Parallel** | Mark tasks that can run concurrently |
-| **Testable** | Every criterion has a verification command |
+| **Testable** | Every criterion has verification command |
 | **Independent** | Minimize dependencies between tasks |
 
 ---
@@ -92,11 +212,9 @@ mypy . --strict
 
 When Brain sends gaps from verifier:
 1. Read gap analysis
-2. Update PLAN.md with:
-   - Specific fixes for each gap
-   - Adjusted criteria if needed
-   - New sub-tasks if required
-3. Mark which existing work to preserve
+2. Update PLAN.md with specific fixes
+3. Commit updated PLAN.md
+4. No new approval needed (already approved)
 
 ---
 
@@ -107,15 +225,4 @@ When Brain sends gaps from verifier:
 - Run tests
 - Make changes
 
-Implementation is executor's job.
-
----
-
-## Output Checklist
-
-Before returning PLAN.md:
-- [ ] All criteria are testable (has verification command)
-- [ ] Sub-tasks marked parallel/sequential
-- [ ] Each sub-task has file paths
-- [ ] Each sub-task has confidence threshold
-- [ ] Risk assessment included
+Implementation is executor's job AFTER approval.

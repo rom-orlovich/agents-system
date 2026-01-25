@@ -361,3 +361,157 @@ async def slack_webhook(
             exc_info=True
         )
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ✅ Slack Interactivity Handler (Button clicks)
+async def post_github_comment(repo: str, pr_number: int, comment: str) -> bool:
+    """Post a comment to a GitHub PR."""
+    github_token = os.getenv("GITHUB_TOKEN")
+    if not github_token:
+        logger.error("GITHUB_TOKEN not configured")
+        return False
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments",
+                headers={
+                    "Authorization": f"token {github_token}",
+                    "Accept": "application/vnd.github.v3+json"
+                },
+                json={"body": comment},
+                timeout=10.0
+            )
+            response.raise_for_status()
+            logger.info("github_comment_posted", repo=repo, pr_number=pr_number)
+            return True
+    except Exception as e:
+        logger.error("github_comment_failed", repo=repo, pr_number=pr_number, error=str(e))
+        return False
+
+
+async def update_slack_message(channel: str, ts: str, text: str) -> bool:
+    """Update the original Slack message to show action taken."""
+    slack_token = os.getenv("SLACK_BOT_TOKEN")
+    if not slack_token:
+        return False
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://slack.com/api/chat.update",
+                headers={
+                    "Authorization": f"Bearer {slack_token}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "channel": channel,
+                    "ts": ts,
+                    "text": text,
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": text
+                            }
+                        }
+                    ]
+                },
+                timeout=10.0
+            )
+            return response.json().get("ok", False)
+    except Exception as e:
+        logger.error("slack_message_update_failed", error=str(e))
+        return False
+
+
+@router.post("/slack/interactivity")
+async def slack_interactivity(request: Request):
+    """
+    Handle Slack interactive components (button clicks).
+    When Approve/Reject buttons are clicked, post @agent approve/@agent reject to GitHub PR.
+    """
+    try:
+        # Slack sends interactivity payloads as form-encoded with a 'payload' field
+        form_data = await request.form()
+        payload_str = form_data.get("payload")
+
+        if not payload_str:
+            raise HTTPException(status_code=400, detail="Missing payload")
+
+        payload = json.loads(payload_str)
+
+        # Verify signature
+        body = await request.body()
+        await verify_slack_signature(request, body)
+
+        # Extract action details
+        actions = payload.get("actions", [])
+        if not actions:
+            return {"ok": True}
+
+        action = actions[0]
+        action_id = action.get("action_id")
+        value_str = action.get("value", "{}")
+
+        # Parse button value (contains repo, pr_number, ticket_id)
+        try:
+            value = json.loads(value_str)
+        except json.JSONDecodeError:
+            value = {}
+
+        user = payload.get("user", {})
+        user_name = user.get("name", user.get("username", "unknown"))
+        channel = payload.get("channel", {}).get("id")
+        message_ts = payload.get("message", {}).get("ts")
+
+        repo = value.get("repo")
+        pr_number = value.get("pr_number")
+        ticket_id = value.get("ticket_id", "N/A")
+
+        if not repo or not pr_number:
+            logger.warning("slack_interactivity_missing_pr_info", action_id=action_id)
+            return {"ok": True}
+
+        # Handle approve/reject actions
+        if action_id == "approve_plan":
+            # Post @agent approve comment to GitHub
+            comment = f"@agent approve\n\n_Approved via Slack by @{user_name}_"
+            success = await post_github_comment(repo, pr_number, comment)
+
+            if success:
+                # Update Slack message to show it was approved
+                await update_slack_message(
+                    channel,
+                    message_ts,
+                    f"✅ *Plan Approved* by {user_name}\n\n`@agent approve` posted to PR #{pr_number}\nTicket: `{ticket_id}`"
+                )
+                logger.info("plan_approved_via_slack", repo=repo, pr_number=pr_number, user=user_name)
+
+            return {"ok": True}
+
+        elif action_id == "reject_plan":
+            # Post @agent reject comment to GitHub
+            comment = f"@agent reject\n\n_Rejected via Slack by @{user_name}. Please revise the plan._"
+            success = await post_github_comment(repo, pr_number, comment)
+
+            if success:
+                # Update Slack message to show it was rejected
+                await update_slack_message(
+                    channel,
+                    message_ts,
+                    f"❌ *Plan Rejected* by {user_name}\n\n`@agent reject` posted to PR #{pr_number}\nTicket: `{ticket_id}`\n\nPlanning agent will revise the plan."
+                )
+                logger.info("plan_rejected_via_slack", repo=repo, pr_number=pr_number, user=user_name)
+
+            return {"ok": True}
+
+        # Other actions (view_pr is just a link, no handler needed)
+        return {"ok": True}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("slack_interactivity_error", error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
