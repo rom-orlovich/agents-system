@@ -27,22 +27,15 @@ Webhook/Dashboard → Brain → Sub-Agents → Verifier → Result
 
 ```
 1. Brain → planning agent
-   Output: PLAN.md with:
-   - Completion criteria (rigid, testable)
-   - Sub-tasks (parallelizable)
-   - Confidence thresholds
+   Output: PLAN.md with criteria + parallelizable sub-tasks
 
-2. Brain orchestrates parallel execution
-   - Spawn sub-agents in background
-   - Each sub-task has own criteria
+2. Brain orchestrates parallel execution (background)
 
-3. Brain → verifier agent
-   - Runs verification SCRIPTS (not opinion)
-   - Returns confidence score
+3. Brain → verifier agent (runs scripts, scores)
 
 4. Decision (max 3 iterations):
    ├─ ≥90% → Deliver + write to memory
-   ├─ <90% AND iteration<3 → Back to planning with gaps
+   ├─ <90% AND iteration<3 → Back to planning
    └─ iteration=3 → Escalate to user
 ```
 
@@ -52,63 +45,81 @@ Webhook/Dashboard → Brain → Sub-Agents → Verifier → Result
 
 | Agent | Model | Purpose |
 |-------|-------|---------|
-| `planning` | opus | Creates PLAN.md with criteria + sub-tasks |
-| `executor` | sonnet | Implements code following TDD |
-| `verifier` | opus | Runs scripts, scores confidence |
-| `service-integrator` | sonnet | GitHub, Jira, Slack workflows |
-| `self-improvement` | sonnet | Optimizes all operations + memory |
+| `planning` | opus | PLAN.md with criteria + sub-tasks |
+| `executor` | sonnet | TDD implementation |
+| `verifier` | opus | Script-based verification |
+| `service-integrator` | sonnet | GitHub, Jira, Slack |
+| `self-improvement` | sonnet | Optimize all + memory |
 
 ---
 
-## Memory Management
+## Verification (Stack-Agnostic)
 
-**Location:** `.claude/memory/project/`
-**Max entries:** 30 per file
-**Pruning:** Entries >30 days or unused >10 tasks → archive
-
-| When | Action |
-|------|--------|
-| Complex task start | Read patterns.md, decisions.md |
-| Before re-delegation | Read failures.md |
-| After verification ≥90% | Write new learnings |
-| Memory >30 entries | Trigger self-improvement to consolidate |
-
----
-
-## Verification Scripts
-
-Verifier MUST run scripts before scoring:
+Scripts auto-detect stack (Python, TS, Go, Rust, Java, etc.):
 ```
 .claude/scripts/verification/
-├── test.sh      # pytest exit code
-├── build.sh     # make build exit code
-├── lint.sh      # ruff check
-└── typecheck.sh # mypy strict
+├── detect-stack.sh  # Auto-detects project type
+├── test.sh          # Stack-appropriate test runner
+├── build.sh         # Stack-appropriate build
+├── lint.sh          # Stack-appropriate linter
+└── typecheck.sh     # Stack-appropriate type checker
 ```
-Script exit 0 = pass, non-0 = fail with output.
 
 ---
 
-## Jira → GitHub → Slack Workflow
+## Memory Structure (Domain-Separated)
 
-When Jira ticket with `AI-Fix` label:
-1. `planning` → creates PLAN.md
-2. `service-integrator` → creates GitHub PR
-3. `service-integrator` → comments on Jira with PR link
-4. `service-integrator` → sends Slack notification
+```
+.claude/memory/
+├── code/            # Code patterns (stack-agnostic)
+│   └── patterns.md
+├── agents/          # Delegation learnings
+│   └── delegation.md
+├── process/         # Workflow learnings
+│   └── workflows.md
+├── stack/           # Stack-specific learnings
+│   ├── python.md
+│   ├── typescript.md
+│   └── go.md
+└── archive/         # Pruned entries
+```
+
+**Loading Rules:**
+| Task Type | Load |
+|-----------|------|
+| Any | code/patterns.md, agents/delegation.md |
+| Webhook | process/workflows.md |
+| Code task | stack/{detected_stack}.md |
 
 ---
 
-## GitHub Commands
+## Self-Improvement Triggers
 
-Listen for commands in PR comments:
-- `@agent analyze` → planning agent
-- `@agent implement` → executor agent
-- `@agent approve` / `LGTM` → merge workflow
+| Trigger | Action |
+|---------|--------|
+| Memory file >30 entries | Consolidate + prune |
+| After verification ≥90% | Write learnings |
+| Same gap 2x in loop | Update agent instructions |
+| Weekly (cron) | Full audit |
+| Explicit request | Specified domain |
+
+**Brain MUST trigger self-improvement when:**
+1. Count entries: `grep -c "^### \[" memory/code/patterns.md`
+2. If >30: `self-improvement agent consolidate memory/code/`
+
+---
+
+## Webhook Workflows
+
+**Jira (AI-Fix label):**
+Planning → PR → Jira comment → Slack
+
+**GitHub Commands:**
+`@agent analyze|implement|approve`
 
 ---
 
 ## Response Style
 - Concise, actionable
-- Show delegation decisions
-- Report costs and progress
+- Show tier classification
+- Report delegation + costs
