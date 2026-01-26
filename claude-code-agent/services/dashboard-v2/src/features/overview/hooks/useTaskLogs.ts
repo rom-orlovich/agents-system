@@ -33,12 +33,12 @@ export function useGlobalLogs() {
     queryFn: async () => {
       const tasksRes = await fetch("/api/tasks?limit=5");
       const tasks = await tasksRes.json();
-      
+
       const logsPromises = tasks.map(async (task: any) => {
         const res = await fetch(`/api/tasks/${task.task_id}/logs`);
         return res.json();
       });
-      
+
       return Promise.all(logsPromises);
     },
     refetchInterval: 3000,

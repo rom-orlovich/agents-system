@@ -1,7 +1,7 @@
-import { render, screen } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactNode } from "react";
+import { render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { expect, test, vi } from "vitest";
 import { MOCK_METRICS, MOCK_TASKS } from "./fixtures";
 import { OverviewFeature } from "./OverviewFeature";
 
@@ -50,10 +50,10 @@ test("renders OAuth usage metrics", () => {
 
   expect(screen.getByText("OAUTH_SESSION_USAGE")).toBeDefined();
   expect(screen.getByText("OAUTH_WEEKLY_USAGE")).toBeDefined();
-  
-  const sessionUsage = screen.getByText("OAUTH_SESSION_USAGE").closest('.panel');
-  const weeklyUsage = screen.getByText("OAUTH_WEEKLY_USAGE").closest('.panel');
-  
+
+  const sessionUsage = screen.getByText("OAUTH_SESSION_USAGE").closest(".panel");
+  const weeklyUsage = screen.getByText("OAUTH_WEEKLY_USAGE").closest(".panel");
+
   expect(sessionUsage?.textContent).toContain("10.0%");
   expect(weeklyUsage?.textContent).toContain("10.0%");
 });

@@ -1,7 +1,7 @@
 import { clsx } from "clsx";
-import { Package, RefreshCw, Settings, Shield, X, Plus } from "lucide-react";
+import { Package, Plus, RefreshCw, Settings, Shield, X } from "lucide-react";
 import { useState } from "react";
-import { useRegistry, type RegistryAsset } from "./hooks/useRegistry";
+import { type RegistryAsset, useRegistry } from "./hooks/useRegistry";
 
 export function RegistryFeature() {
   const { skills, agents, isLoading, refresh, getAssetContent, updateAssetContent } = useRegistry();
@@ -40,12 +40,15 @@ export function RegistryFeature() {
 
   const assets = activeTab === "skills" ? skills : agents;
 
-  if (isLoading) return (
-    <div className="p-8 text-center font-heading animate-pulse flex flex-col items-center gap-4">
-      <div className="w-12 h-12 border-2 border-primary border-t-transparent animate-spin" />
-      <div className="tracking-[0.2em] text-[10px] font-black">SYNCHRONIZING_SYSTEM_REGISTRY...</div>
-    </div>
-  );
+  if (isLoading)
+    return (
+      <div className="p-8 text-center font-heading animate-pulse flex flex-col items-center gap-4">
+        <div className="w-12 h-12 border-2 border-primary border-t-transparent animate-spin" />
+        <div className="tracking-[0.2em] text-[10px] font-black">
+          SYNCHRONIZING_SYSTEM_REGISTRY...
+        </div>
+      </div>
+    );
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 relative">
@@ -56,7 +59,9 @@ export function RegistryFeature() {
             onClick={() => setActiveTab("skills")}
             className={clsx(
               "px-4 py-2 font-heading text-[10px] sm:text-[11px] font-bold tracking-widest uppercase transition-all rounded-sm flex-1 sm:flex-none",
-              activeTab === "skills" ? "bg-primary text-white shadow-lg shadow-primary/20" : "border border-panel-border text-app-muted hover:bg-background-app hover:text-text-main"
+              activeTab === "skills"
+                ? "bg-primary text-white shadow-lg shadow-primary/20"
+                : "border border-panel-border text-app-muted hover:bg-background-app hover:text-text-main",
             )}
           >
             SKILLS
@@ -66,7 +71,9 @@ export function RegistryFeature() {
             onClick={() => setActiveTab("agents")}
             className={clsx(
               "px-4 py-2 font-heading text-[10px] sm:text-[11px] font-bold tracking-widest uppercase transition-all rounded-sm flex-1 sm:flex-none",
-              activeTab === "agents" ? "bg-primary text-white shadow-lg shadow-primary/20" : "border border-panel-border text-app-muted hover:bg-background-app hover:text-text-main"
+              activeTab === "agents"
+                ? "bg-primary text-white shadow-lg shadow-primary/20"
+                : "border border-panel-border text-app-muted hover:bg-background-app hover:text-text-main",
             )}
           >
             AGENTS
@@ -94,8 +101,8 @@ export function RegistryFeature() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {assets.map((asset) => (
-          <AssetCard 
-            key={asset.name} 
+          <AssetCard
+            key={asset.name}
             asset={asset}
             onConfig={() => setSelectedAsset(asset)}
             onEdit={() => handleEditContent(asset)}
@@ -105,11 +112,11 @@ export function RegistryFeature() {
 
       {/* Content Editor Drawer */}
       {editingAsset && (
-        <div 
+        <div
           className="fixed inset-0 z-[100] flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
           onClick={() => setEditingAsset(null)}
         >
-          <div 
+          <div
             className="w-full max-w-3xl bg-modal-bg shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 border-l border-modal-border"
             onClick={(e) => e.stopPropagation()}
           >
@@ -128,12 +135,12 @@ export function RegistryFeature() {
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="flex-1 p-0 overflow-hidden relative bg-input-bg">
               <div className="absolute top-3 right-6 text-[9px] font-mono text-app-muted pointer-events-none uppercase tracking-widest">
                 Markdown Editor // RAW_CONTENT
               </div>
-              <textarea 
+              <textarea
                 value={assetContent}
                 onChange={(e) => setAssetContent(e.target.value)}
                 className="w-full h-full bg-transparent text-input-text p-8 font-mono text-sm leading-relaxed outline-none resize-none selection:bg-primary/20"
@@ -167,7 +174,7 @@ export function RegistryFeature() {
         </div>
       )}
 
-       {(selectedAsset || isAdding) && (
+      {(selectedAsset || isAdding) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-[4px] animate-in fade-in duration-200">
           <div className="bg-modal-bg border border-modal-border shadow-2xl w-full max-w-lg mx-4 animate-in zoom-in-95 duration-200 rounded-none">
             <div className="flex items-center justify-between p-4 border-b border-modal-border bg-panel-bg">
@@ -185,13 +192,13 @@ export function RegistryFeature() {
                 <X size={16} />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-6">
               <div className="space-y-1">
                 <div className="text-[10px] text-app-muted font-heading">ASSET_NAME</div>
-                <input 
-                  type="text" 
-                  defaultValue={selectedAsset?.name || ""} 
+                <input
+                  type="text"
+                  defaultValue={selectedAsset?.name || ""}
                   readOnly={!!selectedAsset}
                   className="w-full bg-input-bg border border-input-border px-3 py-2 text-xs font-mono outline-none focus:border-primary transition-colors text-input-text"
                 />
@@ -199,7 +206,7 @@ export function RegistryFeature() {
 
               <div className="space-y-1">
                 <div className="text-[10px] text-app-muted font-heading">DESCRIPTION</div>
-                <textarea 
+                <textarea
                   defaultValue={selectedAsset?.description || ""}
                   rows={3}
                   className="w-full bg-input-bg border border-input-border px-3 py-2 text-xs font-mono outline-none focus:border-primary transition-colors resize-none text-input-text"
@@ -208,14 +215,20 @@ export function RegistryFeature() {
 
               {!isAdding && (
                 <div className="space-y-1">
-                  <div className="text-[10px] text-app-muted font-heading">RAW_CONFIGURATION (.json)</div>
+                  <div className="text-[10px] text-app-muted font-heading">
+                    RAW_CONFIGURATION (.json)
+                  </div>
                   <div className="bg-slate-950 p-4 font-mono text-[10px] text-green-400 border border-slate-800 shadow-inner overflow-x-auto">
-                    {JSON.stringify({
-                      version: selectedAsset?.version || "1.0.0",
-                      is_builtin: selectedAsset?.is_builtin,
-                      type: selectedAsset?.type,
-                      last_sync: new Date().toISOString()
-                    }, null, 2)}
+                    {JSON.stringify(
+                      {
+                        version: selectedAsset?.version || "1.0.0",
+                        is_builtin: selectedAsset?.is_builtin,
+                        type: selectedAsset?.type,
+                        last_sync: new Date().toISOString(),
+                      },
+                      null,
+                      2,
+                    )}
                   </div>
                 </div>
               )}
@@ -251,7 +264,15 @@ export function RegistryFeature() {
   );
 }
 
-function AssetCard({ asset, onConfig, onEdit }: { asset: RegistryAsset; onConfig: () => void; onEdit: () => void }) {
+function AssetCard({
+  asset,
+  onConfig,
+  onEdit,
+}: {
+  asset: RegistryAsset;
+  onConfig: () => void;
+  onEdit: () => void;
+}) {
   const { name, type, version } = asset;
   return (
     <div

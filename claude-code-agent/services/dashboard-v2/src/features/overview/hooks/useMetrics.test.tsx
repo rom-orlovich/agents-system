@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactNode } from 'react';
-import { useMetrics, type Metric } from './useMetrics';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { renderHook, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { type Metric, useMetrics } from "./useMetrics";
 
 global.fetch = vi.fn();
 
@@ -17,8 +17,8 @@ const createWrapper = () => {
   );
 };
 
-describe('Metric interface', () => {
-  it('should require oauth_session_used field', () => {
+describe("Metric interface", () => {
+  it("should require oauth_session_used field", () => {
     const incompleteMetric = {
       queue_depth: 0,
       active_sessions: 0,
@@ -38,11 +38,11 @@ describe('Metric interface', () => {
       oauth_session_used: 0,
     };
 
-    expect(typeof metric.oauth_session_used).toBe('number');
+    expect(typeof metric.oauth_session_used).toBe("number");
   });
 
-  it('should require oauth_session_limit field', () => {
-    const metricWithoutOAuth: Omit<Metric, 'oauth_session_limit'> = {
+  it("should require oauth_session_limit field", () => {
+    const metricWithoutOAuth: Omit<Metric, "oauth_session_limit"> = {
       queue_depth: 0,
       active_sessions: 0,
       wires_connected: 0,
@@ -61,11 +61,11 @@ describe('Metric interface', () => {
       oauth_session_limit: 0,
     };
 
-    expect(typeof metric.oauth_session_limit).toBe('number');
+    expect(typeof metric.oauth_session_limit).toBe("number");
   });
 
-  it('should require oauth_session_percentage field', () => {
-    const metricWithoutOAuth: Omit<Metric, 'oauth_session_percentage'> = {
+  it("should require oauth_session_percentage field", () => {
+    const metricWithoutOAuth: Omit<Metric, "oauth_session_percentage"> = {
       queue_depth: 0,
       active_sessions: 0,
       wires_connected: 0,
@@ -84,11 +84,11 @@ describe('Metric interface', () => {
       oauth_session_percentage: 0,
     };
 
-    expect(typeof metric.oauth_session_percentage).toBe('number');
+    expect(typeof metric.oauth_session_percentage).toBe("number");
   });
 
-  it('should require oauth_weekly_used field', () => {
-    const metricWithoutOAuth: Omit<Metric, 'oauth_weekly_used'> = {
+  it("should require oauth_weekly_used field", () => {
+    const metricWithoutOAuth: Omit<Metric, "oauth_weekly_used"> = {
       queue_depth: 0,
       active_sessions: 0,
       wires_connected: 0,
@@ -107,11 +107,11 @@ describe('Metric interface', () => {
       oauth_weekly_used: 0,
     };
 
-    expect(typeof metric.oauth_weekly_used).toBe('number');
+    expect(typeof metric.oauth_weekly_used).toBe("number");
   });
 
-  it('should require oauth_weekly_limit field', () => {
-    const metricWithoutOAuth: Omit<Metric, 'oauth_weekly_limit'> = {
+  it("should require oauth_weekly_limit field", () => {
+    const metricWithoutOAuth: Omit<Metric, "oauth_weekly_limit"> = {
       queue_depth: 0,
       active_sessions: 0,
       wires_connected: 0,
@@ -130,11 +130,11 @@ describe('Metric interface', () => {
       oauth_weekly_limit: 0,
     };
 
-    expect(typeof metric.oauth_weekly_limit).toBe('number');
+    expect(typeof metric.oauth_weekly_limit).toBe("number");
   });
 
-  it('should require oauth_weekly_percentage field', () => {
-    const metricWithoutOAuth: Omit<Metric, 'oauth_weekly_percentage'> = {
+  it("should require oauth_weekly_percentage field", () => {
+    const metricWithoutOAuth: Omit<Metric, "oauth_weekly_percentage"> = {
       queue_depth: 0,
       active_sessions: 0,
       wires_connected: 0,
@@ -153,10 +153,10 @@ describe('Metric interface', () => {
       oauth_weekly_percentage: 0,
     };
 
-    expect(typeof metric.oauth_weekly_percentage).toBe('number');
+    expect(typeof metric.oauth_weekly_percentage).toBe("number");
   });
 
-  it('should accept all OAuth fields with correct types', () => {
+  it("should accept all OAuth fields with correct types", () => {
     const metric: Metric = {
       queue_depth: 0,
       active_sessions: 0,
@@ -181,12 +181,12 @@ describe('Metric interface', () => {
   });
 });
 
-describe('useMetrics analytics fetch', () => {
+describe("useMetrics analytics fetch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('should fetch analytics summary and map today_cost to daily_burn', async () => {
+  it("should fetch analytics summary and map today_cost to daily_burn", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({
         ok: true,
@@ -221,7 +221,7 @@ describe('useMetrics analytics fetch', () => {
     expect(result.current.metrics?.daily_burn).toBe(12.5);
   });
 
-  it('should map total_tasks to total_jobs', async () => {
+  it("should map total_tasks to total_jobs", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({
         ok: true,
@@ -256,7 +256,7 @@ describe('useMetrics analytics fetch', () => {
     expect(result.current.metrics?.total_jobs).toBe(42);
   });
 
-  it('should map total_cost to cumulative_cost', async () => {
+  it("should map total_cost to cumulative_cost", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({
         ok: true,
@@ -291,7 +291,7 @@ describe('useMetrics analytics fetch', () => {
     expect(result.current.metrics?.cumulative_cost).toBe(250.75);
   });
 
-  it('should handle analytics fetch errors gracefully', async () => {
+  it("should handle analytics fetch errors gracefully", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({
         ok: true,
@@ -301,7 +301,7 @@ describe('useMetrics analytics fetch', () => {
           connections: 0,
         }),
       })
-      .mockRejectedValueOnce(new Error('Analytics fetch failed'))
+      .mockRejectedValueOnce(new Error("Analytics fetch failed"))
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [],
@@ -320,7 +320,7 @@ describe('useMetrics analytics fetch', () => {
     expect(result.current.metrics?.cumulative_cost).toBe(0);
   });
 
-  it('should call analytics summary endpoint', async () => {
+  it("should call analytics summary endpoint", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({
         ok: true,
@@ -349,17 +349,17 @@ describe('useMetrics analytics fetch', () => {
     });
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/analytics/summary');
+      expect(global.fetch).toHaveBeenCalledWith("/api/analytics/summary");
     });
   });
 });
 
-describe('useMetrics OAuth fetch', () => {
+describe("useMetrics OAuth fetch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('should fetch OAuth usage and map session data', async () => {
+  it("should fetch OAuth usage and map session data", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({
         ok: true,
@@ -410,7 +410,7 @@ describe('useMetrics OAuth fetch', () => {
     expect(result.current.metrics?.oauth_session_percentage).toBe(10.0);
   });
 
-  it('should map OAuth weekly data', async () => {
+  it("should map OAuth weekly data", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({
         ok: true,
@@ -461,7 +461,7 @@ describe('useMetrics OAuth fetch', () => {
     expect(result.current.metrics?.oauth_weekly_percentage).toBe(10.0);
   });
 
-  it('should calculate percentage from used and limit', async () => {
+  it("should calculate percentage from used and limit", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({
         ok: true,
@@ -517,7 +517,7 @@ describe('useMetrics OAuth fetch', () => {
     expect(result.current.metrics?.oauth_weekly_percentage).toBe(25.0);
   });
 
-  it('should handle null OAuth data gracefully', async () => {
+  it("should handle null OAuth data gracefully", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({
         ok: true,
@@ -563,7 +563,7 @@ describe('useMetrics OAuth fetch', () => {
     expect(result.current.metrics?.oauth_weekly_limit).toBe(0);
   });
 
-  it('should handle OAuth fetch errors gracefully', async () => {
+  it("should handle OAuth fetch errors gracefully", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({
         ok: true,
@@ -582,7 +582,7 @@ describe('useMetrics OAuth fetch', () => {
           total_tasks: 0,
         }),
       })
-      .mockRejectedValueOnce(new Error('OAuth fetch failed'))
+      .mockRejectedValueOnce(new Error("OAuth fetch failed"))
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [],
@@ -600,7 +600,7 @@ describe('useMetrics OAuth fetch', () => {
     expect(result.current.metrics?.oauth_weekly_used).toBe(0);
   });
 
-  it('should call OAuth usage endpoint', async () => {
+  it("should call OAuth usage endpoint", async () => {
     (global.fetch as unknown as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({
         ok: true,
@@ -637,8 +637,7 @@ describe('useMetrics OAuth fetch', () => {
     });
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/credentials/usage');
+      expect(global.fetch).toHaveBeenCalledWith("/api/credentials/usage");
     });
   });
 });
-

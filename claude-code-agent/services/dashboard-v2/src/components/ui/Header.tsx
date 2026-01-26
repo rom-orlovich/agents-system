@@ -1,4 +1,4 @@
-import { Cpu, Moon, Sun, Terminal, CheckCircle2, XCircle, Loader2, Menu, X } from "lucide-react";
+import { CheckCircle2, Cpu, Loader2, Menu, Moon, Sun, Terminal, X, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useCLIStatus } from "../../hooks/useCLIStatus";
 import { useWebSocket } from "../../hooks/useWebSocket";
@@ -11,7 +11,7 @@ interface HeaderProps {
 export function Header({ onToggleSidebar, isSidebarOpen }: HeaderProps) {
   const [isDark, setIsDark] = useState(false);
   const { active: cliActive, isLoading: cliLoading } = useCLIStatus();
-  
+
   // Connect to WebSocket for real-time CLI status updates
   useWebSocket("dashboard");
 
@@ -67,7 +67,7 @@ export function Header({ onToggleSidebar, isSidebarOpen }: HeaderProps) {
         >
           {isDark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
-        
+
         {/* CLI Status Indicator */}
         <div className="hidden md:flex items-center gap-2 px-4 py-1.5 border border-gray-200 dark:border-slate-800 text-[10px] font-heading bg-gray-50/50 dark:bg-slate-950/50">
           {cliLoading || cliActive === null ? (
@@ -87,7 +87,7 @@ export function Header({ onToggleSidebar, isSidebarOpen }: HeaderProps) {
             </>
           )}
         </div>
-        
+
         <div className="hidden md:flex items-center gap-4 px-4 py-1.5 border border-gray-200 dark:border-slate-800 text-[10px] font-heading bg-gray-50/50 dark:bg-slate-950/50">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-blink" />

@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 
 interface WebSocketMessage {
   type: string;
@@ -17,7 +17,7 @@ export function useWebSocket(sessionId: string = "dashboard") {
     const connect = () => {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const wsUrl = `${protocol}//${window.location.host}/ws/${sessionId}`;
-      
+
       ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -32,7 +32,7 @@ export function useWebSocket(sessionId: string = "dashboard") {
       ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
-          
+
           if (message.type === "cli_status_update") {
             queryClient.invalidateQueries({ queryKey: ["cli-status"] });
           }

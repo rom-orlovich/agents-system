@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { X } from "lucide-react";
+import { useState } from "react";
 
 interface CreateWebhookModalProps {
   isOpen: boolean;
@@ -40,9 +40,9 @@ export function CreateWebhookModal({ isOpen, onClose, onSubmit }: CreateWebhookM
         >
           <X size={18} />
         </button>
-        
+
         <h2 className="text-lg font-heading font-bold mb-6">NEW_LISTENER</h2>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-heading font-bold text-app-muted mb-1">NAME</label>
@@ -55,9 +55,11 @@ export function CreateWebhookModal({ isOpen, onClose, onSubmit }: CreateWebhookM
               required
             />
           </div>
-          
+
           <div>
-            <label className="block text-xs font-heading font-bold text-app-muted mb-1">PROVIDER</label>
+            <label className="block text-xs font-heading font-bold text-app-muted mb-1">
+              PROVIDER
+            </label>
             <select
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
@@ -69,11 +71,9 @@ export function CreateWebhookModal({ isOpen, onClose, onSubmit }: CreateWebhookM
               <option value="custom">Custom</option>
             </select>
           </div>
-          
-
 
           {error && <div className="text-red-500 text-xs font-mono">{error}</div>}
-          
+
           <div className="flex justify-end gap-2 mt-6">
             <button
               type="button"

@@ -156,13 +156,15 @@ export function useMetrics() {
       const res = await fetch("/api/tasks");
       if (!res.ok) throw new Error("Failed to fetch tasks");
       const taskData: TaskResponse[] = await res.json();
-      return taskData.map((t: TaskResponse): Task => ({
-        id: t.task_id,
-        name: t.assigned_agent || t.agent_type || "unknown",
-        status: t.status,
-        cost: t.cost_usd,
-        timestamp: t.created_at,
-      }));
+      return taskData.map(
+        (t: TaskResponse): Task => ({
+          id: t.task_id,
+          name: t.assigned_agent || t.agent_type || "unknown",
+          status: t.status,
+          cost: t.cost_usd,
+          timestamp: t.created_at,
+        }),
+      );
     },
     refetchInterval: 2000,
   });

@@ -49,7 +49,9 @@ export function useLedger() {
     queryFn: async () => {
       const res = await fetch("/api/agents");
       const data = await res.json();
-      return Array.isArray(data) ? data.map((a: any) => typeof a === 'string' ? a : a.name || "") : [];
+      return Array.isArray(data)
+        ? data.map((a: any) => (typeof a === "string" ? a : a.name || ""))
+        : [];
     },
   });
 

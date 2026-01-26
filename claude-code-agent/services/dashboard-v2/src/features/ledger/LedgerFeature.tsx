@@ -1,9 +1,10 @@
 import { ChevronLeft, ChevronRight, Filter, RefreshCcw } from "lucide-react";
-import { useLedger } from "./hooks/useLedger";
 import { useTaskModal } from "../../hooks/useTaskModal";
+import { useLedger } from "./hooks/useLedger";
 
 export function LedgerFeature() {
-  const { tasks, agents, isLoading, refetch, filters, setFilters, page, setPage, totalPages } = useLedger();
+  const { tasks, agents, isLoading, refetch, filters, setFilters, page, setPage, totalPages } =
+    useLedger();
   const { openTask } = useTaskModal();
 
   return (
@@ -55,12 +56,95 @@ export function LedgerFeature() {
             onClick={() => refetch()}
             className="flex items-center gap-2 px-4 py-2 bg-primary border border-primary/20 hover:opacity-90 text-white text-[10px] font-heading font-bold transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20 rounded-sm"
           >
-            <RefreshCcw size={14} className={isLoading ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-500"} />
+            <RefreshCcw
+              size={14}
+              className={
+                isLoading
+                  ? "animate-spin"
+                  : "group-hover:rotate-180 transition-transform duration-500"
+              }
+            />
             REFRESH_LEDGER
           </button>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Mobile View: Cards */}
+        <div className="md:hidden space-y-3">
+          {isLoading ? (
+            <div className="py-8 text-center text-xs font-heading text-app-muted animate-pulse">
+              SYNCING_RECORDS...
+            </div>
+          ) : tasks.length === 0 ? (
+            <div className="py-8 text-center text-xs font-heading text-app-muted">
+              NO_RECORDS_FOUND
+            </div>
+          ) : (
+            tasks.map((task) => (
+              <div
+                key={task.id}
+                onClick={() => openTask(task.id)}
+                className="p-4 border border-panel-border bg-background-app/50 rounded-md hover:border-primary/50 transition-colors cursor-pointer space-y-3"
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-heading text-app-muted uppercase">
+                      TASK ID
+                    </span>
+                    <span className="text-xs font-mono font-bold text-app-main break-all">
+                      {task.id}
+                    </span>
+                  </div>
+                  <span
+                    className={`inline-block px-2 py-0.5 text-[9px] font-heading border ${getStatusClasses(task.status)}`}
+                  >
+                    {task.status.toUpperCase()}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-heading text-app-muted uppercase">AGENT</span>
+                    <span className="text-xs font-heading text-app-main">
+                      {task.assigned_agent}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-heading text-app-muted uppercase">
+                      SESSION
+                    </span>
+                    <span className="text-xs font-mono text-app-muted truncate">
+                      {task.session_id}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-panel-border/50">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-heading text-app-muted uppercase">COST</span>
+                    <span className="text-xs font-mono font-bold text-app-main">
+                      ${parseFloat(task.cost_usd).toFixed(4)}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-heading text-app-muted uppercase">TIME</span>
+                    <span className="text-xs font-mono text-app-muted">
+                      {task.duration_seconds}s
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-heading text-app-muted uppercase">DATE</span>
+                    <span className="text-[10px] text-app-muted">
+                      {new Date(task.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop View: Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-panel-border">
@@ -105,16 +189,17 @@ export function LedgerFeature() {
                 </tr>
               ) : (
                 tasks.map((task) => (
-                  <tr 
-                    key={task.id} 
+                  <tr
+                    key={task.id}
                     onClick={() => openTask(task.id)}
                     className="hover:bg-slate-500/5 transition-colors group cursor-pointer"
                   >
                     <td className="py-3 px-4 text-xs font-mono font-bold group-hover:text-primary">
-                      <span className="md:hidden">{task.id.slice(0, 8)}...</span>
-                      <span className="hidden md:inline">{task.id}</span>
+                      {task.id}
                     </td>
-                    <td className="py-3 px-4 text-xs font-mono text-app-muted hidden sm:table-cell">{task.session_id}</td>
+                    <td className="py-3 px-4 text-xs font-mono text-app-muted hidden sm:table-cell">
+                      {task.session_id}
+                    </td>
                     <td className="py-3 px-4 text-xs font-heading text-app-main">
                       {task.assigned_agent}
                     </td>
@@ -125,7 +210,9 @@ export function LedgerFeature() {
                         {task.status.toUpperCase()}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-xs font-mono font-bold text-app-main hidden lg:table-cell">${parseFloat(task.cost_usd).toFixed(4)}</td>
+                    <td className="py-3 px-4 text-xs font-mono font-bold text-app-main hidden lg:table-cell">
+                      ${parseFloat(task.cost_usd).toFixed(4)}
+                    </td>
                     <td className="py-3 px-4 text-xs font-mono text-app-muted hidden lg:table-cell">
                       {task.duration_seconds}s
                     </td>
