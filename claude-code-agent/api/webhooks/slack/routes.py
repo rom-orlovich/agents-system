@@ -21,10 +21,58 @@ from api.webhooks.slack.utils import (
     create_slack_task,
     post_github_comment,
     update_slack_message,
+    post_slack_task_comment,
+    send_slack_notification,
 )
 
 logger = structlog.get_logger()
 router = APIRouter()
+
+COMPLETION_HANDLER = "api.webhooks.slack.routes.handle_slack_task_completion"
+
+
+async def handle_slack_task_completion(
+    payload: dict,
+    message: str,
+    success: bool,
+    cost_usd: float = 0.0,
+    task_id: str = None,
+    command: str = None,
+    result: str = None,
+    error: str = None
+) -> bool:
+    """
+    Handle Slack task completion callback.
+    
+    Called by task worker when task completes.
+    
+    Actions:
+    1. Format message (clean error message for Slack)
+    2. Post message to Slack thread with task result
+    3. Send Slack notification (if enabled)
+    
+    Returns:
+        True if message posted successfully, False otherwise
+    """
+    formatted_message = error if not success and error else message
+    
+    comment_posted = await post_slack_task_comment(
+        payload=payload,
+        message=formatted_message,
+        success=success,
+        cost_usd=cost_usd
+    )
+    
+    await send_slack_notification(
+        task_id=task_id,
+        webhook_source="slack",
+        command=command,
+        success=success,
+        result=result,
+        error=error
+    )
+    
+    return comment_posted
 
 
 @router.post("/slack")
@@ -32,7 +80,24 @@ async def slack_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db_session)
 ):
-    """Slack webhook endpoint."""
+    """
+    Slack webhook endpoint.
+    
+    Flow:
+    1. Get webhook event
+    2. Validate webhook
+    3. Validate command
+    4. Send immediate response (ephemeral message)
+    5. Create task (with completion handler registered: handle_slack_task_completion)
+    6. Put task in queue
+    7. Log event
+    8. Send back HTTP response
+    
+    After task completes (task worker calls handle_slack_task_completion):
+    - handle_slack_task_completion() posts message to Slack thread
+    - handle_slack_task_completion() sends Slack notification (if enabled)
+    - Task worker updates conversation with result
+    """
     channel = None
     task_id = None
     
@@ -94,18 +159,10 @@ async def slack_webhook(
             logger.error("slack_command_matching_error", error=str(e), channel=channel)
             raise HTTPException(status_code=500, detail=f"Command matching failed: {str(e)}")
         
-        immediate_response_sent = False
-        try:
-            immediate_response_sent = await send_slack_immediate_response(payload, command, event_type)
-        except Exception as e:
-            logger.error("slack_immediate_response_error", error=str(e), channel=channel, command=command.name)
+        immediate_response_sent = await send_slack_immediate_response(payload, command, event_type)
         
-        try:
-            task_id = await create_slack_task(command, payload, db)
-            logger.info("slack_task_created_success", task_id=task_id, channel=channel)
-        except Exception as e:
-            logger.error("slack_task_creation_failed", error=str(e), error_type=type(e).__name__, channel=channel, command=command.name)
-            raise HTTPException(status_code=500, detail=f"Task creation failed: {str(e)}")
+        task_id = await create_slack_task(command, payload, db, completion_handler=COMPLETION_HANDLER)
+        logger.info("slack_task_created_success", task_id=task_id, channel=channel)
         
         try:
             event_id = f"evt-{uuid.uuid4().hex[:12]}"
@@ -126,13 +183,21 @@ async def slack_webhook(
         except Exception as e:
             logger.error("slack_event_logging_failed", error=str(e), task_id=task_id, channel=channel)
         
+        logger.info(
+            "slack_completion_handler_registered",
+            task_id=task_id,
+            handler=COMPLETION_HANDLER,
+            message="Completion handler will be called by task worker when task completes"
+        )
+        
         logger.info("slack_webhook_processed", task_id=task_id, command=command.name, event_type=event_type, channel=channel)
         
         return {
             "status": "processed",
             "task_id": task_id,
             "command": command.name,
-            "immediate_response_sent": immediate_response_sent
+            "immediate_response_sent": immediate_response_sent,
+            "completion_handler": COMPLETION_HANDLER
         }
         
     except HTTPException:

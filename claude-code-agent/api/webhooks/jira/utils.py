@@ -107,7 +107,10 @@ async def send_jira_immediate_response(
             command=command.name
         )
         
-        if not is_assignee_changed_to_ai(payload, event_type):
+        has_assignee_change = is_assignee_changed_to_ai(payload, event_type)
+        has_comment_with_agent = bool(payload.get("comment", {}).get("body", ""))
+        
+        if not has_assignee_change and not has_comment_with_agent:
             logger.debug(
                 "jira_immediate_comment_skipped",
                 issue_key=issue_key,
@@ -182,7 +185,8 @@ def match_jira_command(payload: dict, event_type: str) -> Optional[WebhookComman
 async def create_jira_task(
     command: WebhookCommand,
     payload: dict,
-    db: AsyncSession
+    db: AsyncSession,
+    completion_handler: str
 ) -> str:
     """Create a task from Jira webhook."""
     task_id = f"task-{uuid.uuid4().hex[:12]}"
@@ -225,7 +229,8 @@ async def create_jira_task(
             "command": command.name,
             "original_target_agent": command.target_agent,
             "routing": routing,
-            "payload": payload
+            "payload": payload,
+            "completion_handler": completion_handler
         }),
     )
     db.add(task_db)
@@ -301,3 +306,107 @@ async def post_jira_comment(payload: dict, message: str):
         logger.warning("jira_client_not_configured", error=str(e))
     except Exception as e:
         logger.error("jira_comment_post_failed", issue_key=issue_key, error=str(e), error_type=type(e).__name__)
+
+
+async def post_jira_task_comment(
+    payload: dict,
+    message: str,
+    success: bool,
+    cost_usd: float = 0.0
+) -> bool:
+    """Post a comment to Jira after task completion."""
+    try:
+        issue = payload.get("issue", {})
+        issue_key = issue.get("key")
+        
+        if not issue_key:
+            logger.warning("jira_post_task_comment_no_issue_key", payload_keys=list(payload.keys()))
+            return False
+        
+        if success:
+            formatted_message = f"{message}"
+        else:
+            formatted_message = f"{message}"
+        
+        max_length = 8000
+        if len(formatted_message) > max_length:
+            truncated_message = formatted_message[:max_length]
+            last_period = truncated_message.rfind(".")
+            last_newline = truncated_message.rfind("\n")
+            truncate_at = max(last_period, last_newline)
+            if truncate_at > max_length * 0.8:
+                truncated_message = truncated_message[:truncate_at + 1]
+            formatted_message = truncated_message + "\n\n... (message truncated)"
+        
+        if success and cost_usd > 0:
+            formatted_message += f"\n\n💰 Cost: ${cost_usd:.4f}"
+        
+        await jira_client.post_comment(issue_key, formatted_message)
+        logger.info("jira_task_comment_posted", issue_key=issue_key)
+        return True
+        
+    except Exception as e:
+        logger.error("jira_post_task_comment_error", error=str(e))
+        return False
+
+
+async def send_slack_notification(
+    task_id: str,
+    webhook_source: str,
+    command: str,
+    success: bool,
+    result: Optional[str] = None,
+    error: Optional[str] = None
+) -> bool:
+    """Send Slack notification when webhook task completes."""
+    if not os.getenv("SLACK_NOTIFICATIONS_ENABLED", "true").lower() == "true":
+        return False
+    
+    from core.slack_client import slack_client
+    
+    status_emoji = "✅" if success else "❌"
+    status_text = "Completed" if success else "Failed"
+    
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"{status_emoji} *Task {status_text}*\n*Source:* {webhook_source.title()}\n*Command:* {command}\n*Task ID:* `{task_id}`"
+            }
+        }
+    ]
+    
+    if success and result:
+        result_preview = result[:500] + "..." if len(result) > 500 else result
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Result:*\n```{result_preview}```"
+            }
+        })
+    
+    if error:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Error:*\n```{error}```"
+            }
+        })
+    
+    channel = os.getenv("SLACK_NOTIFICATION_CHANNEL", "#ai-agent-activity")
+    text = f"{status_emoji} Task {status_text} - {webhook_source.title()} - {command}"
+    
+    try:
+        await slack_client.post_message(
+            channel=channel,
+            text=text,
+            blocks=blocks
+        )
+        logger.info("slack_notification_sent", task_id=task_id, success=success)
+        return True
+    except Exception as e:
+        logger.error("slack_notification_failed", task_id=task_id, error=str(e))
+        return False

@@ -164,7 +164,8 @@ def match_github_command(payload: dict, event_type: str) -> Optional[WebhookComm
 async def create_github_task(
     command: WebhookCommand,
     payload: dict,
-    db: AsyncSession
+    db: AsyncSession,
+    completion_handler: str
 ) -> str:
     """Create a task from GitHub webhook."""
     task_id = f"task-{uuid.uuid4().hex[:12]}"
@@ -207,7 +208,8 @@ async def create_github_task(
             "command": command.name,
             "original_target_agent": command.target_agent,
             "routing": routing,
-            "payload": payload
+            "payload": payload,
+            "completion_handler": completion_handler
         }),
     )
     db.add(task_db)
@@ -252,3 +254,127 @@ async def create_github_task(
     logger.info("github_task_created", task_id=task_id, command=command.name)
     
     return task_id
+
+
+async def post_github_task_comment(
+    payload: dict,
+    message: str,
+    success: bool,
+    cost_usd: float = 0.0
+) -> bool:
+    """Post a comment to GitHub after task completion."""
+    try:
+        repo = payload.get("repository", {})
+        owner = repo.get("owner", {}).get("login", "")
+        repo_name = repo.get("name", "")
+        
+        if not owner or not repo_name:
+            logger.debug("github_post_comment_no_repo", payload_keys=list(payload.keys()))
+            return False
+        
+        if success:
+            formatted_message = f"✅ {message}"
+        else:
+            formatted_message = f"❌ {message}"
+        
+        max_length = 8000 if not success else 4000
+        if len(formatted_message) > max_length:
+            truncated_message = formatted_message[:max_length]
+            last_period = truncated_message.rfind(".")
+            last_newline = truncated_message.rfind("\n")
+            truncate_at = max(last_period, last_newline)
+            if truncate_at > max_length * 0.8:
+                truncated_message = truncated_message[:truncate_at + 1]
+            formatted_message = truncated_message + "\n\n... (message truncated)"
+        
+        if success and cost_usd > 0:
+            formatted_message += f"\n\n💰 Cost: ${cost_usd:.4f}"
+        
+        pr = payload.get("pull_request", {})
+        issue = payload.get("issue", {})
+        
+        if pr and pr.get("number"):
+            pr_number = pr.get("number")
+            await github_client.post_pr_comment(owner, repo_name, pr_number, formatted_message)
+            logger.info("github_pr_comment_posted", pr_number=pr_number)
+            return True
+        elif issue and issue.get("number"):
+            if issue.get("pull_request"):
+                pr_number = issue.get("number")
+                await github_client.post_pr_comment(owner, repo_name, pr_number, formatted_message)
+                logger.info("github_pr_comment_posted_from_issue", pr_number=pr_number)
+                return True
+            else:
+                issue_number = issue.get("number")
+                await github_client.post_issue_comment(owner, repo_name, issue_number, formatted_message)
+                logger.info("github_issue_comment_posted", issue_number=issue_number)
+                return True
+        else:
+            logger.warning("github_no_issue_or_pr_found", payload_keys=list(payload.keys()))
+            return False
+        
+    except Exception as e:
+        logger.error("github_post_task_comment_error", error=str(e))
+        return False
+
+
+async def send_slack_notification(
+    task_id: str,
+    webhook_source: str,
+    command: str,
+    success: bool,
+    result: Optional[str] = None,
+    error: Optional[str] = None
+) -> bool:
+    """Send Slack notification when webhook task completes."""
+    if not os.getenv("SLACK_NOTIFICATIONS_ENABLED", "true").lower() == "true":
+        return False
+    
+    from core.slack_client import slack_client
+    
+    status_emoji = "✅" if success else "❌"
+    status_text = "Completed" if success else "Failed"
+    
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"{status_emoji} *Task {status_text}*\n*Source:* {webhook_source.title()}\n*Command:* {command}\n*Task ID:* `{task_id}`"
+            }
+        }
+    ]
+    
+    if success and result:
+        result_preview = result[:500] + "..." if len(result) > 500 else result
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Result:*\n```{result_preview}```"
+            }
+        })
+    
+    if error:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Error:*\n```{error}```"
+            }
+        })
+    
+    channel = os.getenv("SLACK_NOTIFICATION_CHANNEL", "#ai-agent-activity")
+    text = f"{status_emoji} Task {status_text} - {webhook_source.title()} - {command}"
+    
+    try:
+        await slack_client.post_message(
+            channel=channel,
+            text=text,
+            blocks=blocks
+        )
+        logger.info("slack_notification_sent", task_id=task_id, success=success)
+        return True
+    except Exception as e:
+        logger.error("slack_notification_failed", task_id=task_id, error=str(e))
+        return False

@@ -19,9 +19,6 @@ from core.webhook_engine import (
     generate_webhook_conversation_title,
     action_comment
 )
-from core.github_client import github_client
-from core.jira_client import jira_client
-from core.slack_client import slack_client
 from shared import TaskStatus, TaskOutputMessage, TaskCompletedMessage, TaskFailedMessage
 from sqlalchemy import select, update
 from datetime import datetime, timezone
@@ -265,19 +262,13 @@ class TaskWorker:
                         )
                     )
                     
-                    # Send Slack notification if task came from webhook
                     if task_db.source == "webhook":
-                        await self._send_slack_notification(
-                            task_db=task_db,
-                            success=True,
-                            result=result.output,
-                            error=None
-                        )
-                        
-                        await self._post_webhook_comment(
+                        await self._invoke_completion_handler(
                             task_db=task_db,
                             message=clean_result_output,
-                            success=True
+                            success=True,
+                            result=clean_result_output,
+                            error=None
                         )
                 else:
                     # ✅ Update Redis first (fast)
@@ -391,24 +382,14 @@ class TaskWorker:
                         TaskFailedMessage(task_id=task_id, error=result.error or "Unknown error")
                     )
                     
-                    # Send Slack notification if task came from webhook
                     if task_db.source == "webhook":
-                        await self._send_slack_notification(
+                        error_message = f"Task failed: {result.error}" if result.error else "Task failed"
+                        await self._invoke_completion_handler(
                             task_db=task_db,
+                            message=error_message,
                             success=False,
                             result=None,
                             error=result.error
-                        )
-                        error_message = f"❌ Task failed: {result.error}" if result.error else "❌ Task failed"
-                        logger.info(
-                            "Posting webhook comment for failed task",
-                            task_id=task_id,
-                            error_message=error_message[:100]
-                        )
-                        await self._post_webhook_comment(
-                            task_db=task_db,
-                            message=error_message,
-                            success=False
                         )
 
                 await session.commit()
@@ -423,24 +404,18 @@ class TaskWorker:
             except Exception as e:
                 logger.error("Task processing error", task_id=task_id, error=str(e))
                 
-                # Send Slack notification for errors if task came from webhook
                 try:
                     if task_db.source == "webhook":
-                        await self._send_slack_notification(
+                        error_message = f"Task error: {str(e)}"
+                        await self._invoke_completion_handler(
                             task_db=task_db,
+                            message=error_message,
                             success=False,
                             result=None,
                             error=str(e)
                         )
-                        
-                        error_message = f"❌ Task error: {str(e)}"
-                        await self._post_webhook_comment(
-                            task_db=task_db,
-                            message=error_message,
-                            success=False
-                        )
-                except Exception as notify_error:
-                    logger.error("Slack notification error", error=str(notify_error))
+                except Exception as handler_error:
+                    logger.error("completion_handler_error", error=str(handler_error))
 
                 # ✅ Update Redis first (fast)
                 await redis_client.set_task_status(task_id, TaskStatus.FAILED)
@@ -745,124 +720,53 @@ class TaskWorker:
             return "\n".join(cleaned_lines)
         return error
     
-    def _format_error_for_platform(self, error: str, platform: str) -> str:
-        """Format error message based on platform."""
-        cleaned_error = self._clean_error_message(error)
-        
-        if platform == "github":
-            # GitHub: Error emoji + clean message
-            return f"❌ {cleaned_error}"
-        elif platform == "jira":
-            # Jira: Clean error message
-            return cleaned_error
-        elif platform == "slack":
-            # Slack: Clean error message
-            return cleaned_error
-        else:
-            # Default: Include status prefix
-            return f"❌ {cleaned_error}"
 
-    async def _post_webhook_comment(
+    async def _invoke_completion_handler(
         self,
         task_db: TaskDB,
         message: str,
-        success: bool
+        success: bool,
+        result: Optional[str] = None,
+        error: Optional[str] = None
     ) -> bool:
+        """
+        Invoke completion handler callback registered by route.
+        
+        Generic callback invocation - task worker doesn't know about webhook sources.
+        """
         try:
             source_metadata = json.loads(task_db.source_metadata or "{}")
             payload = source_metadata.get("payload", {})
-            webhook_source = source_metadata.get("webhook_source", "unknown").lower()
+            completion_handler_path = source_metadata.get("completion_handler")
 
-            if not payload:
-                logger.debug("no_payload_for_webhook_comment", task_id=task_db.task_id)
+            if not completion_handler_path:
+                logger.debug("no_completion_handler", task_id=task_db.task_id)
                 return False
 
-            if success:
-                formatted_message = f"✅ {message}"
-            else:
-                formatted_message = self._format_error_for_platform(message, webhook_source)
+            if not payload:
+                logger.debug("no_payload_for_completion_handler", task_id=task_db.task_id)
+                return False
 
-            max_length = 8000 if not success else 4000
-            if len(formatted_message) > max_length:
-                truncated_message = formatted_message[:max_length]
-                last_period = truncated_message.rfind(".")
-                last_newline = truncated_message.rfind("\n")
-                truncate_at = max(last_period, last_newline)
-                if truncate_at > max_length * 0.8:
-                    truncated_message = truncated_message[:truncate_at + 1]
-                formatted_message = truncated_message + "\n\n... (message truncated)"
+            module_path, function_name = completion_handler_path.rsplit(".", 1)
+            module = __import__(module_path, fromlist=[function_name])
+            handler = getattr(module, function_name)
 
-            if success and task_db.cost_usd > 0:
-                formatted_message += f"\n\n💰 Cost: ${task_db.cost_usd:.4f}"
-
-            posted = False
-
-            if webhook_source == "github":
-                repo = payload.get("repository", {})
-                owner = repo.get("owner", {}).get("login", "")
-                repo_name = repo.get("name", "")
-
-                if owner and repo_name:
-                    pr = payload.get("pull_request", {})
-                    issue = payload.get("issue", {})
-
-                    if pr and pr.get("number"):
-                        pr_number = pr.get("number")
-                        await github_client.post_pr_comment(owner, repo_name, pr_number, formatted_message)
-                        logger.info("github_pr_comment_posted", pr_number=pr_number, task_id=task_db.task_id)
-                        posted = True
-                    elif issue and issue.get("number"):
-                        issue_number = issue.get("number")
-                        await github_client.post_issue_comment(owner, repo_name, issue_number, formatted_message)
-                        logger.info("github_issue_comment_posted", issue_number=issue_number, task_id=task_db.task_id)
-                        posted = True
-                    else:
-                        logger.warning("github_no_issue_or_pr_found", task_id=task_db.task_id)
-
-            elif webhook_source == "jira":
-                issue = payload.get("issue", {})
-                issue_key = issue.get("key")
-
-                if issue_key:
-                    await jira_client.post_comment(issue_key, formatted_message)
-                    logger.info("jira_comment_posted", issue_key=issue_key, task_id=task_db.task_id)
-                    posted = True
-                else:
-                    logger.warning("jira_no_issue_key_found", task_id=task_db.task_id)
-
-            elif webhook_source == "slack":
-                event = payload.get("event", {})
-                channel = event.get("channel")
-                thread_ts = event.get("ts")
-
-                if channel:
-                    await slack_client.post_message(
-                        channel=channel,
-                        text=formatted_message,
-                        thread_ts=thread_ts
-                    )
-                    logger.info("slack_message_posted", channel=channel, task_id=task_db.task_id)
-                    posted = True
-                else:
-                    logger.warning("slack_no_channel_found", task_id=task_db.task_id)
-
-            else:
-                logger.warning("unknown_webhook_source", webhook_source=webhook_source, task_id=task_db.task_id)
-
-            if posted:
-                logger.info(
-                    "webhook_comment_posted",
-                    task_id=task_db.task_id,
-                    webhook_source=webhook_source,
-                    success=success
-                )
-            return posted
+            return await handler(
+                payload=payload,
+                message=message,
+                success=success,
+                cost_usd=task_db.cost_usd or 0.0,
+                task_id=task_db.task_id,
+                command=source_metadata.get("command"),
+                result=result,
+                error=error
+            )
 
         except Exception as e:
             logger.error(
-                "webhook_comment_error",
+                "completion_handler_error",
                 task_id=task_db.task_id,
-                webhook_source=source_metadata.get("webhook_source", "unknown") if 'source_metadata' in dir() else "unknown",
+                completion_handler=completion_handler_path if 'completion_handler_path' in dir() else None,
                 error=str(e)
             )
             return False

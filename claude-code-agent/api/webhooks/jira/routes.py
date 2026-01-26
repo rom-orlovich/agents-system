@@ -20,10 +20,58 @@ from api.webhooks.jira.utils import (
     match_jira_command,
     create_jira_task,
     is_assignee_changed_to_ai,
+    post_jira_task_comment,
+    send_slack_notification,
 )
 
 logger = structlog.get_logger()
 router = APIRouter()
+
+COMPLETION_HANDLER = "api.webhooks.jira.routes.handle_jira_task_completion"
+
+
+async def handle_jira_task_completion(
+    payload: dict,
+    message: str,
+    success: bool,
+    cost_usd: float = 0.0,
+    task_id: str = None,
+    command: str = None,
+    result: str = None,
+    error: str = None
+) -> bool:
+    """
+    Handle Jira task completion callback.
+    
+    Called by task worker when task completes.
+    
+    Actions:
+    1. Format message (clean error message for Jira)
+    2. Post comment to Jira ticket with task result
+    3. Send Slack notification (if enabled)
+    
+    Returns:
+        True if comment posted successfully, False otherwise
+    """
+    formatted_message = error if not success and error else message
+    
+    comment_posted = await post_jira_task_comment(
+        payload=payload,
+        message=formatted_message,
+        success=success,
+        cost_usd=cost_usd
+    )
+    
+    await send_slack_notification(
+        task_id=task_id,
+        webhook_source="jira",
+        command=command,
+        success=success,
+        result=result,
+        error=error
+    )
+    
+    return comment_posted
 
 
 @router.post("/jira")
@@ -31,7 +79,24 @@ async def jira_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db_session)
 ):
-    """Jira webhook endpoint."""
+    """
+    Jira webhook endpoint.
+    
+    Flow:
+    1. Get webhook event
+    2. Validate webhook
+    3. Validate command
+    4. Send immediate response (comment)
+    5. Create task (with completion handler registered: handle_jira_task_completion)
+    6. Put task in queue
+    7. Log event
+    8. Send back HTTP response
+    
+    After task completes (task worker calls handle_jira_task_completion):
+    - handle_jira_task_completion() posts comment to Jira ticket
+    - handle_jira_task_completion() sends Slack notification (if enabled)
+    - Task worker updates conversation with result
+    """
     issue_key = None
     task_id = None
     
@@ -79,19 +144,6 @@ async def jira_webhook(
         except Exception as e:
             logger.error("jira_webhook_validation_error", error=str(e), event_type=event_type)
         
-        if not is_assignee_changed_to_ai(payload, event_type):
-            logger.info(
-                "jira_webhook_skipped_no_ai_assignee",
-                event_type=event_type,
-                issue_key=issue_key,
-                message="Assignee not changed to AI Agent, skipping webhook processing"
-            )
-            return {
-                "status": "skipped",
-                "message": "Assignee not changed to AI Agent",
-                "issue_key": issue_key
-            }
-        
         try:
             command = match_jira_command(payload, event_type)
             if not command:
@@ -103,18 +155,10 @@ async def jira_webhook(
         
         logger.info("jira_command_matched", command=command.name, event_type=event_type, issue_key=issue_key)
         
-        immediate_response_sent = False
-        try:
-            immediate_response_sent = await send_jira_immediate_response(payload, command, event_type)
-        except Exception as e:
-            logger.error("jira_immediate_response_error", error=str(e), issue_key=issue_key, command=command.name)
+        immediate_response_sent = await send_jira_immediate_response(payload, command, event_type)
         
-        try:
-            task_id = await create_jira_task(command, payload, db)
-            logger.info("jira_task_created_success", task_id=task_id, issue_key=issue_key)
-        except Exception as e:
-            logger.error("jira_task_creation_failed", error=str(e), error_type=type(e).__name__, issue_key=issue_key, command=command.name)
-            raise HTTPException(status_code=500, detail=f"Task creation failed: {str(e)}")
+        task_id = await create_jira_task(command, payload, db, completion_handler=COMPLETION_HANDLER)
+        logger.info("jira_task_created_success", task_id=task_id, issue_key=issue_key)
         
         try:
             event_id = f"evt-{uuid.uuid4().hex[:12]}"
@@ -135,13 +179,21 @@ async def jira_webhook(
         except Exception as e:
             logger.error("jira_event_logging_failed", error=str(e), task_id=task_id, issue_key=issue_key)
         
+        logger.info(
+            "jira_completion_handler_registered",
+            task_id=task_id,
+            handler=COMPLETION_HANDLER,
+            message="Completion handler will be called by task worker when task completes"
+        )
+        
         logger.info("jira_webhook_processed", task_id=task_id, command=command.name, event_type=event_type, issue_key=issue_key)
         
         return {
             "status": "processed",
             "task_id": task_id,
             "command": command.name,
-            "immediate_response_sent": immediate_response_sent
+            "immediate_response_sent": immediate_response_sent,
+            "completion_handler": COMPLETION_HANDLER
         }
         
     except HTTPException:

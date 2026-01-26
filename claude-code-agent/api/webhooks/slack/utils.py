@@ -124,7 +124,8 @@ def match_slack_command(payload: dict, event_type: str) -> Optional[WebhookComma
 async def create_slack_task(
     command: WebhookCommand,
     payload: dict,
-    db: AsyncSession
+    db: AsyncSession,
+    completion_handler: str
 ) -> str:
     """Create a task from Slack webhook."""
     task_id = f"task-{uuid.uuid4().hex[:12]}"
@@ -167,7 +168,8 @@ async def create_slack_task(
             "command": command.name,
             "original_target_agent": command.target_agent,
             "routing": routing,
-            "payload": payload
+            "payload": payload,
+            "completion_handler": completion_handler
         }),
     )
     db.add(task_db)
@@ -260,4 +262,113 @@ async def update_slack_message(channel: str, ts: str, text: str) -> bool:
         return False
     except Exception as e:
         logger.error("slack_message_update_failed", error=str(e))
+        return False
+
+
+async def post_slack_task_comment(
+    payload: dict,
+    message: str,
+    success: bool,
+    cost_usd: float = 0.0
+) -> bool:
+    """Post a message to Slack after task completion."""
+    try:
+        event = payload.get("event", {})
+        channel = event.get("channel")
+        thread_ts = event.get("ts")
+        
+        if not channel:
+            logger.warning("slack_post_task_comment_no_channel", payload_keys=list(payload.keys()))
+            return False
+        
+        if success:
+            formatted_message = f"✅ {message}"
+        else:
+            formatted_message = f"❌ {message}"
+        
+        max_length = 4000
+        if len(formatted_message) > max_length:
+            truncated_message = formatted_message[:max_length]
+            last_period = truncated_message.rfind(".")
+            last_newline = truncated_message.rfind("\n")
+            truncate_at = max(last_period, last_newline)
+            if truncate_at > max_length * 0.8:
+                truncated_message = truncated_message[:truncate_at + 1]
+            formatted_message = truncated_message + "\n\n... (message truncated)"
+        
+        if success and cost_usd > 0:
+            formatted_message += f"\n\n💰 Cost: ${cost_usd:.4f}"
+        
+        await slack_client.post_message(
+            channel=channel,
+            text=formatted_message,
+            thread_ts=thread_ts
+        )
+        logger.info("slack_task_comment_posted", channel=channel)
+        return True
+        
+    except Exception as e:
+        logger.error("slack_post_task_comment_error", error=str(e))
+        return False
+
+
+async def send_slack_notification(
+    task_id: str,
+    webhook_source: str,
+    command: str,
+    success: bool,
+    result: Optional[str] = None,
+    error: Optional[str] = None
+) -> bool:
+    """Send Slack notification when webhook task completes."""
+    if not os.getenv("SLACK_NOTIFICATIONS_ENABLED", "true").lower() == "true":
+        return False
+    
+    from core.slack_client import slack_client
+    
+    status_emoji = "✅" if success else "❌"
+    status_text = "Completed" if success else "Failed"
+    
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"{status_emoji} *Task {status_text}*\n*Source:* {webhook_source.title()}\n*Command:* {command}\n*Task ID:* `{task_id}`"
+            }
+        }
+    ]
+    
+    if success and result:
+        result_preview = result[:500] + "..." if len(result) > 500 else result
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Result:*\n```{result_preview}```"
+            }
+        })
+    
+    if error:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Error:*\n```{error}```"
+            }
+        })
+    
+    channel = os.getenv("SLACK_NOTIFICATION_CHANNEL", "#ai-agent-activity")
+    text = f"{status_emoji} Task {status_text} - {webhook_source.title()} - {command}"
+    
+    try:
+        await slack_client.post_message(
+            channel=channel,
+            text=text,
+            blocks=blocks
+        )
+        logger.info("slack_notification_sent", task_id=task_id, success=success)
+        return True
+    except Exception as e:
+        logger.error("slack_notification_failed", task_id=task_id, error=str(e))
         return False
