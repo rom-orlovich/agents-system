@@ -125,44 +125,69 @@ async def send_jira_immediate_response(
 
 
 def match_jira_command(payload: dict, event_type: str) -> Optional[WebhookCommand]:
-    text = ""
-    
+    """
+    Jira command matching with code-based validation.
+
+    Returns None if:
+    - Comment is from a bot/app
+    - Comment event without @agent prefix
+
+    For assignee changed to AI:
+    - Uses default command (no @agent required)
+    """
+    from core.command_matcher import extract_command
+
+    # Jira doesn't have bot users in same way, but check comment author
     comment = payload.get("comment", {})
+    author = comment.get("author", {})
+    author_type = author.get("accountType", "")
+    author_name = author.get("displayName", "")
+
+    # Skip if author is "app" type (Jira automation/bots)
+    if author_type == "app" or "bot" in author_name.lower():
+        logger.info("jira_skipped_bot_comment", author=author_name, author_type=author_type)
+        return None
+
+    # Extract text
+    text = ""
+    is_comment_event = bool(comment)
+
     if comment:
         text = comment.get("body", "")
-    
+
     if not text:
         issue = payload.get("issue", {})
         fields = issue.get("fields", {})
         text = fields.get("description", "") or fields.get("summary", "")
-    
-    if not text:
+
+    # For Jira: If assignee changed to AI, use default command (no @agent required)
+    if is_assignee_changed_to_ai(payload, event_type):
+        # Special case: AI assigned, use default analyze
         for cmd in JIRA_WEBHOOK.commands:
             if cmd.name == JIRA_WEBHOOK.default_command:
+                # Store empty user content for template
+                payload["_user_content"] = ""
                 return cmd
-        return JIRA_WEBHOOK.commands[0] if JIRA_WEBHOOK.commands else None
-    
-    prefix = JIRA_WEBHOOK.command_prefix.lower()
-    text_lower = text.lower()
-    
-    if prefix not in text_lower:
-        for cmd in JIRA_WEBHOOK.commands:
-            if cmd.name == JIRA_WEBHOOK.default_command:
-                return cmd
-        return JIRA_WEBHOOK.commands[0] if JIRA_WEBHOOK.commands else None
-    
+
+    # Code-based command extraction - @agent prefix REQUIRED for comments
+    result = extract_command(text)
+    if result is None:
+        logger.debug("jira_no_agent_command", text_preview=text[:100] if text else "", is_comment=is_comment_event)
+        return None
+
+    command_name, user_content = result
+    payload["_user_content"] = user_content
+
+    # Find command
     for cmd in JIRA_WEBHOOK.commands:
-        if cmd.name.lower() in text_lower:
+        if cmd.name.lower() == command_name:
             return cmd
         for alias in cmd.aliases:
-            if alias.lower() in text_lower:
+            if alias.lower() == command_name:
                 return cmd
-    
-    for cmd in JIRA_WEBHOOK.commands:
-        if cmd.name == JIRA_WEBHOOK.default_command:
-            return cmd
-    
-    return JIRA_WEBHOOK.commands[0] if JIRA_WEBHOOK.commands else None
+
+    logger.warning("jira_command_not_configured", command=command_name)
+    return None
 
 
 async def create_jira_task(

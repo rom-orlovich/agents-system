@@ -146,49 +146,75 @@ async def send_github_immediate_response(
 
 # ✅ Command matching function (GitHub webhook ONLY)
 def match_github_command(payload: dict, event_type: str) -> Optional[WebhookCommand]:
-    """Match command for GitHub webhook ONLY. Handles all GitHub event types."""
-    # Extract text from payload based on event type
+    """
+    Match command for GitHub webhook.
+    Uses DETERMINISTIC CODE validation - NOT LLM.
+
+    Returns None if:
+    - Comment is from a bot
+    - Comment event without @agent prefix
+    - No valid command after @agent
+
+    For non-comment events (issues.opened, pull_request.opened):
+    - Uses default command if no @agent prefix found
+    """
+    from core.command_matcher import is_bot_comment, extract_command
+
+    # 1. Bot check - prevent infinite loop
+    sender = payload.get("sender", {})
+    if is_bot_comment(sender.get("login", ""), sender.get("type", "")):
+        logger.info("github_skipped_bot_comment", sender=sender.get("login"))
+        return None
+
+    # 2. Determine if this is a comment event
+    is_comment_event = (
+        event_type.startswith("issue_comment") or
+        event_type.startswith("pull_request_review_comment")
+    )
+
+    # 3. Extract text based on event type
     text = ""
-    
     if event_type.startswith("issue_comment"):
+        text = payload.get("comment", {}).get("body", "")
+    elif event_type.startswith("pull_request_review_comment"):
         text = payload.get("comment", {}).get("body", "")
     elif event_type.startswith("issues"):
         text = payload.get("issue", {}).get("body", "") or payload.get("issue", {}).get("title", "")
     elif event_type.startswith("pull_request"):
         text = payload.get("pull_request", {}).get("body", "") or payload.get("pull_request", {}).get("title", "")
-    
-    if not text:
-        # Use default command
+
+    # 4. Extract command using code-based validation
+    result = extract_command(text)
+
+    if result is None:
+        # For comment events, require @agent prefix (skip if not found)
+        if is_comment_event:
+            logger.debug("github_comment_no_agent_prefix", text_preview=text[:100] if text else "")
+            return None
+
+        # For new issue/PR events, use default command
+        logger.debug("github_using_default_command", event_type=event_type)
         for cmd in GITHUB_WEBHOOK.commands:
             if cmd.name == GITHUB_WEBHOOK.default_command:
+                payload["_user_content"] = ""
                 return cmd
         return GITHUB_WEBHOOK.commands[0] if GITHUB_WEBHOOK.commands else None
-    
-    # Check prefix
-    prefix = GITHUB_WEBHOOK.command_prefix.lower()
-    text_lower = text.lower()
-    
-    if prefix not in text_lower:
-        # Use default command
-        for cmd in GITHUB_WEBHOOK.commands:
-            if cmd.name == GITHUB_WEBHOOK.default_command:
-                return cmd
-        return GITHUB_WEBHOOK.commands[0] if GITHUB_WEBHOOK.commands else None
-    
-    # Find command by name or alias
+
+    command_name, user_content = result
+
+    # 5. Find matching command config
     for cmd in GITHUB_WEBHOOK.commands:
-        if cmd.name.lower() in text_lower:
+        if cmd.name.lower() == command_name:
+            # Store user content in payload for template rendering
+            payload["_user_content"] = user_content
             return cmd
         for alias in cmd.aliases:
-            if alias.lower() in text_lower:
+            if alias.lower() == command_name:
+                payload["_user_content"] = user_content
                 return cmd
-    
-    # Fallback to default
-    for cmd in GITHUB_WEBHOOK.commands:
-        if cmd.name == GITHUB_WEBHOOK.default_command:
-            return cmd
-    
-    return GITHUB_WEBHOOK.commands[0] if GITHUB_WEBHOOK.commands else None
+
+    logger.warning("github_command_not_configured", command=command_name)
+    return None
 
 
 # ✅ Task creation function (GitHub webhook ONLY)

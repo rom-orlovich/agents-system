@@ -78,6 +78,11 @@ class Settings(BaseSettings):
     claude_model_executor: str = "claude-sonnet-4-5-20250929"    # Execution, faster tasks
     claude_default_model: str = "claude-sonnet-4-5-20250929"     # Default fallback model
 
+    # Webhook Command Configuration
+    webhook_agent_prefix: str = "@agent"  # Configurable via WEBHOOK_AGENT_PREFIX env
+    webhook_bot_usernames: str = "github-actions[bot],claude-agent,ai-agent,dependabot[bot]"  # Comma-separated
+    webhook_valid_commands: str = "analyze,plan,fix,review,approve,reject,improve,help"  # Comma-separated
+
     @property
     def agents_dir(self) -> Path:
         """Directory containing BUILT-IN sub-agents (in .claude/agents/)."""
@@ -108,18 +113,28 @@ class Settings(BaseSettings):
         """Directory containing registry files (persisted in /data volume)."""
         return self.data_dir / "registry"
     
+    @property
+    def bot_usernames_list(self) -> list[str]:
+        """Parse bot usernames from comma-separated string."""
+        return [u.strip().lower() for u in self.webhook_bot_usernames.split(",") if u.strip()]
+
+    @property
+    def valid_commands_list(self) -> list[str]:
+        """Parse valid commands from comma-separated string."""
+        return [c.strip().lower() for c in self.webhook_valid_commands.split(",") if c.strip()]
+
     def get_model_for_agent(self, agent_type: str) -> str:
         """
         Get the appropriate Claude model for a given agent type.
-        
+
         Args:
             agent_type: Agent type (planning, executor, brain)
-            
+
         Returns:
             Model name (e.g., "opus-4", "sonnet-4")
         """
         agent_type_lower = agent_type.lower()
-        
+
         if agent_type_lower == "planning":
             return self.claude_model_planning
         elif agent_type_lower == "executor":

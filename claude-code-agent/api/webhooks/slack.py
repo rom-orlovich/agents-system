@@ -109,43 +109,45 @@ async def send_slack_immediate_response(
 
 # ✅ Command matching function (Slack webhook ONLY)
 def match_slack_command(payload: dict, event_type: str) -> Optional[WebhookCommand]:
-    """Match command for Slack webhook ONLY. Handles all Slack event types."""
-    # Extract text from event
+    """
+    Match command for Slack webhook.
+    Uses DETERMINISTIC CODE validation - NOT LLM.
+
+    Returns None if:
+    - Message is from a bot
+    - No @agent prefix found (required for all Slack messages)
+    - No valid command after @agent
+    """
+    from core.command_matcher import extract_command
+
     event = payload.get("event", {})
+
+    # Skip bot messages
+    if event.get("bot_id") or event.get("subtype") == "bot_message":
+        logger.info("slack_skipped_bot_message", bot_id=event.get("bot_id"))
+        return None
+
     text = event.get("text", "")
-    
-    if not text:
-        # Use default command
-        for cmd in SLACK_WEBHOOK.commands:
-            if cmd.name == SLACK_WEBHOOK.default_command:
-                return cmd
-        return SLACK_WEBHOOK.commands[0] if SLACK_WEBHOOK.commands else None
-    
-    # Check prefix
-    prefix = SLACK_WEBHOOK.command_prefix.lower()
-    text_lower = text.lower()
-    
-    if prefix not in text_lower:
-        # Use default command
-        for cmd in SLACK_WEBHOOK.commands:
-            if cmd.name == SLACK_WEBHOOK.default_command:
-                return cmd
-        return SLACK_WEBHOOK.commands[0] if SLACK_WEBHOOK.commands else None
-    
-    # Find command by name or alias
+
+    # Code-based command extraction - @agent prefix REQUIRED
+    result = extract_command(text)
+    if result is None:
+        logger.debug("slack_no_agent_command", text_preview=text[:100] if text else "")
+        return None
+
+    command_name, user_content = result
+    payload["_user_content"] = user_content
+
+    # Find command
     for cmd in SLACK_WEBHOOK.commands:
-        if cmd.name.lower() in text_lower:
+        if cmd.name.lower() == command_name:
             return cmd
         for alias in cmd.aliases:
-            if alias.lower() in text_lower:
+            if alias.lower() == command_name:
                 return cmd
-    
-    # Fallback to default
-    for cmd in SLACK_WEBHOOK.commands:
-        if cmd.name == SLACK_WEBHOOK.default_command:
-            return cmd
-    
-    return SLACK_WEBHOOK.commands[0] if SLACK_WEBHOOK.commands else None
+
+    logger.warning("slack_command_not_configured", command=command_name)
+    return None
 
 
 # ✅ Task creation function (Slack webhook ONLY)
