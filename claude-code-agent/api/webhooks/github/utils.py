@@ -11,6 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 import structlog
+import httpx
 
 from fastapi import Request, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -72,7 +73,11 @@ async def send_github_immediate_response(
             comment_id = comment.get("id")
             
             if comment_id:
-                # Check if token is configured before attempting reaction
+                import os
+                github_client.token = github_client.token or os.getenv("GITHUB_TOKEN")
+                if github_client.token:
+                    github_client.headers["Authorization"] = f"token {github_client.token}"
+                
                 if not github_client.token:
                     logger.warning(
                         "github_reaction_skipped_no_token",
@@ -138,6 +143,11 @@ async def send_github_immediate_response(
             issue_number = issue.get("number")
             
             if issue_number:
+                import os
+                github_client.token = github_client.token or os.getenv("GITHUB_TOKEN")
+                if github_client.token:
+                    github_client.headers["Authorization"] = f"token {github_client.token}"
+                
                 if not github_client.token:
                     logger.warning(
                         "github_comment_skipped_no_token",
@@ -171,6 +181,11 @@ async def send_github_immediate_response(
             pr_number = pr.get("number")
             
             if pr_number:
+                import os
+                github_client.token = github_client.token or os.getenv("GITHUB_TOKEN")
+                if github_client.token:
+                    github_client.headers["Authorization"] = f"token {github_client.token}"
+                
                 if not github_client.token:
                     logger.warning(
                         "github_pr_comment_skipped_no_token",

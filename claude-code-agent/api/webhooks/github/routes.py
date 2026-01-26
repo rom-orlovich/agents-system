@@ -160,6 +160,20 @@ async def github_webhook(
         
         immediate_response_sent = await send_github_immediate_response(payload, command, event_type)
         
+        if not immediate_response_sent:
+            logger.error(
+                "github_immediate_response_failed",
+                repo=repo_info,
+                issue_number=issue_number,
+                event_type=event_type,
+                message="Immediate response failed - webhook rejected"
+            )
+            return {
+                "status": "rejected",
+                "message": "Failed to send immediate response. Check GITHUB_TOKEN configuration and permissions.",
+                "error": "immediate_response_failed"
+            }
+        
         task_id = await create_github_task(command, payload, db, completion_handler=COMPLETION_HANDLER)
         logger.info("github_task_created_success", task_id=task_id, repo=repo_info, issue_number=issue_number)
         
