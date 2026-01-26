@@ -725,42 +725,6 @@ Channel: {{event.channel}}
 )
 
 # =============================================================================
-# SENTRY WEBHOOK CONFIGURATION
-# =============================================================================
-
-SENTRY_WEBHOOK: WebhookConfig = WebhookConfig(
-    name="sentry",
-    endpoint="/webhooks/sentry",
-    source="sentry",
-    description="Sentry webhook for error alerts",
-    target_agent="planning",
-    command_prefix="",  # Sentry doesn't use command prefix
-    commands=[
-        WebhookCommand(
-            name="analyze-error",
-            aliases=["analyze", "investigate"],
-            description="Analyze a Sentry error",
-            target_agent="planning",
-            prompt_template="Analyze this Sentry error:\n\nTitle: {{event.title}}\nMessage: {{event.message}}\n\nLevel: {{event.level}}\nEnvironment: {{event.environment}}\n\nURL: {{event.url}}\n\nStack Trace:\n{{event.stacktrace}}",
-            requires_approval=False,
-        ),
-        WebhookCommand(
-            name="fix-error",
-            aliases=["fix", "resolve"],
-            description="Create a plan to fix a Sentry error",
-            target_agent="planning",
-            prompt_template="Create a plan to fix this Sentry error:\n\nTitle: {{event.title}}\nMessage: {{event.message}}\n\nLevel: {{event.level}}\nEnvironment: {{event.environment}}\n\nURL: {{event.url}}\n\nStack Trace:\n{{event.stacktrace}}",
-            requires_approval=False,
-        ),
-    ],
-    default_command="analyze-error",
-    requires_signature=True,
-    signature_header="Sentry-Hook-Signature",
-    secret_env_var="SENTRY_WEBHOOK_SECRET",
-    is_builtin=True,
-)
-
-# =============================================================================
 # COLLECT ALL CONFIGS
 # =============================================================================
 
@@ -768,7 +732,6 @@ WEBHOOK_CONFIGS: List[WebhookConfig] = [
     GITHUB_WEBHOOK,
     JIRA_WEBHOOK,
     SLACK_WEBHOOK,
-    SENTRY_WEBHOOK,
 ]
 
 

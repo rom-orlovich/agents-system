@@ -179,6 +179,7 @@ async def test_authentication_error_sets_session_active_false():
     cli_result = CLIResult(
         success=False,
         output="",
+        clean_output="",
         cost_usd=0.0,
         input_tokens=0,
         output_tokens=0,
@@ -265,6 +266,7 @@ async def test_conversation_error_does_not_set_session_active_false():
     cli_result = CLIResult(
         success=False,
         output="",
+        clean_output="",
         cost_usd=0.0,
         input_tokens=0,
         output_tokens=0,

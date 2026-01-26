@@ -45,7 +45,6 @@ class Settings(BaseSettings):
     github_webhook_secret: str | None = None
     jira_webhook_secret: str | None = None
     slack_webhook_secret: str | None = None
-    sentry_webhook_secret: str | None = None
     
     # API Tokens
     github_token: str | None = None

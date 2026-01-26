@@ -88,9 +88,10 @@ start:
 	@docker-compose build
 	@echo "🚀 Starting services..."
 	@docker-compose up -d
-	@sleep 5
+	@echo "⏳ Waiting for services to be ready..."
+	@sleep 10
 	@echo "🧪 Verifying Claude CLI status..."
-	@docker-compose exec -T app uv run python scripts/test_cli_after_build.py || echo "⚠️  CLI check failed or credentials not configured"
+	@docker-compose exec app uv run python scripts/test_cli_after_build.py || echo "⚠️  CLI check failed or credentials not configured"
 	@echo ""
 	@echo "╔══════════════════════════════════════════════════════════════╗"
 	@echo "║        ✅ System Ready!                                      ║"

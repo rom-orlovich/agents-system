@@ -22,7 +22,6 @@ from core.webhook_engine import (
 from core.github_client import github_client
 from core.jira_client import jira_client
 from core.slack_client import slack_client
-from core.sentry_client import sentry_client
 from shared import TaskStatus, TaskOutputMessage, TaskCompletedMessage, TaskFailedMessage
 from sqlalchemy import select, update
 from datetime import datetime, timezone
@@ -847,16 +846,6 @@ class TaskWorker:
                 else:
                     logger.warning("slack_no_channel_found", task_id=task_db.task_id)
 
-            elif webhook_source == "sentry":
-                issue_data = payload.get("data", {}).get("issue", {})
-                issue_id = issue_data.get("id")
-
-                if issue_id:
-                    await sentry_client.add_comment(issue_id, formatted_message)
-                    logger.info("sentry_comment_posted", issue_id=issue_id, task_id=task_db.task_id)
-                    posted = True
-                else:
-                    logger.warning("sentry_no_issue_id_found", task_id=task_db.task_id)
             else:
                 logger.warning("unknown_webhook_source", webhook_source=webhook_source, task_id=task_db.task_id)
 

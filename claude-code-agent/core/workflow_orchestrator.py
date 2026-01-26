@@ -3,7 +3,6 @@
 This module provides orchestration logic for complex workflows like:
 - Jira ticket assignment → code analysis → PR creation → notifications
 - GitHub issue → analysis → Jira ticket creation
-- Sentry error → analysis → fix implementation
 """
 
 import os
@@ -14,7 +13,6 @@ from datetime import datetime, timezone
 
 from core.jira_client import jira_client
 from core.slack_client import slack_client
-from core.sentry_client import sentry_client
 from core.github_client import github_client
 
 logger = structlog.get_logger()
@@ -27,7 +25,6 @@ class WorkflowOrchestrator:
         """Initialize orchestrator with service clients."""
         self.jira = jira_client
         self.slack = slack_client
-        self.sentry = sentry_client
         self.github = github_client
         self.notification_channel = os.getenv("SLACK_NOTIFICATION_CHANNEL", "#ai-agent-activity")
 
