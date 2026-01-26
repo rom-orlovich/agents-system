@@ -142,48 +142,10 @@ Scripts available in `scripts/` directory:
 - `setup_repo.sh` - Clone/update repo and create feature branch
 - `commit_changes.sh` - Commit changes with proper format
 - `create_pr.sh` - Create pull request after changes
+- `post_issue_comment.sh` - Post comment to GitHub issue
+- `post_pr_comment.sh` - Post comment to GitHub PR
 
 See examples.md for complete workflow examples, troubleshooting, and integration patterns.
-
-## Response Posting (Webhook Tasks)
-
-When a task originates from GitHub (PR comment, issue), post response back:
-
-```python
-from core.github_client import github_client
-
-# After analysis/implementation, post result
-async def post_response(task_metadata: dict, result: str):
-    """Post response to GitHub based on task source."""
-    owner = task_metadata["owner"]
-    repo = task_metadata["repo"]
-
-    if "pr_number" in task_metadata:
-        # PR-originated task
-        await github_client.post_pr_comment(
-            owner, repo,
-            task_metadata["pr_number"],
-            result
-        )
-    elif "issue_number" in task_metadata:
-        # Issue-originated task
-        await github_client.post_issue_comment(
-            owner, repo,
-            task_metadata["issue_number"],
-            result
-        )
-```
-
-### Response Format
-
-```markdown
-## Analysis Result
-
-{analysis_content}
-
----
-*Automated response by Claude Agent*
-```
 
 ## Intelligent Code Analysis Workflows
 
