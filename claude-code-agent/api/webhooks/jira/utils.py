@@ -405,8 +405,17 @@ async def send_slack_notification(
             text=text,
             blocks=blocks
         )
-        logger.info("slack_notification_sent", task_id=task_id, success=success)
+        logger.info("slack_notification_sent", task_id=task_id, success=success, channel=channel)
         return True
     except Exception as e:
-        logger.error("slack_notification_failed", task_id=task_id, error=str(e))
+        error_msg = str(e)
+        if "channel_not_found" in error_msg.lower():
+            logger.warning(
+                "slack_notification_channel_not_found",
+                task_id=task_id,
+                channel=channel,
+                message="Slack notification skipped - channel does not exist. Set SLACK_NOTIFICATION_CHANNEL to a valid channel or create the channel."
+            )
+        else:
+            logger.error("slack_notification_failed", task_id=task_id, channel=channel, error=error_msg)
         return False

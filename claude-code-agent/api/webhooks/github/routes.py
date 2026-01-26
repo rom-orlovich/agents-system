@@ -186,14 +186,23 @@ async def github_webhook(
             message="Completion handler registered - will be called by task worker when task completes"
         )
         
-        logger.info("github_webhook_processed", task_id=task_id, command=command.name, event_type=event_type, repo=repo_info, issue_number=issue_number)
+        logger.info(
+            "github_webhook_processed",
+            task_id=task_id,
+            command=command.name,
+            event_type=event_type,
+            repo=repo_info,
+            issue_number=issue_number,
+            immediate_response_sent=immediate_response_sent
+        )
         
         return {
-            "status": "processed",
+            "status": "accepted",
             "task_id": task_id,
             "command": command.name,
             "immediate_response_sent": immediate_response_sent,
-            "completion_handler": COMPLETION_HANDLER
+            "completion_handler": COMPLETION_HANDLER,
+            "message": "Task queued for processing"
         }
         
     except HTTPException:

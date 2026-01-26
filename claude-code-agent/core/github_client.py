@@ -21,6 +21,12 @@ class GitHubClient:
         }
         if self.token:
             self.headers["Authorization"] = f"token {self.token}"
+            logger.debug("github_client_initialized", has_token=True, token_length=len(self.token))
+        else:
+            logger.warning(
+                "github_client_no_token",
+                message="GITHUB_TOKEN not found in environment. GitHub API calls will fail."
+            )
     
     async def post_issue_comment(
         self,
@@ -41,6 +47,10 @@ class GitHubClient:
         Returns:
             API response dict
         """
+        if not self.token:
+            logger.warning("github_comment_skipped_no_token", repo=f"{repo_owner}/{repo_name}", issue=issue_number)
+            raise ValueError("GITHUB_TOKEN not configured - cannot post comment")
+        
         url = f"{self.base_url}/repos/{repo_owner}/{repo_name}/issues/{issue_number}/comments"
         
         try:
@@ -65,11 +75,13 @@ class GitHubClient:
             logger.error(
                 "github_comment_failed",
                 status_code=e.response.status_code,
-                error=str(e)
+                error=str(e),
+                repo=f"{repo_owner}/{repo_name}",
+                issue=issue_number
             )
             raise
         except Exception as e:
-            logger.error("github_api_error", error=str(e))
+            logger.error("github_api_error", error=str(e), repo=f"{repo_owner}/{repo_name}", issue=issue_number)
             raise
     
     async def post_pr_comment(
@@ -118,28 +130,58 @@ class GitHubClient:
         Returns:
             API response dict
         """
+        if not self.token:
+            logger.warning("github_reaction_skipped_no_token", comment_id=comment_id)
+            raise ValueError("GITHUB_TOKEN not configured - cannot add reaction")
+        
         url = f"{self.base_url}/repos/{repo_owner}/{repo_name}/issues/comments/{comment_id}/reactions"
         
         try:
             async with httpx.AsyncClient() as client:
+                headers = {
+                    **self.headers,
+                    "Accept": "application/vnd.github+json"
+                }
                 response = await client.post(
                     url,
-                    headers={**self.headers, "Accept": "application/vnd.github.squirrel-girl-preview+json"},
+                    headers=headers,
                     json={"content": reaction},
                     timeout=30.0
                 )
                 response.raise_for_status()
                 
+                response_data = response.json()
+                
+                if not response_data.get("id"):
+                    logger.warning(
+                        "github_reaction_response_missing_id",
+                        comment_id=comment_id,
+                        reaction=reaction,
+                        response_status=response.status_code,
+                        response_body=response.text[:200]
+                    )
+                
                 logger.info(
                     "github_reaction_added",
                     comment_id=comment_id,
-                    reaction=reaction
+                    reaction=reaction,
+                    response_id=response_data.get("id"),
+                    response_content=response_data.get("content"),
+                    user_login=response_data.get("user", {}).get("login") if isinstance(response_data.get("user"), dict) else None
                 )
                 
-                return response.json()
+                return response_data
                 
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                "github_reaction_failed",
+                status_code=e.response.status_code,
+                error=str(e),
+                comment_id=comment_id
+            )
+            raise
         except Exception as e:
-            logger.error("github_reaction_failed", error=str(e))
+            logger.error("github_reaction_failed", error=str(e), comment_id=comment_id)
             raise
     
     async def update_issue_labels(
@@ -516,8 +558,6 @@ class GitHubClient:
                 response.raise_for_status()
 
                 data = response.json()
-                
-                # GitHub returns content as base64-encoded
                 import base64
                 content_b64 = data.get("content", "")
                 content = base64.b64decode(content_b64).decode("utf-8")

@@ -72,17 +72,65 @@ async def send_github_immediate_response(
             comment_id = comment.get("id")
             
             if comment_id:
+                # Check if token is configured before attempting reaction
+                if not github_client.token:
+                    logger.warning(
+                        "github_reaction_skipped_no_token",
+                        comment_id=comment_id,
+                        event_type=event_type,
+                        message="GITHUB_TOKEN not configured - reaction not sent. Set GITHUB_TOKEN environment variable."
+                    )
+                    return False
+                
                 try:
-                    await github_client.add_reaction(
+                    reaction_response = await github_client.add_reaction(
                         owner,
                         repo_name,
                         comment_id,
                         reaction="eyes"
                     )
-                    logger.info("github_reaction_sent", comment_id=comment_id)
+                    logger.info(
+                        "github_reaction_sent",
+                        comment_id=comment_id,
+                        event_type=event_type,
+                        reaction_id=reaction_response.get("id") if reaction_response else None,
+                        reaction_content=reaction_response.get("content") if reaction_response else None
+                    )
                     return True
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code == 401:
+                        logger.error(
+                            "github_reaction_auth_failed",
+                            comment_id=comment_id,
+                            status_code=401,
+                            event_type=event_type,
+                            message="GitHub authentication failed. Ensure GITHUB_TOKEN is valid and has required scopes: 'repo' (for classic tokens) or 'Metadata: read' (for fine-grained tokens). Reactions require repository access."
+                        )
+                    else:
+                        logger.warning(
+                            "github_reaction_failed",
+                            comment_id=comment_id,
+                            status_code=e.response.status_code,
+                            error=str(e),
+                            event_type=event_type
+                        )
+                    return False
+                except ValueError as e:
+                    logger.warning(
+                        "github_reaction_skipped_no_token",
+                        comment_id=comment_id,
+                        error=str(e),
+                        event_type=event_type,
+                        message="GITHUB_TOKEN not configured - reaction not sent"
+                    )
+                    return False
                 except Exception as e:
-                    logger.warning("github_reaction_failed", comment_id=comment_id, error=str(e))
+                    logger.warning(
+                        "github_reaction_failed",
+                        comment_id=comment_id,
+                        error=str(e),
+                        event_type=event_type
+                    )
                     return False
         
         elif event_type.startswith("issues"):
@@ -90,30 +138,66 @@ async def send_github_immediate_response(
             issue_number = issue.get("number")
             
             if issue_number:
-                message = "👀 I'll analyze this issue and get back to you shortly."
-                await github_client.post_issue_comment(
-                    owner,
-                    repo_name,
-                    issue_number,
-                    message
-                )
-                logger.info("github_comment_sent", issue_number=issue_number)
-                return True
+                if not github_client.token:
+                    logger.warning(
+                        "github_comment_skipped_no_token",
+                        issue_number=issue_number,
+                        event_type=event_type,
+                        message="GITHUB_TOKEN not configured - comment not sent"
+                    )
+                    return False
+                
+                try:
+                    message = "👀 I'll analyze this issue and get back to you shortly."
+                    await github_client.post_issue_comment(
+                        owner,
+                        repo_name,
+                        issue_number,
+                        message
+                    )
+                    logger.info("github_comment_sent", issue_number=issue_number)
+                    return True
+                except Exception as e:
+                    logger.warning(
+                        "github_comment_failed",
+                        issue_number=issue_number,
+                        error=str(e),
+                        event_type=event_type
+                    )
+                    return False
         
         elif event_type.startswith("pull_request"):
             pr = payload.get("pull_request", {})
             pr_number = pr.get("number")
             
             if pr_number:
-                message = "👀 I'll review this PR and provide feedback shortly."
-                await github_client.post_pr_comment(
-                    owner,
-                    repo_name,
-                    pr_number,
-                    message
-                )
-                logger.info("github_pr_comment_sent", pr_number=pr_number)
-                return True
+                if not github_client.token:
+                    logger.warning(
+                        "github_pr_comment_skipped_no_token",
+                        pr_number=pr_number,
+                        event_type=event_type,
+                        message="GITHUB_TOKEN not configured - comment not sent"
+                    )
+                    return False
+                
+                try:
+                    message = "👀 I'll review this PR and provide feedback shortly."
+                    await github_client.post_pr_comment(
+                        owner,
+                        repo_name,
+                        pr_number,
+                        message
+                    )
+                    logger.info("github_pr_comment_sent", pr_number=pr_number)
+                    return True
+                except Exception as e:
+                    logger.warning(
+                        "github_pr_comment_failed",
+                        pr_number=pr_number,
+                        error=str(e),
+                        event_type=event_type
+                    )
+                    return False
         
         return False
         
@@ -334,6 +418,13 @@ async def post_github_task_comment(
             logger.warning("github_no_issue_or_pr_found", payload_keys=list(payload.keys()))
             return False
         
+    except ValueError as e:
+        logger.warning(
+            "github_post_task_comment_skipped_no_token",
+            error=str(e),
+            message="GITHUB_TOKEN not configured - comment not posted"
+        )
+        return False
     except Exception as e:
         logger.error("github_post_task_comment_error", error=str(e))
         return False
@@ -394,8 +485,17 @@ async def send_slack_notification(
             text=text,
             blocks=blocks
         )
-        logger.info("slack_notification_sent", task_id=task_id, success=success)
+        logger.info("slack_notification_sent", task_id=task_id, success=success, channel=channel)
         return True
     except Exception as e:
-        logger.error("slack_notification_failed", task_id=task_id, error=str(e))
+        error_msg = str(e)
+        if "channel_not_found" in error_msg.lower():
+            logger.warning(
+                "slack_notification_channel_not_found",
+                task_id=task_id,
+                channel=channel,
+                message="Slack notification skipped - channel does not exist. Set SLACK_NOTIFICATION_CHANNEL to a valid channel or create the channel."
+            )
+        else:
+            logger.error("slack_notification_failed", task_id=task_id, channel=channel, error=error_msg)
         return False
