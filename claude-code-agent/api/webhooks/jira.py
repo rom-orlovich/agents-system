@@ -15,6 +15,7 @@ from core.database.models import WebhookEventDB, SessionDB, TaskDB
 from core.database.redis_client import redis_client
 from core.webhook_configs import JIRA_WEBHOOK
 from core.webhook_engine import render_template, create_webhook_conversation
+from core.routing_metadata import extract_jira_metadata
 import base64
 import httpx
 from core.config import settings
@@ -192,6 +193,9 @@ async def create_jira_task(
     }
     agent_type = agent_type_map.get("brain", AgentType.PLANNING)
     
+    # Extract clean routing metadata for response posting
+    routing = extract_jira_metadata(payload)
+
     task_db = TaskDB(
         task_id=task_id,
         session_id=webhook_session_id,
@@ -206,6 +210,7 @@ async def create_jira_task(
             "webhook_name": JIRA_WEBHOOK.name,
             "command": command.name,
             "original_target_agent": command.target_agent,
+            "routing": routing,  # Clean routing info for response posting
             "payload": payload
         }),
     )
