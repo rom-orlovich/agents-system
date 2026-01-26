@@ -96,7 +96,10 @@ await github_client.post_pr_comment(
 
 ## Metadata Access
 
+**CRITICAL**: Always extract PR details from task metadata before running commands:
+
 ```python
+import json
 metadata = json.loads(task.source_metadata)
 payload = metadata.get("payload", {})
 repo = payload.get("repository", {})
@@ -105,6 +108,8 @@ repo_name = repo.get("name")
 pr = payload.get("pull_request", {})
 pr_number = pr.get("number")
 ```
+
+**DO NOT use template variables like {{pull_request.number}} in bash commands - extract actual values from metadata first!**
 
 ## No Approval Required
 

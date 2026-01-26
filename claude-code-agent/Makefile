@@ -78,6 +78,8 @@ start:
 	@# Environment
 	@test -f .env || { echo "📄 Creating .env..."; cp .env.example .env; }
 	@# OAuth (optional - will use API key if this fails)
+	@echo "🔑 Extracting Claude CLI credentials..."
+	@./scripts/extract_oauth_creds.sh || echo "⚠️  OAuth extraction failed (will use API key if set in .env)"
 	@echo "🔑 Checking Claude CLI credentials..."
 	@test -d ~/.claude && echo "✅ Claude CLI configured" || echo "⚠️  Claude CLI not configured (will use API key if set in .env)"
 	@echo ""

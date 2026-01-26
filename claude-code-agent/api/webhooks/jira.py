@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from typing import Optional
 import httpx
 import structlog
+import subprocess
+from pathlib import Path
 
 from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB, SessionDB, TaskDB
@@ -125,30 +127,17 @@ async def send_jira_immediate_response(
 
 
 def match_jira_command(payload: dict, event_type: str) -> Optional[WebhookCommand]:
-    """
-    Jira command matching with code-based validation.
-
-    Returns None if:
-    - Comment is from a bot/app
-    - Comment event without @agent prefix
-
-    For assignee changed to AI:
-    - Uses default command (no @agent required)
-    """
     from core.command_matcher import extract_command
 
-    # Jira doesn't have bot users in same way, but check comment author
     comment = payload.get("comment", {})
     author = comment.get("author", {})
     author_type = author.get("accountType", "")
     author_name = author.get("displayName", "")
 
-    # Skip if author is "app" type (Jira automation/bots)
     if author_type == "app" or "bot" in author_name.lower():
         logger.info("jira_skipped_bot_comment", author=author_name, author_type=author_type)
         return None
 
-    # Extract text
     text = ""
     is_comment_event = bool(comment)
 
@@ -160,16 +149,14 @@ def match_jira_command(payload: dict, event_type: str) -> Optional[WebhookComman
         fields = issue.get("fields", {})
         text = fields.get("description", "") or fields.get("summary", "")
 
-    # For Jira: If assignee changed to AI, use default command (no @agent required)
     if is_assignee_changed_to_ai(payload, event_type):
-        # Special case: AI assigned, use default analyze
         for cmd in JIRA_WEBHOOK.commands:
             if cmd.name == JIRA_WEBHOOK.default_command:
-                # Store empty user content for template
                 payload["_user_content"] = ""
                 return cmd
+        logger.warning("jira_default_command_not_found", default_command=JIRA_WEBHOOK.default_command)
+        return None
 
-    # Code-based command extraction - @agent prefix REQUIRED for comments
     result = extract_command(text)
     if result is None:
         logger.debug("jira_no_agent_command", text_preview=text[:100] if text else "", is_comment=is_comment_event)
@@ -402,10 +389,37 @@ async def jira_webhook(
             raise HTTPException(status_code=400, detail=f"Failed to decode payload: {str(e)}")
         
         issue_key = payload.get("issue", {}).get("key", "unknown")
-        
         event_type = payload.get("webhookEvent", "unknown")
         
         logger.info("jira_webhook_received", event_type=event_type, issue_key=issue_key, payload_keys=list(payload.keys()))
+        
+        try:
+            project_root = Path(__file__).parent.parent.parent
+            script_path = project_root / "scripts" / "validate-webhook-input.sh"
+            
+            if script_path.exists():
+                validation_result = subprocess.run(
+                    [str(script_path)],
+                    input=json.dumps(payload),
+                    text=True,
+                    capture_output=True,
+                    timeout=5,
+                    cwd=str(project_root)
+                )
+            else:
+                logger.warning("validation_script_not_found", script_path=str(script_path))
+                validation_result = None
+            
+            if validation_result and validation_result.returncode != 0:
+                logger.info(
+                    "jira_webhook_rejected_by_validation",
+                    event_type=event_type,
+                    issue_key=issue_key,
+                    reason=validation_result.stderr.strip()
+                )
+                return {"status": "rejected", "actions": 0, "message": "Does not meet activation rules"}
+        except Exception as e:
+            logger.error("jira_webhook_validation_error", error=str(e), event_type=event_type)
         
         if not is_assignee_changed_to_ai(payload, event_type):
             logger.info(
@@ -424,11 +438,7 @@ async def jira_webhook(
             command = match_jira_command(payload, event_type)
             if not command:
                 logger.warning("jira_no_command_matched", event_type=event_type, issue_key=issue_key, payload_sample=str(payload)[:500])
-                if JIRA_WEBHOOK.commands:
-                    command = JIRA_WEBHOOK.commands[0]
-                    logger.info("jira_using_fallback_command", command=command.name, issue_key=issue_key)
-                else:
-                    return {"status": "received", "actions": 0, "message": "No commands configured"}
+                return {"status": "received", "actions": 0, "message": "No command matched - requires assignee change to AI agent or @agent prefix"}
         except Exception as e:
             logger.error("jira_command_matching_error", error=str(e), issue_key=issue_key)
             raise HTTPException(status_code=500, detail=f"Command matching failed: {str(e)}")

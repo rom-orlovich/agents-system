@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from typing import Optional
 import httpx
 import structlog
+import subprocess
+from pathlib import Path
 
 from core.config import settings
 from core.database import get_session as get_db_session
@@ -30,9 +32,7 @@ logger = structlog.get_logger()
 router = APIRouter()
 
 
-# ✅ Verification function (Slack webhook ONLY)
 async def verify_slack_signature(request: Request, body: bytes) -> None:
-    """Verify Slack webhook signature ONLY."""
     secret = os.getenv("SLACK_WEBHOOK_SECRET") or settings.slack_webhook_secret
     if not secret:
         logger.warning("SLACK_WEBHOOK_SECRET not configured, skipping verification")
@@ -44,12 +44,10 @@ async def verify_slack_signature(request: Request, body: bytes) -> None:
     if not signature or not timestamp:
         raise HTTPException(status_code=401, detail="Missing signature headers")
     
-    # Check timestamp (prevent replay attacks)
     import time
     if abs(time.time() - int(timestamp)) > 60 * 5:
         raise HTTPException(status_code=401, detail="Request timestamp too old")
     
-    # Compute expected signature
     sig_basestring = f"v0:{timestamp}:{body.decode()}"
     expected_signature = "v0=" + hmac.new(
         secret.encode(),
@@ -57,18 +55,15 @@ async def verify_slack_signature(request: Request, body: bytes) -> None:
         hashlib.sha256
     ).hexdigest()
     
-    # Compare signatures (constant-time comparison)
     if not hmac.compare_digest(signature, expected_signature):
         raise HTTPException(status_code=401, detail="Invalid signature")
 
 
-# ✅ Immediate response function (Slack webhook ONLY)
 async def send_slack_immediate_response(
     payload: dict,
     command: WebhookCommand,
     event_type: str
 ) -> bool:
-    """Send immediate response for Slack webhook ONLY."""
     try:
         # Slack challenge/verification
         if payload.get("type") == "url_verification":
@@ -107,29 +102,17 @@ async def send_slack_immediate_response(
         return False
 
 
-# ✅ Command matching function (Slack webhook ONLY)
 def match_slack_command(payload: dict, event_type: str) -> Optional[WebhookCommand]:
-    """
-    Match command for Slack webhook.
-    Uses DETERMINISTIC CODE validation - NOT LLM.
-
-    Returns None if:
-    - Message is from a bot
-    - No @agent prefix found (required for all Slack messages)
-    - No valid command after @agent
-    """
     from core.command_matcher import extract_command
 
     event = payload.get("event", {})
 
-    # Skip bot messages
     if event.get("bot_id") or event.get("subtype") == "bot_message":
         logger.info("slack_skipped_bot_message", bot_id=event.get("bot_id"))
         return None
 
     text = event.get("text", "")
 
-    # Code-based command extraction - @agent prefix REQUIRED
     result = extract_command(text)
     if result is None:
         logger.debug("slack_no_agent_command", text_preview=text[:100] if text else "")
@@ -137,8 +120,6 @@ def match_slack_command(payload: dict, event_type: str) -> Optional[WebhookComma
 
     command_name, user_content = result
     payload["_user_content"] = user_content
-
-    # Find command
     for cmd in SLACK_WEBHOOK.commands:
         if cmd.name.lower() == command_name:
             return cmd
@@ -150,13 +131,11 @@ def match_slack_command(payload: dict, event_type: str) -> Optional[WebhookComma
     return None
 
 
-# ✅ Task creation function (Slack webhook ONLY)
 async def create_slack_task(
     command: WebhookCommand,
     payload: dict,
     db: AsyncSession
 ) -> str:
-    """Create task for Slack webhook ONLY. Handles all Slack event types."""
     task_id = f"task-{uuid.uuid4().hex[:12]}"
     
     base_message = render_template(command.prompt_template, payload, task_id=task_id)
@@ -252,23 +231,16 @@ async def slack_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db_session)
 ):
-    """
-    Dedicated handler for Slack webhook.
-    Handles all Slack events.
-    All logic and functions in this file.
-    """
     channel = None
     task_id = None
     
     try:
-        # 1. Read body
         try:
             body = await request.body()
         except Exception as e:
             logger.error("slack_webhook_body_read_failed", error=str(e))
             raise HTTPException(status_code=400, detail=f"Failed to read request body: {str(e)}")
         
-        # 2. Verify signature
         try:
             await verify_slack_signature(request, body)
         except HTTPException:
@@ -277,7 +249,6 @@ async def slack_webhook(
             logger.error("slack_signature_verification_error", error=str(e))
             raise HTTPException(status_code=401, detail=f"Signature verification failed: {str(e)}")
         
-        # 3. Parse payload
         try:
             payload = json.loads(body.decode())
             payload["provider"] = "slack"
@@ -288,20 +259,44 @@ async def slack_webhook(
             logger.error("slack_payload_decode_error", error=str(e))
             raise HTTPException(status_code=400, detail=f"Failed to decode payload: {str(e)}")
         
-        # 4. Handle Slack URL verification
         if payload.get("type") == "url_verification":
             return {"challenge": payload.get("challenge")}
         
-        # Extract channel for logging
         event = payload.get("event", {})
         channel = event.get("channel", "unknown")
         
-        # 5. Extract event type
         event_type = event.get("type", "unknown")
         
         logger.info("slack_webhook_received", event_type=event_type, channel=channel)
         
-        # 6. Match command based on event type and payload
+        try:
+            project_root = Path(__file__).parent.parent.parent
+            script_path = project_root / "scripts" / "validate-webhook-input.sh"
+            
+            if script_path.exists():
+                validation_result = subprocess.run(
+                    [str(script_path)],
+                    input=json.dumps(payload),
+                    text=True,
+                    capture_output=True,
+                    timeout=5,
+                    cwd=str(project_root)
+                )
+            else:
+                logger.warning("validation_script_not_found", script_path=str(script_path))
+                validation_result = None
+            
+            if validation_result and validation_result.returncode != 0:
+                logger.info(
+                    "slack_webhook_rejected_by_validation",
+                    event_type=event_type,
+                    channel=channel,
+                    reason=validation_result.stderr.strip()
+                )
+                return {"status": "rejected", "actions": 0, "message": "Does not meet activation rules"}
+        except Exception as e:
+            logger.error("slack_webhook_validation_error", error=str(e), event_type=event_type)
+        
         try:
             command = match_slack_command(payload, event_type)
             if not command:
@@ -311,15 +306,12 @@ async def slack_webhook(
             logger.error("slack_command_matching_error", error=str(e), channel=channel)
             raise HTTPException(status_code=500, detail=f"Command matching failed: {str(e)}")
         
-        # 7. Send immediate response
         immediate_response_sent = False
         try:
             immediate_response_sent = await send_slack_immediate_response(payload, command, event_type)
         except Exception as e:
             logger.error("slack_immediate_response_error", error=str(e), channel=channel, command=command.name)
-            # Don't fail the whole request if immediate response fails
         
-        # 8. Create task
         try:
             task_id = await create_slack_task(command, payload, db)
             logger.info("slack_task_created_success", task_id=task_id, channel=channel)
@@ -327,7 +319,6 @@ async def slack_webhook(
             logger.error("slack_task_creation_failed", error=str(e), error_type=type(e).__name__, channel=channel, command=command.name)
             raise HTTPException(status_code=500, detail=f"Task creation failed: {str(e)}")
         
-        # 9. Log event
         try:
             event_id = f"evt-{uuid.uuid4().hex[:12]}"
             event_db = WebhookEventDB(

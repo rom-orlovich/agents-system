@@ -216,15 +216,41 @@ Remember: This requires approval, so ensure your changes are well-tested and doc
 
 ---
 
+## IMPORTANT: Extract PR Details First
+
+Before running any commands, you MUST extract the PR number and repository info from task metadata:
+
+```python
+import json
+metadata = json.loads(task.source_metadata)
+payload = metadata.get("payload", {})
+repo = payload.get("repository", {})
+owner = repo.get("owner", {}).get("login")
+repo_name = repo.get("name")
+pr = payload.get("pull_request", {})
+pr_number = pr.get("number")
+```
+
+**DO NOT use template variables like {{pull_request.number}} in bash commands - they will not work!**
+**You MUST extract the actual values from task.source_metadata first.**
+
+---
+
 ## Your Task
 
 Perform a thorough code review. If the user requested specific aspects to check (e.g., "check the scroll button"), prioritize those areas.
 
 ## Steps
 
-1. **Fetch PR Details**
+1. **Extract PR Details from Metadata**
+   - Read `task.source_metadata` (JSON string)
+   - Parse it to get: owner, repo_name, pr_number
+   - Store these in variables for use in commands
+
+2. **Fetch PR Details**
    - Use github-operations skill to get PR details and changed files
-   - Run: `python .claude/skills/github-operations/scripts/review_pr.py {{repository.owner.login}} {{repository.name}} {{pull_request.number}}`
+   - Run: `python .claude/skills/github-operations/scripts/review_pr.py {owner} {repo_name} {pr_number}`
+   - Replace {owner}, {repo_name}, {pr_number} with actual values extracted from metadata
    - This provides: changed files, diff, commit messages, PR description
 
 2. **Review the Code**
@@ -256,7 +282,8 @@ Perform a thorough code review. If the user requested specific aspects to check 
 
 5. **Post the Review**
    - Use github-operations skill to post your review
-   - Run: `python .claude/skills/github-operations/scripts/post_comment.py {{repository.owner.login}} {{repository.name}} {{pull_request.number}} review.md`
+   - Run: `python .claude/skills/github-operations/scripts/post_comment.py {owner} {repo_name} {pr_number} review.md`
+   - Use the same variables extracted from metadata in step 1
 
 ## Review Tone
 

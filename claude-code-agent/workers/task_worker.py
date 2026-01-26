@@ -234,6 +234,7 @@ class TaskWorker:
                     # Then update database
                     task_db.status = TaskStatus.COMPLETED
                     task_db.result = result.output
+                    clean_result_output = result.clean_output if hasattr(result, 'clean_output') and result.clean_output else result.output
                     task_db.completed_at = datetime.now(timezone.utc)
                     task_db.duration_seconds = (
                         (task_db.completed_at - task_db.started_at).total_seconds()
@@ -250,7 +251,7 @@ class TaskWorker:
                     # Add response to conversation if task has one
                     await self._add_task_response_to_conversation(
                         task_db=task_db,
-                        result=result.output,
+                        result=clean_result_output,
                         cost_usd=result.cost_usd,
                         session=session
                     )
@@ -260,7 +261,7 @@ class TaskWorker:
                         task_db.session_id,
                         TaskCompletedMessage(
                             task_id=task_id,
-                            result=result.output,
+                            result=clean_result_output,
                             cost_usd=result.cost_usd
                         )
                     )
@@ -274,10 +275,9 @@ class TaskWorker:
                             error=None
                         )
                         
-                        # Post comment back to webhook source (Jira, GitHub, Slack)
                         await self._post_webhook_comment(
                             task_db=task_db,
-                            message=result.output,
+                            message=clean_result_output,
                             success=True
                         )
                 else:
@@ -400,8 +400,6 @@ class TaskWorker:
                             result=None,
                             error=result.error
                         )
-                        
-                        # Post comment back to webhook source (Jira, GitHub, Slack)
                         error_message = f"❌ Task failed: {result.error}" if result.error else "❌ Task failed"
                         logger.info(
                             "Posting webhook comment for failed task",
@@ -436,7 +434,6 @@ class TaskWorker:
                             error=str(e)
                         )
                         
-                        # Post comment back to webhook source (Jira, GitHub, Slack)
                         error_message = f"❌ Task error: {str(e)}"
                         await self._post_webhook_comment(
                             task_db=task_db,
@@ -772,9 +769,7 @@ class TaskWorker:
         message: str,
         success: bool
     ) -> bool:
-        """Post comment back to webhook source (Jira, GitHub, Slack, Sentry) after task completion."""
         try:
-            # Parse source_metadata to get payload
             source_metadata = json.loads(task_db.source_metadata or "{}")
             payload = source_metadata.get("payload", {})
             webhook_source = source_metadata.get("webhook_source", "unknown").lower()
@@ -783,13 +778,11 @@ class TaskWorker:
                 logger.debug("no_payload_for_webhook_comment", task_id=task_db.task_id)
                 return False
 
-            # Format message based on success/failure
             if success:
                 formatted_message = f"✅ {message}"
             else:
                 formatted_message = self._format_error_for_platform(message, webhook_source)
 
-            # Truncate message if too long (most APIs have limits)
             max_length = 8000 if not success else 4000
             if len(formatted_message) > max_length:
                 truncated_message = formatted_message[:max_length]
@@ -800,32 +793,26 @@ class TaskWorker:
                     truncated_message = truncated_message[:truncate_at + 1]
                 formatted_message = truncated_message + "\n\n... (message truncated)"
 
-            # Add cost info if available and successful
             if success and task_db.cost_usd > 0:
                 formatted_message += f"\n\n💰 Cost: ${task_db.cost_usd:.4f}"
 
-            # Post to the appropriate service based on webhook_source
             posted = False
 
             if webhook_source == "github":
-                # Handle GitHub issues and PRs
                 repo = payload.get("repository", {})
                 owner = repo.get("owner", {}).get("login", "")
                 repo_name = repo.get("name", "")
 
                 if owner and repo_name:
-                    # Check if this is a PR or issue
                     pr = payload.get("pull_request", {})
                     issue = payload.get("issue", {})
 
                     if pr and pr.get("number"):
-                        # Post to PR
                         pr_number = pr.get("number")
                         await github_client.post_pr_comment(owner, repo_name, pr_number, formatted_message)
                         logger.info("github_pr_comment_posted", pr_number=pr_number, task_id=task_db.task_id)
                         posted = True
                     elif issue and issue.get("number"):
-                        # Post to issue
                         issue_number = issue.get("number")
                         await github_client.post_issue_comment(owner, repo_name, issue_number, formatted_message)
                         logger.info("github_issue_comment_posted", issue_number=issue_number, task_id=task_db.task_id)
@@ -834,7 +821,6 @@ class TaskWorker:
                         logger.warning("github_no_issue_or_pr_found", task_id=task_db.task_id)
 
             elif webhook_source == "jira":
-                # Handle Jira tickets
                 issue = payload.get("issue", {})
                 issue_key = issue.get("key")
 
@@ -846,7 +832,6 @@ class TaskWorker:
                     logger.warning("jira_no_issue_key_found", task_id=task_db.task_id)
 
             elif webhook_source == "slack":
-                # Handle Slack messages
                 event = payload.get("event", {})
                 channel = event.get("channel")
                 thread_ts = event.get("ts")
@@ -863,7 +848,6 @@ class TaskWorker:
                     logger.warning("slack_no_channel_found", task_id=task_db.task_id)
 
             elif webhook_source == "sentry":
-                # Handle Sentry issues
                 issue_data = payload.get("data", {}).get("issue", {})
                 issue_id = issue_data.get("id")
 

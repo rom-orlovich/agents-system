@@ -13,9 +13,9 @@ logger = structlog.get_logger()
 
 @dataclass
 class CLIResult:
-    """Result from Claude CLI execution."""
     success: bool
     output: str
+    clean_output: str
     cost_usd: float
     input_tokens: int
     output_tokens: int
@@ -100,6 +100,7 @@ async def run_claude_cli(
     await output_queue.put(f"[CLI] Process started (PID: {process.pid})\n")
 
     accumulated_output = []
+    clean_output = []
     cost_usd = 0.0
     input_tokens = 0
     output_tokens = 0
@@ -148,9 +149,10 @@ async def run_claude_cli(
                                         else:
                                             logger.info("assistant_text", task_id=task_id, text=text_content[:500])
                                             accumulated_output.append(text_content)
+                                            clean_output.append(text_content)
                                             await output_queue.put(text_content)
                                 elif block_type == "tool_use":
-                                    # Log tool usage
+                                    # Log tool usage (only to full output, not clean output)
                                     tool_name = block.get("name", "unknown")
                                     tool_input = block.get("input", {})
                                     tool_log = f"\n[TOOL] Using {tool_name}\n"
@@ -175,16 +177,12 @@ async def run_claude_cli(
                                 is_error = block.get("is_error", False)
                                 if tool_content:
                                     prefix = "[TOOL ERROR] " if is_error else "[TOOL RESULT]\n"
-                                    # Truncate long tool results
-                                    if len(tool_content) > 2000:
-                                        tool_content = tool_content[:2000] + "\n... (truncated)"
                                     result_log = f"{prefix}{tool_content}\n"
                                     logger.info("tool_result", task_id=task_id, is_error=is_error, content_preview=tool_content[:200])
                                     accumulated_output.append(result_log)
                                     await output_queue.put(result_log)
                     
                     elif msg_type == "stream_event":
-                        # Streaming chunks - only show text deltas
                         event = data.get("event", {})
                         if event.get("type") == "content_block_delta":
                             delta = event.get("delta", {})
@@ -192,6 +190,7 @@ async def run_claude_cli(
                                 text = delta.get("text", "")
                                 if text:
                                     accumulated_output.append(text)
+                                    clean_output.append(text)
                                     await output_queue.put(text)
                     
                     elif msg_type == "message":
@@ -289,9 +288,12 @@ async def run_claude_cli(
             else:
                 error_msg = f"Exit code: {process.returncode}"
         
+        clean_output_text = "".join(clean_output) if clean_output else ""
+        
         return CLIResult(
             success=process.returncode == 0,
             output="".join(accumulated_output),
+            clean_output=clean_output_text,
             cost_usd=cost_usd,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
@@ -303,9 +305,11 @@ async def run_claude_cli(
         process.kill()
         await process.wait()
         await output_queue.put(None)
+        clean_output_text = "".join(clean_output) if clean_output else ""
         return CLIResult(
             success=False,
             output="".join(accumulated_output),
+            clean_output=clean_output_text,
             cost_usd=cost_usd,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
@@ -317,9 +321,11 @@ async def run_claude_cli(
             process.kill()
             await process.wait()
         await output_queue.put(None)
+        clean_output_text = "".join(clean_output) if clean_output else ""
         return CLIResult(
             success=False,
             output="".join(accumulated_output),
+            clean_output=clean_output_text,
             cost_usd=cost_usd,
             input_tokens=input_tokens,
             output_tokens=output_tokens,

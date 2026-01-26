@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from typing import Optional
 import httpx
 import structlog
+import subprocess
+from pathlib import Path
 
 from core.config import settings
 from core.database import get_session as get_db_session
@@ -31,45 +33,35 @@ logger = structlog.get_logger()
 router = APIRouter()
 
 
-# ✅ Verification function (GitHub webhook ONLY)
 async def verify_github_signature(request: Request, body: bytes) -> None:
-    """Verify GitHub webhook signature ONLY."""
     signature = request.headers.get("X-Hub-Signature-256", "")
     secret = os.getenv("GITHUB_WEBHOOK_SECRET") or settings.github_webhook_secret
     
-    # If signature header is present, we must verify it
     if signature:
         if not secret:
             raise HTTPException(status_code=401, detail="Webhook secret not configured but signature provided")
         
-        # GitHub sends signature as "sha256=hash"
         if signature.startswith("sha256="):
             signature = signature[7:]
         
-        # Compute expected signature
         expected_signature = hmac.new(
             secret.encode(),
             body,
             hashlib.sha256
         ).hexdigest()
         
-        # Compare signatures (constant-time comparison)
         if not hmac.compare_digest(signature, expected_signature):
             raise HTTPException(status_code=401, detail="Invalid signature")
     elif secret:
-        # Secret is configured but no signature provided - this is suspicious but we'll allow it for backward compatibility
         logger.warning("GITHUB_WEBHOOK_SECRET configured but no signature header provided")
 
 
-# ✅ Immediate response function (GitHub webhook ONLY)
 async def send_github_immediate_response(
     payload: dict,
     command: WebhookCommand,
     event_type: str
 ) -> bool:
-    """Send immediate response for GitHub webhook ONLY."""
     try:
-        # Extract repository info
         repo = payload.get("repository", {})
         owner = repo.get("owner", {}).get("login", "")
         repo_name = repo.get("name", "")
@@ -78,16 +70,13 @@ async def send_github_immediate_response(
             logger.warning("github_immediate_response_no_repo", payload=payload)
             return False
         
-        # Determine event type and respond accordingly
         if event_type.startswith("issue_comment"):
-            # React to comment
             comment = payload.get("comment", {})
             comment_id = comment.get("id")
             issue = payload.get("issue", {})
             issue_number = issue.get("number")
             
             if comment_id and issue_number:
-                # Send reaction (eyes emoji)
                 reaction_url = f"https://api.github.com/repos/{owner}/{repo_name}/issues/comments/{comment_id}/reactions"
                 github_token = os.getenv("GITHUB_TOKEN") or settings.github_token
                 
@@ -106,7 +95,6 @@ async def send_github_immediate_response(
                     return True
         
         elif event_type.startswith("issues"):
-            # Comment on issue
             issue = payload.get("issue", {})
             issue_number = issue.get("number")
             
@@ -122,7 +110,6 @@ async def send_github_immediate_response(
                 return True
         
         elif event_type.startswith("pull_request"):
-            # Comment on PR
             pr = payload.get("pull_request", {})
             pr_number = pr.get("number")
             
@@ -144,35 +131,19 @@ async def send_github_immediate_response(
         return False
 
 
-# ✅ Command matching function (GitHub webhook ONLY)
 def match_github_command(payload: dict, event_type: str) -> Optional[WebhookCommand]:
-    """
-    Match command for GitHub webhook.
-    Uses DETERMINISTIC CODE validation - NOT LLM.
-
-    Returns None if:
-    - Comment is from a bot
-    - Comment event without @agent prefix
-    - No valid command after @agent
-
-    For non-comment events (issues.opened, pull_request.opened):
-    - Uses default command if no @agent prefix found
-    """
     from core.command_matcher import is_bot_comment, extract_command
 
-    # 1. Bot check - prevent infinite loop
     sender = payload.get("sender", {})
     if is_bot_comment(sender.get("login", ""), sender.get("type", "")):
         logger.info("github_skipped_bot_comment", sender=sender.get("login"))
         return None
 
-    # 2. Determine if this is a comment event
     is_comment_event = (
         event_type.startswith("issue_comment") or
         event_type.startswith("pull_request_review_comment")
     )
 
-    # 3. Extract text based on event type
     text = ""
     if event_type.startswith("issue_comment"):
         text = payload.get("comment", {}).get("body", "")
@@ -183,26 +154,13 @@ def match_github_command(payload: dict, event_type: str) -> Optional[WebhookComm
     elif event_type.startswith("pull_request"):
         text = payload.get("pull_request", {}).get("body", "") or payload.get("pull_request", {}).get("title", "")
 
-    # 4. Extract command using code-based validation
     result = extract_command(text)
 
     if result is None:
-        # For comment events, require @agent prefix (skip if not found)
-        if is_comment_event:
-            logger.debug("github_comment_no_agent_prefix", text_preview=text[:100] if text else "")
-            return None
-
-        # For new issue/PR events, use default command
-        logger.debug("github_using_default_command", event_type=event_type)
-        for cmd in GITHUB_WEBHOOK.commands:
-            if cmd.name == GITHUB_WEBHOOK.default_command:
-                payload["_user_content"] = ""
-                return cmd
-        return GITHUB_WEBHOOK.commands[0] if GITHUB_WEBHOOK.commands else None
+        logger.debug("github_no_agent_command", event_type=event_type, text_preview=text[:100] if text else "")
+        return None
 
     command_name, user_content = result
-
-    # 5. Find matching command config
     for cmd in GITHUB_WEBHOOK.commands:
         if cmd.name.lower() == command_name:
             # Store user content in payload for template rendering
@@ -217,13 +175,11 @@ def match_github_command(payload: dict, event_type: str) -> Optional[WebhookComm
     return None
 
 
-# ✅ Task creation function (GitHub webhook ONLY)
 async def create_github_task(
     command: WebhookCommand,
     payload: dict,
     db: AsyncSession
 ) -> str:
-    """Create task for GitHub webhook ONLY. Handles all GitHub event types."""
     task_id = f"task-{uuid.uuid4().hex[:12]}"
     
     base_message = render_template(command.prompt_template, payload, task_id=task_id)
@@ -313,30 +269,22 @@ async def create_github_task(
     return task_id
 
 
-# ✅ Route handler (GitHub webhook - handles all GitHub events)
 @router.post("/github")
 async def github_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db_session)
 ):
-    """
-    Dedicated handler for GitHub webhook.
-    Handles all GitHub events: issues, PRs, comments.
-    All logic and functions in this file.
-    """
     repo_info = None
     issue_number = None
     task_id = None
     
     try:
-        # 1. Read body
         try:
             body = await request.body()
         except Exception as e:
             logger.error("github_webhook_body_read_failed", error=str(e))
             raise HTTPException(status_code=400, detail=f"Failed to read request body: {str(e)}")
         
-        # 2. Verify signature
         try:
             await verify_github_signature(request, body)
         except HTTPException:
@@ -345,7 +293,6 @@ async def github_webhook(
             logger.error("github_signature_verification_error", error=str(e))
             raise HTTPException(status_code=401, detail=f"Signature verification failed: {str(e)}")
         
-        # 3. Parse payload
         try:
             payload = json.loads(body.decode())
             payload["provider"] = "github"
@@ -356,14 +303,12 @@ async def github_webhook(
             logger.error("github_payload_decode_error", error=str(e))
             raise HTTPException(status_code=400, detail=f"Failed to decode payload: {str(e)}")
         
-        # Extract repo and issue info for logging
         repo = payload.get("repository", {})
         repo_info = f"{repo.get('owner', {}).get('login', 'unknown')}/{repo.get('name', 'unknown')}"
         issue = payload.get("issue") or payload.get("pull_request")
         if issue:
             issue_number = issue.get("number")
         
-        # 4. Extract event type (issues.opened, pull_request.opened, issue_comment.created, etc.)
         event_type = request.headers.get("X-GitHub-Event", "unknown")
         action = payload.get("action", "")
         if action:
@@ -371,7 +316,37 @@ async def github_webhook(
         
         logger.info("github_webhook_received", event_type=event_type, repo=repo_info, issue_number=issue_number)
         
-        # 5. Match command based on event type and payload
+        # 5. Validate webhook input BEFORE processing (enforces strict activation rules)
+        try:
+            # Get project root directory
+            project_root = Path(__file__).parent.parent.parent
+            script_path = project_root / "scripts" / "validate-webhook-input.sh"
+            
+            if script_path.exists():
+                validation_result = subprocess.run(
+                    [str(script_path)],
+                    input=json.dumps(payload),
+                    text=True,
+                    capture_output=True,
+                    timeout=5,
+                    cwd=str(project_root)
+                )
+            else:
+                logger.warning("validation_script_not_found", script_path=str(script_path))
+                validation_result = None
+            
+            if validation_result and validation_result.returncode != 0:
+                logger.info(
+                    "github_webhook_rejected_by_validation",
+                    event_type=event_type,
+                    repo=repo_info,
+                    issue_number=issue_number,
+                    reason=validation_result.stderr.strip()
+                )
+                return {"status": "rejected", "actions": 0, "message": "Does not meet activation rules"}
+        except Exception as e:
+            logger.error("github_webhook_validation_error", error=str(e), event_type=event_type)
+        
         try:
             command = match_github_command(payload, event_type)
             if not command:
@@ -381,15 +356,12 @@ async def github_webhook(
             logger.error("github_command_matching_error", error=str(e), repo=repo_info, issue_number=issue_number)
             raise HTTPException(status_code=500, detail=f"Command matching failed: {str(e)}")
         
-        # 6. Send immediate response
         immediate_response_sent = False
         try:
             immediate_response_sent = await send_github_immediate_response(payload, command, event_type)
         except Exception as e:
             logger.error("github_immediate_response_error", error=str(e), repo=repo_info, issue_number=issue_number, command=command.name)
-            # Don't fail the whole request if immediate response fails
         
-        # 7. Create task
         try:
             task_id = await create_github_task(command, payload, db)
             logger.info("github_task_created_success", task_id=task_id, repo=repo_info, issue_number=issue_number)
@@ -397,7 +369,6 @@ async def github_webhook(
             logger.error("github_task_creation_failed", error=str(e), error_type=type(e).__name__, repo=repo_info, issue_number=issue_number, command=command.name)
             raise HTTPException(status_code=500, detail=f"Task creation failed: {str(e)}")
         
-        # 8. Log event
         try:
             event_id = f"evt-{uuid.uuid4().hex[:12]}"
             event_db = WebhookEventDB(
