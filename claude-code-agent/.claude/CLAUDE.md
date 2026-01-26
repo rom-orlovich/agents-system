@@ -91,10 +91,13 @@ After any webhook task, post response to source:
 .claude/skills/
 ├── discovery/           # Code discovery
 ├── testing/             # TDD phases
-├── github-operations/   # GitHub API
-├── jira-operations/     # Jira API
-├── slack-operations/    # Slack API
-└── human-approval/      # Approval workflow
+├── github-operations/   # GitHub API + response posting
+├── jira-operations/     # Jira API + response posting
+├── slack-operations/    # Slack API + response posting
+├── sentry-operations/   # Sentry API
+├── human-approval/      # Approval workflow
+├── verification/        # Quality verification
+└── webhook-management/  # Webhook configuration
 ```
 
 ---
