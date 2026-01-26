@@ -127,13 +127,28 @@ def match_github_command(payload: dict, event_type: str) -> Optional[WebhookComm
     from core.command_matcher import is_bot_comment, extract_command
 
     sender = payload.get("sender", {})
-    if is_bot_comment(sender.get("login", ""), sender.get("type", "")):
-        logger.info("github_skipped_bot_comment", sender=sender.get("login"))
+    sender_login = sender.get("login", "")
+    sender_type = sender.get("type", "")
+    
+    if is_bot_comment(sender_login, sender_type):
+        logger.info(
+            "github_skipped_bot_comment",
+            sender=sender_login,
+            sender_type=sender_type,
+            event_type=event_type
+        )
         return None
 
     text = ""
     if event_type.startswith("issue_comment"):
         text = payload.get("comment", {}).get("body", "")
+        logger.debug(
+            "github_comment_text_extracted",
+            event_type=event_type,
+            action=payload.get("action"),
+            text_preview=text[:100] if text else "",
+            comment_id=payload.get("comment", {}).get("id")
+        )
     elif event_type.startswith("pull_request_review_comment"):
         text = payload.get("comment", {}).get("body", "")
     elif event_type.startswith("issues"):
@@ -144,7 +159,13 @@ def match_github_command(payload: dict, event_type: str) -> Optional[WebhookComm
     result = extract_command(text)
 
     if result is None:
-        logger.debug("github_no_agent_command", event_type=event_type, text_preview=text[:100] if text else "")
+        logger.debug(
+            "github_no_agent_command",
+            event_type=event_type,
+            action=payload.get("action"),
+            text_preview=text[:100] if text else "",
+            sender=sender_login
+        )
         return None
 
     command_name, user_content = result

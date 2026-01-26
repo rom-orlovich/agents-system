@@ -123,22 +123,39 @@ async def github_webhook(
         if action:
             event_type = f"{event_type}.{action}"
         
-        logger.info("github_webhook_received", event_type=event_type, repo=repo_info, issue_number=issue_number)
+        logger.info(
+            "github_webhook_received",
+            event_type=event_type,
+            action=payload.get("action"),
+            repo=repo_info,
+            issue_number=issue_number,
+            comment_id=payload.get("comment", {}).get("id"),
+            comment_preview=payload.get("comment", {}).get("body", "")[:100] if payload.get("comment") else None
+        )
         
         validation_result = validate_github_webhook(payload)
         if not validation_result.is_valid:
             logger.info(
                 "github_webhook_rejected_by_validation",
                 event_type=event_type,
+                action=payload.get("action"),
                 repo=repo_info,
                 issue_number=issue_number,
-                reason=validation_result.error_message
+                reason=validation_result.error_message,
+                comment_preview=payload.get("comment", {}).get("body", "")[:100] if payload.get("comment") else None
             )
             return {"status": "rejected", "actions": 0, "message": "Does not meet activation rules"}
         
         command = match_github_command(payload, event_type)
         if not command:
-            logger.warning("github_no_command_matched", event_type=event_type, repo=repo_info, issue_number=issue_number)
+            logger.warning(
+                "github_no_command_matched",
+                event_type=event_type,
+                action=payload.get("action"),
+                repo=repo_info,
+                issue_number=issue_number,
+                comment_preview=payload.get("comment", {}).get("body", "")[:100] if payload.get("comment") else None
+            )
             return {"status": "received", "actions": 0, "message": "No command matched"}
         
         immediate_response_sent = await send_github_immediate_response(payload, command, event_type)
