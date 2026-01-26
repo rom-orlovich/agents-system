@@ -396,7 +396,10 @@ async def send_slack_notification(
             }
         })
     
-    channel = os.getenv("SLACK_NOTIFICATION_CHANNEL", "#ai-agent-activity")
+    if success:
+        channel = os.getenv("SLACK_CHANNEL_AGENTS", "#ai-agent-activity")
+    else:
+        channel = os.getenv("SLACK_CHANNEL_ERRORS", "#ai-agent-errors")
     text = f"{status_emoji} Task {status_text} - {webhook_source.title()} - {command}"
     
     try:
@@ -410,11 +413,12 @@ async def send_slack_notification(
     except Exception as e:
         error_msg = str(e)
         if "channel_not_found" in error_msg.lower():
+            env_var = "SLACK_CHANNEL_AGENTS" if success else "SLACK_CHANNEL_ERRORS"
             logger.warning(
                 "slack_notification_channel_not_found",
                 task_id=task_id,
                 channel=channel,
-                message="Slack notification skipped - channel does not exist. Set SLACK_NOTIFICATION_CHANNEL to a valid channel or create the channel."
+                message=f"Slack notification skipped - channel does not exist. Set {env_var} to a valid channel or create the channel."
             )
         else:
             logger.error("slack_notification_failed", task_id=task_id, channel=channel, error=error_msg)

@@ -26,7 +26,7 @@ class WorkflowOrchestrator:
         self.jira = jira_client
         self.slack = slack_client
         self.github = github_client
-        self.notification_channel = os.getenv("SLACK_NOTIFICATION_CHANNEL", "#ai-agent-activity")
+        self.notification_channel = os.getenv("SLACK_CHANNEL_AGENTS", "#ai-agent-activity")
 
     async def notify_workflow_start(
         self,

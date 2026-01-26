@@ -790,7 +790,7 @@ class TaskWorker:
 
         # Build notification message
         message = {
-            "channel": os.getenv("SLACK_NOTIFICATION_CHANNEL", "#ai-agent-activity"),
+            "channel": os.getenv("SLACK_CHANNEL_AGENTS", "#ai-agent-activity"),
             "blocks": [
                 {
                     "type": "section",
