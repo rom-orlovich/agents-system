@@ -10,14 +10,22 @@ interface UsageBarProps {
   period: string;
 }
 
-function UsageBar({ label, used, limit, remaining, percentage, isExceeded, period }: UsageBarProps) {
+function UsageBar({
+  label,
+  used,
+  limit,
+  remaining,
+  percentage,
+  isExceeded,
+  period,
+}: UsageBarProps) {
   const barColor = isExceeded
     ? "bg-red-500"
     : percentage >= 90
-    ? "bg-yellow-500"
-    : percentage >= 75
-    ? "bg-orange-500"
-    : "bg-blue-500";
+      ? "bg-yellow-500"
+      : percentage >= 75
+        ? "bg-orange-500"
+        : "bg-blue-500";
 
   return (
     <div className="space-y-2">
@@ -25,7 +33,9 @@ function UsageBar({ label, used, limit, remaining, percentage, isExceeded, perio
         <span className="font-mono font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
           {label}
         </span>
-        <span className={`font-mono font-bold ${isExceeded ? "text-red-600 dark:text-red-400" : "text-gray-600 dark:text-gray-400"}`}>
+        <span
+          className={`font-mono font-bold ${isExceeded ? "text-red-600 dark:text-red-400" : "text-gray-600 dark:text-gray-400"}`}
+        >
           {used.toLocaleString()} / {limit.toLocaleString()} ({period})
         </span>
       </div>
@@ -36,12 +46,12 @@ function UsageBar({ label, used, limit, remaining, percentage, isExceeded, perio
         />
       </div>
       <div className="flex justify-between items-center text-xs">
-        <span className={`font-mono ${isExceeded ? "text-red-600 dark:text-red-400 font-bold" : "text-gray-500 dark:text-gray-400"}`}>
+        <span
+          className={`font-mono ${isExceeded ? "text-red-600 dark:text-red-400 font-bold" : "text-gray-500 dark:text-gray-400"}`}
+        >
           {isExceeded ? "LIMIT EXCEEDED" : `${remaining.toLocaleString()} remaining`}
         </span>
-        <span className="font-mono text-gray-500 dark:text-gray-400">
-          {percentage.toFixed(1)}%
-        </span>
+        <span className="font-mono text-gray-500 dark:text-gray-400">{percentage.toFixed(1)}%</span>
       </div>
     </div>
   );
@@ -93,9 +103,7 @@ export function UsageLimits() {
         <h3 className="text-lg font-heading font-bold tracking-wider text-gray-900 dark:text-gray-100">
           CLAUDE_CODE_USAGE_LIMITS
         </h3>
-        <div className="text-xs font-mono text-gray-500 dark:text-gray-400">
-          FROM_ANTHROPIC_API
-        </div>
+        <div className="text-xs font-mono text-gray-500 dark:text-gray-400">FROM_ANTHROPIC_API</div>
       </div>
 
       {usage.session && (

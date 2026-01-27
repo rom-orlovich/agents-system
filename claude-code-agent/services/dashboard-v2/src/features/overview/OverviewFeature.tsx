@@ -1,15 +1,15 @@
-import { Activity, Cpu, DollarSign, Zap, Eye, X, RefreshCw } from "lucide-react";
-import { useMetrics, type Task } from "./hooks/useMetrics";
-import { useTaskLogs, useGlobalLogs, type TaskLogResponse } from "./hooks/useTaskLogs";
-import { useState, useRef, useEffect } from "react";
+import { Activity, Cpu, DollarSign, Eye, RefreshCw, X, Zap } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { type Task, useMetrics } from "./hooks/useMetrics";
+import { type TaskLogResponse, useGlobalLogs, useTaskLogs } from "./hooks/useTaskLogs";
 
 export function OverviewFeature() {
   const { metrics, tasks, isLoading, error, refetch } = useMetrics();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  
+
   const { data: taskLogs, isLoading: isLogsLoading } = useTaskLogs(selectedTask?.id ?? null);
   const { data: globalLogs } = useGlobalLogs();
-  
+
   const logEndRef = useRef<HTMLDivElement>(null);
   const logContainerRef = useRef<HTMLDivElement>(null);
 
@@ -58,10 +58,7 @@ export function OverviewFeature() {
         />
       </section>
 
-      <section
-        className="grid grid-cols-1 md:grid-cols-2 gap-4"
-        data-label="OAUTH_USAGE"
-      >
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-4" data-label="OAUTH_USAGE">
         <StatCard
           label="OAUTH_SESSION_USAGE"
           value={`${metrics.oauth_session_percentage.toFixed(1)}%`}
@@ -77,39 +74,53 @@ export function OverviewFeature() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <section className="lg:col-span-2 panel" data-label="LIVE_PROCESSES">
           <div className="space-y-4">
-            {tasks?.map((task: Task) => (
-              <div
-                key={task.id}
-                onClick={() => setSelectedTask(task)}
-                className="flex items-center justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors cursor-pointer group/row"
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`w-2 h-2 rounded-full ${getStatusColor(task.status)}`} />
-                  <div>
-                    <div className="text-xs font-heading font-bold">{task.name}</div>
-                    <div className="text-[10px] text-gray-400 font-mono">{task.id}</div>
-                  </div>
+            {!tasks || tasks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="p-3 bg-gray-50 rounded-full mb-3">
+                  <Activity size={24} className="text-gray-300" />
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <div className="text-xs font-bold font-mono">${task.cost.toFixed(2)}</div>
-                    <div className="text-[10px] text-gray-400">
-                      {new Date(task.timestamp).toLocaleTimeString()}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedTask(task);
-                    }}
-                    className="p-1.5 hover:bg-gray-100 text-gray-400 group-hover/row:text-primary rounded-md transition-colors"
-                  >
-                    <Eye size={16} />
-                  </button>
+                <div className="text-xs font-heading font-bold text-gray-500">
+                  NO_ACTIVE_PROCESSES
+                </div>
+                <div className="text-[10px] text-gray-400 mt-1 max-w-[200px] font-mono">
+                  SYSTEM_IDLE. AWAITING_COMMANDS.
                 </div>
               </div>
-            ))}
+            ) : (
+              tasks.map((task: Task) => (
+                <div
+                  key={task.id}
+                  onClick={() => setSelectedTask(task)}
+                  className="flex items-center justify-between p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors cursor-pointer group/row"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-2 h-2 rounded-full ${getStatusColor(task.status)}`} />
+                    <div>
+                      <div className="text-xs font-heading font-bold">{task.name}</div>
+                      <div className="text-[10px] text-gray-400 font-mono">{task.id}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="text-xs font-bold font-mono">${task.cost.toFixed(2)}</div>
+                      <div className="text-[10px] text-gray-400">
+                        {new Date(task.timestamp).toLocaleTimeString()}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedTask(task);
+                      }}
+                      className="p-1.5 hover:bg-gray-100 text-gray-400 group-hover/row:text-primary rounded-md transition-colors"
+                    >
+                      <Eye size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </section>
 
@@ -141,7 +152,7 @@ export function OverviewFeature() {
             GLOBAL_CONTAINER_LOGS_STREAM
           </h2>
           <div className="flex gap-2">
-             <div className="flex items-center gap-1.5 px-2 py-0.5 border border-gray-100 rounded text-[9px] font-mono font-bold text-blue-500 bg-blue-50/50">
+            <div className="flex items-center gap-1.5 px-2 py-0.5 border border-gray-100 rounded text-[9px] font-mono font-bold text-blue-500 bg-blue-50/50">
               <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
               LIVE_STREAM
             </div>
@@ -150,12 +161,17 @@ export function OverviewFeature() {
         <div className="h-64 rounded bg-gray-950 p-4 font-mono text-[10px] text-gray-300 space-y-1 overflow-y-auto border border-gray-800 shadow-inner custom-scrollbar">
           {globalLogs && globalLogs.length > 0 ? (
             globalLogs.map((log: TaskLogResponse) => (
-              <div key={log.task_id} className="space-y-1 pb-4 mb-4 border-b border-gray-900 last:border-0 last:pb-0 last:mb-0">
+              <div
+                key={log.task_id}
+                className="space-y-1 pb-4 mb-4 border-b border-gray-900 last:border-0 last:pb-0 last:mb-0"
+              >
                 <div className="text-gray-500 flex items-center gap-2 mb-2">
                   <span className="bg-gray-900 px-1.5 py-0.5 rounded text-[8px] border border-gray-800">
                     TASK_{log.task_id.split("-").pop()}
                   </span>
-                  <span className={`text-[8px] uppercase font-bold ${log.status === 'running' ? 'text-blue-400' : 'text-gray-600'}`}>
+                  <span
+                    className={`text-[8px] uppercase font-bold ${log.status === "running" ? "text-blue-400" : "text-gray-600"}`}
+                  >
                     {log.status}
                   </span>
                 </div>
@@ -188,7 +204,7 @@ export function OverviewFeature() {
                 <X size={16} />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-6">
               <div className="space-y-1">
                 <div className="text-[10px] text-gray-400 font-heading">TASK_ID</div>
@@ -204,7 +220,9 @@ export function OverviewFeature() {
                 </div>
                 <div className="space-y-1">
                   <div className="text-[10px] text-gray-400 font-heading">STATUS</div>
-                  <div className="font-heading text-xs font-bold uppercase">{selectedTask.status}</div>
+                  <div className="font-heading text-xs font-bold uppercase">
+                    {selectedTask.status}
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <div className="text-[10px] text-gray-400 font-heading">COST</div>
@@ -220,18 +238,23 @@ export function OverviewFeature() {
                 </div>
               </div>
 
-              <div ref={logContainerRef} className="rounded bg-gray-950 p-4 font-mono text-[10px] text-gray-300 space-y-1 overflow-y-auto max-h-48 md:max-h-96 border border-gray-800 shadow-inner relative">
+              <div
+                ref={logContainerRef}
+                className="rounded bg-gray-950 p-4 font-mono text-[10px] text-gray-300 space-y-1 overflow-y-auto max-h-48 md:max-h-96 border border-gray-800 shadow-inner relative"
+              >
                 <div className="text-gray-500 mb-2 border-b border-gray-800 pb-1 flex justify-between items-center sticky top-0 bg-gray-950/90 backdrop-blur-sm z-10">
                   <span>LIVE_LOGS_STREAM</span>
                   <div className="flex items-center gap-2">
                     <button
-                       onClick={scrollToTop}
-                       className="text-[9px] px-1.5 py-0.5 border border-gray-700 rounded hover:bg-gray-800 hover:text-white transition-colors cursor-pointer"
+                      onClick={scrollToTop}
+                      className="text-[9px] px-1.5 py-0.5 border border-gray-700 rounded hover:bg-gray-800 hover:text-white transition-colors cursor-pointer"
                     >
                       SCROLL_TOP
                     </button>
                     {taskLogs?.is_live && (
-                      <span className="text-blue-500 animate-pulse text-[8px] font-bold">● LIVE</span>
+                      <span className="text-blue-500 animate-pulse text-[8px] font-bold">
+                        ● LIVE
+                      </span>
                     )}
                   </div>
                 </div>
@@ -305,15 +328,15 @@ function getStatusColor(status: string) {
 
 function renderLogs(output: string) {
   if (!output) return null;
-  
+
   return output.split("\n").map((line, i) => {
     if (!line.trim()) return null;
-    
+
     // Check for common patterns
     let colorClass = "text-gray-300";
     let prefix = "";
     let content = line;
-    
+
     if (line.startsWith("info ")) {
       colorClass = "text-blue-400";
       prefix = "info";
@@ -331,11 +354,11 @@ function renderLogs(output: string) {
       prefix = "error";
       content = line.substring(6);
     }
-    
+
     return (
       <div key={i} className="flex gap-2">
         {prefix && <span className={`${colorClass} opacity-80 min-w-[32px]`}>{prefix}</span>}
-        <span className={prefix ? 'text-gray-300' : colorClass}>{content}</span>
+        <span className={prefix ? "text-gray-300" : colorClass}>{content}</span>
       </div>
     );
   });

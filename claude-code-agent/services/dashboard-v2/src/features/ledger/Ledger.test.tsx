@@ -20,17 +20,18 @@ vi.mock("./hooks/useLedger", () => ({
 test("renders ledger table headers", () => {
   render(<LedgerFeature />);
 
-  expect(screen.getByText("TASK_ID")).toBeDefined();
-  expect(screen.getByText("AGENT")).toBeDefined();
-  expect(screen.getByText("STATUS")).toBeDefined();
+  // Use getAllByText because headers might be duplicated in mobile card view
+  expect(screen.getAllByText("TASK_ID").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("AGENT").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("STATUS").length).toBeGreaterThan(0);
   expect(screen.getByText("TIMESTAMP")).toBeDefined();
 });
 
 test("renders task data", () => {
   render(<LedgerFeature />);
 
-  expect(screen.getByText("task-1")).toBeDefined();
-  expect(screen.getByText("task-5")).toBeDefined();
+  expect(screen.getAllByText("task-1").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("task-5").length).toBeGreaterThan(0);
 });
 
 test("renders filters", () => {

@@ -1,7 +1,7 @@
-import { useState } from "react";
 import { Activity, Globe, Plus, RefreshCw } from "lucide-react";
-import { useWebhooks, type Webhook } from "./hooks/useWebhooks";
+import { useState } from "react";
 import { CreateWebhookModal } from "./CreateWebhookModal";
+import { useWebhooks, type Webhook } from "./hooks/useWebhooks";
 
 export function WebhooksFeature() {
   const { webhooks, events, isLoading, refreshEvents, createWebhook } = useWebhooks();
@@ -57,7 +57,8 @@ export function WebhooksFeature() {
               </div>
               <div className="text-[10px] text-gray-400 font-mono mb-4 truncate">{wh.url}</div>
               <div className="flex items-center gap-2 text-[10px] font-heading text-gray-500 group-hover:text-primary transition-colors border-t border-gray-50 pt-3">
-                <Globe size={12} /> <span className="tracking-tight">{wh.provider.toUpperCase()}</span>
+                <Globe size={12} />{" "}
+                <span className="tracking-tight">{wh.provider.toUpperCase()}</span>
               </div>
             </div>
           ))}
@@ -96,7 +97,7 @@ export function WebhooksFeature() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={async (data) => {
-           await createWebhook.mutateAsync(data);
+          await createWebhook.mutateAsync(data);
         }}
       />
     </div>

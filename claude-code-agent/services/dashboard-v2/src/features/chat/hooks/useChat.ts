@@ -57,7 +57,7 @@ export function useChat() {
       const sessionId = "default-session";
       const params = new URLSearchParams({ session_id: sessionId });
       if (selectedId) params.append("conversation_id", selectedId);
-      
+
       const res = await fetch(`/api/chat?${params.toString()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -110,7 +110,7 @@ export function useChat() {
     onError: (error) => {
       console.error("Delete conversation error:", error);
       alert("Failed to delete conversation. Please try again.");
-    }
+    },
   });
 
   return {

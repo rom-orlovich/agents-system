@@ -1,5 +1,5 @@
-import { useRef, useEffect } from "react";
 import { X } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { useTaskLogs } from "../features/overview/hooks/useTaskLogs";
 import { useTaskModal } from "../hooks/useTaskModal";
 
@@ -21,7 +21,9 @@ export function TaskStatusModal() {
       <div className="bg-modal-bg rounded-lg shadow-2xl w-full max-w-2xl mx-4 overflow-hidden border border-modal-border animate-in zoom-in-95 duration-200 ring-1 ring-black/5">
         <div className="flex items-center justify-between p-4 border-b border-modal-border bg-background-app/80">
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${getStatusColor(taskLogs?.status || "queued")}`} />
+            <div
+              className={`w-2 h-2 rounded-full ${getStatusColor(taskLogs?.status || "queued")}`}
+            />
             <h3 className="font-heading font-bold text-xs uppercase tracking-wider text-app-main">
               TASK_DETAILS: {taskId}
             </h3>
@@ -34,7 +36,7 @@ export function TaskStatusModal() {
             <X size={16} />
           </button>
         </div>
-        
+
         <div className="p-6 space-y-6">
           <div className="rounded bg-slate-950 p-4 font-mono text-[10px] text-gray-300 space-y-1 overflow-y-auto max-h-[60vh] border border-slate-800 shadow-inner">
             <div className="text-gray-500 mb-2 border-b border-gray-800 pb-1 flex justify-between">
@@ -85,14 +87,14 @@ function getStatusColor(status: string) {
 
 function renderLogs(output: string) {
   if (!output) return null;
-  
+
   return output.split("\n").map((line, i) => {
     if (!line.trim()) return null;
-    
+
     let colorClass = "text-gray-300";
     let prefix = "";
     let content = line;
-    
+
     if (line.startsWith("info ")) {
       colorClass = "text-blue-400";
       prefix = "info";
@@ -110,11 +112,11 @@ function renderLogs(output: string) {
       prefix = "error";
       content = line.substring(6);
     }
-    
+
     return (
       <div key={i} className="flex gap-2">
         {prefix && <span className={`${colorClass} opacity-80 min-w-[32px]`}>{prefix}</span>}
-        <span className={prefix ? 'text-gray-300' : colorClass}>{content}</span>
+        <span className={prefix ? "text-gray-300" : colorClass}>{content}</span>
       </div>
     );
   });

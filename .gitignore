@@ -163,6 +163,7 @@ repos/
 *.bak
 *.tmp
 .cache/
+mobile_audit_artifacts/
 
 # Claude CLI
 .claude/logs/

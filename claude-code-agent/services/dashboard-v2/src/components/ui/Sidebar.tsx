@@ -33,19 +33,19 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   return (
     <>
       {/* Mobile Overlay */}
-      <div 
+      <div
         className={cn(
           "fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity duration-300",
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          isOpen ? "opacity-100" : "opacity-0 pointer-events-none",
         )}
         onClick={onClose}
       />
-      
-      <aside 
+
+      <aside
         className={cn(
           "fixed md:relative top-0 left-0 h-full w-64 md:w-16 lg:w-64 border-r border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col transition-all duration-300 z-40",
           "transform md:transform-none shadow-2xl md:shadow-none",
-          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >
         <nav className="flex-1 py-6">
