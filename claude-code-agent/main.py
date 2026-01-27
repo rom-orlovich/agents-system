@@ -8,16 +8,14 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import structlog
-from sqlalchemy import update
 
 from core import (
     settings,
     setup_logging,
     WebSocketHub,
 )
-from core.database import init_db, async_session_factory
+from core.database import init_db
 from core.database.redis_client import redis_client
-from core.database.models import SessionDB
 from api import credentials, dashboard, registry, analytics, websocket, conversations
 from api import webhooks_dynamic, webhook_status
 from api import subagents, container, accounts, sessions

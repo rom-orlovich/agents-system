@@ -2,9 +2,9 @@
 
 import os
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import structlog
 import uuid
 import json

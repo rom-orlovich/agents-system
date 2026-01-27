@@ -5,7 +5,6 @@ Usage: python create_webhook.py --provider github --name "My Webhook" --triggers
 """
 
 import argparse
-import json
 import requests
 import sys
 import os

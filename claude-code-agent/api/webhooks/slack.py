@@ -73,11 +73,9 @@ async def send_slack_immediate_response(
         if payload.get("type") == "url_verification":
             return True
         
-        # Send ephemeral message
         event = payload.get("event", {})
         channel = event.get("channel")
         user = event.get("user")
-        text = event.get("text", "")
         
         if channel and user:
             slack_token = os.getenv("SLACK_BOT_TOKEN") or settings.slack_bot_token

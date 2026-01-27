@@ -1,11 +1,9 @@
 """Tests for TaskWorker metrics updates (TDD Phase 0)."""
 
-import pytest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 from core.database.models import TaskDB, ConversationDB, SessionDB
 from shared import TaskStatus
-from workers.task_worker import TaskWorker
 
 
 class TestTaskWorkerMetrics:

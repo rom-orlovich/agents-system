@@ -9,7 +9,6 @@ import json
 import sys
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 
 from core.cli_access import test_cli_access
 from core.database import init_db, async_session_factory

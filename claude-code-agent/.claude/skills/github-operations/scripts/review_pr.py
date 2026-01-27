@@ -5,7 +5,6 @@ Usage: python review_pr.py OWNER REPO PR_NUMBER
 """
 import sys
 import asyncio
-import os
 from pathlib import Path
 
 # Add project root to path dynamically

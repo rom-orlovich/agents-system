@@ -1,11 +1,9 @@
 """Unit tests for CLI status business logic."""
 
-import pytest
 from unittest.mock import patch, AsyncMock, MagicMock, PropertyMock
 from datetime import datetime, timezone
 from pathlib import Path
 
-from core.database.models import SessionDB
 
 
 async def test_startup_without_credentials_does_not_fail():
@@ -39,14 +37,13 @@ async def test_startup_does_not_run_cli_test():
                     mock_task_worker.return_value = mock_worker_instance
                     
                     with patch('core.cli_access.test_cli_access') as mock_test_cli:
-                        with patch('main.async_session_factory'):
-                            with patch.object(settings.__class__, 'credentials_path', new_callable=PropertyMock, return_value=mock_creds_path):
-                                app = FastAPI()
-                                
-                                async with lifespan(app):
-                                    pass
-                                
-                                mock_test_cli.assert_not_called()
+                        with patch.object(settings.__class__, 'credentials_path', new_callable=PropertyMock, return_value=mock_creds_path):
+                            app = FastAPI()
+
+                            async with lifespan(app):
+                                pass
+
+                            mock_test_cli.assert_not_called()
 
 
 async def test_startup_test_failure_sets_active_false():
@@ -66,14 +63,8 @@ async def test_startup_test_failure_sets_active_false():
 
 async def test_executive_limit_error_updates_session_active_false():
     """When task fails with executive limit error, update session.active = False."""
-    from workers.task_worker import TaskWorker
-    from core.websocket_hub import WebSocketHub
-    from core.database.models import TaskDB, SessionDB
-    from shared import TaskStatus
-    
-    ws_hub = WebSocketHub()
-    worker = TaskWorker(ws_hub)
-    
+    from core.database.models import SessionDB
+
     session_db = SessionDB(
         session_id="session-001",
         user_id="user-001",
@@ -81,39 +72,21 @@ async def test_executive_limit_error_updates_session_active_false():
         connected_at=datetime.now(timezone.utc),
         active=True
     )
-    
-    task_db = TaskDB(
-        task_id="task-001",
-        session_id="session-001",
-        user_id="user-001",
-        assigned_agent="brain",
-        agent_type="planning",
-        status=TaskStatus.FAILED,
-        input_message="Test",
-        source="dashboard",
-        created_at=datetime.now(timezone.utc)
-    )
-    
+
     mock_cli_result = MagicMock()
     mock_cli_result.success = False
     mock_cli_result.error = "Error: Executive limit exceeded"
-    
+
     error_lower = mock_cli_result.error.lower()
     assert "executive limit" in error_lower or "out of extra usage" in error_lower or "rate limit" in error_lower
-    
+
     assert session_db.active is True
 
 
 async def test_rate_limit_error_updates_session_active_false():
     """When task fails with rate limit error, update session.active = False."""
-    from workers.task_worker import TaskWorker
-    from core.websocket_hub import WebSocketHub
-    from core.database.models import TaskDB, SessionDB
-    from shared import TaskStatus
-    
-    ws_hub = WebSocketHub()
-    worker = TaskWorker(ws_hub)
-    
+    from core.database.models import SessionDB
+
     session_db = SessionDB(
         session_id="session-001",
         user_id="user-001",
@@ -121,23 +94,11 @@ async def test_rate_limit_error_updates_session_active_false():
         connected_at=datetime.now(timezone.utc),
         active=True
     )
-    
-    task_db = TaskDB(
-        task_id="task-001",
-        session_id="session-001",
-        user_id="user-001",
-        assigned_agent="brain",
-        agent_type="planning",
-        status=TaskStatus.FAILED,
-        input_message="Test",
-        source="dashboard",
-        created_at=datetime.now(timezone.utc)
-    )
-    
+
     mock_cli_result = MagicMock()
     mock_cli_result.success = False
     mock_cli_result.error = "Error: You're out of extra usage · resets 9pm (UTC)"
-    
+
     error_lower = mock_cli_result.error.lower()
     assert "executive limit" in error_lower or "out of extra usage" in error_lower or "rate limit" in error_lower
     
@@ -319,7 +280,6 @@ async def test_conversation_error_does_not_set_session_active_false():
 
 async def test_credentials_upload_triggers_test_and_updates_status():
     """Uploading credentials should test CLI and update session status."""
-    from api.credentials import upload_credentials
     from fastapi import UploadFile
     
     file_content = b'{"access_token": "test_token_12345", "refresh_token": "refresh_token_12345", "expires_at": 9999999999999, "account_id": "user-123"}'
@@ -455,7 +415,6 @@ async def test_cli_status_only_reads_from_database():
 async def test_cli_access_logs_stderr_on_failure():
     """test_cli_access() should return False and log warning when CLI test fails with stderr."""
     from core.cli_access import test_cli_access
-    import subprocess
     
     mock_result = MagicMock()
     mock_result.returncode = 1
@@ -473,7 +432,6 @@ async def test_cli_access_logs_stderr_on_failure():
 async def test_cli_access_handles_rate_limit_error():
     """test_cli_access() should return False on rate limit errors."""
     from core.cli_access import test_cli_access
-    import subprocess
     
     mock_result = MagicMock()
     mock_result.returncode = 1

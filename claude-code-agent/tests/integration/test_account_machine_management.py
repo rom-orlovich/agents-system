@@ -1,6 +1,5 @@
 """Integration tests for multi-account & machine management (Part 8 of TDD Requirements)."""
 
-import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock
 import uuid

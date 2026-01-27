@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from shared import (
     Task,
     TaskStatus,
-    AgentType,
     Session,
     MachineConfig,
     ClaudeCredentials,

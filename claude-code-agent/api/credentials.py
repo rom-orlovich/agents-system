@@ -18,8 +18,8 @@ from core.config import settings
 from core.database import get_session as get_db_session, async_session_factory
 from core.database.models import SessionDB
 from core.cli_access import test_cli_access
-from core.oauth_usage import fetch_oauth_usage, OAuthUsageResponse
-from shared.machine_models import ClaudeCredentials, AuthStatus, CLIStatusUpdateMessage
+from core.oauth_usage import fetch_oauth_usage
+from shared.machine_models import ClaudeCredentials, CLIStatusUpdateMessage
 from shared import APIResponse
 import structlog
 

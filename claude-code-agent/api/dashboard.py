@@ -1,7 +1,7 @@
 """Dashboard API endpoints."""
 
 from datetime import datetime, timezone
-from typing import List, Optional, Annotated
+from typing import List, Optional
 import uuid
 import math
 
@@ -15,7 +15,6 @@ from core.database.models import TaskDB, SessionDB, WebhookEventDB, WebhookConfi
 from core.database.redis_client import redis_client
 from core.webhook_configs import WEBHOOK_CONFIGS
 from shared import (
-    Task,
     TaskStatus,
     AgentType,
     APIResponse,

@@ -1,12 +1,9 @@
 """Tests for Claude Code Tasks sync functionality (TDD Phase 0)."""
 
-import pytest
 import json
-import tempfile
-from pathlib import Path
 from datetime import datetime, timezone
 from unittest.mock import patch
-from core.database.models import TaskDB, SessionDB
+from core.database.models import TaskDB
 from shared import TaskStatus
 
 
@@ -256,7 +253,7 @@ class TestClaudeTasksSync:
     
     def test_status_mapping_correct(self, tmp_path):
         """Test: Status mapping between TaskStatus and Claude Code task status is correct."""
-        from core.claude_tasks_sync import sync_task_to_claude_tasks, update_claude_task_status
+        from core.claude_tasks_sync import sync_task_to_claude_tasks
         
         with patch('core.claude_tasks_sync.settings') as mock_settings:
             mock_settings.sync_to_claude_tasks = True

@@ -26,13 +26,12 @@ async def test_chat_creates_new_conversation_when_none_provided(client: AsyncCli
     assert "task_id" in data["data"]
     
     conversation_id = data["data"]["conversation_id"]
-    task_id = data["data"]["task_id"]
-    
+
     result = await db_session.execute(
         select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
     )
     conversation = result.scalar_one_or_none()
-    
+
     assert conversation is not None
     assert conversation.user_id == "default-user"
     assert conversation.title == "Hello, this is a test message"

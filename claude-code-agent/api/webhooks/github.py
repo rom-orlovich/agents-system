@@ -20,7 +20,7 @@ from core.config import settings
 from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB, SessionDB, TaskDB
 from core.database.redis_client import redis_client
-from core.webhook_configs import GITHUB_WEBHOOK, get_webhook_by_endpoint
+from core.webhook_configs import GITHUB_WEBHOOK
 from core.webhook_engine import render_template, create_webhook_conversation
 from core.github_client import github_client
 from shared.machine_models import WebhookCommand

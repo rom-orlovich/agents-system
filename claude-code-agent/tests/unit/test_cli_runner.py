@@ -1,11 +1,10 @@
 """Unit tests for CLI runner."""
 
-import pytest
 import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from core.cli_runner import run_claude_cli, CLIResult
+from core.cli_runner import run_claude_cli
 
 
 class MockAsyncIterator:

@@ -5,7 +5,6 @@ import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import structlog
 
-from shared import ChatMessage, TaskStopMessage, UserInputMessage
 from core.database.redis_client import redis_client
 
 logger = structlog.get_logger()
@@ -43,16 +42,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     pass
 
                 elif msg_type == "task.input":
-                    # Handle user input to task
                     task_id = message.get("task_id")
-                    user_message = message.get("message")
                     logger.info(
                         "User input received",
                         task_id=task_id,
                         session_id=session_id
                     )
-                    # TODO: Send input to running task
-                    pass
 
             except json.JSONDecodeError:
                 logger.warning("Invalid JSON received", session_id=session_id)

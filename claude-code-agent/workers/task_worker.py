@@ -20,7 +20,7 @@ from core.webhook_engine import (
     action_comment
 )
 from shared import TaskStatus, TaskOutputMessage, TaskCompletedMessage, TaskFailedMessage
-from sqlalchemy import select, update
+from sqlalchemy import select
 from datetime import datetime, timezone
 import uuid
 

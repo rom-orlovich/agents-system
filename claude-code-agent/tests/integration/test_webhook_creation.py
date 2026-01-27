@@ -1,7 +1,5 @@
 """Integration tests for webhook creation with immediate feedback (Part 3 of TDD Requirements)."""
 
-import pytest
-from unittest.mock import AsyncMock, patch
 import uuid
 
 

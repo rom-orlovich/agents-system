@@ -1,8 +1,6 @@
 """Integration tests for real-time logging & monitoring (Part 4B of TDD Requirements)."""
 
-import pytest
-import asyncio
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock
 from datetime import datetime, timezone
 import uuid
 

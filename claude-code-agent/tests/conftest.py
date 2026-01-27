@@ -2,7 +2,7 @@
 
 import os
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
@@ -15,21 +15,9 @@ from core.database.models import Base
 from core.database import get_session
 from shared import Task, TaskStatus, AgentType
 
-# Import CLI testing fixtures
-from tests.fixtures.cli_fixtures import (
-    fake_claude_cli,
-    fake_cli_success,
-    fake_cli_error,
-    fake_cli_timeout,
-    fake_cli_auth_error,
-    fake_cli_malformed,
-    fake_cli_streaming,
-    real_claude_cli,
-    cli_test_workspace,
-    dry_run_mode,
-    pytest_configure,
-    pytest_collection_modifyitems,
-)
+pytest_plugins = [
+    "tests.fixtures.cli_fixtures",
+]
 
 
 # Note: event_loop fixture removed - pytest-asyncio handles this automatically in auto mode
@@ -117,7 +105,6 @@ def redis_mock():
 async def client(db_session, redis_mock):
     """Create async HTTP client for API tests with mocked dependencies."""
     from httpx import ASGITransport
-    from core.database import redis_client
 
     # Override dependencies
     async def override_get_session():
