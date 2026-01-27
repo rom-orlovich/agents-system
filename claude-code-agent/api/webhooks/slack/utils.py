@@ -184,11 +184,22 @@ async def match_slack_command(payload: dict, event_type: str) -> Optional[Webhoo
 
     command_name, user_content = result
     payload["_user_content"] = user_content
+    
+    if not isinstance(command_name, str):
+        logger.warning(
+            "slack_command_name_not_string",
+            command_name=command_name,
+            command_name_type=type(command_name).__name__
+        )
+        return None
+    
+    command_name_lower = command_name.lower()
+    
     for cmd in SLACK_WEBHOOK.commands:
-        if cmd.name.lower() == command_name:
+        if cmd.name.lower() == command_name_lower:
             return cmd
         for alias in cmd.aliases:
-            if alias.lower() == command_name:
+            if isinstance(alias, str) and alias.lower() == command_name_lower:
                 return cmd
 
     logger.warning("slack_command_not_configured", command=command_name)

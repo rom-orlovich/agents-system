@@ -314,12 +314,23 @@ async def match_github_command(payload: dict, event_type: str) -> Optional[Webho
         return None
 
     command_name, user_content = result
+    
+    if not isinstance(command_name, str):
+        logger.warning(
+            "github_command_name_not_string",
+            command_name=command_name,
+            command_name_type=type(command_name).__name__
+        )
+        return None
+    
+    command_name_lower = command_name.lower()
+    
     for cmd in GITHUB_WEBHOOK.commands:
-        if cmd.name.lower() == command_name:
+        if cmd.name.lower() == command_name_lower:
             payload["_user_content"] = user_content
             return cmd
         for alias in cmd.aliases:
-            if alias.lower() == command_name:
+            if isinstance(alias, str) and alias.lower() == command_name_lower:
                 payload["_user_content"] = user_content
                 return cmd
 
