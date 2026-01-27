@@ -33,8 +33,8 @@ However, the current `/app/services/dashboard-v2/src/components/ui/Header.tsx` a
 }, []);
 ```
 This is the closing of a `useEffect` hook, not an `onClick` handler. The only `onClick` handlers in the file are:
-- Line 42: Sidebar toggle button
-- Line 64: Dark mode toggle button
+- Line 42: Sidebar toggle button (`onClick={onToggleSidebar}`)
+- Line 64: Dark mode toggle button (`onClick={() => setIsDark(!isDark)}`)
 
 Neither of these throw errors intentionally.
 
@@ -44,7 +44,16 @@ A comprehensive search for "Test Error" across the entire codebase returned **ze
 - No application code generates this error message
 - This error was manually triggered or auto-generated for testing Sentry integration
 
-### 4. Source Identification
+### 4. Error Throw Pattern Analysis
+
+All error throwing in the codebase follows standard patterns for API failures:
+- `throw new Error("Failed to fetch CLI status")` - in useCLIStatus.ts
+- `throw new Error("Failed to fetch OAuth usage")` - in useOAuthUsage.ts
+- `throw new Error("Failed to fetch...")` - consistent pattern across all hooks
+
+None match the `[Test Error bzi3no]` format.
+
+### 5. Source Identification
 
 The Jira ticket description states:
 > "This was automatically created by Sentry via 'Send a notification for high priority issues'"

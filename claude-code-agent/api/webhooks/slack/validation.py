@@ -27,7 +27,7 @@ class SlackWebhookPayload(BaseModel):
         text = self.extract_text()
         
         if not text:
-            return WebhookValidationResult.failure("No text found in Slack event")
+            return WebhookValidationResult.success()
         
         command = extract_command(text)
         is_valid, error_msg = validate_command(command)

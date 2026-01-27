@@ -41,7 +41,8 @@ A self-managing machine where FastAPI runs as a daemon and Claude Code CLI is sp
 - 💬 **Persistent Conversations**: Inbox-style UI with context awareness (Dashboard v2)
 - 🔄 **Task Flow Tracking**: End-to-end flow tracking with flow_id across webhook → analysis → execution
 - 📡 **Unified Webhooks**: Fully configurable [GitHub, Jira, Slack, Sentry integration](file:///Users/romo/projects/agents-prod/claude-code-agent/docs/SERVICE-INTEGRATION-GUIDE.md)
-- 🤖 **9 Specialized Agents**: Brain, Planning, Executor, Service Integrator, Self-Improvement, Agent Creator, Skill Creator, Verifier, Webhook Generator
+- 🤖 **13 Agents**: 9 Core Agents (Brain, Planning, Executor, Service Integrator, Self-Improvement, Agent Creator, Skill Creator, Verifier, Webhook Generator) + 4 Workflow Agents (GitHub Issue Handler, GitHub PR Review, Jira Code Plan, Slack Inquiry)
+- 🔄 **Automatic Response Posting**: Workflow agents automatically post results back to GitHub/Jira/Slack
 - 📊 **Advanced Analytics**: Cost tracking, usage metrics, OAuth monitoring, conversation analytics
 - 🗄️ **Dual Storage**: Redis (queue/cache) + SQLite (persistence)
 - 🔌 **Hybrid Webhooks**: Static routes (hard-coded) + Dynamic routes (database-driven)
@@ -154,9 +155,19 @@ claude-code-agent/
 │   ├── conversations.py        # Conversation management
 │   ├── websocket.py            # WebSocket endpoint
 │   ├── webhooks/               # Static webhook handlers (hard-coded)
-│   │   ├── github.py          # GitHub webhook handler
-│   │   ├── jira.py            # Jira webhook handler
-│   │   ├── slack.py           # Slack webhook handler
+│   │   ├── github/            # GitHub webhook module
+│   │   │   ├── routes.py     # Route handlers
+│   │   │   ├── utils.py       # Utilities & response posting
+│   │   │   └── validation.py # Signature validation
+│   │   ├── jira/              # Jira webhook module
+│   │   │   ├── routes.py
+│   │   │   ├── utils.py
+│   │   │   ├── validation.py
+│   │   │   └── models.py     # Jira models
+│   │   ├── slack/             # Slack webhook module
+│   │   │   ├── routes.py
+│   │   │   ├── utils.py
+│   │   │   └── validation.py
 │   │   └── sentry.py          # Sentry webhook handler
 │   ├── webhooks_dynamic.py     # Dynamic webhook receiver (database-driven)
 │   ├── webhook_status.py       # Webhook status/monitoring API
@@ -303,6 +314,15 @@ The Brain is the main Claude CLI instance that:
 - Creates and configures webhooks dynamically
 - Manages webhook templates and commands
 - **Location**: `.claude/agents/webhook-generator.md`
+
+#### Workflow Agents (4 agents that handle webhook requests)
+- **GitHub Issue Handler**: Analyzes GitHub issues/comments, posts analysis back
+- **GitHub PR Review**: Reviews PRs, posts review comments
+- **Jira Code Plan**: Creates implementation plans when assigned Jira tickets
+- **Slack Inquiry**: Answers code/Jira questions in Slack threads
+- **Location**: `.claude/agents/github-issue-handler.md`, `github-pr-review.md`, `jira-code-plan.md`, `slack-inquiry.md`
+- **Model**: sonnet/opus (varies by agent)
+- **Key Feature**: All workflow agents automatically post responses back to source
 
 ### 3. Task Worker
 

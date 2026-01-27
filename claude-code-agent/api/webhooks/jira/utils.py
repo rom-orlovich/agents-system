@@ -30,6 +30,33 @@ from api.webhooks.jira.models import TaskSummary
 logger = structlog.get_logger()
 
 
+def _safe_string(value: Any, default: str = "") -> str:
+    """
+    Safely convert a value to a string.
+    
+    Handles cases where Jira webhook fields might be lists or other non-string types.
+    
+    Args:
+        value: Value to convert (can be str, list, dict, None, etc.)
+        default: Default value to return if value is None or empty
+        
+    Returns:
+        String representation of the value
+    """
+    if value is None:
+        return default
+    
+    if isinstance(value, str):
+        return value
+    
+    if isinstance(value, list):
+        if not value:
+            return default
+        return " ".join(str(item) for item in value if item)
+    
+    return str(value) if value else default
+
+
 def extract_jira_comment_text(comment_body: Any) -> str:
     """
     Extract plain text from Jira comment body.
@@ -106,14 +133,14 @@ async def verify_jira_signature(request: Request, body: bytes) -> None:
 
 def is_assignee_changed_to_ai(payload: dict, event_type: str) -> bool:
     """Check if assignee was changed to AI agent."""
-    ai_agent_name = settings.jira_ai_agent_name or os.getenv("JIRA_AI_AGENT_NAME", "AI Agent")
+    ai_agent_name = _safe_string(settings.jira_ai_agent_name or os.getenv("JIRA_AI_AGENT_NAME", "AI Agent"))
     
     changelog = payload.get("changelog", {})
     if changelog:
         items = changelog.get("items", [])
         for item in items:
             if item.get("field") == "assignee":
-                to_value = item.get("toString", "")
+                to_value = _safe_string(item.get("toString", ""))
                 if to_value and ai_agent_name.lower() in to_value.lower():
                     issue_key = payload.get("issue", {}).get("key", "unknown")
                     logger.info("jira_assignee_changed_to_ai", issue_key=issue_key, new_assignee=to_value)
@@ -124,7 +151,10 @@ def is_assignee_changed_to_ai(payload: dict, event_type: str) -> bool:
         fields = issue.get("fields", {})
         assignee = fields.get("assignee")
         if assignee:
-            assignee_name = assignee.get("displayName", "") or assignee.get("name", "")
+            if isinstance(assignee, dict):
+                assignee_name = _safe_string(assignee.get("displayName", "")) or _safe_string(assignee.get("name", ""))
+            else:
+                assignee_name = _safe_string(assignee)
             if assignee_name and ai_agent_name.lower() in assignee_name.lower():
                 issue_key = issue.get("key", "unknown")
                 logger.info("jira_issue_created_with_ai_assignee", issue_key=issue_key, assignee=assignee_name)
@@ -244,10 +274,10 @@ async def match_jira_command(payload: dict, event_type: str) -> Optional[Webhook
 
     comment = payload.get("comment", {})
     author = comment.get("author", {})
-    author_type = author.get("accountType", "")
-    author_name = author.get("displayName", "")
+    author_type = _safe_string(author.get("accountType", ""))
+    author_name = _safe_string(author.get("displayName", ""))
 
-    if author_type == "app" or "bot" in author_name.lower():
+    if author_type == "app" or (author_name and "bot" in author_name.lower()):
         logger.info("jira_skipped_bot_comment", author=author_name, author_type=author_type)
         return None
 

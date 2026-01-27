@@ -83,7 +83,7 @@ class Settings(BaseSettings):
     # Webhook Command Configuration
     webhook_agent_prefix: str = "@agent"  # Configurable via WEBHOOK_AGENT_PREFIX env
     webhook_bot_usernames: str = "github-actions[bot],claude-agent,ai-agent,dependabot[bot]"  # Comma-separated
-    webhook_valid_commands: str = "analyze,plan,fix,review,approve,reject,improve,help"  # Comma-separated
+    webhook_valid_commands: str = "analyze,plan,fix,review,approve,reject,improve,help,discover,execute,jira"  # Comma-separated
     
     # Content Size Limits (to prevent chunk size errors)
     max_comment_body_size: int = 10000  # Max chars for comment.body in prompts

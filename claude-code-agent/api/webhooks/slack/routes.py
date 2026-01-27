@@ -152,14 +152,6 @@ async def slack_webhook(
             raise HTTPException(status_code=400, detail=f"Failed to read request body: {str(e)}")
         
         try:
-            await verify_slack_signature(request, body)
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error("slack_signature_verification_error", error=str(e))
-            raise HTTPException(status_code=401, detail=f"Signature verification failed: {str(e)}")
-        
-        try:
             payload = json.loads(body.decode())
             payload["provider"] = "slack"
         except json.JSONDecodeError as e:
@@ -170,7 +162,17 @@ async def slack_webhook(
             raise HTTPException(status_code=400, detail=f"Failed to decode payload: {str(e)}")
         
         if payload.get("type") == "url_verification":
-            return {"challenge": payload.get("challenge")}
+            challenge = payload.get("challenge")
+            logger.info("slack_url_verification_challenge", challenge=challenge)
+            return {"challenge": challenge}
+        
+        try:
+            await verify_slack_signature(request, body)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("slack_signature_verification_error", error=str(e))
+            raise HTTPException(status_code=401, detail=f"Signature verification failed: {str(e)}")
         
         event = payload.get("event", {})
         channel = event.get("channel", "unknown")

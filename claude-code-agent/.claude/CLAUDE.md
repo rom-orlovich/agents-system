@@ -75,13 +75,15 @@ else: escalate
 
 ## Response Routing (CRITICAL)
 
-After any webhook task, post response to source:
+**MANDATORY**: All workflow agents MUST post responses back to source. Completion handlers automatically post task results.
 
-| Source | Method |
-|--------|--------|
-| GitHub | `github_client.post_pr_comment()` |
-| Jira | `scripts/post_comment.sh TICKET` |
-| Slack | Reply with `thread_ts` |
+| Source | Method | Handler |
+|--------|--------|---------|
+| GitHub | `github_client.post_pr_comment()` / `post_issue_comment()` | `handle_github_task_completion()` |
+| Jira | `jira_client.post_comment()` | `handle_jira_task_completion()` |
+| Slack | `slack_client.post_message()` with `thread_ts` | `handle_slack_task_completion()` |
+
+**Loop Prevention**: System tracks posted comments/messages to prevent duplicates.
 
 ---
 
@@ -91,14 +93,18 @@ After any webhook task, post response to source:
 .claude/skills/
 ├── discovery/           # Code discovery
 ├── testing/             # TDD phases
-├── github-operations/   # GitHub API + response posting
-├── jira-operations/     # Jira API + response posting
-├── slack-operations/    # Slack API + response posting
-├── sentry-operations/   # Sentry API
+├── github-operations/   # GitHub API + response posting scripts
+├── jira-operations/     # Jira API + response posting scripts
+├── slack-operations/    # Slack API + response posting scripts
 ├── human-approval/      # Approval workflow
 ├── verification/        # Quality verification
 └── webhook-management/  # Webhook configuration
 ```
+
+**Response Posting Scripts**:
+- `github-operations/scripts/post_issue_comment.sh`, `post_pr_comment.sh`
+- `jira-operations/scripts/post_comment.sh`
+- `slack-operations/scripts/post_message.sh`, `post_thread_response.sh`
 
 ---
 
@@ -133,14 +139,18 @@ After any webhook task, post response to source:
 
 ---
 
-## Response Posting
+## Response Posting (MANDATORY)
 
-Each workflow agent is responsible for posting responses back to the source.
+**CRITICAL**: Each workflow agent MUST post responses back to source. This is automatically handled by completion handlers, but agents should use service skills when posting during task execution.
 
-Use service skills for posting:
-- **GitHub**: `github-operations` skill (post_issue_comment, post_pr_comment)
-- **Jira**: `jira-operations` skill (post_comment)
-- **Slack**: `slack-operations` skill (post_message)
+**Automatic Posting**: Completion handlers (`handle_*_task_completion`) automatically post task results to source after completion.
+
+**Manual Posting** (during task execution):
+- **GitHub**: `github-operations` skill scripts (`post_issue_comment.sh`, `post_pr_comment.sh`)
+- **Jira**: `jira-operations` skill script (`post_comment.sh`)
+- **Slack**: `slack-operations` skill scripts (`post_message.sh`, `post_thread_response.sh`)
+
+**Loop Prevention**: System tracks posted comments/messages via Redis to prevent duplicate posts.
 
 ---
 

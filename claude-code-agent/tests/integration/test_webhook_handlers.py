@@ -269,12 +269,25 @@ class TestSlackWebhookBehavior:
         """
         Business Rule: Slack requires URL verification.
         Behavior: url_verification event → Returns challenge
+        URL verification should work even without signature headers (initial setup).
         """
-        payload = {
-            "type": "url_verification",
-            "challenge": "test-challenge-123"
-        }
         body = b'{"type": "url_verification", "challenge": "test-challenge-123"}'
+        
+        response = await client.post(
+            "/webhooks/slack",
+            content=body,
+            headers={}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["challenge"] == "test-challenge-123"
+    
+    async def test_slack_webhook_handles_url_verification_with_signature(self, client: AsyncClient):
+        """
+        URL verification should also work with signature headers (if present).
+        """
+        body = b'{"type": "url_verification", "challenge": "test-challenge-456"}'
         
         secret = os.getenv("SLACK_WEBHOOK_SECRET", "test-secret")
         timestamp = "1234567890"
@@ -294,7 +307,7 @@ class TestSlackWebhookBehavior:
         
         assert response.status_code == 200
         data = response.json()
-        assert data["challenge"] == "test-challenge-123"
+        assert data["challenge"] == "test-challenge-456"
     
     async def test_slack_webhook_sends_ephemeral_response(self, client: AsyncClient, monkeypatch):
         """

@@ -393,11 +393,11 @@ class TestSlackWebhookValidation:
         assert not result.is_valid, "Expected invalid"
         assert "@agent" in result.error_message.lower()
     
-    def test_slack_message_no_text_rejected(self):
-        """Slack message with no text should be rejected."""
+    def test_slack_message_no_text_allowed(self):
+        """Slack message with no text should be allowed (command matching will handle it)."""
         payload = {
             "event": {
-                "type": "app_mention",
+                "type": "message",
                 "user": "U123456",
                 "channel": "C123456",
                 "ts": "1234567890.123456"
@@ -405,8 +405,7 @@ class TestSlackWebhookValidation:
         }
         
         result = validate_slack_webhook(payload)
-        assert not result.is_valid, "Expected invalid"
-        assert "no text" in result.error_message.lower()
+        assert result.is_valid, "Events without text should pass validation (command matching handles them)"
     
     def test_slack_text_field_alternative(self):
         """Slack webhook with text field (not event.text) should work."""
