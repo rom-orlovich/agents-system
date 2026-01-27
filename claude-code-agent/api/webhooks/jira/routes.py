@@ -145,7 +145,7 @@ async def jira_webhook(
             logger.error("jira_webhook_validation_error", error=str(e), event_type=event_type)
         
         try:
-            command = match_jira_command(payload, event_type)
+            command = await match_jira_command(payload, event_type)
             if not command:
                 logger.warning("jira_no_command_matched", event_type=event_type, issue_key=issue_key, payload_sample=str(payload)[:500])
                 return {"status": "received", "actions": 0, "message": "No command matched - requires assignee change to AI agent or @agent prefix"}

@@ -7,6 +7,9 @@ from typing import Optional, Dict, Any, List
 
 logger = structlog.get_logger()
 
+# Cache for authenticated user to avoid repeated API calls
+_authenticated_user_cache: Optional[str] = None
+
 
 class GitHubClient:
     """Client for interacting with GitHub API."""
@@ -579,6 +582,55 @@ class GitHubClient:
                 error=str(e)
             )
             raise
+    
+    async def get_authenticated_user(self) -> Optional[str]:
+        """
+        Get the authenticated GitHub user from the token.
+        Results are cached to avoid repeated API calls.
+        
+        Returns:
+            GitHub username/login if token is valid, None otherwise
+        """
+        global _authenticated_user_cache
+        
+        if _authenticated_user_cache:
+            return _authenticated_user_cache
+        
+        if not self.token:
+            logger.debug("github_no_token_for_user_lookup")
+            return None
+        
+        url = f"{self.base_url}/user"
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    url,
+                    headers=self.headers,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+                
+                user_data = response.json()
+                username = user_data.get("login", "")
+                
+                if username:
+                    _authenticated_user_cache = username.lower()
+                    logger.info("github_authenticated_user_fetched", username=username)
+                    return username
+                
+                return None
+                
+        except httpx.HTTPStatusError as e:
+            logger.warning(
+                "github_user_lookup_failed",
+                status_code=e.response.status_code,
+                error=str(e)
+            )
+            return None
+        except Exception as e:
+            logger.error("github_user_lookup_error", error=str(e))
+            return None
 
 
 # Global client instance

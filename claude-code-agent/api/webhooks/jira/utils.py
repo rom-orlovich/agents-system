@@ -131,7 +131,58 @@ async def send_jira_immediate_response(
         return False
 
 
-def match_jira_command(payload: dict, event_type: str) -> Optional[WebhookCommand]:
+async def is_agent_posted_jira_comment(comment_id: Optional[str]) -> bool:
+    """
+    Check if comment ID was posted by the agent.
+    Returns True to SKIP processing (prevent infinite loops).
+    
+    Args:
+        comment_id: Jira comment ID
+    
+    Returns:
+        True if this comment was posted by agent (should be skipped), False otherwise
+    """
+    if not comment_id:
+        return False
+    
+    try:
+        key = f"jira:posted_comment:{comment_id}"
+        exists = await redis_client.exists(key)
+        if exists:
+            logger.debug("jira_skipped_posted_comment", comment_id=comment_id)
+            return True
+    except Exception as e:
+        logger.warning("jira_redis_check_failed", comment_id=comment_id, error=str(e))
+    
+    return False
+
+
+async def is_agent_own_jira_account(account_id: Optional[str]) -> bool:
+    """
+    Check if comment is from the agent's own Jira account.
+    Returns True to SKIP processing (prevent infinite loops).
+    
+    Args:
+        account_id: Jira account ID (e.g., "557058:abc123def456")
+    
+    Returns:
+        True if this is the agent's own account (should be skipped), False otherwise
+    """
+    if not account_id:
+        return False
+    
+    configured_account_id = settings.jira_account_id
+    if not configured_account_id:
+        return False
+    
+    if account_id == configured_account_id:
+        logger.debug("jira_skipped_own_account", account_id=account_id)
+        return True
+    
+    return False
+
+
+async def match_jira_command(payload: dict, event_type: str) -> Optional[WebhookCommand]:
     """Match Jira webhook payload to a command."""
     from core.command_matcher import extract_command
 
@@ -142,6 +193,26 @@ def match_jira_command(payload: dict, event_type: str) -> Optional[WebhookComman
 
     if author_type == "app" or "bot" in author_name.lower():
         logger.info("jira_skipped_bot_comment", author=author_name, author_type=author_type)
+        return None
+
+    # Check if comment was posted by agent (prevent infinite loops)
+    comment_id = comment.get("id")
+    if comment_id and await is_agent_posted_jira_comment(str(comment_id)):
+        logger.info(
+            "jira_skipped_posted_comment",
+            comment_id=comment_id,
+            event_type=event_type
+        )
+        return None
+
+    # Check if comment is from agent's own Jira account
+    account_id = author.get("accountId")
+    if account_id and await is_agent_own_jira_account(account_id):
+        logger.info(
+            "jira_skipped_own_account",
+            account_id=account_id,
+            event_type=event_type
+        )
         return None
 
     text = ""
@@ -341,7 +412,19 @@ async def post_jira_task_comment(
         if success and cost_usd > 0:
             formatted_message += f"\n\n💰 Cost: ${cost_usd:.4f}"
         
-        await jira_client.post_comment(issue_key, formatted_message)
+        response = await jira_client.post_comment(issue_key, formatted_message)
+        
+        # Track comment ID in Redis to prevent infinite loops
+        if response and isinstance(response, dict):
+            comment_id = response.get("id")
+            if comment_id:
+                try:
+                    key = f"jira:posted_comment:{comment_id}"
+                    await redis_client._client.setex(key, 3600, "1")
+                    logger.debug("jira_comment_id_tracked", comment_id=comment_id)
+                except Exception as e:
+                    logger.warning("jira_comment_id_tracking_failed", comment_id=comment_id, error=str(e))
+        
         logger.info("jira_task_comment_posted", issue_key=issue_key)
         return True
         

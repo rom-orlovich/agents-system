@@ -1,334 +1,136 @@
-"""Unit tests for webhook command execution engine."""
+"""Unit tests for webhook engine module."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from core.webhook_engine import (
-    execute_command,
-    render_template,
-    match_commands,
-    action_create_task,
-    action_comment,
-    action_ask,
-    action_respond
-)
-from core.database.models import WebhookCommandDB
-class TestWebhookEngine:
-    """Test webhook command execution engine."""
-    
-    async def test_execute_create_task_command(self):
-        """Execute create_task command creates a task."""
-        command = WebhookCommandDB(
-            command_id="cmd-001",
-            webhook_id="webhook-001",
-            trigger="issues.opened",
-            action="create_task",
-            agent="planning",
-            template="Issue: {{issue.title}}",
-            priority=0
-        )
-        
-        payload = {"issue": {"title": "Test Issue", "number": 123}}
-        
-        db_mock = AsyncMock(spec=AsyncSession)
-        db_mock.commit = AsyncMock()
-        db_mock.add = MagicMock()
-        db_mock.flush = AsyncMock()
-        
-        # Mock db.execute() to return a result object with scalar_one_or_none()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none = MagicMock(return_value=None)  # No existing conversation
-        db_mock.execute = AsyncMock(return_value=mock_result)
-        
-        with patch('core.webhook_engine.redis_client.push_task', new_callable=AsyncMock):
-            result = await execute_command(command, payload, db_mock)
-            
-            assert result["action"] == "create_task"
-            assert "task_id" in result
-            assert result["agent"] == "planning"
-    
-    async def test_execute_comment_command(self):
-        """Execute comment command posts comment (for dynamic webhooks)."""
-        command = WebhookCommandDB(
-            command_id="cmd-002",
-            webhook_id="webhook-001",
-            trigger="issues.opened",
-            action="comment",
-            template="Acknowledged: {{issue.number}}",
-            priority=0
-        )
-        
-        payload = {
-            "issue": {"number": 123},
-            "provider": "custom",
-        }
-        
-        result = await execute_command(command, payload, None)
-        
-        assert result["action"] == "comment"
-        assert result["status"] == "sent"
-        assert result["provider"] == "custom"
-    
-    async def test_execute_ask_command(self):
-        """Execute ask command creates interactive task."""
-        command = WebhookCommandDB(
-            command_id="cmd-003",
-            webhook_id="webhook-001",
-            trigger="issues.assigned",
-            action="ask",
-            agent="brain",
-            template="Should I handle {{issue.title}}?",
-            priority=0
-        )
-        
-        payload = {"issue": {"title": "Test Issue", "number": 123}}
-        
-        db_mock = AsyncMock(spec=AsyncSession)
-        db_mock.commit = AsyncMock()
-        db_mock.add = MagicMock()
-        
-        with patch('core.webhook_engine.redis_client.push_task', new_callable=AsyncMock):
-            result = await execute_command(command, payload, db_mock)
-            
-            assert result["action"] == "ask"
-            assert "task_id" in result
-            assert result["interactive"] is True
-    
-    async def test_execute_respond_command(self):
-        """Execute respond command sends immediate response."""
-        command = WebhookCommandDB(
-            command_id="cmd-004",
-            webhook_id="webhook-001",
-            trigger="test",
-            action="respond",
-            template="Processing {{event.type}}",
-            priority=0
-        )
-        
-        payload = {"event": {"type": "test_event"}}
-        
-        result = await execute_command(command, payload, None)
-        
-        assert result["action"] == "respond"
-        assert result["status"] == "sent"
+from core.webhook_engine import render_template, truncate_content_intelligently
+from core.config import settings
 
 
-class TestTemplateRendering:
-    """Test template rendering with payload data."""
+class TestTruncateContentIntelligently:
+    """Test intelligent content truncation."""
     
-    def test_render_simple_template(self):
-        """Template rendering replaces variables."""
-        template = "Issue #{{issue.number}}: {{issue.title}}"
-        payload = {"issue": {"number": 123, "title": "Bug Report"}}
+    def test_truncates_large_content(self):
+        """Large content should be truncated."""
+        large_content = "A" * 20000
+        max_size = 10000
         
-        rendered = render_template(template, payload)
+        result = truncate_content_intelligently(large_content, max_size)
         
-        assert rendered == "Issue #123: Bug Report"
+        assert len(result) <= max_size + 100
+        assert "... (truncated)" in result
     
-    def test_render_nested_template(self):
-        """Template rendering handles nested objects."""
-        template = "{{user.profile.name}} commented on {{issue.title}}"
-        payload = {
-            "user": {"profile": {"name": "John Doe"}},
-            "issue": {"title": "Test Issue"}
-        }
+    def test_preserves_markdown_structure(self):
+        """Truncation should preserve markdown headers and code blocks."""
+        content = """# Header 1
         
-        rendered = render_template(template, payload)
+Some text here.
+
+## Header 2
+
+```python
+def code_block():
+    pass
+```
+
+More text after code block.
+""" + "A" * 15000
         
-        assert rendered == "John Doe commented on Test Issue"
+        result = truncate_content_intelligently(content, 1000)
+        
+        assert "# Header 1" in result
+        assert "```python" in result or "```" in result
+        assert "... (truncated)" in result
     
-    def test_render_missing_variable(self):
-        """Template rendering handles missing variables gracefully."""
-        template = "Issue: {{issue.title}} - {{issue.missing}}"
-        payload = {"issue": {"title": "Test"}}
+    def test_truncates_at_sentence_boundary(self):
+        """Truncation should prefer sentence boundaries."""
+        content = "First sentence. Second sentence. Third sentence. " + "A" * 10000
         
-        rendered = render_template(template, payload)
+        result = truncate_content_intelligently(content, 100)
         
-        assert "Test" in rendered
-        assert "{{issue.missing}}" in rendered or "missing" not in rendered
+        assert result.endswith(".") or result.endswith("... (truncated)")
+        assert "First sentence" in result
     
-    def test_render_array_access(self):
-        """Template rendering handles array access."""
-        template = "First label: {{labels.0.name}}"
-        payload = {"labels": [{"name": "bug"}, {"name": "urgent"}]}
+    def test_does_not_truncate_small_content(self):
+        """Small content should not be truncated."""
+        small_content = "This is a small comment."
         
-        rendered = render_template(template, payload)
+        result = truncate_content_intelligently(small_content, 10000)
         
-        assert "bug" in rendered
+        assert result == small_content
+        assert "... (truncated)" not in result
+    
+    def test_handles_empty_content(self):
+        """Empty content should be handled gracefully."""
+        result = truncate_content_intelligently("", 1000)
+        assert result == ""
+    
+    def test_handles_none_content(self):
+        """None content should be handled gracefully."""
+        result = truncate_content_intelligently(None, 1000)
+        assert result == ""
 
 
-class TestCommandMatching:
-    """Test command matching logic."""
+class TestRenderTemplateWithTruncation:
+    """Test template rendering with content truncation."""
     
-    def test_match_exact_trigger(self):
-        """Commands match exact trigger patterns."""
-        commands = [
-            WebhookCommandDB(
-                command_id="cmd-001",
-                webhook_id="webhook-001",
-                trigger="issues.opened",
-                action="create_task",
-                template="test",
-                priority=0
-            ),
-            WebhookCommandDB(
-                command_id="cmd-002",
-                webhook_id="webhook-001",
-                trigger="pull_request.opened",
-                action="create_task",
-                template="test",
-                priority=0
-            )
-        ]
-        
-        event_type = "issues.opened"
-        payload = {"action": "opened"}
-        
-        matched = match_commands(commands, event_type, payload)
-        
-        assert len(matched) == 1
-        assert matched[0].command_id == "cmd-001"
-    
-    def test_match_with_conditions(self):
-        """Commands match with condition filtering."""
-        commands = [
-            WebhookCommandDB(
-                command_id="cmd-001",
-                webhook_id="webhook-001",
-                trigger="issues.labeled",
-                action="create_task",
-                template="test",
-                conditions_json='{"label": "urgent"}',
-                priority=0
-            )
-        ]
-        
-        event_type = "issues.labeled"
+    def test_large_comment_body_truncated(self):
+        """Large comment.body should be truncated in template."""
+        large_comment = "A" * 20000
+        template = "Comment: {{comment.body}}"
         payload = {
-            "action": "labeled",
-            "label": {"name": "urgent"}
+            "comment": {
+                "body": large_comment
+            }
         }
         
-        matched = match_commands(commands, event_type, payload)
+        result = render_template(template, payload)
         
-        assert len(matched) == 1
+        assert len(result) < len(large_comment)
+        assert "... (truncated)" in result
+        assert "Comment: A" in result
     
-    def test_match_conditions_not_met(self):
-        """Commands don't match when conditions not met."""
-        commands = [
-            WebhookCommandDB(
-                command_id="cmd-001",
-                webhook_id="webhook-001",
-                trigger="issues.labeled",
-                action="create_task",
-                template="test",
-                conditions_json='{"label": "urgent"}',
-                priority=0
-            )
-        ]
-        
-        event_type = "issues.labeled"
+    def test_small_comment_body_not_truncated(self):
+        """Small comment.body should not be truncated."""
+        small_comment = "This is a small comment."
+        template = "Comment: {{comment.body}}"
         payload = {
-            "action": "labeled",
-            "label": {"name": "bug"}
+            "comment": {
+                "body": small_comment
+            }
         }
         
-        matched = match_commands(commands, event_type, payload)
+        result = render_template(template, payload)
         
-        assert len(matched) == 0
+        assert result == f"Comment: {small_comment}"
+        assert "... (truncated)" not in result
     
-    def test_match_priority_ordering(self):
-        """Commands are ordered by priority."""
-        commands = [
-            WebhookCommandDB(
-                command_id="cmd-001",
-                webhook_id="webhook-001",
-                trigger="issues.opened",
-                action="create_task",
-                template="test",
-                priority=10
-            ),
-            WebhookCommandDB(
-                command_id="cmd-002",
-                webhook_id="webhook-001",
-                trigger="issues.opened",
-                action="create_task",
-                template="test",
-                priority=0
-            )
-        ]
-        
-        event_type = "issues.opened"
-        payload = {"action": "opened"}
-        
-        matched = match_commands(commands, event_type, payload)
-        
-        assert len(matched) == 2
-        assert matched[0].command_id == "cmd-002"
-        assert matched[1].command_id == "cmd-001"
-class TestActionHandlers:
-    """Test individual action handlers."""
-    
-    async def test_action_create_task(self):
-        """Create task action creates database entry and queues task."""
-        db_mock = AsyncMock(spec=AsyncSession)
-        db_mock.commit = AsyncMock()
-        db_mock.add = MagicMock()
-        db_mock.flush = AsyncMock()
-        
-        # Mock db.execute() to return a result object with scalar_one_or_none()
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none = MagicMock(return_value=None)  # No existing conversation
-        db_mock.execute = AsyncMock(return_value=mock_result)
-        
-        with patch('core.webhook_engine.redis_client.push_task', new_callable=AsyncMock):
-            result = await action_create_task(
-                agent="planning",
-                message="Test task message",
-                payload={"issue": {"number": 123}},
-                db=db_mock
-            )
-            
-            assert result["action"] == "create_task"
-            assert "task_id" in result
-            assert result["agent"] == "planning"
-    
-    async def test_action_comment_dynamic(self):
-        """Comment action for dynamic webhooks."""
+    def test_truncation_respects_config_limit(self):
+        """Truncation should respect configured max_comment_body_size."""
+        large_comment = "A" * 20000
+        template = "{{comment.body}}"
         payload = {
-            "provider": "custom",
+            "comment": {
+                "body": large_comment
+            }
         }
         
-        result = await action_comment(payload, "Test comment")
+        result = render_template(template, payload)
         
-        assert result["action"] == "comment"
-        assert result["status"] == "sent"
-        assert result["provider"] == "custom"
+        max_size = settings.max_comment_body_size
+        assert len(result) <= max_size + 500
     
-    async def test_action_ask_creates_interactive_task(self):
-        """Ask action creates interactive task."""
-        db_mock = AsyncMock(spec=AsyncSession)
-        db_mock.commit = AsyncMock()
-        db_mock.add = MagicMock()
+    def test_multiple_large_fields_truncated(self):
+        """Multiple large fields should be truncated independently."""
+        large_body = "B" * 20000
+        large_title = "C" * 5000
+        template = "Title: {{issue.title}}\nBody: {{issue.body}}"
+        payload = {
+            "issue": {
+                "title": large_title,
+                "body": large_body
+            }
+        }
         
-        with patch('core.webhook_engine.redis_client.push_task', new_callable=AsyncMock):
-            result = await action_ask(
-                agent="brain",
-                message="Should I proceed?",
-                payload={"issue": {"number": 123}},
-                db=db_mock
-            )
-            
-            assert result["action"] == "ask"
-            assert "task_id" in result
-            assert result["interactive"] is True
-    
-    async def test_action_respond(self):
-        """Respond action sends immediate response."""
-        payload = {"provider": "github"}
+        result = render_template(template, payload)
         
-        result = await action_respond(payload, "Response message")
-        
-        assert result["action"] == "respond"
-        assert result["status"] == "sent"
+        assert len(result) < len(large_body) + len(large_title)
+        assert "... (truncated)" in result

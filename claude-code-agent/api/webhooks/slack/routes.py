@@ -23,6 +23,7 @@ from api.webhooks.slack.utils import (
     update_slack_message,
     post_slack_task_comment,
     send_slack_notification,
+    create_task_from_button_action,
 )
 
 logger = structlog.get_logger()
@@ -47,20 +48,62 @@ async def handle_slack_task_completion(
     Called by task worker when task completes.
     
     Actions:
-    1. Format message (clean error message for Slack)
-    2. Post message to Slack thread with task result
-    3. Send Slack notification (if enabled)
+    1. Extract routing metadata and task summary
+    2. Build Block Kit message with rich formatting
+    3. Post message to Slack thread with task result
+    4. Send Slack notification (if enabled)
     
     Returns:
         True if message posted successfully, False otherwise
     """
+    from api.webhooks.slack.utils import extract_task_summary, build_task_completion_blocks
+    from core.webhook_configs import SLACK_WEBHOOK
+    
+    # Extract routing from payload
+    event = payload.get("event", {})
+    routing = {
+        "channel": event.get("channel"),
+        "thread_ts": event.get("ts"),
+        "repo": payload.get("routing", {}).get("repo"),
+        "pr_number": payload.get("routing", {}).get("pr_number"),
+        "ticket_key": payload.get("routing", {}).get("ticket_key")
+    }
+    
+    # Extract task summary from result
+    task_metadata = {
+        "classification": payload.get("classification", "SIMPLE")
+    }
+    summary = extract_task_summary(result or message, task_metadata)
+    
+    # Determine if buttons are needed
+    # Check if command requires approval
+    requires_approval = False
+    if command:
+        for cmd in SLACK_WEBHOOK.commands:
+            if cmd.name == command:
+                requires_approval = cmd.requires_approval
+                break
+    
+    # Build Block Kit blocks
+    blocks = build_task_completion_blocks(
+        summary=summary,
+        routing=routing,
+        requires_approval=requires_approval,
+        task_id=task_id or "unknown",
+        cost_usd=cost_usd,
+        command=command or "",
+        source=payload.get("routing", {}).get("source", "slack")
+    )
+    
+    # Post message with Block Kit blocks
     formatted_message = error if not success and error else message
     
     comment_posted = await post_slack_task_comment(
         payload=payload,
         message=formatted_message,
         success=success,
-        cost_usd=cost_usd
+        cost_usd=cost_usd,
+        blocks=blocks
     )
     
     await send_slack_notification(
@@ -151,7 +194,7 @@ async def slack_webhook(
             logger.error("slack_webhook_validation_error", error=str(e), event_type=event_type)
         
         try:
-            command = match_slack_command(payload, event_type)
+            command = await match_slack_command(payload, event_type)
             if not command:
                 logger.warning("slack_no_command_matched", event_type=event_type, channel=channel)
                 return {"status": "received", "actions": 0, "message": "No command matched"}
@@ -215,10 +258,10 @@ async def slack_webhook(
 
 
 @router.post("/slack/interactivity")
-async def slack_interactivity(request: Request):
+async def slack_interactivity(request: Request, db: AsyncSession = Depends(get_db_session)):
     """
     Handle Slack interactive components (button clicks).
-    When Approve/Reject buttons are clicked, post @agent approve/@agent reject to GitHub PR.
+    When Approve/Review/Reject buttons are clicked, create new tasks routed to GitHub PR, Jira ticket, or Slack.
     """
     try:
         form_data = await request.form()
@@ -250,40 +293,92 @@ async def slack_interactivity(request: Request):
         channel = payload.get("channel", {}).get("id")
         message_ts = payload.get("message", {}).get("ts")
 
-        repo = value.get("repo")
-        pr_number = value.get("pr_number")
-        ticket_id = value.get("ticket_id", "N/A")
-
-        if not repo or not pr_number:
-            logger.warning("slack_interactivity_missing_pr_info", action_id=action_id)
-            return {"ok": True}
-
+        # Handle legacy approve_plan and reject_plan actions (backward compatibility)
         if action_id == "approve_plan":
-            comment = f"@agent approve\n\n_Approved via Slack by @{user_name}_"
-            success = await post_github_comment(repo, pr_number, comment)
-
-            if success:
-                await update_slack_message(
-                    channel,
-                    message_ts,
-                    f"✅ *Plan Approved* by {user_name}\n\n`@agent approve` posted to PR #{pr_number}\nTicket: `{ticket_id}`"
-                )
-                logger.info("plan_approved_via_slack", repo=repo, pr_number=pr_number, user=user_name)
-
+            repo = value.get("repo")
+            pr_number = value.get("pr_number")
+            ticket_id = value.get("ticket_id", "N/A")
+            
+            if repo and pr_number:
+                comment = f"@agent approve\n\n_Approved via Slack by @{user_name}_"
+                success = await post_github_comment(repo, pr_number, comment)
+                
+                if success:
+                    await update_slack_message(
+                        channel,
+                        message_ts,
+                        f"✅ *Plan Approved* by {user_name}\n\n`@agent approve` posted to PR #{pr_number}\nTicket: `{ticket_id}`"
+                    )
+                    logger.info("plan_approved_via_slack", repo=repo, pr_number=pr_number, user=user_name)
+            
             return {"ok": True}
-
+        
         elif action_id == "reject_plan":
-            comment = f"@agent reject\n\n_Rejected via Slack by @{user_name}. Please revise the plan._"
-            success = await post_github_comment(repo, pr_number, comment)
-
-            if success:
-                await update_slack_message(
-                    channel,
-                    message_ts,
-                    f"❌ *Plan Rejected* by {user_name}\n\n`@agent reject` posted to PR #{pr_number}\nTicket: `{ticket_id}`\n\nPlanning agent will revise the plan."
-                )
-                logger.info("plan_rejected_via_slack", repo=repo, pr_number=pr_number, user=user_name)
-
+            repo = value.get("repo")
+            pr_number = value.get("pr_number")
+            ticket_id = value.get("ticket_id", "N/A")
+            
+            if repo and pr_number:
+                comment = f"@agent reject\n\n_Rejected via Slack by @{user_name}. Please revise the plan._"
+                success = await post_github_comment(repo, pr_number, comment)
+                
+                if success:
+                    await update_slack_message(
+                        channel,
+                        message_ts,
+                        f"❌ *Plan Rejected* by {user_name}\n\n`@agent reject` posted to PR #{pr_number}\nTicket: `{ticket_id}`\n\nPlanning agent will revise the plan."
+                    )
+                    logger.info("plan_rejected_via_slack", repo=repo, pr_number=pr_number, user=user_name)
+            
+            return {"ok": True}
+        
+        # Handle new approve_task, review_task, reject_task actions
+        if action_id in ["approve_task", "review_task", "reject_task"]:
+            action_type = value.get("action")
+            original_task_id = value.get("original_task_id", "unknown")
+            command = value.get("command", "unknown")
+            source = value.get("source", "slack")
+            routing = value.get("routing", {})
+            
+            if not action_type:
+                logger.warning("slack_interactivity_missing_action", action_id=action_id)
+                return {"ok": True}
+            
+            # Create task from button action
+            task_id = await create_task_from_button_action(
+                action=action_type,
+                routing=routing,
+                source=source,
+                original_task_id=original_task_id,
+                command=command,
+                db=db,
+                user_name=user_name
+            )
+            
+            if task_id:
+                # Update message to show action taken
+                action_emoji = {
+                    "approve": "✅",
+                    "review": "👀",
+                    "reject": "❌"
+                }.get(action_type, "⚙️")
+                
+                action_text = {
+                    "approve": "Approved",
+                    "review": "Review requested",
+                    "reject": "Rejected"
+                }.get(action_type, "Processed")
+                
+                update_message = f"{action_emoji} *{action_text}* by {user_name}\n\nTask `{task_id}` created"
+                
+                if source == "github" and routing.get("repo") and routing.get("pr_number"):
+                    update_message += f"\n`@agent {action_type}` posted to PR #{routing['pr_number']}"
+                elif source == "jira" and routing.get("ticket_key"):
+                    update_message += f"\n`@agent {action_type}` posted to ticket `{routing['ticket_key']}`"
+                
+                await update_slack_message(channel, message_ts, update_message)
+                logger.info("slack_button_action_processed", action=action_type, task_id=task_id, source=source, user=user_name)
+            
             return {"ok": True}
 
         return {"ok": True}

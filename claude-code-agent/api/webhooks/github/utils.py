@@ -221,7 +221,33 @@ async def send_github_immediate_response(
         return False
 
 
-def match_github_command(payload: dict, event_type: str) -> Optional[WebhookCommand]:
+async def is_agent_posted_comment(comment_id: Optional[int]) -> bool:
+    """
+    Check if comment ID was posted by the agent.
+    Returns True to SKIP processing (prevent infinite loops).
+    
+    Args:
+        comment_id: GitHub comment ID
+    
+    Returns:
+        True if this comment was posted by agent (should be skipped), False otherwise
+    """
+    if not comment_id:
+        return False
+    
+    try:
+        key = f"github:posted_comment:{comment_id}"
+        exists = await redis_client.exists(key)
+        if exists:
+            logger.debug("github_skipped_posted_comment", comment_id=comment_id)
+            return True
+    except Exception as e:
+        logger.warning("github_redis_check_failed", comment_id=comment_id, error=str(e))
+    
+    return False
+
+
+async def match_github_command(payload: dict, event_type: str) -> Optional[WebhookCommand]:
     """Match GitHub webhook payload to a command."""
     from core.command_matcher import is_bot_comment, extract_command
 
@@ -237,6 +263,26 @@ def match_github_command(payload: dict, event_type: str) -> Optional[WebhookComm
             event_type=event_type
         )
         return None
+    
+    comment_id = None
+    if event_type.startswith("issue_comment"):
+        comment_id = payload.get("comment", {}).get("id")
+        if await is_agent_posted_comment(comment_id):
+            logger.info(
+                "github_skipped_posted_comment",
+                comment_id=comment_id,
+                event_type=event_type
+            )
+            return None
+    elif event_type.startswith("pull_request_review_comment"):
+        comment_id = payload.get("comment", {}).get("id")
+        if await is_agent_posted_comment(comment_id):
+            logger.info(
+                "github_skipped_posted_pr_review_comment",
+                comment_id=comment_id,
+                event_type=event_type
+            )
+            return None
 
     text = ""
     if event_type.startswith("issue_comment"):
@@ -246,7 +292,7 @@ def match_github_command(payload: dict, event_type: str) -> Optional[WebhookComm
             event_type=event_type,
             action=payload.get("action"),
             text_preview=text[:100] if text else "",
-            comment_id=payload.get("comment", {}).get("id")
+            comment_id=comment_id
         )
     elif event_type.startswith("pull_request_review_comment"):
         text = payload.get("comment", {}).get("body", "")
@@ -395,7 +441,10 @@ async def post_github_task_comment(
         if success:
             formatted_message = f"✅ {message}"
         else:
-            formatted_message = f"❌ {message}"
+            if message == "❌":
+                formatted_message = "❌"
+            else:
+                formatted_message = f"❌ {message}"
         
         max_length = 8000 if not success else 4000
         if len(formatted_message) > max_length:
@@ -412,26 +461,37 @@ async def post_github_task_comment(
         
         pr = payload.get("pull_request", {})
         issue = payload.get("issue", {})
+        comment_id = None
         
         if pr and pr.get("number"):
             pr_number = pr.get("number")
-            await github_client.post_pr_comment(owner, repo_name, pr_number, formatted_message)
-            logger.info("github_pr_comment_posted", pr_number=pr_number)
-            return True
+            response = await github_client.post_pr_comment(owner, repo_name, pr_number, formatted_message)
+            comment_id = response.get("id") if isinstance(response, dict) else None
+            logger.info("github_pr_comment_posted", pr_number=pr_number, comment_id=comment_id)
         elif issue and issue.get("number"):
             if issue.get("pull_request"):
                 pr_number = issue.get("number")
-                await github_client.post_pr_comment(owner, repo_name, pr_number, formatted_message)
-                logger.info("github_pr_comment_posted_from_issue", pr_number=pr_number)
-                return True
+                response = await github_client.post_pr_comment(owner, repo_name, pr_number, formatted_message)
+                comment_id = response.get("id") if isinstance(response, dict) else None
+                logger.info("github_pr_comment_posted_from_issue", pr_number=pr_number, comment_id=comment_id)
             else:
                 issue_number = issue.get("number")
-                await github_client.post_issue_comment(owner, repo_name, issue_number, formatted_message)
-                logger.info("github_issue_comment_posted", issue_number=issue_number)
-                return True
+                response = await github_client.post_issue_comment(owner, repo_name, issue_number, formatted_message)
+                comment_id = response.get("id") if isinstance(response, dict) else None
+                logger.info("github_issue_comment_posted", issue_number=issue_number, comment_id=comment_id)
         else:
             logger.warning("github_no_issue_or_pr_found", payload_keys=list(payload.keys()))
             return False
+        
+        if comment_id:
+            try:
+                key = f"github:posted_comment:{comment_id}"
+                await redis_client._client.setex(key, 3600, "1")
+                logger.debug("github_comment_id_tracked", comment_id=comment_id)
+            except Exception as e:
+                logger.warning("github_comment_id_tracking_failed", comment_id=comment_id, error=str(e))
+        
+        return True
         
     except ValueError as e:
         logger.warning(

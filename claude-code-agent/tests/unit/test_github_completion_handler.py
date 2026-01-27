@@ -8,10 +8,11 @@ class TestGitHubCompletionHandler:
     """Test GitHub task completion handler behavior."""
     
     @pytest.mark.asyncio
-    async def test_formats_error_message_with_emoji(self):
+    async def test_posts_only_emoji_for_errors(self):
         """
-        Business Rule: GitHub errors must be formatted with ❌ emoji.
-        Behavior: Error messages are prefixed with ❌ when success=False and error exists.
+        Business Rule: GitHub errors must post only emoji (❌), not full error message.
+        Behavior: When success=False and error exists, only ❌ emoji is posted to GitHub.
+        Full error details remain in logs and conversation.
         """
         from api.webhooks.github.routes import handle_github_task_completion
         
@@ -21,24 +22,33 @@ class TestGitHubCompletionHandler:
         }
         
         with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
-             patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock):
+             patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock), \
+             patch('api.webhooks.github.routes.logger') as mock_logger:
             mock_post.return_value = True
+            
+            error_message = "Separator is not found, and chunk exceed the limit"
             
             await handle_github_task_completion(
                 payload=payload,
                 message="Task failed",
                 success=False,
-                error="Something went wrong",
+                error=error_message,
                 cost_usd=0.0,
                 task_id="task-123"
             )
             
             mock_post.assert_called_once_with(
                 payload=payload,
-                message="❌ Something went wrong",
+                message="❌",
                 success=False,
                 cost_usd=0.0
             )
+            
+            mock_logger.info.assert_called()
+            log_call = mock_logger.info.call_args
+            assert log_call.args[0] == "github_task_error_posted"
+            assert log_call.kwargs.get("task_id") == "task-123"
+            assert error_message[:200] in log_call.kwargs.get("error_preview", "")
     
     @pytest.mark.asyncio
     async def test_passes_success_message_without_formatting(self):
@@ -164,10 +174,42 @@ class TestGitHubCompletionHandler:
             assert result is False
     
     @pytest.mark.asyncio
+    async def test_posts_only_emoji_when_error_exists_even_with_message(self):
+        """
+        Business Rule: When error exists, always post only emoji regardless of message.
+        Behavior: If error parameter exists, only ❌ is posted, message is ignored for GitHub.
+        """
+        from api.webhooks.github.routes import handle_github_task_completion
+        
+        payload = {
+            "repository": {"owner": {"login": "test"}, "name": "repo"},
+            "issue": {"number": 111}
+        }
+        
+        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
+             patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock):
+            mock_post.return_value = True
+            
+            await handle_github_task_completion(
+                payload=payload,
+                message="Task failed with details",
+                success=False,
+                error="Actual error message",
+                cost_usd=0.0
+            )
+            
+            mock_post.assert_called_once_with(
+                payload=payload,
+                message="❌",
+                success=False,
+                cost_usd=0.0
+            )
+    
+    @pytest.mark.asyncio
     async def test_handles_missing_error_gracefully(self):
         """
         Business Rule: Handler must handle missing error parameter gracefully.
-        Behavior: When success=False but error=None, uses message as-is.
+        Behavior: When success=False but error=None, uses message as-is (for backward compatibility).
         """
         from api.webhooks.github.routes import handle_github_task_completion
         

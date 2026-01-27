@@ -59,6 +59,15 @@ class GitHubWebhookPayload(BaseModel):
 def validate_github_webhook(payload: Dict[str, Any]) -> WebhookValidationResult:
     """Validate GitHub webhook payload."""
     try:
+        # Check if sender is a bot - skip validation for bot comments
+        sender = payload.get("sender", {})
+        sender_login = sender.get("login", "")
+        sender_type = sender.get("type", "")
+        
+        from core.command_matcher import is_bot_comment
+        if is_bot_comment(sender_login, sender_type):
+            return WebhookValidationResult.success()
+        
         github_payload = GitHubWebhookPayload(**payload)
         return github_payload.validate()
     except Exception as e:

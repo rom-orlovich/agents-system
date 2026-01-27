@@ -91,7 +91,59 @@ async def send_slack_immediate_response(
         return False
 
 
-def match_slack_command(payload: dict, event_type: str) -> Optional[WebhookCommand]:
+async def is_agent_posted_slack_message(message_ts: Optional[str]) -> bool:
+    """
+    Check if message timestamp was posted by the agent.
+    Returns True to SKIP processing (prevent infinite loops).
+    
+    Args:
+        message_ts: Slack message timestamp (e.g., "1234567890.123456")
+    
+    Returns:
+        True if this message was posted by agent (should be skipped), False otherwise
+    """
+    if not message_ts:
+        return False
+    
+    try:
+        key = f"slack:posted_message:{message_ts}"
+        exists = await redis_client.exists(key)
+        if exists:
+            logger.debug("slack_skipped_posted_message", message_ts=message_ts)
+            return True
+    except Exception as e:
+        logger.warning("slack_redis_check_failed", message_ts=message_ts, error=str(e))
+    
+    return False
+
+
+async def is_agent_own_slack_app(app_id: Optional[str], bot_id: Optional[str]) -> bool:
+    """
+    Check if message is from the agent's own Slack app.
+    Returns True to SKIP processing (prevent infinite loops).
+    
+    Args:
+        app_id: Slack app ID
+        bot_id: Slack bot ID
+    
+    Returns:
+        True if this is the agent's own Slack app (should be skipped), False otherwise
+    """
+    if not app_id:
+        return False
+    
+    configured_app_id = settings.slack_app_id
+    if not configured_app_id:
+        return False
+    
+    if app_id == configured_app_id:
+        logger.debug("slack_skipped_own_app", app_id=app_id)
+        return True
+    
+    return False
+
+
+async def match_slack_command(payload: dict, event_type: str) -> Optional[WebhookCommand]:
     """Match Slack webhook payload to a command."""
     from core.command_matcher import extract_command
 
@@ -99,6 +151,28 @@ def match_slack_command(payload: dict, event_type: str) -> Optional[WebhookComma
 
     if event.get("bot_id") or event.get("subtype") == "bot_message":
         logger.info("slack_skipped_bot_message", bot_id=event.get("bot_id"))
+        return None
+
+    # Check if message was posted by agent (prevent infinite loops)
+    message_ts = event.get("ts")
+    if message_ts and await is_agent_posted_slack_message(message_ts):
+        logger.info(
+            "slack_skipped_posted_message",
+            message_ts=message_ts,
+            event_type=event_type
+        )
+        return None
+
+    # Check if message is from agent's own Slack app
+    app_id = event.get("app_id") or payload.get("api_app_id")
+    bot_id = event.get("bot_id")
+    if await is_agent_own_slack_app(app_id, bot_id):
+        logger.info(
+            "slack_skipped_own_app",
+            app_id=app_id,
+            bot_id=bot_id,
+            event_type=event_type
+        )
         return None
 
     text = event.get("text", "")
@@ -265,11 +339,228 @@ async def update_slack_message(channel: str, ts: str, text: str) -> bool:
         return False
 
 
+def build_task_completion_blocks(
+    summary: dict,
+    routing: dict,
+    requires_approval: bool,
+    task_id: str,
+    cost_usd: float = 0.0,
+    command: str = "",
+    source: str = "slack"
+) -> list:
+    """
+    Build Slack Block Kit blocks for task completion message.
+    
+    Args:
+        summary: Dict with summary, what_was_done, key_insights, classification
+        routing: Dict with routing info (channel, thread_ts, repo, pr_number, ticket_key)
+        requires_approval: Whether to show Approve/Review/Reject buttons
+        task_id: Task ID
+        cost_usd: Task cost in USD
+        command: Command name
+        source: Source webhook (github, jira, slack)
+    
+    Returns:
+        List of Block Kit blocks
+    """
+    import json
+    
+    blocks = []
+    
+    # Header block
+    classification_emoji = {
+        "WORKFLOW": "🔄",
+        "SIMPLE": "✅",
+        "CUSTOM": "⚙️"
+    }.get(summary.get("classification", "SIMPLE"), "✅")
+    
+    blocks.append({
+        "type": "header",
+        "text": {
+            "type": "plain_text",
+            "text": f"{classification_emoji} Task Completed - {summary.get('classification', 'SIMPLE')}"
+        }
+    })
+    
+    # Summary section
+    if summary.get("summary"):
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Summary*\n{summary['summary']}"
+            }
+        })
+    
+    # What Was Done section
+    if summary.get("what_was_done"):
+        what_was_done_text = summary["what_was_done"]
+        max_length = 2000
+        
+        if len(what_was_done_text) > max_length:
+            truncated = what_was_done_text[:max_length]
+            last_period = truncated.rfind(".")
+            last_newline = truncated.rfind("\n")
+            truncate_at = max(last_period, last_newline)
+            if truncate_at > max_length * 0.8:
+                truncated = truncated[:truncate_at + 1]
+            what_was_done_text = truncated + "\n\n_(message truncated)_"
+        
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*What Was Done*\n{what_was_done_text}"
+            }
+        })
+    
+    # Key Insights section
+    if summary.get("key_insights"):
+        insights_text = summary["key_insights"]
+        max_length = 2000
+        
+        if len(insights_text) > max_length:
+            truncated = insights_text[:max_length]
+            last_period = truncated.rfind(".")
+            last_newline = truncated.rfind("\n")
+            truncate_at = max(last_period, last_newline)
+            if truncate_at > max_length * 0.8:
+                truncated = truncated[:truncate_at + 1]
+            insights_text = truncated + "\n\n_(message truncated)_"
+        
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Key Insights*\n{insights_text}"
+            }
+        })
+    
+    # Actions block with buttons (if approval required)
+    if requires_approval:
+        button_value = {
+            "original_task_id": task_id,
+            "command": command,
+            "source": source,
+            "routing": {
+                "channel": routing.get("channel"),
+                "thread_ts": routing.get("thread_ts"),
+                "repo": routing.get("repo"),
+                "pr_number": routing.get("pr_number"),
+                "ticket_key": routing.get("ticket_key")
+            }
+        }
+        
+        blocks.append({
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "✅ Approve"
+                    },
+                    "style": "primary",
+                    "action_id": "approve_task",
+                    "value": json.dumps({**button_value, "action": "approve"})
+                },
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "👀 Review"
+                    },
+                    "action_id": "review_task",
+                    "value": json.dumps({**button_value, "action": "review"})
+                },
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "❌ Reject"
+                    },
+                    "style": "danger",
+                    "action_id": "reject_task",
+                    "value": json.dumps({**button_value, "action": "reject"})
+                }
+            ]
+        })
+    
+    # Context block with cost and task ID
+    context_elements = []
+    if cost_usd > 0:
+        context_elements.append({
+            "type": "mrkdwn",
+            "text": f"💰 Cost: ${cost_usd:.4f}"
+        })
+    context_elements.append({
+        "type": "mrkdwn",
+        "text": f"Task ID: `{task_id}`"
+    })
+    
+    blocks.append({
+        "type": "context",
+        "elements": context_elements
+    })
+    
+    return blocks
+
+
+def extract_task_summary(result: str, task_metadata: dict) -> dict:
+    """
+    Extract structured task summary from result string.
+    
+    Args:
+        result: Task result string (may contain markdown sections)
+        task_metadata: Task metadata dict (may contain classification)
+    
+    Returns:
+        Dict with keys: summary, what_was_done, key_insights, classification
+    """
+    import re
+    
+    summary_text = ""
+    what_was_done_text = ""
+    key_insights_text = ""
+    
+    # Try to extract sections from markdown
+    summary_match = re.search(r'##\s*Summary\s*\n(.*?)(?=\n##|\Z)', result, re.DOTALL | re.IGNORECASE)
+    if summary_match:
+        summary_text = summary_match.group(1).strip()
+    
+    what_was_done_match = re.search(r'##\s*What\s+Was\s+Done\s*\n(.*?)(?=\n##|\Z)', result, re.DOTALL | re.IGNORECASE)
+    if what_was_done_match:
+        what_was_done_text = what_was_done_match.group(1).strip()
+    
+    key_insights_match = re.search(r'##\s*Key\s+Insights\s*\n(.*?)(?=\n##|\Z)', result, re.DOTALL | re.IGNORECASE)
+    if key_insights_match:
+        key_insights_text = key_insights_match.group(1).strip()
+    
+    # If no sections found, use entire result as summary
+    if not summary_text and not what_was_done_text and not key_insights_text:
+        summary_text = result.strip()
+    
+    # Determine classification
+    classification = task_metadata.get("classification", "SIMPLE")
+    
+    # Infer classification from content if not provided
+    if classification == "SIMPLE" and (summary_match or what_was_done_match or key_insights_match):
+        classification = "WORKFLOW"
+    
+    return {
+        "summary": summary_text,
+        "what_was_done": what_was_done_text,
+        "key_insights": key_insights_text,
+        "classification": classification
+    }
+
+
 async def post_slack_task_comment(
     payload: dict,
     message: str,
     success: bool,
-    cost_usd: float = 0.0
+    cost_usd: float = 0.0,
+    blocks: Optional[list] = None
 ) -> bool:
     """Post a message to Slack after task completion."""
     try:
@@ -281,30 +572,52 @@ async def post_slack_task_comment(
             logger.warning("slack_post_task_comment_no_channel", payload_keys=list(payload.keys()))
             return False
         
-        if success:
-            formatted_message = f"✅ {message}"
+        # Use Block Kit blocks if provided, otherwise use plain text
+        if blocks:
+            response = await slack_client.post_message(
+                channel=channel,
+                text=message[:200] if message else "Task completed",  # Fallback text for notifications
+                thread_ts=thread_ts,
+                blocks=blocks
+            )
         else:
-            formatted_message = f"❌ {message}"
+            # Fallback to plain text formatting
+            if success:
+                formatted_message = f"✅ {message}"
+            else:
+                formatted_message = f"❌ {message}"
+            
+            max_length = 4000
+            if len(formatted_message) > max_length:
+                truncated_message = formatted_message[:max_length]
+                last_period = truncated_message.rfind(".")
+                last_newline = truncated_message.rfind("\n")
+                truncate_at = max(last_period, last_newline)
+                if truncate_at > max_length * 0.8:
+                    truncated_message = truncated_message[:truncate_at + 1]
+                formatted_message = truncated_message + "\n\n... (message truncated)"
+            
+            if success and cost_usd > 0:
+                formatted_message += f"\n\n💰 Cost: ${cost_usd:.4f}"
+            
+            response = await slack_client.post_message(
+                channel=channel,
+                text=formatted_message,
+                thread_ts=thread_ts
+            )
         
-        max_length = 4000
-        if len(formatted_message) > max_length:
-            truncated_message = formatted_message[:max_length]
-            last_period = truncated_message.rfind(".")
-            last_newline = truncated_message.rfind("\n")
-            truncate_at = max(last_period, last_newline)
-            if truncate_at > max_length * 0.8:
-                truncated_message = truncated_message[:truncate_at + 1]
-            formatted_message = truncated_message + "\n\n... (message truncated)"
+        # Track message timestamp in Redis to prevent infinite loops
+        if response and isinstance(response, dict):
+            posted_message_ts = response.get("ts") or response.get("message", {}).get("ts")
+            if posted_message_ts:
+                try:
+                    key = f"slack:posted_message:{posted_message_ts}"
+                    await redis_client._client.setex(key, 3600, "1")
+                    logger.debug("slack_message_ts_tracked", message_ts=posted_message_ts)
+                except Exception as e:
+                    logger.warning("slack_message_ts_tracking_failed", message_ts=posted_message_ts, error=str(e))
         
-        if success and cost_usd > 0:
-            formatted_message += f"\n\n💰 Cost: ${cost_usd:.4f}"
-        
-        await slack_client.post_message(
-            channel=channel,
-            text=formatted_message,
-            thread_ts=thread_ts
-        )
-        logger.info("slack_task_comment_posted", channel=channel)
+        logger.info("slack_task_comment_posted", channel=channel, used_blocks=blocks is not None)
         return True
         
     except Exception as e:
@@ -385,3 +698,178 @@ async def send_slack_notification(
         else:
             logger.error("slack_notification_failed", task_id=task_id, channel=channel, error=error_msg)
         return False
+
+
+async def create_task_from_button_action(
+    action: str,
+    routing: dict,
+    source: str,
+    original_task_id: str,
+    command: str,
+    db: AsyncSession,
+    user_name: str = "unknown"
+) -> Optional[str]:
+    """
+    Create a new task from a button action (approve/review/reject).
+    
+    Args:
+        action: Action type (approve, review, reject)
+        routing: Routing information (repo/pr_number for GitHub, ticket_key for Jira, channel/thread_ts for Slack)
+        source: Source webhook (github, jira, slack)
+        original_task_id: Original task ID that triggered the button
+        command: Original command name
+        db: Database session
+        user_name: User who clicked the button
+    
+    Returns:
+        New task ID if created successfully, None otherwise
+    """
+    try:
+        if source == "github":
+            from api.webhooks.github.utils import create_github_task
+            from core.webhook_configs import GITHUB_WEBHOOK
+            
+            # Find the command
+            webhook_command = None
+            for cmd in GITHUB_WEBHOOK.commands:
+                if cmd.name == action:
+                    webhook_command = cmd
+                    break
+            
+            if not webhook_command:
+                logger.warning("github_command_not_found", action=action)
+                return None
+            
+            # Create GitHub payload
+            repo = routing.get("repo", "")
+            pr_number = routing.get("pr_number")
+            if not repo or not pr_number:
+                logger.warning("github_routing_missing", routing=routing)
+                return None
+            
+            owner, repo_name = repo.split("/", 1) if "/" in repo else (repo, "")
+            
+            payload = {
+                "action": "created",
+                "comment": {
+                    "body": f"@agent {action}\n\n_Triggered via Slack by @{user_name}_",
+                    "user": {"login": user_name}
+                },
+                "issue": {
+                    "number": pr_number,
+                    "pull_request": {}
+                },
+                "repository": {
+                    "full_name": repo,
+                    "name": repo_name,
+                    "owner": {
+                        "login": owner
+                    }
+                },
+                "provider": "github"
+            }
+            
+            task_id = await create_github_task(
+                webhook_command,
+                payload,
+                db,
+                completion_handler="api.webhooks.github.routes.handle_github_task_completion"
+            )
+            logger.info("github_task_created_from_button", action=action, task_id=task_id, pr_number=pr_number)
+            return task_id
+            
+        elif source == "jira":
+            from api.webhooks.jira.utils import create_jira_task
+            from core.webhook_configs import JIRA_WEBHOOK
+            
+            # Find the command
+            webhook_command = None
+            for cmd in JIRA_WEBHOOK.commands:
+                if cmd.name == action:
+                    webhook_command = cmd
+                    break
+            
+            if not webhook_command:
+                logger.warning("jira_command_not_found", action=action)
+                return None
+            
+            # Create Jira payload
+            ticket_key = routing.get("ticket_key")
+            if not ticket_key:
+                logger.warning("jira_routing_missing", routing=routing)
+                return None
+            
+            payload = {
+                "webhookEvent": "comment_created",
+                "comment": {
+                    "body": f"@agent {action}\n\n_Triggered via Slack by @{user_name}_",
+                    "author": {
+                        "displayName": user_name
+                    }
+                },
+                "issue": {
+                    "key": ticket_key,
+                    "fields": {
+                        "summary": f"Task {action}",
+                        "description": ""
+                    }
+                },
+                "provider": "jira"
+            }
+            
+            task_id = await create_jira_task(
+                webhook_command,
+                payload,
+                db,
+                completion_handler="api.webhooks.jira.routes.handle_jira_task_completion"
+            )
+            logger.info("jira_task_created_from_button", action=action, task_id=task_id, ticket_key=ticket_key)
+            return task_id
+            
+        elif source == "slack":
+            # Find the command
+            webhook_command = None
+            for cmd in SLACK_WEBHOOK.commands:
+                if cmd.name == action:
+                    webhook_command = cmd
+                    break
+            
+            if not webhook_command:
+                logger.warning("slack_command_not_found", action=action)
+                return None
+            
+            # Create Slack payload
+            channel = routing.get("channel")
+            thread_ts = routing.get("thread_ts")
+            if not channel:
+                logger.warning("slack_routing_missing", routing=routing)
+                return None
+            
+            payload = {
+                "event": {
+                    "type": "app_mention",
+                    "text": f"@agent {action}",
+                    "user": "U000000",
+                    "channel": channel,
+                    "ts": thread_ts or str(time.time()),
+                    "thread_ts": thread_ts
+                },
+                "provider": "slack"
+            }
+            
+            task_id = await create_slack_task(
+                webhook_command,
+                payload,
+                db,
+                completion_handler="api.webhooks.slack.routes.handle_slack_task_completion"
+            )
+            logger.info("slack_task_created_from_button", action=action, task_id=task_id, channel=channel)
+            return task_id
+            
+        else:
+            logger.warning("unknown_source_for_button_action", source=source, action=action)
+            return None
+            
+    except Exception as e:
+        logger.error("create_task_from_button_action_error", action=action, source=source, error=str(e), exc_info=True)
+        return None

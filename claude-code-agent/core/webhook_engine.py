@@ -399,6 +399,48 @@ async def create_webhook_conversation(
         return None
 
 
+def truncate_content_intelligently(content: Optional[str], max_size: int) -> str:
+    """
+    Truncate content intelligently, preserving structure when possible.
+    
+    Args:
+        content: Content to truncate (can be None)
+        max_size: Maximum size in characters
+        
+    Returns:
+        Truncated content with "... (truncated)" indicator if truncated
+    """
+    if not content:
+        return ""
+    
+    if len(content) <= max_size:
+        return content
+    
+    truncated = content[:max_size]
+    
+    # Try to truncate at sentence boundary
+    last_period = truncated.rfind(".")
+    last_newline = truncated.rfind("\n")
+    last_exclamation = truncated.rfind("!")
+    last_question = truncated.rfind("?")
+    
+    sentence_end = max(last_period, last_newline, last_exclamation, last_question)
+    
+    # If we found a good boundary (within 80% of max_size), use it
+    if sentence_end > max_size * 0.8:
+        truncated = truncated[:sentence_end + 1]
+    
+    # Try to preserve markdown structure - don't truncate in middle of code block
+    if "```" in truncated:
+        code_blocks = truncated.count("```")
+        if code_blocks % 2 == 1:
+            # Unclosed code block - remove it
+            last_code_start = truncated.rfind("```")
+            truncated = truncated[:last_code_start]
+    
+    return truncated + "\n\n... (truncated)"
+
+
 def render_template(template: str, payload: dict, task_id: Optional[str] = None) -> str:
     """
     Render template with payload data using {{variable}} syntax.
@@ -445,7 +487,16 @@ def render_template(template: str, payload: dict, task_id: Optional[str] = None)
         if value is None:
             return match.group(0)  # Keep original if not found
         
-        return str(value)
+        value_str = str(value)
+        
+        # Apply truncation for large content fields
+        from core.config import settings
+        
+        # Truncate comment.body and issue.body if they exceed limits
+        if var_path in ["comment.body", "issue.body"] and len(value_str) > settings.max_comment_body_size:
+            value_str = truncate_content_intelligently(value_str, settings.max_comment_body_size)
+        
+        return value_str
     
     return re.sub(pattern, replace_var, template)
 

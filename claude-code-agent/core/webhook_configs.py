@@ -716,6 +716,61 @@ Channel: {{event.channel}}
    python .claude/skills/slack-operations/scripts/post_message.py {{event.channel}} result.md {{event.ts}}""",
             requires_approval=True,
         ),
+        WebhookCommand(
+            name="jira",
+            aliases=["ticket", "jira-ticket", "query-jira"],
+            description="Query Jira ticket context, status, and details",
+            target_agent="slack-inquiry",
+            prompt_template="""Query Jira ticket information from Slack.
+
+**User Request:** {{_user_content}}
+
+**Full Message:**
+{{event.text}}
+
+User: {{event.user}}
+Channel: {{event.channel}}
+
+1. Extract ticket key(s) from the user's message (e.g., PROJ-123, TASK-456).
+2. Use jira-operations skill to fetch ticket details:
+   - Status, assignee, summary, description
+   - Comments, attachments, linked issues
+   - Sprint/board information if available
+3. Format response with ticket information.
+4. Post response back to Slack:
+   python .claude/skills/slack-operations/scripts/post_message.py {{event.channel}} jira_query.md {{event.ts}}""",
+            requires_approval=False,
+        ),
+        WebhookCommand(
+            name="discover",
+            aliases=["code", "explore", "find-code", "code-insights"],
+            description="Discover GitHub code, get insights about codebase",
+            target_agent="slack-inquiry",
+            prompt_template="""Discover code and provide insights from Slack.
+
+**User Request:** {{_user_content}}
+
+**Full Message:**
+{{event.text}}
+
+User: {{event.user}}
+Channel: {{event.channel}}
+
+1. Parse the user's query to understand what code they want to discover:
+   - Function/class names
+   - File paths or patterns
+   - Feature/functionality descriptions
+   - Code relationships or dependencies
+2. Use discovery skill to search and analyze codebase:
+   - Find relevant files and functions
+   - Understand code flow and relationships
+   - Extract code snippets and examples
+   - Identify dependencies and usage patterns
+3. Format insights with code snippets, file paths, and explanations.
+4. Post response back to Slack:
+   python .claude/skills/slack-operations/scripts/post_message.py {{event.channel}} code_discovery.md {{event.ts}}""",
+            requires_approval=False,
+        ),
     ],
     default_command="analyze",
     requires_signature=True,

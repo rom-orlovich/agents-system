@@ -22,6 +22,9 @@ from api.webhooks.github.utils import (
     post_github_task_comment,
     send_slack_notification,
 )
+from api.webhooks.slack.utils import extract_task_summary, build_task_completion_blocks
+from core.slack_client import slack_client
+import os
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -40,21 +43,14 @@ async def handle_github_task_completion(
     result: str = None,
     error: str = None
 ) -> bool:
-    """
-    Handle GitHub task completion callback.
-    
-    Called by task worker when task completes.
-    
-    Actions:
-    1. Format message (add emoji for errors)
-    2. Post comment to GitHub PR/issue with task result
-    3. Send Slack notification (if enabled)
-    
-    Returns:
-        True if comment posted successfully, False otherwise
-    """
     if not success and error:
-        formatted_message = f"❌ {error}"
+        formatted_message = "❌"
+        logger.info(
+            "github_task_error_posted",
+            task_id=task_id,
+            error_preview=error[:200] if error else None,
+            message="Error posted as emoji-only to GitHub, full details in logs and conversation"
+        )
     else:
         formatted_message = message
     
@@ -64,6 +60,51 @@ async def handle_github_task_completion(
         success=success,
         cost_usd=cost_usd
     )
+    
+    requires_approval = False
+    if command:
+        for cmd in GITHUB_WEBHOOK.commands:
+            if cmd.name == command:
+                requires_approval = cmd.requires_approval
+                break
+    
+    if requires_approval:
+        repo = payload.get("repository", {}).get("full_name", "")
+        pr_number = payload.get("pull_request", {}).get("number")
+        if not pr_number:
+            pr_number = payload.get("issue", {}).get("number")
+        
+        routing = {
+            "repo": repo,
+            "pr_number": pr_number
+        }
+        
+        task_metadata = {
+            "classification": payload.get("classification", "SIMPLE")
+        }
+        summary = extract_task_summary(result or message, task_metadata)
+        
+        blocks = build_task_completion_blocks(
+            summary=summary,
+            routing=routing,
+            requires_approval=requires_approval,
+            task_id=task_id or "unknown",
+            cost_usd=cost_usd,
+            command=command or "",
+            source="github"
+        )
+        
+        channel = payload.get("routing", {}).get("slack_channel") or os.getenv("SLACK_CHANNEL_AGENTS", "#ai-agent-activity")
+        
+        try:
+            await slack_client.post_message(
+                channel=channel,
+                text=message[:200] if message else "Task completed",
+                blocks=blocks
+            )
+            logger.info("github_slack_rich_notification_sent", task_id=task_id, channel=channel, has_buttons=True)
+        except Exception as e:
+            logger.warning("github_slack_rich_notification_failed", task_id=task_id, error=str(e))
     
     await send_slack_notification(
         task_id=task_id,
@@ -146,7 +187,7 @@ async def github_webhook(
             )
             return {"status": "rejected", "actions": 0, "message": "Does not meet activation rules"}
         
-        command = match_github_command(payload, event_type)
+        command = await match_github_command(payload, event_type)
         if not command:
             logger.warning(
                 "github_no_command_matched",

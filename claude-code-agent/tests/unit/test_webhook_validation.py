@@ -156,6 +156,55 @@ class TestGitHubWebhookValidation:
         result = validate_github_webhook(payload)
         assert not result.is_valid, "Expected invalid"
         assert "no text content" in result.error_message.lower()
+    
+    def test_bot_comment_without_agent_passes_validation(self):
+        """Bot comment without @agent should pass validation (skip validation for bots)."""
+        payload = {
+            "action": "created",
+            "comment": {
+                "body": "❌ ❌ Separator is not found, and chunk exceed the limit",
+                "user": {"login": "github-actions[bot]", "type": "Bot"}
+            },
+            "repository": {"full_name": "owner/repo"},
+            "issue": {"number": 123},
+            "sender": {"login": "github-actions[bot]", "type": "Bot"}
+        }
+        
+        result = validate_github_webhook(payload)
+        assert result.is_valid, f"Bot comment should pass validation but got error: {result.error_message}"
+    
+    def test_bot_comment_with_agent_passes_validation(self):
+        """Bot comment with @agent should also pass validation."""
+        payload = {
+            "action": "created",
+            "comment": {
+                "body": "@agent review this",
+                "user": {"login": "claude-agent", "type": "Bot"}
+            },
+            "repository": {"full_name": "owner/repo"},
+            "issue": {"number": 123},
+            "sender": {"login": "claude-agent", "type": "Bot"}
+        }
+        
+        result = validate_github_webhook(payload)
+        assert result.is_valid, f"Bot comment with @agent should pass validation but got error: {result.error_message}"
+    
+    def test_user_comment_without_agent_still_rejected(self):
+        """User comment without @agent should still be rejected (existing behavior)."""
+        payload = {
+            "action": "created",
+            "comment": {
+                "body": "This is a regular comment",
+                "user": {"login": "testuser", "type": "User"}
+            },
+            "repository": {"full_name": "owner/repo"},
+            "issue": {"number": 123},
+            "sender": {"login": "testuser", "type": "User"}
+        }
+        
+        result = validate_github_webhook(payload)
+        assert not result.is_valid, "User comment without @agent should be rejected"
+        assert "@agent" in result.error_message.lower()
 
 
 class TestJiraWebhookValidation:

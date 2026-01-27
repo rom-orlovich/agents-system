@@ -5,6 +5,7 @@ DETERMINISTIC CODE - NOT LLM-based.
 import re
 from typing import Optional, Tuple
 from core.config import settings
+from core.github_client import github_client
 
 
 def is_bot_comment(sender_login: str, sender_type: str) -> bool:
@@ -82,3 +83,31 @@ def extract_command(text: str) -> Optional[Tuple[str, str]]:
         user_content = ""
 
     return (command_word, user_content)
+
+
+async def is_agent_own_comment(sender_login: str, sender_type: str) -> bool:
+    """
+    Check if comment is from the agent's own GitHub account.
+    Returns True to SKIP processing (prevent infinite loops).
+    
+    Args:
+        sender_login: Username/login of the sender
+        sender_type: Type field from the API (e.g., "Bot", "User")
+    
+    Returns:
+        True if this is the agent's own comment (should be skipped), False otherwise
+    """
+    if not sender_login:
+        return False
+    
+    authenticated_user = await github_client.get_authenticated_user()
+    if not authenticated_user:
+        return False
+    
+    sender_lower = sender_login.lower()
+    authenticated_lower = authenticated_user.lower()
+    
+    if sender_lower == authenticated_lower:
+        return True
+    
+    return False

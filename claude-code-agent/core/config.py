@@ -49,12 +49,14 @@ class Settings(BaseSettings):
     # API Tokens
     github_token: str | None = None
     slack_bot_token: str | None = None
+    slack_app_id: str | None = None  # Slack app ID for loop prevention
     
     # Jira API Configuration
     jira_url: str | None = None  # e.g., "https://yourcompany.atlassian.net"
     jira_email: str | None = None  # Email for Jira API authentication
     jira_api_token: str | None = None
     jira_ai_agent_name: str = "AI Agent"  # Name of the AI agent in Jira (for assignee matching)
+    jira_account_id: str | None = None  # Jira account ID for loop prevention (e.g., "557058:abc123def456")
     
     # Webhook Public Domain (for displaying URLs)
     webhook_public_domain: str | None = None  # e.g., "abc123.ngrok.io" or "webhooks.yourdomain.com"
@@ -68,7 +70,7 @@ class Settings(BaseSettings):
     default_allowed_tools: str = "Read,Edit,Bash,Glob,Grep,Write"  # Pre-approved tools
     
     # Claude Code Tasks Integration
-    sync_to_claude_tasks: bool = False  # Sync orchestration tasks to Claude Code Tasks directory
+    sync_to_claude_tasks: bool = True  # Sync orchestration tasks to Claude Code Tasks directory
     claude_tasks_directory: Optional[Path] = None  # Default: ~/.claude/tasks
     
     # Model Configuration by Agent Type
@@ -81,6 +83,11 @@ class Settings(BaseSettings):
     webhook_agent_prefix: str = "@agent"  # Configurable via WEBHOOK_AGENT_PREFIX env
     webhook_bot_usernames: str = "github-actions[bot],claude-agent,ai-agent,dependabot[bot]"  # Comma-separated
     webhook_valid_commands: str = "analyze,plan,fix,review,approve,reject,improve,help"  # Comma-separated
+    
+    # Content Size Limits (to prevent chunk size errors)
+    max_comment_body_size: int = 10000  # Max chars for comment.body in prompts
+    max_file_content_size: int = 50000  # Max chars for file content in prompts
+    max_prompt_size: int = 200000  # Max total prompt size before truncation
 
     @property
     def agents_dir(self) -> Path:
