@@ -527,8 +527,29 @@ Project: {{issue.fields.project.name}}
 
 1. Perform analysis addressing the user request.
 2. Save to file (e.g., analysis.md).
-3. Post analysis back to Jira:
-   python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} analysis.md""",
+3. If analysis indicates code changes are needed OR if user requests implementation:
+   - Create a Draft PR with the analysis/plan
+   - Use github-operations skill to create PR:
+     .claude/skills/github-operations/scripts/create_draft_pr.sh owner/repo "[{{issue.key}}] Analysis" "$(cat analysis.md)"
+   - Extract PR URL from output
+   - Post analysis back to Jira with PR link:
+     python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} analysis.md
+   - Include PR URL in the Jira comment
+4. If no code changes needed (test error, documentation only, etc.):
+   - Post analysis back to Jira:
+     python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} analysis.md
+   - Clearly state "No PR created - no code changes required"
+
+Always create a PR if:
+- Code changes are needed
+- User explicitly requests implementation
+- Analysis identifies bugs or improvements requiring code changes
+
+Do NOT create PR if:
+- Analysis confirms it's a test error (no production bug)
+- Only documentation updates needed
+- Issue is already resolved
+- User only requested analysis, not implementation""",
             requires_approval=False,
         ),
         WebhookCommand(
@@ -627,11 +648,80 @@ Project: {{issue.fields.project.name}}
 **Original Comment:**
 {{comment.body}}
 
-1. Analyze what needs improvement
-2. Implement improvements
-3. Post summary back to Jira:
-   python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} improvement_summary.md""",
+## Parse External Sources
+
+If the user request mentions external sources (e.g., "by github/confluence code from xyz"), extract:
+- Source type: github, confluence, or other
+- Source reference: repository path, page URL, or identifier
+- Code location: file path, function name, or section
+
+Examples:
+- "@agent improve jira ticket by github code from owner/repo path/to/file.py"
+- "@agent improve jira ticket by confluence code from space:page:section"
+
+## Steps
+
+1. Parse user request to identify external source references if present
+2. If external source specified:
+   - Fetch code/content from GitHub (using github-operations skill) or Confluence
+   - Analyze the external code/content
+   - Understand how it relates to the Jira ticket
+3. Analyze what needs improvement in the current codebase
+4. Implement improvements based on external reference if provided
+5. Post summary back to Jira with source references:
+   python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} improvement_summary.md
+
+Include in summary:
+- External sources referenced (if any)
+- Improvements made
+- Files modified""",
             requires_approval=True,
+        ),
+        WebhookCommand(
+            name="discover",
+            aliases=["code", "explore", "find-code", "code-insights"],
+            description="Discover code and provide insights from GitHub/Confluence",
+            target_agent="jira-code-plan",
+            prompt_template="""Discover code and provide insights for Jira ticket {{issue.key}}.
+
+**User Request:** {{_user_content}}
+
+**Original Comment:**
+{{comment.body}}
+
+## Parse Discovery Sources
+
+Extract source information from user request:
+- Source type: github, confluence, or codebase
+- Source reference: repository path, page URL, file path, or search terms
+- What to discover: functions, classes, patterns, relationships
+
+Examples:
+- "@agent discover from github owner/repo path/to/file.py"
+- "@agent discover from confluence space:page"
+- "@agent discover authentication flow"
+
+## Steps
+
+1. Parse user request to identify discovery sources
+2. Use discovery skill to search codebase or fetch from external sources:
+   - If GitHub: Use github-operations skill to fetch code
+   - If Confluence: Fetch content from Confluence
+   - If codebase: Use discovery skill to search locally
+3. Analyze discovered code/content:
+   - Understand functionality and relationships
+   - Identify patterns and dependencies
+   - Extract key insights
+4. Format findings with code snippets, file paths, and explanations
+5. Post results back to Jira ticket:
+   python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} discovery_results.md
+
+Include in results:
+- Source references (GitHub URLs, Confluence links, file paths)
+- Key findings and insights
+- Code snippets with explanations
+- Related files and dependencies""",
+            requires_approval=False,
         ),
     ],
     default_command="analyze",

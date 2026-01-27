@@ -11,6 +11,7 @@ from core.webhook_validation import (
     extract_command,
     validate_command,
 )
+from core.config import settings
 
 
 class JiraWebhookPayload(BaseModel):
@@ -36,15 +37,26 @@ class JiraWebhookPayload(BaseModel):
                 assignee_name = self.issue["fields"].get("assignee", {}).get("displayName", "")
             
             combined_text = " ".join(assignee_changes) + " " + assignee_name
-            if re.search(r"ai\s+agent|claude\s+agent", combined_text, re.IGNORECASE):
+            combined_lower = combined_text.lower().strip()
+            if not combined_lower:
+                return WebhookValidationResult.failure("Jira webhook does not meet activation rules")
+            
+            ai_agent_name = settings.jira_ai_agent_name or "AI Agent"
+            if ai_agent_name.lower() in combined_lower:
+                return WebhookValidationResult.success()
+            if "claude agent" in combined_lower or "claude-agent" in combined_lower:
+                return WebhookValidationResult.success()
+            if "ai agent" in combined_lower or "ai-agent" in combined_lower:
                 return WebhookValidationResult.success()
         
-        comment_body = self.comment.get("body", "") if self.comment else ""
-        if comment_body:
-            command = extract_command(comment_body)
-            is_valid, error_msg = validate_command(command)
-            if is_valid:
-                return WebhookValidationResult.success()
+        if self.comment:
+            from api.webhooks.jira.utils import extract_jira_comment_text
+            comment_body = extract_jira_comment_text(self.comment.get("body", ""))
+            if comment_body:
+                command = extract_command(comment_body)
+                is_valid, error_msg = validate_command(command)
+                if is_valid:
+                    return WebhookValidationResult.success()
         
         return WebhookValidationResult.failure("Jira webhook does not meet activation rules")
 

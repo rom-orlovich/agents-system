@@ -134,3 +134,126 @@ class TestRenderTemplateWithTruncation:
         
         assert len(result) < len(large_body) + len(large_title)
         assert "... (truncated)" in result
+
+
+class TestRenderTemplateWithADFCommentBody:
+    """Test template rendering with ADF format comment bodies."""
+    
+    def test_extracts_text_from_adf_doc_format(self):
+        """Template should extract plain text from ADF doc format."""
+        adf_body = {
+            "type": "doc",
+            "version": 1,
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "@agent analyze Sentry error"
+                        }
+                    ]
+                }
+            ]
+        }
+        template = "Comment: {{comment.body}}"
+        payload = {
+            "comment": {
+                "body": adf_body
+            }
+        }
+        
+        result = render_template(template, payload)
+        
+        assert "@agent analyze Sentry error" in result
+        assert "type" not in result
+        assert "doc" not in result
+    
+    def test_extracts_text_from_adf_list_format(self):
+        """Template should extract plain text from ADF list format."""
+        adf_body = [
+            {
+                "type": "paragraph",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "First paragraph"
+                    }
+                ]
+            },
+            {
+                "type": "paragraph",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Second paragraph"
+                    }
+                ]
+            }
+        ]
+        template = "Comment: {{comment.body}}"
+        payload = {
+            "comment": {
+                "body": adf_body
+            }
+        }
+        
+        result = render_template(template, payload)
+        
+        assert "First paragraph" in result
+        assert "Second paragraph" in result
+        assert "type" not in result
+    
+    def test_handles_plain_string_comment_body(self):
+        """Template should handle plain string comment bodies."""
+        plain_text = "@agent analyze error"
+        template = "Comment: {{comment.body}}"
+        payload = {
+            "comment": {
+                "body": plain_text
+            }
+        }
+        
+        result = render_template(template, payload)
+        
+        assert result == f"Comment: {plain_text}"
+    
+    def test_handles_none_comment_body(self):
+        """Template should handle None comment body."""
+        template = "Comment: {{comment.body}}"
+        payload = {
+            "comment": {
+                "body": None
+            }
+        }
+        
+        result = render_template(template, payload)
+        
+        assert "Comment: " in result or result == "Comment: {{comment.body}}"
+    
+    def test_extracts_text_from_nested_adf_content(self):
+        """Template should extract text from nested ADF content."""
+        adf_body = {
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Nested content text"
+                        }
+                    ]
+                }
+            ]
+        }
+        template = "Comment: {{comment.body}}"
+        payload = {
+            "comment": {
+                "body": adf_body
+            }
+        }
+        
+        result = render_template(template, payload)
+        
+        assert "Nested content text" in result
+        assert "type" not in result

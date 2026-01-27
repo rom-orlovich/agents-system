@@ -8,7 +8,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-VALID_COMMANDS = {"analyze", "plan", "fix", "review", "approve", "reject", "improve", "help"}
+VALID_COMMANDS = {"analyze", "plan", "fix", "review", "approve", "reject", "improve", "help", "discover"}
 
 
 class WebhookValidationResult(BaseModel):

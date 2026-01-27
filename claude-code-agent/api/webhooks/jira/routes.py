@@ -53,14 +53,39 @@ async def handle_jira_task_completion(
     Returns:
         True if comment posted successfully, False otherwise
     """
+    from api.webhooks.jira.utils import extract_pr_url
+    from api.webhooks.jira.models import JiraTaskCompletionPayload
+    
+    jira_payload = JiraTaskCompletionPayload(**payload)
+    
     formatted_message = error if not success and error else message
+    pr_url = extract_pr_url(result or message)
+    
+    ticket_key = jira_payload.get_ticket_key()
+    user_request = jira_payload.get_user_request()
     
     comment_posted = await post_jira_task_comment(
-        payload=payload,
+        issue=jira_payload.issue,
         message=formatted_message,
         success=success,
-        cost_usd=cost_usd
+        cost_usd=cost_usd,
+        pr_url=pr_url
     )
+    
+    routing_metadata = {}
+    if jira_payload.routing:
+        routing_metadata = {"routing": jira_payload.routing}
+    elif jira_payload.source_metadata:
+        source_metadata = jira_payload.source_metadata
+        if isinstance(source_metadata, dict):
+            routing_metadata = {"routing": source_metadata.get("routing", {})}
+        elif isinstance(source_metadata, str):
+            import json
+            try:
+                source_metadata = json.loads(source_metadata)
+                routing_metadata = {"routing": source_metadata.get("routing", {})}
+            except:
+                pass
     
     await send_slack_notification(
         task_id=task_id,
@@ -68,7 +93,12 @@ async def handle_jira_task_completion(
         command=command,
         success=success,
         result=result,
-        error=error
+        error=error,
+        pr_url=pr_url,
+        payload=routing_metadata if routing_metadata else None,
+        cost_usd=cost_usd,
+        user_request=user_request,
+        ticket_key=ticket_key
     )
     
     return comment_posted

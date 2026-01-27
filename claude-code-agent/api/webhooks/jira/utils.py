@@ -8,8 +8,9 @@ import hashlib
 import os
 import json
 import uuid
+import re
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Any
 import structlog
 
 from fastapi import Request, HTTPException
@@ -24,8 +25,62 @@ from core.jira_client import jira_client
 from core.routing_metadata import extract_jira_metadata
 from shared.machine_models import WebhookCommand
 from shared import TaskStatus, AgentType
+from api.webhooks.jira.models import TaskSummary
 
 logger = structlog.get_logger()
+
+
+def extract_jira_comment_text(comment_body: Any) -> str:
+    """
+    Extract plain text from Jira comment body.
+    
+    Handles both plain string format and ADF (Atlassian Document Format).
+    
+    Args:
+        comment_body: Comment body as string, dict (ADF), list, or None
+        
+    Returns:
+        Plain text string extracted from comment body
+    """
+    if comment_body is None:
+        return ""
+    
+    if isinstance(comment_body, str):
+        return comment_body
+    
+    if isinstance(comment_body, list):
+        text_parts = []
+        for item in comment_body:
+            text_parts.append(extract_jira_comment_text(item))
+        return " ".join(text_parts)
+    
+    if isinstance(comment_body, dict):
+        if comment_body.get("type") == "text" and "text" in comment_body:
+            return comment_body.get("text", "")
+        
+        if "content" in comment_body:
+            return extract_jira_comment_text(comment_body.get("content"))
+        
+        if "text" in comment_body:
+            return str(comment_body.get("text", ""))
+    
+    return str(comment_body) if comment_body else ""
+
+
+def _truncate_text(text: str, max_length: int = 2000) -> str:
+    """Truncate text at a natural break point (sentence or line)."""
+    if len(text) <= max_length:
+        return text
+    
+    truncated = text[:max_length]
+    last_period = truncated.rfind(".")
+    last_newline = truncated.rfind("\n")
+    truncate_at = max(last_period, last_newline)
+    
+    if truncate_at > max_length * 0.8:
+        truncated = truncated[:truncate_at + 1]
+    
+    return truncated + "\n\n_(message truncated)_"
 
 
 async def verify_jira_signature(request: Request, body: bytes) -> None:
@@ -108,7 +163,8 @@ async def send_jira_immediate_response(
         )
         
         has_assignee_change = is_assignee_changed_to_ai(payload, event_type)
-        has_comment_with_agent = bool(payload.get("comment", {}).get("body", ""))
+        comment_body = extract_jira_comment_text(payload.get("comment", {}).get("body", ""))
+        has_comment_with_agent = bool(comment_body)
         
         if not has_assignee_change and not has_comment_with_agent:
             logger.debug(
@@ -219,7 +275,7 @@ async def match_jira_command(payload: dict, event_type: str) -> Optional[Webhook
     is_comment_event = bool(comment)
 
     if comment:
-        text = comment.get("body", "")
+        text = extract_jira_comment_text(comment.get("body", ""))
 
     if not text:
         issue = payload.get("issue", {})
@@ -379,25 +435,67 @@ async def post_jira_comment(payload: dict, message: str):
         logger.error("jira_comment_post_failed", issue_key=issue_key, error=str(e), error_type=type(e).__name__)
 
 
+def extract_pr_url(text: str) -> Optional[str]:
+    """Extract PR URL from text if present."""
+    if not text:
+        return None
+    
+    url_match = re.search(r'https://github\.com/[^/\s]+/[^/\s]+/(?:pull|pulls)/\d+', text, re.IGNORECASE)
+    if url_match:
+        return url_match.group(0)
+    
+    return None
+
+
+def extract_pr_routing(pr_url: str):
+    """Extract repo and PR number from PR URL."""
+    from api.webhooks.jira.models import PRRouting
+    
+    if not pr_url:
+        return None
+    
+    match = re.match(r'https://github\.com/([^/]+)/([^/]+)/(?:pull|pulls)/(\d+)', pr_url, re.IGNORECASE)
+    if match:
+        owner, repo_name, pr_number = match.groups()
+        return PRRouting(
+            repo=f"{owner}/{repo_name}",
+            pr_number=int(pr_number)
+        )
+    
+    return None
+
+
 async def post_jira_task_comment(
-    payload: dict,
+    issue: dict,
     message: str,
     success: bool,
-    cost_usd: float = 0.0
+    cost_usd: float = 0.0,
+    pr_url: Optional[str] = None
 ) -> bool:
     """Post a comment to Jira after task completion."""
     try:
-        issue = payload.get("issue", {})
-        issue_key = issue.get("key")
+        from api.webhooks.jira.models import JiraTaskCommentRequest
+        
+        request = JiraTaskCommentRequest(
+            issue=issue,
+            message=message,
+            success=success,
+            cost_usd=cost_usd,
+            pr_url=pr_url
+        )
+        
+        issue_key = request.get_issue_key()
         
         if not issue_key:
-            logger.warning("jira_post_task_comment_no_issue_key", payload_keys=list(payload.keys()))
+            logger.warning("jira_post_task_comment_no_issue_key", issue_keys=list(issue.keys()))
             return False
         
-        if success:
-            formatted_message = f"{message}"
-        else:
-            formatted_message = f"{message}"
+        pr_url = request.pr_url or extract_pr_url(request.message)
+        
+        formatted_message = request.message
+        
+        if pr_url and request.success:
+            formatted_message = f"{formatted_message}\n\n🔗 *Pull Request:* {pr_url}"
         
         max_length = 8000
         if len(formatted_message) > max_length:
@@ -409,8 +507,8 @@ async def post_jira_task_comment(
                 truncated_message = truncated_message[:truncate_at + 1]
             formatted_message = truncated_message + "\n\n... (message truncated)"
         
-        if success and cost_usd > 0:
-            formatted_message += f"\n\n💰 Cost: ${cost_usd:.4f}"
+        if request.success and request.cost_usd > 0:
+            formatted_message += f"\n\n💰 Cost: ${request.cost_usd:.4f}"
         
         response = await jira_client.post_comment(issue_key, formatted_message)
         
@@ -439,51 +537,216 @@ async def send_slack_notification(
     command: str,
     success: bool,
     result: Optional[str] = None,
-    error: Optional[str] = None
+    error: Optional[str] = None,
+    pr_url: Optional[str] = None,
+    payload: Optional[dict] = None,
+    cost_usd: float = 0.0,
+    user_request: Optional[str] = None,
+    ticket_key: Optional[str] = None
 ) -> bool:
     """Send Slack notification when webhook task completes."""
     if not os.getenv("SLACK_NOTIFICATIONS_ENABLED", "true").lower() == "true":
         return False
     
     from core.slack_client import slack_client
+    from api.webhooks.slack.utils import extract_task_summary, build_task_completion_blocks
+    from core.webhook_configs import JIRA_WEBHOOK
+    from api.webhooks.jira.models import SlackNotificationRequest
     
-    status_emoji = "✅" if success else "❌"
-    status_text = "Completed" if success else "Failed"
+    request = SlackNotificationRequest(
+        task_id=task_id,
+        webhook_source=webhook_source,
+        command=command,
+        success=success,
+        result=result,
+        error=error,
+        pr_url=pr_url,
+        payload=payload,
+        cost_usd=cost_usd,
+        user_request=user_request,
+        ticket_key=ticket_key
+    )
     
-    blocks = [
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"{status_emoji} *Task {status_text}*\n*Source:* {webhook_source.title()}\n*Command:* {command}\n*Task ID:* `{task_id}`"
-            }
+    pr_url = request.pr_url
+    if not pr_url and request.result:
+        pr_url = extract_pr_url(request.result)
+    
+    routing = {}
+    if request.payload:
+        routing = request.payload.get("routing", {})
+    
+    if not pr_url and routing:
+        repo = routing.get("repo")
+        pr_number = routing.get("pr_number")
+        if repo and pr_number:
+            pr_url = f"https://github.com/{repo}/pull/{pr_number}"
+    
+    if pr_url and not routing:
+        pr_routing = extract_pr_routing(pr_url)
+        if pr_routing:
+            routing = {"repo": pr_routing.repo, "pr_number": pr_routing.pr_number}
+    
+    status_emoji = "✅" if request.success else "❌"
+    status_text = "Completed" if request.success else "Failed"
+    
+    task_metadata = {"classification": "SIMPLE"}
+    summary = extract_task_summary(request.result or "", task_metadata) if request.result else TaskSummary(summary="Task completed")
+    
+    if not summary.summary and request.result:
+        summary.summary = request.result[:200] + "..." if len(request.result) > 200 else request.result
+    
+    requires_approval = False
+    if request.command:
+        for cmd in JIRA_WEBHOOK.commands:
+            if cmd.name == request.command:
+                requires_approval = cmd.requires_approval
+                break
+    
+    blocks = []
+    
+    header_text = f"{status_emoji} Task {status_text}"
+    if request.ticket_key and request.ticket_key != "unknown":
+        header_text += f" - {request.ticket_key}"
+    header_text += f" - {summary.classification}"
+    
+    blocks.append({
+        "type": "header",
+        "text": {
+            "type": "plain_text",
+            "text": header_text
         }
-    ]
+    })
     
-    if success and result:
-        result_preview = result[:500] + "..." if len(result) > 500 else result
+    if request.ticket_key and request.ticket_key != "unknown":
         blocks.append({
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"*Result:*\n```{result_preview}```"
+                "text": f"*Ticket:* {request.ticket_key}"
             }
         })
     
-    if error:
+    if request.user_request:
+        user_request_display = request.user_request[:300] + "..." if len(request.user_request) > 300 else request.user_request
         blocks.append({
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"*Error:*\n```{error}```"
+                "text": f"*User Request:*\n{user_request_display}"
             }
         })
     
-    if success:
+    if summary.summary:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Summary*\n{summary.summary}"
+            }
+        })
+    
+    if summary.what_was_done:
+        what_was_done_text = _truncate_text(summary.what_was_done)
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*What Was Done*\n{what_was_done_text}"
+            }
+        })
+    
+    if summary.key_insights:
+        insights_text = _truncate_text(summary.key_insights)
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Key Insights*\n{insights_text}"
+            }
+        })
+    
+    if request.error:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Error:*\n```{request.error[:1000]}```"
+            }
+        })
+    
+    if pr_url:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"🔗 *Pull Request:* {pr_url}"
+            }
+        })
+        
+        if requires_approval and routing:
+            button_value = {
+                "original_task_id": request.task_id,
+                "command": request.command,
+                "source": request.webhook_source,
+                "routing": routing
+            }
+            
+            blocks.append({
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "📄 View Plan"
+                        },
+                        "url": pr_url,
+                        "action_id": "view_pr"
+                    },
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "✅ Approve"
+                        },
+                        "style": "primary",
+                        "action_id": "approve_task",
+                        "value": json.dumps({**button_value, "action": "approve"})
+                    },
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "❌ Reject"
+                        },
+                        "style": "danger",
+                        "action_id": "reject_task",
+                        "value": json.dumps({**button_value, "action": "reject"})
+                    }
+                ]
+            })
+    
+    context_elements = []
+    if request.cost_usd > 0:
+        context_elements.append({
+            "type": "mrkdwn",
+            "text": f"💰 Cost: ${request.cost_usd:.4f}"
+        })
+    context_elements.append({
+        "type": "mrkdwn",
+        "text": f"Task ID: `{request.task_id}`"
+    })
+    
+    blocks.append({
+        "type": "context",
+        "elements": context_elements
+    })
+    
+    if request.success:
         channel = os.getenv("SLACK_CHANNEL_AGENTS", "#ai-agent-activity")
     else:
         channel = os.getenv("SLACK_CHANNEL_ERRORS", "#ai-agent-errors")
-    text = f"{status_emoji} Task {status_text} - {webhook_source.title()} - {command}"
+    text = f"{status_emoji} Task {status_text} - {request.webhook_source.title()} - {request.command}"
     
     try:
         await slack_client.post_message(
@@ -491,18 +754,18 @@ async def send_slack_notification(
             text=text,
             blocks=blocks
         )
-        logger.info("slack_notification_sent", task_id=task_id, success=success, channel=channel)
+        logger.info("slack_notification_sent", task_id=request.task_id, success=request.success, channel=channel)
         return True
     except Exception as e:
         error_msg = str(e)
         if "channel_not_found" in error_msg.lower():
-            env_var = "SLACK_CHANNEL_AGENTS" if success else "SLACK_CHANNEL_ERRORS"
+            env_var = "SLACK_CHANNEL_AGENTS" if request.success else "SLACK_CHANNEL_ERRORS"
             logger.warning(
                 "slack_notification_channel_not_found",
-                task_id=task_id,
+                task_id=request.task_id,
                 channel=channel,
                 message=f"Slack notification skipped - channel does not exist. Set {env_var} to a valid channel or create the channel."
             )
         else:
-            logger.error("slack_notification_failed", task_id=task_id, channel=channel, error=error_msg)
+            logger.error("slack_notification_failed", task_id=request.task_id, channel=channel, error=error_msg)
         return False

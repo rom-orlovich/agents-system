@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
     log_json: bool = True
+    debug_save_task_logs: bool = False  # Save task logs to .log/ folder for debugging
 
     # API
     api_host: str = "0.0.0.0"

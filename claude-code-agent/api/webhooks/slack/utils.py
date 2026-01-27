@@ -368,33 +368,35 @@ def build_task_completion_blocks(
     blocks = []
     
     # Header block
+    classification = summary.classification if hasattr(summary, 'classification') else summary.get('classification', 'SIMPLE')
     classification_emoji = {
         "WORKFLOW": "🔄",
         "SIMPLE": "✅",
         "CUSTOM": "⚙️"
-    }.get(summary.get("classification", "SIMPLE"), "✅")
+    }.get(classification, "✅")
     
     blocks.append({
         "type": "header",
         "text": {
             "type": "plain_text",
-            "text": f"{classification_emoji} Task Completed - {summary.get('classification', 'SIMPLE')}"
+            "text": f"{classification_emoji} Task Completed - {classification}"
         }
     })
     
     # Summary section
-    if summary.get("summary"):
+    summary_text = summary.summary if hasattr(summary, 'summary') else summary.get("summary")
+    if summary_text:
         blocks.append({
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"*Summary*\n{summary['summary']}"
+                "text": f"*Summary*\n{summary_text}"
             }
         })
     
     # What Was Done section
-    if summary.get("what_was_done"):
-        what_was_done_text = summary["what_was_done"]
+    what_was_done_text = summary.what_was_done if hasattr(summary, 'what_was_done') else summary.get("what_was_done")
+    if what_was_done_text:
         max_length = 2000
         
         if len(what_was_done_text) > max_length:
@@ -415,8 +417,8 @@ def build_task_completion_blocks(
         })
     
     # Key Insights section
-    if summary.get("key_insights"):
-        insights_text = summary["key_insights"]
+    insights_text = summary.key_insights if hasattr(summary, 'key_insights') else summary.get("key_insights")
+    if insights_text:
         max_length = 2000
         
         if len(insights_text) > max_length:
@@ -506,7 +508,7 @@ def build_task_completion_blocks(
     return blocks
 
 
-def extract_task_summary(result: str, task_metadata: dict) -> dict:
+def extract_task_summary(result: str, task_metadata: dict):
     """
     Extract structured task summary from result string.
     
@@ -515,8 +517,9 @@ def extract_task_summary(result: str, task_metadata: dict) -> dict:
         task_metadata: Task metadata dict (may contain classification)
     
     Returns:
-        Dict with keys: summary, what_was_done, key_insights, classification
+        TaskSummary model with summary, what_was_done, key_insights, classification
     """
+    from api.webhooks.jira.models import TaskSummary
     import re
     
     summary_text = ""
@@ -547,12 +550,12 @@ def extract_task_summary(result: str, task_metadata: dict) -> dict:
     if classification == "SIMPLE" and (summary_match or what_was_done_match or key_insights_match):
         classification = "WORKFLOW"
     
-    return {
-        "summary": summary_text,
-        "what_was_done": what_was_done_text,
-        "key_insights": key_insights_text,
-        "classification": classification
-    }
+    return TaskSummary(
+        summary=summary_text,
+        what_was_done=what_was_done_text if what_was_done_text else None,
+        key_insights=key_insights_text if key_insights_text else None,
+        classification=classification
+    )
 
 
 async def post_slack_task_comment(

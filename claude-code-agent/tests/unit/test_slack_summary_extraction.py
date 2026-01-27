@@ -32,10 +32,10 @@ This task analyzed the authentication flow and identified security improvements.
         
         summary = extract_task_summary(result, task_metadata)
         
-        assert summary["summary"] == "This task analyzed the authentication flow and identified security improvements."
-        assert "Reviewed authentication code" in summary["what_was_done"]
-        assert "Password hashing needs improvement" in summary["key_insights"]
-        assert summary["classification"] == "WORKFLOW"
+        assert summary.summary == "This task analyzed the authentication flow and identified security improvements."
+        assert "Reviewed authentication code" in (summary.what_was_done or "")
+        assert "Password hashing needs improvement" in (summary.key_insights or "")
+        assert summary.classification == "WORKFLOW"
     
     def test_extract_task_summary_missing_sections(self):
         """
@@ -49,10 +49,10 @@ This task analyzed the authentication flow and identified security improvements.
         
         summary = extract_task_summary(result, task_metadata)
         
-        assert summary["summary"] == "Task completed successfully."
-        assert summary["what_was_done"] == ""
-        assert summary["key_insights"] == ""
-        assert summary["classification"] == "SIMPLE"
+        assert summary.summary == "Task completed successfully."
+        assert summary.what_was_done is None or summary.what_was_done == ""
+        assert summary.key_insights is None or summary.key_insights == ""
+        assert summary.classification == "SIMPLE"
     
     def test_extract_task_classification(self):
         """
@@ -65,7 +65,7 @@ This task analyzed the authentication flow and identified security improvements.
         result = "Task done"
         task_metadata = {"classification": "WORKFLOW"}
         summary = extract_task_summary(result, task_metadata)
-        assert summary["classification"] == "WORKFLOW"
+        assert summary.classification == "WORKFLOW"
         
         # Test with inferred classification (has sections = WORKFLOW)
         result = """
@@ -77,13 +77,13 @@ Something
 """
         task_metadata = {}
         summary = extract_task_summary(result, task_metadata)
-        assert summary["classification"] == "WORKFLOW"
+        assert summary.classification == "WORKFLOW"
         
         # Test simple task (no sections)
         result = "Task completed"
         task_metadata = {}
         summary = extract_task_summary(result, task_metadata)
-        assert summary["classification"] == "SIMPLE"
+        assert summary.classification == "SIMPLE"
     
     def test_extract_task_summary_preserves_formatting(self):
         """
@@ -108,7 +108,7 @@ Task **completed** with *emphasis*.
         task_metadata = {}
         summary = extract_task_summary(result, task_metadata)
         
-        assert "**completed**" in summary["summary"]
-        assert "*emphasis*" in summary["summary"]
-        assert "- Item 1" in summary["what_was_done"]
-        assert "> Important note" in summary["key_insights"]
+        assert "**completed**" in summary.summary
+        assert "*emphasis*" in summary.summary
+        assert "- Item 1" in (summary.what_was_done or "")
+        assert "> Important note" in (summary.key_insights or "")

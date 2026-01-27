@@ -485,14 +485,16 @@ def render_template(template: str, payload: dict, task_id: Optional[str] = None)
         value = get_nested_value(payload, var_path)
         
         if value is None:
-            return match.group(0)  # Keep original if not found
+            return match.group(0)
         
-        value_str = str(value)
+        if var_path == "comment.body":
+            from api.webhooks.jira.utils import extract_jira_comment_text
+            value_str = extract_jira_comment_text(value)
+        else:
+            value_str = str(value)
         
-        # Apply truncation for large content fields
         from core.config import settings
         
-        # Truncate comment.body and issue.body if they exceed limits
         if var_path in ["comment.body", "issue.body"] and len(value_str) > settings.max_comment_body_size:
             value_str = truncate_content_intelligently(value_str, settings.max_comment_body_size)
         

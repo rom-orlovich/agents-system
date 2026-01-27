@@ -3,12 +3,68 @@
 import asyncio
 import json
 import os
+import re
 from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass
 import structlog
 
 logger = structlog.get_logger()
+
+
+def sanitize_sensitive_content(content: str) -> str:
+    """
+    Sanitize sensitive information from content before logging.
+    
+    Masks API tokens, passwords, and other credentials.
+    """
+    if not content:
+        return content
+    
+    sensitive_patterns = [
+        (r'(JIRA_API_TOKEN|JIRA_EMAIL|GITHUB_TOKEN|SLACK_BOT_TOKEN|SLACK_WEBHOOK_SECRET|GITHUB_WEBHOOK_SECRET|JIRA_WEBHOOK_SECRET)\s*=\s*([^\s\n]+)', r'\1=***REDACTED***'),
+        (r'(password|passwd|pwd|token|secret|api_key|apikey|access_token|refresh_token)\s*[:=]\s*([^\s\n]+)', r'\1=***REDACTED***', re.IGNORECASE),
+        (r'(Authorization:\s*Bearer\s+)([^\s\n]+)', r'\1***REDACTED***'),
+        (r'(Authorization:\s*Basic\s+)([^\s\n]+)', r'\1***REDACTED***'),
+        (r'(["\']?token["\']?\s*[:=]\s*["\']?)([^"\'\s\n]+)(["\']?)', r'\1***REDACTED***\3', re.IGNORECASE),
+        (r'(["\']?password["\']?\s*[:=]\s*["\']?)([^"\'\s\n]+)(["\']?)', r'\1***REDACTED***\3', re.IGNORECASE),
+    ]
+    
+    sanitized = content
+    for pattern in sensitive_patterns:
+        if len(pattern) == 2:
+            sanitized = re.sub(pattern[0], pattern[1], sanitized)
+        else:
+            sanitized = re.sub(pattern[0], pattern[1], sanitized, flags=pattern[2])
+    
+    return sanitized
+
+
+def contains_sensitive_data(content: str) -> bool:
+    """
+    Check if content contains sensitive data patterns.
+    
+    Used to determine if content should be sanitized before sending to models.
+    """
+    if not content:
+        return False
+    
+    sensitive_indicators = [
+        r'JIRA_API_TOKEN\s*=',
+        r'GITHUB_TOKEN\s*=',
+        r'SLACK_BOT_TOKEN\s*=',
+        r'password\s*[:=]',
+        r'token\s*[:=]',
+        r'secret\s*[:=]',
+        r'Authorization:\s*(Bearer|Basic)',
+    ]
+    
+    content_lower = content.lower()
+    for pattern in sensitive_indicators:
+        if re.search(pattern, content_lower, re.IGNORECASE):
+            return True
+    
+    return False
 
 
 @dataclass
@@ -147,7 +203,8 @@ async def run_claude_cli(
                                         if error_type:
                                             cli_error_message = f"{text_content} (error type: {error_type})"
                                         else:
-                                            logger.info("assistant_text", task_id=task_id, text=text_content[:500])
+                                            sanitized_text = sanitize_sensitive_content(text_content[:500])
+                                            logger.info("assistant_text", task_id=task_id, text=sanitized_text)
                                             accumulated_output.append(text_content)
                                             clean_output.append(text_content)
                                             await output_queue.put(text_content)
@@ -176,11 +233,20 @@ async def run_claude_cli(
                                 tool_content = block.get("content", "")
                                 is_error = block.get("is_error", False)
                                 if tool_content:
-                                    prefix = "[TOOL ERROR] " if is_error else "[TOOL RESULT]\n"
-                                    result_log = f"{prefix}{tool_content}\n"
-                                    logger.info("tool_result", task_id=task_id, is_error=is_error, content_preview=tool_content[:200])
-                                    accumulated_output.append(result_log)
-                                    await output_queue.put(result_log)
+                                    if contains_sensitive_data(tool_content):
+                                        sanitized_content = sanitize_sensitive_content(tool_content)
+                                        prefix = "[TOOL ERROR] " if is_error else "[TOOL RESULT]\n"
+                                        result_log = f"{prefix}{sanitized_content}\n"
+                                        accumulated_output.append(result_log)
+                                        await output_queue.put(result_log)
+                                    else:
+                                        prefix = "[TOOL ERROR] " if is_error else "[TOOL RESULT]\n"
+                                        result_log = f"{prefix}{tool_content}\n"
+                                        accumulated_output.append(result_log)
+                                        await output_queue.put(result_log)
+                                    
+                                    sanitized_preview = sanitize_sensitive_content(tool_content[:200])
+                                    logger.info("tool_result", task_id=task_id, is_error=is_error, content_preview=sanitized_preview)
                     
                     elif msg_type == "stream_event":
                         event = data.get("event", {})
@@ -253,6 +319,11 @@ async def run_claude_cli(
 
         await output_queue.put(None)
 
+        sanitized_stderr = None
+        if stderr_lines:
+            stderr_preview = "\n".join(stderr_lines[-3:])
+            sanitized_stderr = sanitize_sensitive_content(stderr_preview)
+        
         logger.info(
             "Claude CLI completed",
             task_id=task_id,
@@ -260,7 +331,7 @@ async def run_claude_cli(
             cost_usd=cost_usd,
             returncode=process.returncode,
             has_stderr=len(stderr_lines) > 0,
-            stderr_preview="\n".join(stderr_lines[-3:]) if stderr_lines else None
+            stderr_preview=sanitized_stderr
         )
 
         error_msg = None
@@ -289,6 +360,28 @@ async def run_claude_cli(
                 error_msg = f"Exit code: {process.returncode}"
         
         clean_output_text = "".join(clean_output) if clean_output else ""
+        
+        from core.config import settings
+        if task_id and settings.debug_save_task_logs:
+            try:
+                log_dir = Path(".log")
+                log_dir.mkdir(exist_ok=True)
+                log_file = log_dir / f"{task_id}.log"
+                with open(log_file, "w", encoding="utf-8") as f:
+                    f.write(f"Task ID: {task_id}\n")
+                    f.write(f"Success: {process.returncode == 0}\n")
+                    f.write(f"Cost USD: {cost_usd}\n")
+                    f.write(f"Input Tokens: {input_tokens}\n")
+                    f.write(f"Output Tokens: {output_tokens}\n")
+                    if error_msg:
+                        f.write(f"\nError: {error_msg}\n")
+                    f.write("\n" + "="*80 + "\n")
+                    f.write("FULL OUTPUT:\n")
+                    f.write("="*80 + "\n")
+                    f.write("".join(accumulated_output))
+                logger.info("task_log_saved", task_id=task_id, log_file=str(log_file))
+            except Exception as e:
+                logger.warning("task_log_save_failed", task_id=task_id, error=str(e))
         
         return CLIResult(
             success=process.returncode == 0,

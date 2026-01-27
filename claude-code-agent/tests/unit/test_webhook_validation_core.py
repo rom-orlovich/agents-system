@@ -146,7 +146,7 @@ class TestValidCommandsConstant:
         """VALID_COMMANDS contains all expected command names."""
         expected_commands = {
             "analyze", "plan", "fix", "review", 
-            "approve", "reject", "improve", "help"
+            "approve", "reject", "improve", "help", "discover"
         }
         assert VALID_COMMANDS == expected_commands
     

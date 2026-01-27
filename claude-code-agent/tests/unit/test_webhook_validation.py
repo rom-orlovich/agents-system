@@ -295,6 +295,68 @@ class TestJiraWebhookValidation:
         
         result = validate_jira_webhook(payload)
         assert result.is_valid, f"Expected valid, got error: {result.error_message}"
+    
+    def test_jira_assignee_change_to_ai_agent_with_hyphen_passes(self):
+        """Jira assignee change to ai-agent (with hyphen) should pass validation."""
+        payload = {
+            "webhookEvent": "jira:issue_updated",
+            "issue": {
+                "key": "PROJ-123",
+                "fields": {
+                    "assignee": {
+                        "displayName": "ai-agent",
+                        "accountId": "ai-agent-id"
+                    }
+                }
+            },
+            "changelog": {
+                "items": [{
+                    "field": "assignee",
+                    "toString": "ai-agent"
+                }]
+            }
+        }
+        
+        result = validate_jira_webhook(payload)
+        assert result.is_valid, f"Expected valid, got error: {result.error_message}"
+    
+    def test_jira_comment_with_discover_command_passes(self):
+        """Jira comment with @agent discover should pass validation."""
+        payload = {
+            "webhookEvent": "comment_created",
+            "comment": {
+                "body": "@agent discover from github owner/repo path/to/file.py",
+                "author": {
+                    "displayName": "testuser",
+                    "accountType": "atlassian"
+                }
+            },
+            "issue": {
+                "key": "PROJ-123"
+            }
+        }
+        
+        result = validate_jira_webhook(payload)
+        assert result.is_valid, f"Expected valid, got error: {result.error_message}"
+    
+    def test_jira_comment_with_improve_command_with_source_passes(self):
+        """Jira comment with @agent improve and external source should pass validation."""
+        payload = {
+            "webhookEvent": "comment_created",
+            "comment": {
+                "body": "@agent improve jira ticket by github code from owner/repo",
+                "author": {
+                    "displayName": "testuser",
+                    "accountType": "atlassian"
+                }
+            },
+            "issue": {
+                "key": "PROJ-123"
+            }
+        }
+        
+        result = validate_jira_webhook(payload)
+        assert result.is_valid, f"Expected valid, got error: {result.error_message}"
 
 
 class TestSlackWebhookValidation:
