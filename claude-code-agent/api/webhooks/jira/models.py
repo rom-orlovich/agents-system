@@ -39,9 +39,10 @@ class JiraTaskCompletionPayload(BaseModel):
             return comment_body.strip()
         
         if self.issue and self.issue.get("fields"):
+            from api.webhooks.jira.utils import _safe_string
             fields = self.issue.get("fields", {})
-            description = fields.get("description", "")
-            summary = fields.get("summary", "")
+            description = _safe_string(fields.get("description", ""))
+            summary = _safe_string(fields.get("summary", ""))
             return description or summary
         
         return ""

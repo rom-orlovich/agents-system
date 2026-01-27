@@ -59,6 +59,9 @@ def contains_sensitive_data(content: str) -> bool:
         r'Authorization:\s*(Bearer|Basic)',
     ]
     
+    if not isinstance(content, str):
+        content = str(content) if content else ""
+    
     content_lower = content.lower()
     for pattern in sensitive_indicators:
         if re.search(pattern, content_lower, re.IGNORECASE):

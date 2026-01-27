@@ -10,6 +10,7 @@ from core.webhook_validation import (
     extract_command,
     validate_command,
 )
+from api.webhooks.slack.utils import extract_slack_text
 
 
 class SlackWebhookPayload(BaseModel):
@@ -18,9 +19,11 @@ class SlackWebhookPayload(BaseModel):
     text: Optional[str] = None
 
     def extract_text(self) -> str:
-        """Extract text content from Slack webhook."""
-        event_text = self.event.get("text", "") if self.event else ""
-        return event_text or self.text or ""
+        event_text_raw = self.event.get("text", "") if self.event else ""
+        text_raw = self.text or ""
+        event_text = extract_slack_text(event_text_raw)
+        text = extract_slack_text(text_raw)
+        return event_text or text
 
     def validate(self) -> WebhookValidationResult:
         """Validate Slack webhook payload."""

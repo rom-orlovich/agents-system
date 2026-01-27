@@ -49,8 +49,8 @@ class JiraWebhookPayload(BaseModel):
     comment: Optional[Dict[str, Any]] = None
 
     def validate(self) -> WebhookValidationResult:
-        """Validate Jira webhook payload."""
-        webhook_event = self.webhookEvent or ""
+        webhook_event_raw = self.webhookEvent or ""
+        webhook_event = _safe_string(webhook_event_raw)
         
         if "issue_updated" in webhook_event.lower():
             changelog_items = self.changelog.get("items", []) if self.changelog else []

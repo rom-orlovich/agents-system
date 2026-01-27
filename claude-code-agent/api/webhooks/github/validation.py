@@ -10,6 +10,7 @@ from core.webhook_validation import (
     extract_command,
     validate_command,
 )
+from api.webhooks.github.utils import extract_github_text
 
 
 class GitHubWebhookPayload(BaseModel):
@@ -22,11 +23,17 @@ class GitHubWebhookPayload(BaseModel):
 
     def extract_text(self) -> str:
         """Extract text content from GitHub webhook."""
-        comment_body = self.comment.get("body", "") if self.comment else ""
-        pr_title = self.pull_request.get("title", "") if self.pull_request else ""
-        pr_body = self.pull_request.get("body", "") if self.pull_request else ""
-        issue_title = self.issue.get("title", "") if self.issue else ""
-        issue_body = self.issue.get("body", "") if self.issue else ""
+        comment_body_raw = self.comment.get("body", "") if self.comment else ""
+        pr_title_raw = self.pull_request.get("title", "") if self.pull_request else ""
+        pr_body_raw = self.pull_request.get("body", "") if self.pull_request else ""
+        issue_title_raw = self.issue.get("title", "") if self.issue else ""
+        issue_body_raw = self.issue.get("body", "") if self.issue else ""
+        
+        comment_body = extract_github_text(comment_body_raw)
+        pr_title = extract_github_text(pr_title_raw)
+        pr_body = extract_github_text(pr_body_raw)
+        issue_title = extract_github_text(issue_title_raw)
+        issue_body = extract_github_text(issue_body_raw)
         
         if comment_body:
             return comment_body

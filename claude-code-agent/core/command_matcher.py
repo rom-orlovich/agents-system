@@ -9,27 +9,23 @@ from core.github_client import github_client
 
 
 def is_bot_comment(sender_login: str, sender_type: str) -> bool:
-    """
-    Check if comment is from a bot. Returns True to SKIP processing.
-
-    Args:
-        sender_login: Username/login of the sender
-        sender_type: Type field from the API (e.g., "Bot", "User")
-
-    Returns:
-        True if this is a bot comment (should be skipped), False otherwise
-    """
+    if not isinstance(sender_login, str):
+        sender_login = str(sender_login) if sender_login else ""
+    if not isinstance(sender_type, str):
+        if isinstance(sender_type, list):
+            sender_type = " ".join(str(item) for item in sender_type if item)
+        else:
+            sender_type = str(sender_type) if sender_type else ""
+    
     sender_lower = sender_login.lower()
+    sender_type_lower = sender_type.lower()
 
-    # Check sender type (GitHub sends type="Bot" for bots)
-    if sender_type.lower() == "bot":
+    if "bot" in sender_type_lower:
         return True
 
-    # Check if sender name contains [bot]
     if "[bot]" in sender_lower:
         return True
 
-    # Check against configured bot usernames
     if sender_lower in settings.bot_usernames_list:
         return True
 
@@ -51,6 +47,18 @@ def extract_command(text: str) -> Optional[Tuple[str, str]]:
         extract_command("@agent review please check the scroll button")
         -> ("review", "please check the scroll button")
     """
+    if not text:
+        return None
+    
+    if not isinstance(text, str):
+        try:
+            if isinstance(text, list):
+                text = " ".join(str(item) for item in text if item)
+            else:
+                text = str(text)
+        except Exception:
+            return None
+    
     if not text:
         return None
 

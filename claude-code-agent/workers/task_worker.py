@@ -297,6 +297,8 @@ class TaskWorker:
                     await self._update_claude_task_status(task_db)
 
                     if error_text:
+                        if not isinstance(error_text, str):
+                            error_text = str(error_text) if error_text else ""
                         error_lower = error_text.lower()
                         error_type = "unknown"
                         should_mark_inactive = False

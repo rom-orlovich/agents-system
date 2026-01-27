@@ -71,11 +71,12 @@ def should_start_new_conversation(prompt: str, metadata: dict) -> bool:
     Returns:
         True if new conversation should be started, False otherwise
     """
-    # Check metadata flag first (takes precedence)
     if "new_conversation" in metadata:
         return bool(metadata["new_conversation"])
     
-    # Check for keywords in prompt (case-insensitive)
+    if not isinstance(prompt, str):
+        prompt = str(prompt) if prompt else ""
+    
     prompt_lower = prompt.lower()
     keywords = [
         "new conversation",

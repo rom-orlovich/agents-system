@@ -43,23 +43,86 @@ async def handle_github_task_completion(
     result: str = None,
     error: str = None
 ) -> bool:
+    has_meaningful_response = bool(
+        (result and len(result.strip()) > 50) or 
+        (message and len(message.strip()) > 50 and message.strip() != "❌")
+    )
+    
     if not success and error:
-        formatted_message = "❌"
-        logger.info(
-            "github_task_error_posted",
-            task_id=task_id,
-            error_preview=error[:200] if error else None,
-            message="Error posted as emoji-only to GitHub, full details in logs and conversation"
+        original_comment_id = (
+            payload.get("comment", {}).get("id") or
+            None
         )
+        
+        if original_comment_id:
+            repo = payload.get("repository", {})
+            owner = repo.get("owner", {}).get("login", "")
+            repo_name = repo.get("name", "")
+            
+            if owner and repo_name:
+                try:
+                    from core.github_client import github_client
+                    github_client.token = github_client.token or os.getenv("GITHUB_TOKEN")
+                    if github_client.token:
+                        github_client.headers["Authorization"] = f"token {github_client.token}"
+                        await github_client.add_reaction(
+                            owner,
+                            repo_name,
+                            original_comment_id,
+                            reaction="-1"
+                        )
+                        logger.info(
+                            "github_error_reaction_added",
+                            task_id=task_id,
+                            comment_id=original_comment_id,
+                            error_preview=error[:200] if error else None,
+                            message="Added error reaction to original comment"
+                        )
+                    else:
+                        logger.warning(
+                            "github_reaction_skipped_no_token",
+                            comment_id=original_comment_id,
+                            message="GITHUB_TOKEN not configured - reaction not sent"
+                        )
+                except Exception as e:
+                    logger.warning(
+                        "github_error_reaction_failed",
+                        task_id=task_id,
+                        comment_id=original_comment_id,
+                        error=str(e),
+                        message="Failed to add reaction"
+                    )
+            else:
+                logger.warning(
+                    "github_reaction_skipped_no_repo",
+                    task_id=task_id,
+                    message="Repository info missing - cannot add reaction"
+                )
+        
+        if has_meaningful_response:
+            logger.info(
+                "github_task_failed_but_response_already_posted",
+                task_id=task_id,
+                error_preview=error[:200] if error else None,
+                message="Task failed but response already posted to GitHub - skipping error comment, sending to Slack only"
+            )
+        else:
+            logger.info(
+                "github_task_failed_no_new_comment",
+                task_id=task_id,
+                error_preview=error[:200] if error else None,
+                message="Task failed - error reaction added to original comment, sending to Slack only"
+            )
+        
+        comment_posted = False
     else:
         formatted_message = message
-    
-    comment_posted = await post_github_task_comment(
-        payload=payload,
-        message=formatted_message,
-        success=success,
-        cost_usd=cost_usd
-    )
+        comment_posted = await post_github_task_comment(
+            payload=payload,
+            message=formatted_message,
+            success=success,
+            cost_usd=cost_usd
+        )
     
     requires_approval = False
     if command:

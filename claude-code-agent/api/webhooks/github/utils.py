@@ -9,7 +9,7 @@ import os
 import json
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Any
 import structlog
 import httpx
 
@@ -27,6 +27,42 @@ from shared.machine_models import WebhookCommand
 from shared import TaskStatus, AgentType
 
 logger = structlog.get_logger()
+
+
+def extract_github_text(value: Any, default: str = "") -> str:
+    """
+    Safely extract text from GitHub webhook payload fields.
+    
+    Handles cases where GitHub webhook fields might be lists, dicts, or other non-string types.
+    This can happen in edge cases or with certain webhook formats.
+    
+    Args:
+        value: Value to extract text from (can be str, list, dict, None, etc.)
+        default: Default value to return if value is None or empty
+        
+    Returns:
+        String representation of the value
+    """
+    if value is None:
+        return default
+    
+    if isinstance(value, str):
+        return value
+    
+    if isinstance(value, list):
+        if not value:
+            return default
+        return " ".join(str(item) for item in value if item)
+    
+    if isinstance(value, dict):
+        if "text" in value:
+            return str(value.get("text", default))
+        if "body" in value:
+            return extract_github_text(value.get("body"), default)
+        if "content" in value:
+            return extract_github_text(value.get("content"), default)
+    
+    return str(value) if value else default
 
 
 async def verify_github_signature(request: Request, body: bytes) -> None:
@@ -286,7 +322,8 @@ async def match_github_command(payload: dict, event_type: str) -> Optional[Webho
 
     text = ""
     if event_type.startswith("issue_comment"):
-        text = payload.get("comment", {}).get("body", "")
+        comment_body = payload.get("comment", {}).get("body", "")
+        text = extract_github_text(comment_body)
         logger.debug(
             "github_comment_text_extracted",
             event_type=event_type,
@@ -295,11 +332,16 @@ async def match_github_command(payload: dict, event_type: str) -> Optional[Webho
             comment_id=comment_id
         )
     elif event_type.startswith("pull_request_review_comment"):
-        text = payload.get("comment", {}).get("body", "")
+        comment_body = payload.get("comment", {}).get("body", "")
+        text = extract_github_text(comment_body)
     elif event_type.startswith("issues"):
-        text = payload.get("issue", {}).get("body", "") or payload.get("issue", {}).get("title", "")
+        issue_body = payload.get("issue", {}).get("body", "")
+        issue_title = payload.get("issue", {}).get("title", "")
+        text = extract_github_text(issue_body) or extract_github_text(issue_title)
     elif event_type.startswith("pull_request"):
-        text = payload.get("pull_request", {}).get("body", "") or payload.get("pull_request", {}).get("title", "")
+        pr_body = payload.get("pull_request", {}).get("body", "")
+        pr_title = payload.get("pull_request", {}).get("title", "")
+        text = extract_github_text(pr_body) or extract_github_text(pr_title)
 
     result = extract_command(text)
 

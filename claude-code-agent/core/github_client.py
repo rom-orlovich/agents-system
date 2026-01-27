@@ -615,7 +615,10 @@ class GitHubClient:
                 username = user_data.get("login", "")
                 
                 if username:
-                    _authenticated_user_cache = username.lower()
+                    if not isinstance(username, str):
+                        username = str(username) if username else ""
+                    if username:
+                        _authenticated_user_cache = username.lower()
                     logger.info("github_authenticated_user_fetched", username=username)
                     return username
                 

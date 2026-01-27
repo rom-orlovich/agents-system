@@ -10,7 +10,7 @@ import json
 import uuid
 import time
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Any
 import structlog
 
 from fastapi import Request, HTTPException
@@ -27,6 +27,29 @@ from shared.machine_models import WebhookCommand
 from shared import TaskStatus, AgentType
 
 logger = structlog.get_logger()
+
+
+def extract_slack_text(value: Any, default: str = "") -> str:
+    if value is None:
+        return default
+    
+    if isinstance(value, str):
+        return value
+    
+    if isinstance(value, list):
+        if not value:
+            return default
+        return " ".join(str(item) for item in value if item)
+    
+    if isinstance(value, dict):
+        if "text" in value:
+            return str(value.get("text", default))
+        if "body" in value:
+            return extract_slack_text(value.get("body"), default)
+        if "content" in value:
+            return extract_slack_text(value.get("content"), default)
+    
+    return str(value) if value else default
 
 
 async def verify_slack_signature(request: Request, body: bytes) -> None:
@@ -175,7 +198,8 @@ async def match_slack_command(payload: dict, event_type: str) -> Optional[Webhoo
         )
         return None
 
-    text = event.get("text", "")
+    text_raw = event.get("text", "")
+    text = extract_slack_text(text_raw)
 
     result = extract_command(text)
     if result is None:
