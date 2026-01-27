@@ -52,17 +52,22 @@ def extract_github_text(value: Any, default: str = "") -> str:
     if isinstance(value, list):
         if not value:
             return default
-        return " ".join(str(item) for item in value if item)
+        result = " ".join(str(item) for item in value if item)
+        return result if isinstance(result, str) else default
     
     if isinstance(value, dict):
         if "text" in value:
-            return str(value.get("text", default))
+            result = str(value.get("text", default))
+            return result if isinstance(result, str) else default
         if "body" in value:
-            return extract_github_text(value.get("body"), default)
+            result = extract_github_text(value.get("body"), default)
+            return result if isinstance(result, str) else default
         if "content" in value:
-            return extract_github_text(value.get("content"), default)
+            result = extract_github_text(value.get("content"), default)
+            return result if isinstance(result, str) else default
     
-    return str(value) if value else default
+    result = str(value) if value else default
+    return result if isinstance(result, str) else default
 
 
 async def verify_github_signature(request: Request, body: bytes) -> None:
