@@ -15,49 +15,45 @@ logger = structlog.get_logger()
 
 
 class SessionUsage(BaseModel):
-    """Session (5-hour) usage data."""
-    used: int
-    limit: int
-    
-    @property
-    def remaining(self) -> int:
-        """Remaining usage in current session."""
-        return max(0, self.limit - self.used)
-    
+    """Session (5-hour) usage data from Anthropic OAuth API."""
+    utilization: float  # Percentage used (0-100)
+    resets_at: Optional[str] = None  # ISO timestamp when limit resets
+
     @property
     def percentage(self) -> float:
-        """Usage percentage."""
-        if self.limit == 0:
-            return 0.0
-        return min(100.0, (self.used / self.limit) * 100.0)
-    
+        """Usage percentage (already provided by API)."""
+        return min(100.0, max(0.0, self.utilization))
+
+    @property
+    def remaining_percentage(self) -> float:
+        """Remaining percentage."""
+        return max(0.0, 100.0 - self.utilization)
+
     @property
     def is_exceeded(self) -> bool:
-        """Check if limit is exceeded."""
-        return self.used >= self.limit
+        """Check if limit is exceeded (>= 100%)."""
+        return self.utilization >= 100.0
 
 
 class WeeklyUsage(BaseModel):
-    """Weekly (7-day) usage data."""
-    used: int
-    limit: int
-    
-    @property
-    def remaining(self) -> int:
-        """Remaining usage in current week."""
-        return max(0, self.limit - self.used)
-    
+    """Weekly (7-day) usage data from Anthropic OAuth API."""
+    utilization: float  # Percentage used (0-100)
+    resets_at: Optional[str] = None  # ISO timestamp when limit resets
+
     @property
     def percentage(self) -> float:
-        """Usage percentage."""
-        if self.limit == 0:
-            return 0.0
-        return min(100.0, (self.used / self.limit) * 100.0)
-    
+        """Usage percentage (already provided by API)."""
+        return min(100.0, max(0.0, self.utilization))
+
+    @property
+    def remaining_percentage(self) -> float:
+        """Remaining percentage."""
+        return max(0.0, 100.0 - self.utilization)
+
     @property
     def is_exceeded(self) -> bool:
-        """Check if limit is exceeded."""
-        return self.used >= self.limit
+        """Check if limit is exceeded (>= 100%)."""
+        return self.utilization >= 100.0
 
 
 class OAuthUsageResponse(BaseModel):
@@ -96,7 +92,11 @@ def load_credentials() -> Optional[ClaudeCredentials]:
 async def fetch_oauth_usage() -> OAuthUsageResponse:
     """
     Fetch OAuth usage data from Anthropic API.
-    
+
+    The API returns utilization percentages and reset timestamps for:
+    - five_hour: 5-hour rolling session limit
+    - seven_day: 7-day weekly limit
+
     Returns:
         OAuthUsageResponse with session and weekly usage data, or error message.
     """
@@ -105,134 +105,124 @@ async def fetch_oauth_usage() -> OAuthUsageResponse:
         return OAuthUsageResponse(
             error="No credentials found. Please upload credentials via /api/credentials/upload"
         )
-    
+
     if creds.is_expired:
         return OAuthUsageResponse(
             error=f"Credentials expired at {creds.expires_at_datetime.isoformat()}"
         )
-    
+
     url = "https://api.anthropic.com/api/oauth/usage"
-    
-    # Try multiple authentication methods
-    auth_variants = [
-        # Method 1: Authorization header only
-        {
-            "Authorization": f"{creds.token_type} {creds.access_token}",
-            "Content-Type": "application/json",
-        },
-        # Method 2: Authorization + x-api-key
-        {
-            "Authorization": f"{creds.token_type} {creds.access_token}",
-            "x-api-key": creds.access_token,
-            "Content-Type": "application/json",
-        },
-        # Method 3: x-api-key only
-        {
-            "x-api-key": creds.access_token,
-            "Content-Type": "application/json",
-        },
-    ]
-    
-    for i, headers in enumerate(auth_variants, 1):
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(url, headers=headers)
-                
-                if response.status_code == 200:
-                    try:
-                        data = response.json()
-                        
-                        # Parse response - handle different possible formats
-                        session_data = None
-                        weekly_data = None
-                        
-                        if isinstance(data, dict):
-                            # Check for nested usage object
-                            if "usage" in data:
-                                usage = data["usage"]
-                                if "session" in usage:
-                                    session_data = usage["session"]
-                                if "weekly" in usage:
-                                    weekly_data = usage["weekly"]
-                            else:
-                                # Check for direct session/weekly fields
-                                if "session" in data:
-                                    session_data = data["session"]
-                                if "weekly" in data:
-                                    weekly_data = data["weekly"]
-                            
-                            # Also check for direct fields (override if found)
-                            if "session_used" in data or "session_limit" in data:
-                                session_data = {
-                                    "used": data.get("session_used", 0),
-                                    "limit": data.get("session_limit", 0),
-                                }
-                            if "weekly_used" in data or "weekly_limit" in data:
-                                weekly_data = {
-                                    "used": data.get("weekly_used", 0),
-                                    "limit": data.get("weekly_limit", 0),
-                                }
-                        
-                        # Build response
-                        result = OAuthUsageResponse()
-                        
-                        if session_data:
-                            try:
-                                result.session = SessionUsage(**session_data)
-                            except Exception as e:
-                                logger.warning("failed_to_parse_session_usage", error=str(e), data=session_data)
-                        
-                        if weekly_data:
-                            try:
-                                result.weekly = WeeklyUsage(**weekly_data)
-                            except Exception as e:
-                                logger.warning("failed_to_parse_weekly_usage", error=str(e), data=weekly_data)
-                        
-                        if result.is_available:
-                            logger.info("oauth_usage_fetched", method=i, has_session=result.session is not None, has_weekly=result.weekly is not None)
-                            return result
-                        else:
-                            logger.warning("oauth_usage_empty_response", method=i, response_data=data)
-                            # Try next method
-                            continue
-                    
-                    except json.JSONDecodeError as e:
-                        logger.warning("invalid_json_response", method=i, error=str(e), text=response.text[:200])
-                        continue
-                
-                elif response.status_code == 401:
-                    logger.debug("auth_failed_method", method=i, status=401)
-                    # Try next authentication method
-                    continue
-                
-                elif response.status_code == 404:
+
+    # Required headers for the OAuth usage endpoint
+    # The anthropic-beta header is REQUIRED for this endpoint to work
+    headers = {
+        "Authorization": f"Bearer {creds.access_token}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": "claude-code-agent/1.0.0",
+        "anthropic-beta": "oauth-2025-04-20",  # Required beta header
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, headers=headers)
+
+            logger.debug("oauth_usage_response",
+                        status=response.status_code,
+                        headers=dict(response.headers),
+                        body_preview=response.text[:500] if response.text else None)
+
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    logger.info("oauth_usage_raw_response", data=data)
+
+                    # Parse the actual API response format:
+                    # {
+                    #   "five_hour": {"utilization": 6.0, "resets_at": "2025-11-04T04:59:59+00:00"},
+                    #   "seven_day": {"utilization": 35.0, "resets_at": "2025-11-06T03:59:59+00:00"},
+                    #   "seven_day_opus": {"utilization": 0.0, "resets_at": null},
+                    #   ...
+                    # }
+
+                    result = OAuthUsageResponse()
+
+                    # Parse five_hour (session) usage
+                    five_hour = data.get("five_hour")
+                    if five_hour and isinstance(five_hour, dict):
+                        try:
+                            result.session = SessionUsage(
+                                utilization=float(five_hour.get("utilization", 0.0)),
+                                resets_at=five_hour.get("resets_at")
+                            )
+                        except Exception as e:
+                            logger.warning("failed_to_parse_five_hour_usage", error=str(e), data=five_hour)
+
+                    # Parse seven_day (weekly) usage
+                    seven_day = data.get("seven_day")
+                    if seven_day and isinstance(seven_day, dict):
+                        try:
+                            result.weekly = WeeklyUsage(
+                                utilization=float(seven_day.get("utilization", 0.0)),
+                                resets_at=seven_day.get("resets_at")
+                            )
+                        except Exception as e:
+                            logger.warning("failed_to_parse_seven_day_usage", error=str(e), data=seven_day)
+
+                    if result.is_available:
+                        logger.info("oauth_usage_fetched",
+                                   has_session=result.session is not None,
+                                   has_weekly=result.weekly is not None,
+                                   session_util=result.session.utilization if result.session else None,
+                                   weekly_util=result.weekly.utilization if result.weekly else None)
+                        return result
+                    else:
+                        # Response was 200 but no usable data
+                        return OAuthUsageResponse(
+                            error=f"API returned success but no usage data. Response: {json.dumps(data)[:200]}"
+                        )
+
+                except json.JSONDecodeError as e:
+                    logger.error("invalid_json_response", error=str(e), text=response.text[:500])
                     return OAuthUsageResponse(
-                        error="Usage endpoint not found (404). Endpoint may have changed."
+                        error=f"Invalid JSON response from API: {str(e)}"
                     )
-                
-                else:
-                    try:
-                        error_data = response.json()
-                        error_msg = error_data.get("error", {}).get("message", f"HTTP {response.status_code}")
-                    except Exception:
-                        error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
-                    
-                    logger.warning("oauth_usage_request_failed", method=i, status=response.status_code, error=error_msg)
-                    # Try next method
-                    continue
-        
-        except httpx.TimeoutException:
-            logger.warning("oauth_usage_timeout", method=i)
-            continue
-        except httpx.ConnectError as e:
-            return OAuthUsageResponse(
-                error=f"Connection error: {str(e)}"
-            )
-        except Exception as e:
-            logger.warning("oauth_usage_error", method=i, error=str(e), error_type=type(e).__name__)
-            continue
-    
-    # All methods failed
-    return OAuthUsageResponse(
-        error="Failed to fetch usage data. All authentication methods failed. Credentials may be invalid or expired."
-    )
+
+            elif response.status_code == 401:
+                logger.warning("oauth_usage_auth_failed", status=401)
+                return OAuthUsageResponse(
+                    error="Authentication failed (401). Token may be invalid or expired. Try re-authenticating with Claude Code CLI."
+                )
+
+            elif response.status_code == 403:
+                logger.warning("oauth_usage_forbidden", status=403, body=response.text[:300])
+                return OAuthUsageResponse(
+                    error="Access forbidden (403). Anthropic may have blocked this request. Ensure you're using official Claude Code OAuth tokens."
+                )
+
+            elif response.status_code == 404:
+                return OAuthUsageResponse(
+                    error="Usage endpoint not found (404). The API endpoint may have changed."
+                )
+
+            else:
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get("error", {}).get("message", f"HTTP {response.status_code}")
+                except Exception:
+                    error_msg = f"HTTP {response.status_code}: {response.text[:300]}"
+
+                logger.warning("oauth_usage_request_failed", status=response.status_code, error=error_msg)
+                return OAuthUsageResponse(error=error_msg)
+
+    except httpx.TimeoutException:
+        logger.warning("oauth_usage_timeout")
+        return OAuthUsageResponse(error="Request timed out. Anthropic API may be slow or unavailable.")
+
+    except httpx.ConnectError as e:
+        logger.error("oauth_usage_connect_error", error=str(e))
+        return OAuthUsageResponse(error=f"Connection error: {str(e)}")
+
+    except Exception as e:
+        logger.error("oauth_usage_unexpected_error", error=str(e), error_type=type(e).__name__)
+        return OAuthUsageResponse(error=f"Unexpected error: {str(e)}")

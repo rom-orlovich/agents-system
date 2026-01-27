@@ -1,19 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
 
+/**
+ * Session (5-hour) usage data from Anthropic OAuth API.
+ * The API returns utilization as a percentage (0-100).
+ */
 export interface SessionUsage {
-  used: number;
-  limit: number;
-  remaining: number;
-  percentage: number;
+  utilization: number; // Percentage used (0-100)
+  percentage: number; // Same as utilization
+  remaining_percentage: number; // 100 - utilization
   is_exceeded: boolean;
+  resets_at: string | null; // ISO timestamp when limit resets
 }
 
+/**
+ * Weekly (7-day) usage data from Anthropic OAuth API.
+ * The API returns utilization as a percentage (0-100).
+ */
 export interface WeeklyUsage {
-  used: number;
-  limit: number;
-  remaining: number;
-  percentage: number;
+  utilization: number; // Percentage used (0-100)
+  percentage: number; // Same as utilization
+  remaining_percentage: number; // 100 - utilization
   is_exceeded: boolean;
+  resets_at: string | null; // ISO timestamp when limit resets
 }
 
 export interface OAuthUsageResponse {

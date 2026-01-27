@@ -2,15 +2,39 @@ import { useOAuthUsage } from "../../hooks/useOAuthUsage";
 
 interface UsageBarProps {
   label: string;
-  used: number;
-  limit: number;
-  remaining: number;
-  percentage: number;
+  percentage: number; // Utilization percentage (0-100)
+  remainingPercentage: number;
   isExceeded: boolean;
   period: string;
+  resetsAt: string | null;
 }
 
-function UsageBar({ label, used, limit, remaining, percentage, isExceeded, period }: UsageBarProps) {
+/**
+ * Format reset time as relative time (e.g., "in 2h 30m")
+ */
+function formatResetTime(resetsAt: string | null): string {
+  if (!resetsAt) return "";
+
+  try {
+    const resetDate = new Date(resetsAt);
+    const now = new Date();
+    const diffMs = resetDate.getTime() - now.getTime();
+
+    if (diffMs <= 0) return "resetting soon...";
+
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (hours > 0) {
+      return `resets in ${hours}h ${minutes}m`;
+    }
+    return `resets in ${minutes}m`;
+  } catch {
+    return "";
+  }
+}
+
+function UsageBar({ label, percentage, remainingPercentage, isExceeded, period, resetsAt }: UsageBarProps) {
   const barColor = isExceeded
     ? "bg-red-500"
     : percentage >= 90
@@ -19,6 +43,8 @@ function UsageBar({ label, used, limit, remaining, percentage, isExceeded, perio
     ? "bg-orange-500"
     : "bg-blue-500";
 
+  const resetText = formatResetTime(resetsAt);
+
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center text-xs">
@@ -26,7 +52,7 @@ function UsageBar({ label, used, limit, remaining, percentage, isExceeded, perio
           {label}
         </span>
         <span className={`font-mono font-bold ${isExceeded ? "text-red-600 dark:text-red-400" : "text-gray-600 dark:text-gray-400"}`}>
-          {used.toLocaleString()} / {limit.toLocaleString()} ({period})
+          {percentage.toFixed(1)}% used ({period})
         </span>
       </div>
       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
@@ -37,11 +63,13 @@ function UsageBar({ label, used, limit, remaining, percentage, isExceeded, perio
       </div>
       <div className="flex justify-between items-center text-xs">
         <span className={`font-mono ${isExceeded ? "text-red-600 dark:text-red-400 font-bold" : "text-gray-500 dark:text-gray-400"}`}>
-          {isExceeded ? "LIMIT EXCEEDED" : `${remaining.toLocaleString()} remaining`}
+          {isExceeded ? "LIMIT EXCEEDED" : `${remainingPercentage.toFixed(1)}% remaining`}
         </span>
-        <span className="font-mono text-gray-500 dark:text-gray-400">
-          {percentage.toFixed(1)}%
-        </span>
+        {resetText && (
+          <span className="font-mono text-gray-500 dark:text-gray-400">
+            {resetText}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -101,24 +129,22 @@ export function UsageLimits() {
       {usage.session && (
         <UsageBar
           label="Session Limit"
-          used={usage.session.used}
-          limit={usage.session.limit}
-          remaining={usage.session.remaining}
           percentage={usage.session.percentage}
+          remainingPercentage={usage.session.remaining_percentage}
           isExceeded={usage.session.is_exceeded}
           period="5-hour window"
+          resetsAt={usage.session.resets_at}
         />
       )}
 
       {usage.weekly && (
         <UsageBar
           label="Weekly Limit"
-          used={usage.weekly.used}
-          limit={usage.weekly.limit}
-          remaining={usage.weekly.remaining}
           percentage={usage.weekly.percentage}
+          remainingPercentage={usage.weekly.remaining_percentage}
           isExceeded={usage.weekly.is_exceeded}
           period="7-day window"
+          resetsAt={usage.weekly.resets_at}
         />
       )}
 

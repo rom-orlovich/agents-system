@@ -285,13 +285,15 @@ async def get_cli_status(db: AsyncSession = Depends(get_db_session)):
 async def get_oauth_usage() -> dict:
     """
     Get Claude Code CLI OAuth usage limits (session and weekly).
-    
+
     Returns usage data from Anthropic's OAuth usage endpoint:
-    - session: 5-hour session usage limits
-    - weekly: 7-day weekly usage limits
+    - session (five_hour): 5-hour rolling session usage limit
+    - weekly (seven_day): 7-day weekly usage limit
+
+    The API returns utilization percentages (0-100) and reset timestamps.
     """
     usage = await fetch_oauth_usage()
-    
+
     if usage.error:
         return {
             "success": False,
@@ -299,34 +301,34 @@ async def get_oauth_usage() -> dict:
             "session": None,
             "weekly": None,
         }
-    
+
     result = {
         "success": True,
         "error": None,
     }
-    
+
     if usage.session:
         result["session"] = {
-            "used": usage.session.used,
-            "limit": usage.session.limit,
-            "remaining": usage.session.remaining,
+            "utilization": round(usage.session.utilization, 2),
             "percentage": round(usage.session.percentage, 2),
+            "remaining_percentage": round(usage.session.remaining_percentage, 2),
             "is_exceeded": usage.session.is_exceeded,
+            "resets_at": usage.session.resets_at,
         }
     else:
         result["session"] = None
-    
+
     if usage.weekly:
         result["weekly"] = {
-            "used": usage.weekly.used,
-            "limit": usage.weekly.limit,
-            "remaining": usage.weekly.remaining,
+            "utilization": round(usage.weekly.utilization, 2),
             "percentage": round(usage.weekly.percentage, 2),
+            "remaining_percentage": round(usage.weekly.remaining_percentage, 2),
             "is_exceeded": usage.weekly.is_exceeded,
+            "resets_at": usage.weekly.resets_at,
         }
     else:
         result["weekly"] = None
-    
+
     return result
 
 
