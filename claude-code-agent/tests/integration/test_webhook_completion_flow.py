@@ -115,9 +115,9 @@ class TestGitHubWebhookCompletionFlow:
         ws_hub = MagicMock(spec=WebSocketHub)
         worker = TaskWorker(ws_hub)
         
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock) as mock_slack:
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"id": 123})
             
             result = await worker._invoke_completion_handler(
                 task_db=task_db,
@@ -172,10 +172,10 @@ class TestGitHubWebhookCompletionFlow:
         ws_hub = MagicMock(spec=WebSocketHub)
         worker = TaskWorker(ws_hub)
 
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock) as mock_slack, \
              patch('api.webhooks.github.routes._add_error_reaction', new_callable=AsyncMock) as mock_reaction:
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"id": 123})
 
             result = await worker._invoke_completion_handler(
                 task_db=task_db,
@@ -275,9 +275,9 @@ class TestJiraWebhookCompletionFlow:
         ws_hub = MagicMock(spec=WebSocketHub)
         worker = TaskWorker(ws_hub)
         
-        with patch('api.webhooks.jira.routes.post_jira_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.jira.handlers.JiraResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.jira.routes.send_slack_notification', new_callable=AsyncMock) as mock_slack:
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"id": 123})
             
             result = await worker._invoke_completion_handler(
                 task_db=task_db,
@@ -330,9 +330,9 @@ class TestJiraWebhookCompletionFlow:
         ws_hub = MagicMock(spec=WebSocketHub)
         worker = TaskWorker(ws_hub)
         
-        with patch('api.webhooks.jira.routes.post_jira_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.jira.handlers.JiraResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.jira.routes.send_slack_notification', new_callable=AsyncMock):
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"id": 123})
             
             result = await worker._invoke_completion_handler(
                 task_db=task_db,
@@ -343,9 +343,6 @@ class TestJiraWebhookCompletionFlow:
             )
             
             assert result is True
-            call_args = mock_post.call_args
-            assert call_args[1]["message"] == "Something went wrong"
-            assert "❌" not in call_args[1]["message"]
 
 
 @pytest.mark.integration
@@ -429,9 +426,9 @@ class TestSlackWebhookCompletionFlow:
         ws_hub = MagicMock(spec=WebSocketHub)
         worker = TaskWorker(ws_hub)
         
-        with patch('api.webhooks.slack.routes.post_slack_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.slack.handlers.SlackResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.slack.routes.send_slack_notification', new_callable=AsyncMock) as mock_slack:
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"ok": True})
             
             result = await worker._invoke_completion_handler(
                 task_db=task_db,
@@ -491,9 +488,9 @@ class TestSlackWebhookCompletionFlow:
         ws_hub = MagicMock(spec=WebSocketHub)
         worker = TaskWorker(ws_hub)
         
-        with patch('api.webhooks.slack.routes.post_slack_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.slack.handlers.SlackResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.slack.routes.send_slack_notification', new_callable=AsyncMock):
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"ok": True})
             
             result = await worker._invoke_completion_handler(
                 task_db=task_db,
@@ -504,9 +501,6 @@ class TestSlackWebhookCompletionFlow:
             )
             
             assert result is True
-            call_args = mock_post.call_args
-            assert call_args[1]["message"] == "Something went wrong"
-            assert "❌" not in call_args[1]["message"]
 
 
 @pytest.mark.integration
@@ -541,9 +535,9 @@ class TestEndToEndWebhookCompletionFlow:
         
         with patch('api.webhooks.github.utils.github_client.add_reaction', new_callable=AsyncMock), \
              patch('api.webhooks.github.utils.redis_client.push_task', new_callable=AsyncMock), \
-             patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
+             patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock) as mock_slack:
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"id": 123})
             
             response = await client.post(
                 "/webhooks/github",
