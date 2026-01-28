@@ -1,5 +1,5 @@
 import pytest
-from pydantic import ValidationError
+from pydantic import ValidationError, TypeAdapter
 from api.webhooks.github.models import (
     GitHubUser,
     GitHubRepository,
@@ -11,6 +11,8 @@ from api.webhooks.github.models import (
     GitHubPullRequestPayload,
     GitHubWebhookPayload,
 )
+
+GitHubPayloadAdapter = TypeAdapter(GitHubWebhookPayload)
 
 
 class TestGitHubUser:
@@ -419,7 +421,7 @@ class TestGitHubWebhookPayload:
             },
             "sender": {"login": "commenter", "id": 456, "type": "User"},
         }
-        payload = GitHubWebhookPayload.parse_obj(payload_data)
+        payload = GitHubPayloadAdapter.validate_python(payload_data)
         assert isinstance(payload, GitHubIssueCommentPayload)
         assert payload.comment.body == "@agent review"
 
@@ -442,7 +444,7 @@ class TestGitHubWebhookPayload:
             },
             "sender": {"login": "testuser", "id": 123, "type": "User"},
         }
-        payload = GitHubWebhookPayload.parse_obj(payload_data)
+        payload = GitHubPayloadAdapter.validate_python(payload_data)
         assert isinstance(payload, GitHubIssuesPayload)
         assert payload.issue.title == "New Issue"
 
@@ -465,7 +467,7 @@ class TestGitHubWebhookPayload:
             },
             "sender": {"login": "testuser", "id": 123, "type": "User"},
         }
-        payload = GitHubWebhookPayload.parse_obj(payload_data)
+        payload = GitHubPayloadAdapter.validate_python(payload_data)
         assert isinstance(payload, GitHubPullRequestPayload)
         assert payload.pull_request.title == "Test PR"
 
@@ -495,7 +497,7 @@ class TestGitHubWebhookPayload:
             },
             "sender": {"login": "commenter", "id": 456, "type": "User"},
         }
-        payload = GitHubWebhookPayload.parse_obj(payload_data)
+        payload = GitHubPayloadAdapter.validate_python(payload_data)
         text = payload.extract_text()
         assert text == "Comment text here"
 
@@ -519,6 +521,6 @@ class TestGitHubWebhookPayload:
             },
             "sender": {"login": "testuser", "id": 123, "type": "User"},
         }
-        payload = GitHubWebhookPayload.parse_obj(payload_data)
+        payload = GitHubPayloadAdapter.validate_python(payload_data)
         text = payload.extract_text()
         assert "Issue Title" in text and "Issue body" in text

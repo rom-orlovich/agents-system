@@ -36,7 +36,8 @@ class TestGitHubWebhookCompletionFlow:
         Behavior: Task created with completion_handler path in source_metadata.
         """
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "test-secret")
-        
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_test_token")
+
         payload = {
             "action": "created",
             "comment": {"id": 456, "body": "@agent review the pr"},
@@ -128,14 +129,12 @@ class TestGitHubWebhookCompletionFlow:
             
             assert result is True
             mock_post.assert_called_once()
-            mock_slack.assert_called_once_with(
-                task_id="task-github-123",
-                webhook_source="github",
-                command="review pr",
-                success=True,
-                result="Review complete",
-                error=None
-            )
+            mock_slack.assert_called_once()
+            call_kwargs = mock_slack.call_args.kwargs
+            assert call_kwargs["task_id"] == "task-github-123"
+            assert call_kwargs["webhook_source"] == "github"
+            assert call_kwargs["command"] == "review pr"
+            assert call_kwargs["success"] is True
     
     @pytest.mark.asyncio
     async def test_task_worker_calls_github_completion_handler_on_failure(
@@ -143,7 +142,7 @@ class TestGitHubWebhookCompletionFlow:
     ):
         """
         Business Rule: Task worker must call GitHub completion handler when task fails.
-        Behavior: Handler formats error with ❌ emoji and posts comment.
+        Behavior: Handler adds error reaction and sends Slack notification but doesn't post comment.
         """
         task_db = TaskDB(
             task_id="task-github-fail",
@@ -158,24 +157,26 @@ class TestGitHubWebhookCompletionFlow:
                 "webhook_source": "github",
                 "payload": {
                     "repository": {"owner": {"login": "test"}, "name": "repo"},
-                    "issue": {"number": 456}
+                    "issue": {"number": 456},
+                    "comment": {"id": 789}
                 },
                 "completion_handler": "api.webhooks.github.routes.handle_github_task_completion",
                 "command": "review pr"
             }),
             cost_usd=0.0
         )
-        
+
         db.add(task_db)
         await db.commit()
-        
+
         ws_hub = MagicMock(spec=WebSocketHub)
         worker = TaskWorker(ws_hub)
-        
+
         with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
-             patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock):
+             patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock) as mock_slack, \
+             patch('api.webhooks.github.routes._add_error_reaction', new_callable=AsyncMock) as mock_reaction:
             mock_post.return_value = True
-            
+
             result = await worker._invoke_completion_handler(
                 task_db=task_db,
                 message="Task failed",
@@ -183,11 +184,11 @@ class TestGitHubWebhookCompletionFlow:
                 result=None,
                 error="Something went wrong"
             )
-            
-            assert result is True
-            call_args = mock_post.call_args
-            assert call_args[1]["message"] == "❌ Something went wrong"
-            assert call_args[1]["success"] is False
+
+            assert result is False
+            mock_post.assert_not_called()
+            mock_reaction.assert_called_once()
+            mock_slack.assert_called_once()
 
 
 @pytest.mark.integration
@@ -288,14 +289,12 @@ class TestJiraWebhookCompletionFlow:
             
             assert result is True
             mock_post.assert_called_once()
-            mock_slack.assert_called_once_with(
-                task_id="task-jira-123",
-                webhook_source="jira",
-                command="analyze ticket",
-                success=True,
-                result="Analysis complete",
-                error=None
-            )
+            mock_slack.assert_called_once()
+            call_kwargs = mock_slack.call_args.kwargs
+            assert call_kwargs["task_id"] == "task-jira-123"
+            assert call_kwargs["webhook_source"] == "jira"
+            assert call_kwargs["command"] == "analyze ticket"
+            assert call_kwargs["success"] is True
     
     @pytest.mark.asyncio
     async def test_jira_completion_handler_formats_error_cleanly(

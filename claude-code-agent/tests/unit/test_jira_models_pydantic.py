@@ -1,5 +1,5 @@
 import pytest
-from pydantic import ValidationError
+from pydantic import ValidationError, TypeAdapter
 from api.webhooks.jira.models import (
     JiraUser,
     JiraProject,
@@ -14,6 +14,8 @@ from api.webhooks.jira.models import (
     JiraIssueEventPayload,
     JiraCommentEventPayload,
 )
+
+JiraPayloadAdapter = TypeAdapter(JiraWebhookPayload)
 
 
 class TestJiraUser:
@@ -321,7 +323,7 @@ class TestJiraWebhookPayload:
                 "active": True,
             },
         }
-        payload = JiraWebhookPayload.parse_obj(payload_data)
+        payload = JiraPayloadAdapter.validate_python(payload_data)
         assert isinstance(payload, JiraIssueEventPayload)
         assert payload.issue.key == "TEST-123"
 
@@ -363,7 +365,7 @@ class TestJiraWebhookPayload:
                 "active": True,
             },
         }
-        payload = JiraWebhookPayload.parse_obj(payload_data)
+        payload = JiraPayloadAdapter.validate_python(payload_data)
         assert isinstance(payload, JiraCommentEventPayload)
         assert payload.comment.body == "@agent fix this"
 
@@ -406,7 +408,7 @@ class TestJiraWebhookPayload:
                 "active": True,
             },
         }
-        payload = JiraWebhookPayload.parse_obj(payload_data)
+        payload = JiraPayloadAdapter.validate_python(payload_data)
         text = payload.extract_text()
         assert text == "Comment text"
 
@@ -437,4 +439,4 @@ class TestJiraWebhookPayload:
             },
         }
         with pytest.raises(ValidationError):
-            JiraWebhookPayload.parse_obj(payload_data)
+            JiraPayloadAdapter.validate_python(payload_data)
