@@ -8,7 +8,7 @@ import structlog
 
 from api.webhooks.github.models import GitHubRoutingMetadata
 from api.webhooks.github.errors import GitHubResponseError, GitHubErrorContext
-from api.webhooks.common.validation import validate_response_format
+from api.webhooks.github.validation import validate_response_format
 
 logger = structlog.get_logger()
 

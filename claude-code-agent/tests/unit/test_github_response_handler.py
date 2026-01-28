@@ -28,7 +28,7 @@ class TestGitHubResponseHandler:
         with patch('api.webhooks.github.handlers.github_client') as mock_client:
             mock_client.post_pr_comment = AsyncMock(return_value=True)
 
-            success = await handler.post_response(routing, result)
+            success, response = await handler.post_response(routing, result)
 
             assert success is True
             mock_client.post_pr_comment.assert_called_once_with(
@@ -55,7 +55,7 @@ class TestGitHubResponseHandler:
         with patch('api.webhooks.github.handlers.github_client') as mock_client:
             mock_client.post_issue_comment = AsyncMock(return_value=True)
 
-            success = await handler.post_response(routing, result)
+            success, response = await handler.post_response(routing, result)
 
             assert success is True
             mock_client.post_issue_comment.assert_called_once_with(
@@ -80,7 +80,7 @@ class TestGitHubResponseHandler:
         with patch('api.webhooks.github.handlers.github_client') as mock_client:
             mock_client.post_issue_comment = AsyncMock()
 
-            success = await handler.post_response(routing, "test result")
+            success, response = await handler.post_response(routing, "test result")
 
             assert success is False
             mock_client.post_issue_comment.assert_not_called()
@@ -103,7 +103,7 @@ class TestGitHubResponseHandler:
         with patch('api.webhooks.github.handlers.github_client') as mock_client:
             mock_client.post_issue_comment = AsyncMock()
 
-            success = await handler.post_response(routing, "test result")
+            success, response = await handler.post_response(routing, "test result")
 
             assert success is False
             mock_client.post_issue_comment.assert_not_called()
@@ -123,7 +123,7 @@ class TestGitHubResponseHandler:
         )
 
         with patch('api.webhooks.github.handlers.github_client') as mock_client:
-            success = await handler.post_response(routing, "test result")
+            success, response = await handler.post_response(routing, "test result")
 
             assert success is False
 
@@ -149,7 +149,7 @@ class TestGitHubResponseHandler:
             mock_client.post_pr_comment = AsyncMock(return_value=True)
             mock_client.post_issue_comment = AsyncMock(return_value=True)
 
-            success = await handler.post_response(routing, result)
+            success, response = await handler.post_response(routing, result)
 
             assert success is True
             mock_client.post_pr_comment.assert_called_once()
@@ -176,7 +176,7 @@ class TestGitHubResponseHandler:
             mock_client.post_pr_comment = AsyncMock(return_value=True)
             mock_validate.return_value = (True, "")
 
-            await handler.post_response(routing, result)
+            success, response = await handler.post_response(routing, result)
 
             mock_validate.assert_called_once_with(result, "pr_review")
 
@@ -201,7 +201,7 @@ class TestGitHubResponseHandler:
             mock_client.post_issue_comment = AsyncMock(return_value=True)
             mock_validate.return_value = (True, "")
 
-            await handler.post_response(routing, result)
+            success, response = await handler.post_response(routing, result)
 
             mock_validate.assert_called_once_with(result, "issue_analysis")
 
@@ -227,7 +227,7 @@ class TestGitHubResponseHandler:
             mock_client.post_issue_comment = AsyncMock(return_value=True)
             mock_validate.return_value = (False, "Format validation failed")
 
-            success = await handler.post_response(routing, result)
+            success, response = await handler.post_response(routing, result)
 
             assert success is True
             mock_client.post_issue_comment.assert_called_once()
@@ -280,7 +280,7 @@ class TestGitHubResponseHandler:
              patch.object(handler, '_post_with_curl', new_callable=AsyncMock) as mock_curl:
             mock_curl.return_value = True
 
-            success = await handler.post_response(routing, "test result")
+            success, response = await handler.post_response(routing, "test result")
 
             assert success is True
             mock_curl.assert_called_once()
@@ -305,7 +305,7 @@ class TestGitHubResponseHandler:
              patch('api.webhooks.github.handlers.logger') as mock_logger:
             mock_client.post_pr_comment = AsyncMock(return_value=True)
 
-            await handler.post_response(routing, "test result")
+            success, response = await handler.post_response(routing, "test result")
 
             mock_logger.info.assert_called()
             call_args = mock_logger.info.call_args
@@ -333,7 +333,7 @@ class TestGitHubResponseHandler:
              patch('api.webhooks.github.handlers.logger') as mock_logger:
             mock_client.post_issue_comment = AsyncMock(return_value=True)
 
-            await handler.post_response(routing, "test result")
+            success, response = await handler.post_response(routing, "test result")
 
             mock_logger.info.assert_called()
             call_args = mock_logger.info.call_args

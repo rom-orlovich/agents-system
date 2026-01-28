@@ -339,7 +339,7 @@ class TestWebhookCompletionHandlers:
             "issue": {"number": 123}
         }
 
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock, return_value=True) as mock_post, \
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"id": 123})) as mock_post, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock):
 
             result = await handle_github_task_completion(
@@ -364,7 +364,7 @@ class TestWebhookCompletionHandlers:
             }
         }
 
-        with patch('api.webhooks.jira.routes.post_jira_task_comment', new_callable=AsyncMock, return_value=True) as mock_post, \
+        with patch('api.webhooks.jira.handlers.JiraResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"id": 123})) as mock_post, \
              patch('api.webhooks.jira.routes.send_slack_notification', new_callable=AsyncMock):
 
             result = await handle_jira_task_completion(
@@ -389,7 +389,7 @@ class TestWebhookCompletionHandlers:
             }
         }
 
-        with patch('api.webhooks.slack.routes.post_slack_task_comment', new_callable=AsyncMock, return_value=True) as mock_post, \
+        with patch('api.webhooks.slack.handlers.SlackResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"ok": True})) as mock_post, \
              patch('api.webhooks.slack.routes.send_slack_notification', new_callable=AsyncMock):
 
             result = await handle_slack_task_completion(

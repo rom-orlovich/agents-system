@@ -8,7 +8,7 @@ import structlog
 
 from api.webhooks.slack.models import SlackRoutingMetadata
 from api.webhooks.slack.errors import SlackResponseError, SlackErrorContext
-from api.webhooks.common.validation import validate_response_format
+from api.webhooks.slack.validation import validate_response_format
 
 logger = structlog.get_logger()
 

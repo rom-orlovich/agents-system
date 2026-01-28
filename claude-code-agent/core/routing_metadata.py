@@ -12,17 +12,17 @@ if TYPE_CHECKING:
 
 
 def _get_github_routing():
-    from api.webhooks.github.routing import extract_github_routing
+    from api.webhooks.github.metadata import extract_github_routing
     return extract_github_routing
 
 
 def _get_jira_routing():
-    from api.webhooks.jira.routing import extract_jira_routing
+    from api.webhooks.jira.metadata import extract_jira_routing
     return extract_jira_routing
 
 
 def _get_slack_routing():
-    from api.webhooks.slack.routing import extract_slack_routing
+    from api.webhooks.slack.metadata import extract_slack_routing
     return extract_slack_routing
 
 

@@ -14,7 +14,7 @@ class TestGitHubRoutingExtractor:
         Business Rule: Extracts owner and repo from repository.full_name.
         Behavior: Splits "owner/repo" into separate fields.
         """
-        from api.webhooks.github.routing import extract_github_routing
+        from api.webhooks.github.metadata import extract_github_routing
 
         payload = {
             "repository": {"full_name": "test-owner/test-repo"},
@@ -32,7 +32,7 @@ class TestGitHubRoutingExtractor:
         Business Rule: Extracts issue number from issue events.
         Behavior: Returns issue_number from payload.issue.number.
         """
-        from api.webhooks.github.routing import extract_github_routing
+        from api.webhooks.github.metadata import extract_github_routing
 
         payload = {
             "repository": {"full_name": "owner/repo"},
@@ -48,7 +48,7 @@ class TestGitHubRoutingExtractor:
         Business Rule: Extracts PR number from pull_request events.
         Behavior: Returns pr_number from payload.pull_request.number.
         """
-        from api.webhooks.github.routing import extract_github_routing
+        from api.webhooks.github.metadata import extract_github_routing
 
         payload = {
             "repository": {"full_name": "owner/repo"},
@@ -64,7 +64,7 @@ class TestGitHubRoutingExtractor:
         Business Rule: Detects PR from issue that has pull_request key.
         Behavior: When issue has pull_request field, sets pr_number.
         """
-        from api.webhooks.github.routing import extract_github_routing
+        from api.webhooks.github.metadata import extract_github_routing
 
         payload = {
             "repository": {"full_name": "owner/repo"},
@@ -80,7 +80,7 @@ class TestGitHubRoutingExtractor:
         Business Rule: Extracts comment ID from comment events.
         Behavior: Returns comment_id from payload.comment.id.
         """
-        from api.webhooks.github.routing import extract_github_routing
+        from api.webhooks.github.metadata import extract_github_routing
 
         payload = {
             "repository": {"full_name": "owner/repo"},
@@ -97,7 +97,7 @@ class TestGitHubRoutingExtractor:
         Business Rule: Extracts sender username from sender.login.
         Behavior: Returns sender from payload.sender.login.
         """
-        from api.webhooks.github.routing import extract_github_routing
+        from api.webhooks.github.metadata import extract_github_routing
 
         payload = {
             "repository": {"full_name": "owner/repo"},
@@ -114,7 +114,7 @@ class TestGitHubRoutingExtractor:
         Business Rule: Returns strict Pydantic model.
         Behavior: Return type is GitHubRoutingMetadata.
         """
-        from api.webhooks.github.routing import extract_github_routing
+        from api.webhooks.github.metadata import extract_github_routing
 
         payload = {
             "repository": {"full_name": "owner/repo"},
@@ -130,7 +130,7 @@ class TestGitHubRoutingExtractor:
         Business Rule: Handles payloads without repository gracefully.
         Behavior: Returns model with empty owner/repo.
         """
-        from api.webhooks.github.routing import extract_github_routing
+        from api.webhooks.github.metadata import extract_github_routing
 
         payload = {"issue": {"number": 123}}
 
@@ -148,7 +148,7 @@ class TestJiraRoutingExtractor:
         Business Rule: Extracts ticket key from issue.key.
         Behavior: Returns issue_key from payload.issue.key.
         """
-        from api.webhooks.jira.routing import extract_jira_routing
+        from api.webhooks.jira.metadata import extract_jira_routing
 
         payload = {
             "issue": {"key": "PROJ-123"}
@@ -164,7 +164,7 @@ class TestJiraRoutingExtractor:
         Business Rule: Extracts project key from ticket key.
         Behavior: Parses project from "PROJ-123" format.
         """
-        from api.webhooks.jira.routing import extract_jira_routing
+        from api.webhooks.jira.metadata import extract_jira_routing
 
         payload = {
             "issue": {"key": "MYPROJ-456"}
@@ -179,7 +179,7 @@ class TestJiraRoutingExtractor:
         Business Rule: Extracts project key from fields.project.key.
         Behavior: Uses fields.project.key as authoritative source.
         """
-        from api.webhooks.jira.routing import extract_jira_routing
+        from api.webhooks.jira.metadata import extract_jira_routing
 
         payload = {
             "issue": {
@@ -197,7 +197,7 @@ class TestJiraRoutingExtractor:
         Business Rule: Extracts comment ID from comment events.
         Behavior: Returns comment_id from payload.comment.id.
         """
-        from api.webhooks.jira.routing import extract_jira_routing
+        from api.webhooks.jira.metadata import extract_jira_routing
 
         payload = {
             "issue": {"key": "PROJ-123"},
@@ -213,7 +213,7 @@ class TestJiraRoutingExtractor:
         Business Rule: Extracts user name from user field.
         Behavior: Returns user_name from payload.user.displayName.
         """
-        from api.webhooks.jira.routing import extract_jira_routing
+        from api.webhooks.jira.metadata import extract_jira_routing
 
         payload = {
             "issue": {"key": "PROJ-123"},
@@ -229,7 +229,7 @@ class TestJiraRoutingExtractor:
         Business Rule: Returns strict Pydantic model.
         Behavior: Return type is JiraRoutingMetadata.
         """
-        from api.webhooks.jira.routing import extract_jira_routing
+        from api.webhooks.jira.metadata import extract_jira_routing
 
         payload = {"issue": {"key": "PROJ-123"}}
 
@@ -242,7 +242,7 @@ class TestJiraRoutingExtractor:
         Business Rule: Handles payloads without issue gracefully.
         Behavior: Returns model with empty issue_key.
         """
-        from api.webhooks.jira.routing import extract_jira_routing
+        from api.webhooks.jira.metadata import extract_jira_routing
 
         payload = {}
 
@@ -259,7 +259,7 @@ class TestSlackRoutingExtractor:
         Business Rule: Extracts channel ID from Events API payload.
         Behavior: Returns channel_id from payload.event.channel.
         """
-        from api.webhooks.slack.routing import extract_slack_routing
+        from api.webhooks.slack.metadata import extract_slack_routing
 
         payload = {
             "event": {"channel": "C12345", "ts": "123.456"}
@@ -275,7 +275,7 @@ class TestSlackRoutingExtractor:
         Business Rule: Extracts channel ID from slash command payload.
         Behavior: Returns channel_id from payload.channel_id.
         """
-        from api.webhooks.slack.routing import extract_slack_routing
+        from api.webhooks.slack.metadata import extract_slack_routing
 
         payload = {
             "channel_id": "C67890",
@@ -291,7 +291,7 @@ class TestSlackRoutingExtractor:
         Business Rule: Extracts thread timestamp from event.
         Behavior: Returns thread_ts from payload.event.thread_ts.
         """
-        from api.webhooks.slack.routing import extract_slack_routing
+        from api.webhooks.slack.metadata import extract_slack_routing
 
         payload = {
             "event": {"channel": "C12345", "thread_ts": "123.789"}
@@ -306,7 +306,7 @@ class TestSlackRoutingExtractor:
         Business Rule: Uses message ts as fallback for thread.
         Behavior: If no thread_ts, uses event.ts.
         """
-        from api.webhooks.slack.routing import extract_slack_routing
+        from api.webhooks.slack.metadata import extract_slack_routing
 
         payload = {
             "event": {"channel": "C12345", "ts": "123.456"}
@@ -321,7 +321,7 @@ class TestSlackRoutingExtractor:
         Business Rule: Extracts user ID from Events API payload.
         Behavior: Returns user_id from payload.event.user.
         """
-        from api.webhooks.slack.routing import extract_slack_routing
+        from api.webhooks.slack.metadata import extract_slack_routing
 
         payload = {
             "event": {"channel": "C12345", "user": "U99999", "ts": "123.456"}
@@ -336,7 +336,7 @@ class TestSlackRoutingExtractor:
         Business Rule: Extracts user ID from slash command payload.
         Behavior: Returns user_id from payload.user_id.
         """
-        from api.webhooks.slack.routing import extract_slack_routing
+        from api.webhooks.slack.metadata import extract_slack_routing
 
         payload = {
             "channel_id": "C12345",
@@ -352,7 +352,7 @@ class TestSlackRoutingExtractor:
         Business Rule: Extracts team ID from payload.
         Behavior: Returns team_id from payload.team_id.
         """
-        from api.webhooks.slack.routing import extract_slack_routing
+        from api.webhooks.slack.metadata import extract_slack_routing
 
         payload = {
             "team_id": "T12345",
@@ -368,7 +368,7 @@ class TestSlackRoutingExtractor:
         Business Rule: Returns strict Pydantic model.
         Behavior: Return type is SlackRoutingMetadata.
         """
-        from api.webhooks.slack.routing import extract_slack_routing
+        from api.webhooks.slack.metadata import extract_slack_routing
 
         payload = {"channel_id": "C12345", "team_id": "T12345"}
 
@@ -381,7 +381,7 @@ class TestSlackRoutingExtractor:
         Business Rule: Handles empty payloads gracefully.
         Behavior: Returns model with empty channel_id.
         """
-        from api.webhooks.slack.routing import extract_slack_routing
+        from api.webhooks.slack.metadata import extract_slack_routing
 
         payload = {}
 

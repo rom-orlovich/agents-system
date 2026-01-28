@@ -41,6 +41,8 @@ DEFAULT_CHANNEL: Final[str] = "unknown"
 MESSAGE_NO_COMMAND_MATCHED: Final[str] = "No command matched"
 MESSAGE_DOES_NOT_MEET_RULES: Final[str] = "Does not meet activation rules"
 
+SLACK_MESSAGE_MAX_LENGTH: Final[int] = 4000
+
 ENV_SLACK_TOKEN: Final[str] = "SLACK_BOT_TOKEN"
 ENV_SLACK_SIGNING_SECRET: Final[str] = "SLACK_SIGNING_SECRET"
 ENV_SLACK_CHANNEL_AGENTS: Final[str] = "SLACK_CHANNEL_AGENTS"

@@ -9,7 +9,7 @@ import structlog
 
 from api.webhooks.jira.models import JiraRoutingMetadata
 from api.webhooks.jira.errors import JiraResponseError, JiraErrorContext
-from api.webhooks.common.validation import validate_response_format
+from api.webhooks.jira.validation import validate_response_format
 
 logger = structlog.get_logger()
 
