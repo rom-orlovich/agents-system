@@ -1,19 +1,18 @@
-import re
 from typing import Optional, Tuple
 
-COMMAND_PREFIXES = ("@agent", "/agent", "@claude", "/claude")
+from domain.models.commands import get_commands_config, CommandsConfig
 
-COMMAND_PATTERN = re.compile(
-    r"(?:^|\s)(@agent|/agent|@claude|/claude)\s+(\w+)(?:\s+(.*))?",
-    re.IGNORECASE | re.DOTALL
-)
+
+def _get_config() -> CommandsConfig:
+    return get_commands_config()
 
 
 def extract_command(text: str) -> Optional[Tuple[str, str]]:
     if not text:
         return None
 
-    match = COMMAND_PATTERN.search(text)
+    config = _get_config()
+    match = config.command_pattern.search(text)
     if not match:
         return None
 
@@ -27,7 +26,8 @@ def extract_command_with_prefix(text: str) -> Optional[Tuple[str, str, str]]:
     if not text:
         return None
 
-    match = COMMAND_PATTERN.search(text)
+    config = _get_config()
+    match = config.command_pattern.search(text)
     if not match:
         return None
 
@@ -42,9 +42,24 @@ def has_agent_mention(text: str) -> bool:
     if not text:
         return False
 
-    text_lower = text.lower()
-    return any(prefix in text_lower for prefix in COMMAND_PREFIXES)
+    config = _get_config()
+    return config.has_prefix(text)
 
 
 def normalize_command(command: str) -> str:
     return command.lower().strip()
+
+
+def is_valid_command(command: str) -> bool:
+    config = _get_config()
+    return config.is_valid_command(command)
+
+
+def get_enabled_prefixes() -> list[str]:
+    config = _get_config()
+    return config.enabled_prefixes
+
+
+def get_valid_command_names() -> set[str]:
+    config = _get_config()
+    return config.valid_command_names

@@ -5,7 +5,7 @@ from core.webhook_validation import (
     WebhookValidationResult,
     extract_command,
     validate_command,
-    VALID_COMMANDS,
+    get_valid_commands,
 )
 
 
@@ -99,10 +99,11 @@ class TestExtractCommand:
 
 class TestValidateCommand:
     """Test validate_command utility function."""
-    
+
     def test_validates_all_valid_commands(self):
         """All valid commands pass validation."""
-        for command in VALID_COMMANDS:
+        valid_commands = get_valid_commands()
+        for command in valid_commands:
             is_valid, error_msg = validate_command(command)
             assert is_valid, f"Command '{command}' should be valid but got: {error_msg}"
             assert error_msg == ""
@@ -118,7 +119,7 @@ class TestValidateCommand:
         """None command is rejected."""
         is_valid, error_msg = validate_command(None)
         assert not is_valid
-        assert "@agent" in error_msg.lower()
+        assert "prefix" in error_msg.lower()
     
     def test_rejects_empty_string_command(self):
         """Empty string command is rejected."""
@@ -139,22 +140,29 @@ class TestValidateCommand:
         assert not is_valid
 
 
-class TestValidCommandsConstant:
-    """Test VALID_COMMANDS constant."""
-    
-    def test_contains_all_expected_commands(self):
-        """VALID_COMMANDS contains all expected command names."""
-        expected_commands = {
-            "analyze", "plan", "fix", "review", 
-            "approve", "reject", "improve", "help", "discover"
-        }
-        assert VALID_COMMANDS == expected_commands
-    
-    def test_is_a_set(self):
-        """VALID_COMMANDS is a set for O(1) lookup."""
-        assert isinstance(VALID_COMMANDS, set)
-    
+class TestValidCommandsFunction:
+    """Test get_valid_commands function."""
+
+    def test_contains_core_commands(self):
+        """get_valid_commands contains core command names."""
+        valid_commands = get_valid_commands()
+        core_commands = {"analyze", "plan", "fix", "review", "approve", "reject", "improve", "help", "discover"}
+        for cmd in core_commands:
+            assert cmd in valid_commands, f"Core command '{cmd}' should be in valid_commands"
+
+    def test_returns_set(self):
+        """get_valid_commands returns a set for O(1) lookup."""
+        valid_commands = get_valid_commands()
+        assert isinstance(valid_commands, set)
+
     def test_all_commands_are_lowercase(self):
-        """All commands in VALID_COMMANDS are lowercase."""
-        for command in VALID_COMMANDS:
+        """All commands returned are lowercase."""
+        valid_commands = get_valid_commands()
+        for command in valid_commands:
             assert command.islower(), f"Command '{command}' should be lowercase"
+
+    def test_includes_aliases(self):
+        """Valid commands include command aliases."""
+        valid_commands = get_valid_commands()
+        assert "lgtm" in valid_commands
+        assert "analysis" in valid_commands

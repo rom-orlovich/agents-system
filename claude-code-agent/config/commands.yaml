@@ -1,0 +1,105 @@
+# Command Configuration for Claude Code Agent
+# This file defines all command prefixes, triggers, and valid commands
+
+# Command prefixes - these are the triggers that activate the agent
+# Users can use any of these prefixes followed by a command
+prefixes:
+  - prefix: "@agent"
+    description: "Primary prefix for agent commands"
+    enabled: true
+
+  - prefix: "/agent"
+    description: "Slash command variant"
+    enabled: true
+
+  - prefix: "@claude"
+    description: "Alternative prefix using Claude name"
+    enabled: true
+
+  - prefix: "/claude"
+    description: "Slash command variant for Claude"
+    enabled: true
+
+# Valid commands that can be used with any prefix
+# Each command has: name, aliases, description, target_agent, requires_approval
+commands:
+  - name: "analyze"
+    aliases: ["analysis", "analyze-issue"]
+    description: "Analyze an issue, PR, or code"
+    target_agent: "planning"
+    requires_approval: false
+
+  - name: "plan"
+    aliases: ["plan-fix", "create-plan"]
+    description: "Create an implementation plan"
+    target_agent: "planning"
+    requires_approval: false
+
+  - name: "fix"
+    aliases: ["implement", "execute"]
+    description: "Implement a fix or feature"
+    target_agent: "executor"
+    requires_approval: true
+
+  - name: "review"
+    aliases: ["code-review", "review-pr"]
+    description: "Review code or a pull request"
+    target_agent: "planning"
+    requires_approval: false
+
+  - name: "approve"
+    aliases: ["lgtm", "approved", "ship-it"]
+    description: "Approve a plan or implementation"
+    target_agent: "executor"
+    requires_approval: false
+
+  - name: "reject"
+    aliases: ["changes-requested", "request-changes", "revise"]
+    description: "Request changes or reject a plan"
+    target_agent: "planning"
+    requires_approval: false
+
+  - name: "improve"
+    aliases: ["enhance", "refactor", "optimize"]
+    description: "Improve or refactor existing code"
+    target_agent: "executor"
+    requires_approval: true
+
+  - name: "help"
+    aliases: ["commands", "what-can-you-do"]
+    description: "Show available commands and help"
+    target_agent: "brain"
+    requires_approval: false
+
+  - name: "discover"
+    aliases: ["code", "explore", "find-code", "code-insights"]
+    description: "Discover code and provide insights"
+    target_agent: "planning"
+    requires_approval: false
+
+  - name: "jira"
+    aliases: ["ticket", "jira-ticket", "query-jira"]
+    description: "Query Jira ticket information"
+    target_agent: "slack-inquiry"
+    requires_approval: false
+
+# Bot detection patterns - usernames that should be ignored to prevent loops
+bot_patterns:
+  usernames:
+    - "github-actions[bot]"
+    - "claude-agent"
+    - "ai-agent"
+    - "dependabot[bot]"
+    - "renovate[bot]"
+    - "codecov[bot]"
+    - "stale[bot]"
+
+  type_patterns:
+    - "bot"
+    - "Bot"
+    - "[bot]"
+
+# Default settings
+defaults:
+  default_command: "analyze"  # Used when prefix is found but no valid command
+  case_sensitive: false       # Whether command matching is case-sensitive
