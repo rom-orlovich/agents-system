@@ -4,6 +4,7 @@ import os
 import httpx
 import structlog
 from typing import Optional, Dict, Any, List
+from domain.retry import with_retry, TRANSIENT_ERRORS
 
 logger = structlog.get_logger()
 
@@ -31,6 +32,7 @@ class GitHubClient:
                 message="GITHUB_TOKEN not found in environment. GitHub API calls will fail."
             )
     
+    @with_retry(max_attempts=3, wait_min=2, wait_max=10, retry_on=(ConnectionError, TimeoutError, httpx.ConnectError, httpx.TimeoutException))
     async def post_issue_comment(
         self,
         repo_owner: str,
@@ -114,6 +116,7 @@ class GitHubClient:
             comment_body
         )
     
+    @with_retry(max_attempts=3, wait_min=2, wait_max=10, retry_on=(ConnectionError, TimeoutError, httpx.ConnectError, httpx.TimeoutException))
     async def add_reaction(
         self,
         repo_owner: str,

@@ -4,6 +4,7 @@ import os
 import httpx
 import structlog
 from typing import Optional, Dict, Any, List
+from domain.retry import with_retry
 
 logger = structlog.get_logger()
 
@@ -30,6 +31,7 @@ class SlackClient:
         if not self.bot_token:
             raise ValueError("Slack client not properly configured. Check SLACK_BOT_TOKEN")
 
+    @with_retry(max_attempts=3, wait_min=1, wait_max=5, retry_on=(ConnectionError, TimeoutError, httpx.ConnectError, httpx.TimeoutException))
     async def post_message(
         self,
         channel: str,

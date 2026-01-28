@@ -5,6 +5,7 @@ import base64
 import httpx
 import structlog
 from typing import Optional, Dict, Any, List
+from domain.retry import with_retry
 
 logger = structlog.get_logger()
 
@@ -48,6 +49,7 @@ class JiraClient:
         if not all([self.jira_url, self.jira_email, self.jira_api_token]):
             raise ValueError("Jira client not properly configured. Check JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN")
 
+    @with_retry(max_attempts=3, wait_min=2, wait_max=15, retry_on=(ConnectionError, TimeoutError, httpx.ConnectError, httpx.TimeoutException))
     async def post_comment(
         self,
         issue_key: str,
