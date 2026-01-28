@@ -21,8 +21,8 @@ from api.webhooks.jira.utils import (
     create_jira_task,
     is_assignee_changed_to_ai,
     post_jira_task_comment,
-    send_slack_notification,
 )
+from domain.notifications.service import get_notification_service
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -87,7 +87,8 @@ async def handle_jira_task_completion(
             except:
                 pass
     
-    await send_slack_notification(
+    notification_service = get_notification_service()
+    await notification_service.send_task_completion(
         task_id=task_id,
         webhook_source="jira",
         command=command,
@@ -98,7 +99,7 @@ async def handle_jira_task_completion(
         payload=routing_metadata if routing_metadata else None,
         cost_usd=cost_usd,
         user_request=user_request,
-        ticket_key=ticket_key
+        ticket_key=ticket_key,
     )
     
     return comment_posted

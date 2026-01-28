@@ -6,6 +6,7 @@ import re
 from typing import Optional, Tuple
 from core.config import settings
 from core.github_client import github_client
+from domain.services.bot_detection import is_github_bot
 
 
 def is_bot_comment(sender_login: str, sender_type: str) -> bool:
@@ -16,20 +17,8 @@ def is_bot_comment(sender_login: str, sender_type: str) -> bool:
             sender_type = " ".join(str(item) for item in sender_type if item)
         else:
             sender_type = str(sender_type) if sender_type else ""
-    
-    sender_lower = sender_login.lower()
-    sender_type_lower = sender_type.lower()
 
-    if "bot" in sender_type_lower:
-        return True
-
-    if "[bot]" in sender_lower:
-        return True
-
-    if sender_lower in settings.bot_usernames_list:
-        return True
-
-    return False
+    return is_github_bot(sender_login, sender_type)
 
 
 def extract_command(text: str) -> Optional[Tuple[str, str]]:

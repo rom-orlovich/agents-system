@@ -20,10 +20,10 @@ from api.webhooks.github.utils import (
     match_github_command,
     create_github_task,
     post_github_task_comment,
-    send_slack_notification,
 )
 from api.webhooks.slack.utils import extract_task_summary, build_task_completion_blocks
 from core.slack_client import slack_client
+from domain.notifications.service import get_notification_service
 import os
 
 logger = structlog.get_logger()
@@ -169,13 +169,15 @@ async def handle_github_task_completion(
         except Exception as e:
             logger.warning("github_slack_rich_notification_failed", task_id=task_id, error=str(e))
     
-    await send_slack_notification(
+    notification_service = get_notification_service()
+    await notification_service.send_task_completion(
         task_id=task_id,
         webhook_source="github",
         command=command,
         success=success,
         result=result,
-        error=error
+        error=error,
+        payload=payload,
     )
     
     return comment_posted
