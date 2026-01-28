@@ -22,7 +22,7 @@ from api.webhooks.slack.utils import (
     build_task_completion_blocks,
 )
 from api.webhooks.slack.handlers import SlackResponseHandler
-from api.webhooks.slack.routing import extract_slack_routing
+from api.webhooks.slack.metadata import extract_slack_routing
 from core.database.redis_client import redis_client
 from api.webhooks.slack.constants import (
     PROVIDER_NAME,

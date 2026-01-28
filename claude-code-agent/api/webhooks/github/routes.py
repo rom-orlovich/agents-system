@@ -18,7 +18,7 @@ from api.webhooks.github.utils import (
     send_slack_notification,
 )
 from api.webhooks.github.handlers import GitHubResponseHandler
-from api.webhooks.github.routing import extract_github_routing
+from api.webhooks.github.metadata import extract_github_routing
 from api.webhooks.github.constants import (
     PROVIDER_NAME,
     EVENT_HEADER,

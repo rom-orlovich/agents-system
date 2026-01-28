@@ -18,7 +18,7 @@ from api.webhooks.jira.utils import (
     extract_pr_url,
 )
 from api.webhooks.jira.handlers import JiraResponseHandler
-from api.webhooks.jira.routing import extract_jira_routing
+from api.webhooks.jira.metadata import extract_jira_routing
 from api.webhooks.jira.models import JiraTaskCompletionPayload
 from core.database.redis_client import redis_client
 from api.webhooks.jira.constants import (
