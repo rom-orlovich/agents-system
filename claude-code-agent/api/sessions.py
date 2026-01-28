@@ -1,16 +1,15 @@
 """Session status and management API endpoints."""
 
-import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete, func
+from sqlalchemy import select
 
 from core.database import get_session
 from core.database.redis_client import redis_client
-from core.database.models import SessionDB, TaskDB, ConversationDB, ConversationMessageDB
+from core.database.models import SessionDB, TaskDB
 
 router = APIRouter(prefix="/api/v2", tags=["sessions"])
 

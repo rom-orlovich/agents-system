@@ -1,6 +1,5 @@
 """Tests for conversation metrics aggregation (TDD Phase 0)."""
 
-import pytest
 from datetime import datetime, timedelta, timezone
 from core.database.models import TaskDB, ConversationDB, SessionDB
 from shared import TaskStatus

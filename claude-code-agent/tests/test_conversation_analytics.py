@@ -1,9 +1,7 @@
 """Tests for conversation-level analytics API endpoints (TDD Phase 0)."""
 
-import pytest
 from datetime import datetime, timedelta, timezone
-from core.database.models import TaskDB, ConversationDB, SessionDB
-from shared import TaskStatus
+from core.database.models import ConversationDB, SessionDB
 
 
 class TestConversationAnalyticsAPI:

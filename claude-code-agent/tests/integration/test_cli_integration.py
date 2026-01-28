@@ -12,11 +12,7 @@ Skip with: pytest -m "not cli_integration"
 """
 
 import pytest
-import asyncio
-from pathlib import Path
-import os
 import subprocess
-from unittest.mock import patch, MagicMock
 
 # Tests will use mocked CLI instead of requiring actual installation
 

@@ -1,11 +1,9 @@
 """Unit tests for CLI access testing function."""
 
-import pytest
-from unittest.mock import patch, MagicMock
 import subprocess
+from unittest.mock import patch, MagicMock
 
-# Import will be available after we create the module
-# from core.cli_access import test_cli_access
+
 async def test_cli_access_success_returns_true():
     """test_cli_access() returns True when CLI test succeeds."""
     with patch('subprocess.run') as mock_run:

@@ -1,13 +1,9 @@
 """Container management API endpoints."""
 
-import os
 import psutil
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database import get_session
 from core.database.redis_client import redis_client
 
 router = APIRouter(prefix="/api/v2/container", tags=["container"])

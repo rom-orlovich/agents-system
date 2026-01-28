@@ -1,13 +1,9 @@
 """Integration tests for webhook management API endpoints."""
 
 import pytest
-import json
 import uuid
-from datetime import datetime, timedelta
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.models import WebhookConfigDB, WebhookCommandDB
 
 
 @pytest.mark.integration

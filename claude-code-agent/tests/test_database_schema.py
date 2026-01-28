@@ -1,6 +1,5 @@
 """Tests for database schema changes (TDD Phase 0)."""
 
-import pytest
 from datetime import datetime, timezone
 from core.database.models import TaskDB, ConversationDB, SessionDB
 

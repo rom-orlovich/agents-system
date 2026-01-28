@@ -1,11 +1,9 @@
 """Unit tests for WebSocket hub."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock
-from datetime import datetime
+from unittest.mock import AsyncMock
 
 from core.websocket_hub import WebSocketHub
-from shared import TaskOutputMessage, TaskCompletedMessage, TaskStatus
+from shared import TaskOutputMessage, TaskCompletedMessage
 async def test_websocket_connect():
     """Test WebSocket connection registration."""
     hub = WebSocketHub()

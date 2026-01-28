@@ -1,7 +1,6 @@
 """Tests for flow tracking functionality (TDD Phase 0)."""
 
-import pytest
-from core.webhook_engine import generate_flow_id, generate_external_id
+from core.webhook_engine import generate_flow_id
 
 
 class TestFlowIdGeneration:

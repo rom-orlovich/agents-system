@@ -1,7 +1,5 @@
 """Integration tests for data persistence (Part 5 of TDD Requirements)."""
 
-import pytest
-from datetime import datetime
 from unittest.mock import AsyncMock
 import uuid
 

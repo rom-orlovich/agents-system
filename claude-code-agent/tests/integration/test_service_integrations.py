@@ -1,7 +1,6 @@
 """Integration tests for external service integrations (Phase 3 of Multi-Subagent Orchestration)."""
 
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock
 import uuid
 
 

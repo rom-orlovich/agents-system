@@ -5,7 +5,6 @@ Usage: python list_webhooks.py [--provider github|jira|slack|sentry] [--enabled-
 """
 
 import argparse
-import json
 import requests
 import sys
 import os

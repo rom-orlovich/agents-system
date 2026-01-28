@@ -225,7 +225,7 @@ async def run_claude_cli(
 
 
 
-                except json.JSONDecodeError as e:
+                except json.JSONDecodeError:
                     accumulated_output.append(line_str + "\n")
                     await output_queue.put(line_str + "\n")
 

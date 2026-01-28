@@ -1,6 +1,5 @@
 """Tests for conversation inheritance functionality (TDD Phase 0)."""
 
-import pytest
 from core.webhook_engine import should_start_new_conversation
 
 
@@ -110,7 +109,7 @@ class TestFlowIdPropagationWithConversationBreaks:
     """Test that flow_id propagates even when conversation breaks."""
     async def test_flow_id_preserved_when_new_conversation_created(self, db):
         """Test: New conversation still linked to same flow_id for tracking."""
-        from core.database.models import TaskDB, SessionDB, ConversationDB
+        from core.database.models import TaskDB, SessionDB
         from datetime import datetime, timezone
         import json
         

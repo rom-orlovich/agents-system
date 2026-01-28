@@ -6,11 +6,9 @@ This script handles posting analysis results back to the webhook source
 (GitHub, Jira, Slack, Sentry) after the brain agent completes analysis.
 """
 import sys
-import os
 import json
 import asyncio
 import structlog
-from typing import Optional
 from pathlib import Path
 
 # Add project root to path dynamically

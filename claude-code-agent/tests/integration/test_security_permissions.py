@@ -1,6 +1,5 @@
 """Integration tests for security & permissions (Part 6 of TDD Requirements)."""
 
-import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock
 import uuid

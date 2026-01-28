@@ -7,9 +7,8 @@ This module provides orchestration logic for complex workflows like:
 """
 
 import os
-import json
 import structlog
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 
 from core.jira_client import jira_client

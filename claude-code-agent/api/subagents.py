@@ -204,7 +204,7 @@ async def get_subagent_context(
     db: AsyncSession = Depends(get_session)
 ):
     """Get subagent context information."""
-    from core.database.models import ConversationMessageDB, SubagentExecutionDB
+    from core.database.models import SubagentExecutionDB
     
     # Get subagent execution record
     result = await db.execute(

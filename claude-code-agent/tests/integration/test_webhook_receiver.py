@@ -7,9 +7,8 @@ import json
 import uuid
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from unittest.mock import AsyncMock, patch
 
-from core.database.models import WebhookConfigDB, WebhookCommandDB, WebhookEventDB
+from core.database.models import WebhookEventDB
 
 
 @pytest.mark.integration

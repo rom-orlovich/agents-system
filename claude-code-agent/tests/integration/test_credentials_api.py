@@ -1,9 +1,7 @@
 import pytest
 from httpx import AsyncClient
 import json
-import os
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from unittest.mock import patch
 
 

@@ -3,16 +3,14 @@
 import uuid
 import json
 import re
-import os
 from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import structlog
-import httpx
 import hashlib
 
-from core.database.models import WebhookCommandDB, TaskDB, SessionDB, WebhookEventDB, ConversationDB, ConversationMessageDB
+from core.database.models import WebhookCommandDB, TaskDB, SessionDB, ConversationDB, ConversationMessageDB
 from core.database.redis_client import redis_client
 from shared import TaskStatus, AgentType
 

@@ -5,7 +5,7 @@ import hashlib
 import uuid
 import json
 from datetime import datetime, timezone
-from fastapi import APIRouter, Request, HTTPException, Depends, Header
+from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import structlog

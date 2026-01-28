@@ -37,10 +37,8 @@ class TestGitHubWebhookBehavior:
         Business Rule: Valid signature allows processing.
         Behavior: Valid signature → 200 OK, task created
         """
-        # Set the secret for signature verification
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "test-secret")
-        
-        payload = {"issue": {"number": 123, "title": "Test Issue"}}
+
         body = b'{"issue": {"number": 123, "title": "Test Issue"}}'
         
         # Generate valid signature
@@ -75,13 +73,7 @@ class TestGitHubWebhookBehavior:
         Behavior: Issue comment with @agent → GitHub reaction sent → Task created
         """
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "test-secret")
-        
-        payload = {
-            "action": "created",
-            "comment": {"id": 456, "body": "@agent please analyze this"},
-            "issue": {"number": 123},
-            "repository": {"owner": {"login": "test"}, "name": "repo"}
-        }
+
         body = b'{"action": "created", "comment": {"id": 456, "body": "@agent please analyze this"}, "issue": {"number": 123}, "repository": {"owner": {"login": "test"}, "name": "repo"}}'
         
         secret = "test-secret"
@@ -118,12 +110,7 @@ class TestGitHubWebhookBehavior:
         Behavior: Comment contains "analyze" → Matches "analyze" command
         """
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "test-secret")
-        
-        payload = {
-            "comment": {"body": "@agent analyze this issue"},
-            "issue": {"number": 123, "title": "Test"},
-            "repository": {"owner": {"login": "test"}, "name": "repo"}
-        }
+
         body = b'{"comment": {"body": "@agent analyze this issue"}, "issue": {"number": 123, "title": "Test"}, "repository": {"owner": {"login": "test"}, "name": "repo"}}'
         
         secret = "test-secret"
@@ -153,12 +140,7 @@ class TestGitHubWebhookBehavior:
         Behavior: Comment with @agent but no command → Uses default command
         """
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "test-secret")
-        
-        payload = {
-            "comment": {"body": "@agent hello"},
-            "issue": {"number": 123},
-            "repository": {"owner": {"login": "test"}, "name": "repo"}
-        }
+
         body = b'{"comment": {"body": "@agent hello"}, "issue": {"number": 123}, "repository": {"owner": {"login": "test"}, "name": "repo"}}'
         
         secret = "test-secret"
@@ -188,12 +170,7 @@ class TestGitHubWebhookBehavior:
         Behavior: "plan" command → Task created with agent="planning"
         """
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "test-secret")
-        
-        payload = {
-            "comment": {"body": "@agent plan the fix"},
-            "issue": {"number": 123, "title": "Bug"},
-            "repository": {"owner": {"login": "test"}, "name": "repo"}
-        }
+
         body = b'{"comment": {"body": "@agent plan the fix"}, "issue": {"number": 123, "title": "Bug"}, "repository": {"owner": {"login": "test"}, "name": "repo"}}'
         
         secret = "test-secret"
@@ -247,14 +224,7 @@ class TestJiraWebhookBehavior:
         Behavior: Valid event → Task created
         """
         monkeypatch.setenv("JIRA_WEBHOOK_SECRET", "test-secret")
-        
-        payload = {
-            "webhookEvent": "jira:issue_updated",
-            "issue": {
-                "key": "PROJ-123",
-                "fields": {"summary": "Test Issue", "description": "Test"}
-            }
-        }
+
         body = b'{"webhookEvent": "jira:issue_updated", "issue": {"key": "PROJ-123", "fields": {"summary": "Test Issue", "description": "Test"}}}'
         
         secret = "test-secret"
@@ -284,10 +254,6 @@ class TestSlackWebhookBehavior:
         Business Rule: Slack requires URL verification.
         Behavior: url_verification event → Returns challenge
         """
-        payload = {
-            "type": "url_verification",
-            "challenge": "test-challenge-123"
-        }
         body = b'{"type": "url_verification", "challenge": "test-challenge-123"}'
         
         secret = os.getenv("SLACK_WEBHOOK_SECRET", "test-secret")
@@ -317,16 +283,7 @@ class TestSlackWebhookBehavior:
         Behavior: Message with @agent → Ephemeral message sent → Task created
         """
         monkeypatch.setenv("SLACK_WEBHOOK_SECRET", "test-secret")
-        
-        payload = {
-            "type": "event_callback",
-            "event": {
-                "type": "message",
-                "text": "@agent analyze this",
-                "channel": "C123",
-                "user": "U123"
-            }
-        }
+
         body = b'{"type": "event_callback", "event": {"type": "message", "text": "@agent analyze this", "channel": "C123", "user": "U123"}}'
         
         secret = "test-secret"
@@ -385,17 +342,7 @@ class TestSentryWebhookBehavior:
         Behavior: Error event → Task created with analyze-error command
         """
         monkeypatch.setenv("SENTRY_WEBHOOK_SECRET", "test-secret")
-        
-        payload = {
-            "action": "created",
-            "event": {
-                "id": "123",
-                "title": "Error in login",
-                "message": "TypeError: Cannot read property",
-                "level": "error",
-                "environment": "production"
-            }
-        }
+
         body = b'{"action": "created", "event": {"id": "123", "title": "Error in login", "message": "TypeError: Cannot read property", "level": "error", "environment": "production"}}'
         
         secret = "test-secret"

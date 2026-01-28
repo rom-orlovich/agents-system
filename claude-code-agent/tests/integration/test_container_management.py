@@ -1,7 +1,6 @@
 """Integration tests for container management (Part 3 of TDD Requirements)."""
 
-import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 
 class TestContainerManagementFlow:

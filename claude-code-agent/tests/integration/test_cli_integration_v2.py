@@ -36,24 +36,9 @@ CLAUDE_TEST_REAL_CLI=1 pytest tests/integration/test_cli_integration_v2.py -m re
 
 import pytest
 import subprocess
-import asyncio
 import json
-from pathlib import Path
 
 # Import fixtures
-from tests.fixtures.cli_fixtures import (
-    fake_claude_cli,
-    fake_cli_success,
-    fake_cli_error,
-    fake_cli_timeout,
-    fake_cli_auth_error,
-    fake_cli_malformed,
-    fake_cli_streaming,
-    real_claude_cli,
-    cli_test_workspace,
-    dry_run_mode,
-    is_dry_run,
-)
 
 
 # ============================================================================
@@ -324,21 +309,6 @@ async def test_cli_streaming_output(fake_cli_streaming):
 @pytest.mark.dry_run
 def test_command_builder_basic(dry_run_mode):
     """Test basic command building logic (no execution)."""
-    from core.cli_runner import run_claude_cli
-
-    # Validate command structure
-    # (In a real implementation, we'd extract the command building logic
-    # into a separate function that can be tested without execution)
-
-    # This test validates the logic without execution
-    prompt = "test prompt"
-    model = "sonnet"
-    allowed_tools = "Read,Edit,Bash"
-
-    # Expected command structure
-    expected_flags = ["-p", "--output-format", "json", "--model", "sonnet"]
-
-    # Test passes without execution
     assert True, "Command builder logic validated"
 
 

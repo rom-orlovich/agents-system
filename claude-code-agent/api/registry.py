@@ -2,7 +2,7 @@
 
 import shutil
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel

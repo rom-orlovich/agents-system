@@ -1,7 +1,5 @@
 """Integration tests for session status & cost tracking (Part 9 of TDD Requirements)."""
 
-import pytest
-from datetime import datetime, timedelta
 from unittest.mock import AsyncMock
 import uuid
 

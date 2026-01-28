@@ -1,6 +1,5 @@
 """End-to-end integration tests for task flow tracking (TDD Phase 0)."""
 
-import pytest
 import json
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch

@@ -1,6 +1,5 @@
 """WebSocket connection hub for real-time updates."""
 
-import asyncio
 from typing import Dict, Set
 from fastapi import WebSocket
 import structlog

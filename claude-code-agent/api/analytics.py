@@ -95,17 +95,12 @@ async def get_costs_histogram(
         if is_sqlite:
             time_group = func.strftime('%Y-%m-%d %H:00:00', TaskDB.created_at)
         else:
-            # PostgreSQL
             time_group = func.to_char(TaskDB.created_at, 'YYYY-MM-DD HH24:00:00')
-        date_label = time_group
     else:
-        # Daily granularity
         if is_sqlite:
             time_group = func.strftime('%Y-%m-%d', TaskDB.created_at)
         else:
-            # PostgreSQL
             time_group = func.to_char(TaskDB.created_at, 'YYYY-MM-DD')
-        date_label = time_group
 
     # We use case to count non-null errors
     error_case = func.sum(case((TaskDB.error != None, 1), else_=0))
