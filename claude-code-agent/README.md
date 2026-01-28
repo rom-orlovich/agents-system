@@ -40,13 +40,14 @@ A self-managing machine where FastAPI runs as a daemon and Claude Code CLI is sp
 - 🧠 **Brain Orchestrator**: Main Claude CLI instance that manages sub-agents
 - 💬 **Persistent Conversations**: Inbox-style UI with context awareness (Dashboard v2)
 - 🔄 **Task Flow Tracking**: End-to-end flow tracking with flow_id across webhook → analysis → execution
-- 📡 **Unified Webhooks**: Fully configurable [GitHub, Jira, Slack, Sentry integration](file:///Users/romo/projects/agents-prod/claude-code-agent/docs/SERVICE-INTEGRATION-GUIDE.md)
-- 🤖 **9 Specialized Agents**: Brain, Planning, Executor, Service Integrator, Self-Improvement, Agent Creator, Skill Creator, Verifier, Webhook Generator
+- 📡 **Unified Webhooks**: Fully configurable [GitHub, Jira, Slack integration](file:///Users/romo/projects/agents-prod/claude-code-agent/docs/SERVICE-INTEGRATION-GUIDE.md)
+- 🤖 **13 Agents**: 9 Core Agents (Brain, Planning, Executor, Service Integrator, Self-Improvement, Agent Creator, Skill Creator, Verifier, Webhook Generator) + 4 Workflow Agents (GitHub Issue Handler, GitHub PR Review, Jira Code Plan, Slack Inquiry)
+- 🔄 **Automatic Response Posting**: Workflow agents automatically post results back to GitHub/Jira/Slack
 - 📊 **Advanced Analytics**: Cost tracking, usage metrics, OAuth monitoring, conversation analytics
 - 🗄️ **Dual Storage**: Redis (queue/cache) + SQLite (persistence)
 - 🔌 **Hybrid Webhooks**: Static routes (hard-coded) + Dynamic routes (database-driven)
 - 🧪 **TDD Workflow**: Full test-driven development with E2E validation
-- 🔗 **Service Integration**: Cross-service workflows (GitHub, Jira, Slack, Sentry)
+- 🔗 **Service Integration**: Cross-service workflows (GitHub, Jira, Slack)
 - 📁 **Claude Code Tasks Integration**: Background agents read task directory for visibility without context injection
 - 🎨 **Modern Dashboard v2**: React-based UI with Overview, Analytics, Ledger, Webhooks, Chat, and Registry features
 - 📈 **Real-time Monitoring**: WebSocket-based live updates, task logs, system metrics
@@ -147,17 +148,25 @@ claude-code-agent/
 │       ├── github-operations/  # GitHub integration
 │       ├── jira-operations/    # Jira integration
 │       ├── slack-operations/   # Slack integration
-│       ├── sentry-operations/  # Sentry integration
 │       └── ...                 # Other skills
 ├── api/                        # FastAPI routes
 │   ├── dashboard.py            # Dashboard API
 │   ├── conversations.py        # Conversation management
 │   ├── websocket.py            # WebSocket endpoint
 │   ├── webhooks/               # Static webhook handlers (hard-coded)
-│   │   ├── github.py          # GitHub webhook handler
-│   │   ├── jira.py            # Jira webhook handler
-│   │   ├── slack.py           # Slack webhook handler
-│   │   └── sentry.py          # Sentry webhook handler
+│   │   ├── github/            # GitHub webhook module
+│   │   │   ├── routes.py     # Route handlers
+│   │   │   ├── utils.py       # Utilities & response posting
+│   │   │   └── validation.py # Signature validation
+│   │   ├── jira/              # Jira webhook module
+│   │   │   ├── routes.py
+│   │   │   ├── utils.py
+│   │   │   ├── validation.py
+│   │   │   └── models.py     # Jira models
+│   │   ├── slack/             # Slack webhook module
+│   │   │   ├── routes.py
+│   │   │   ├── utils.py
+│   │   │   └── validation.py
 │   ├── webhooks_dynamic.py     # Dynamic webhook receiver (database-driven)
 │   ├── webhook_status.py       # Webhook status/monitoring API
 │   └── ...                     # Other API endpoints
@@ -267,11 +276,11 @@ The Brain is the main Claude CLI instance that:
 **Workflow**: Red → Green → Refactor → Resilience → Acceptance → Regression → E2E
 
 #### Service Integrator Agent
-- Integrates with external services (GitHub, Jira, Slack, Sentry)
+- Integrates with external services (GitHub, Jira, Slack)
 - Orchestrates cross-service workflows
 - **Location**: `.claude/agents/service-integrator.md`  
 **Model**: sonnet  
-**Skills**: github-operations, jira-operations, slack-operations, sentry-operations
+**Skills**: github-operations, jira-operations, slack-operations
 
 #### Self-Improvement Agent
 - Analyzes codebase for patterns and improvements
@@ -303,6 +312,15 @@ The Brain is the main Claude CLI instance that:
 - Creates and configures webhooks dynamically
 - Manages webhook templates and commands
 - **Location**: `.claude/agents/webhook-generator.md`
+
+#### Workflow Agents (4 agents that handle webhook requests)
+- **GitHub Issue Handler**: Analyzes GitHub issues/comments, posts analysis back
+- **GitHub PR Review**: Reviews PRs, posts review comments
+- **Jira Code Plan**: Creates implementation plans when assigned Jira tickets
+- **Slack Inquiry**: Answers code/Jira questions in Slack threads
+- **Location**: `.claude/agents/github-issue-handler.md`, `github-pr-review.md`, `jira-code-plan.md`, `slack-inquiry.md`
+- **Model**: sonnet/opus (varies by agent)
+- **Key Feature**: All workflow agents automatically post responses back to source
 
 ### 3. Task Worker
 
@@ -368,7 +386,7 @@ Dashboard shows aggregated metrics for conversation
 ### Webhook Flow with Human Approval
 
 ```
-Webhook (Jira/GitHub/Sentry)
+Webhook (Jira/GitHub/Slack)
         ↓
     Brain (classify task)
         ↓
@@ -404,7 +422,7 @@ Webhook (Jira/GitHub/Sentry)
 | Slack button | Posts `@agent approve` to PR | Posts `@agent reject` to PR |
 
 ### Static Route Flow (Hard-Coded)
-1. Webhook received at `/webhooks/github` (or jira/slack/sentry)
+1. Webhook received at `/webhooks/github` (or jira/slack)
 2. Signature verified (provider-specific)
 3. Command matched by name/aliases + prefix (e.g., `@agent analyze`)
 4. Immediate response sent (GitHub reaction, Slack ephemeral message)
@@ -476,7 +494,7 @@ A powerful webhook system using a **hybrid approach**: **static routes** (hard-c
 - ✅ Version controlled in git
 - ✅ Easy to maintain and understand
 - ✅ One file per provider with all logic
-- **Endpoints**: `/webhooks/github`, `/webhooks/jira`, `/webhooks/slack`, `/webhooks/sentry`
+- **Endpoints**: `/webhooks/github`, `/webhooks/jira`, `/webhooks/slack`
 - **Location**: `api/webhooks/github.py`, `api/webhooks/jira.py`, etc.
 - **Configuration**: `core/webhook_configs.py`
 
@@ -517,13 +535,11 @@ A powerful webhook system using a **hybrid approach**: **static routes** (hard-c
 - **GitHub**: `POST /webhooks/github` - Issues, PRs, comments
 - **Jira**: `POST /webhooks/jira` - Ticket updates
 - **Slack**: `POST /webhooks/slack` - Commands and mentions
-- **Sentry**: `POST /webhooks/sentry` - Error alerts
 
 **Dynamic Routes** (Database-Driven):
 - **GitHub**: `POST /webhooks/github/{webhook_id}`
 - **Jira**: `POST /webhooks/jira/{webhook_id}`
 - **Slack**: `POST /webhooks/slack/{webhook_id}`
-- **Sentry**: `POST /webhooks/sentry/{webhook_id}`
 - **Custom**: `POST /webhooks/custom/{webhook_id}`
 
 ## API Endpoints
@@ -542,6 +558,7 @@ A powerful webhook system using a **hybrid approach**: **static routes** (hard-c
 | GET | `/api/agents` | List agents |
 | GET | `/api/webhooks` | List webhooks (static) |
 | GET | `/api/webhooks/events` | List webhook events |
+| GET | `/api/webhooks/events/{event_id}` | Get detailed webhook event logs |
 | GET | `/api/webhooks/stats` | Webhook statistics |
 
 ### Conversations API
@@ -655,7 +672,9 @@ A powerful webhook system using a **hybrid approach**: **static routes** (hard-c
 
 ### WebSocket
 
-- **Endpoint**: `/ws/{session_id}`
+- **Endpoint**: `/ws/{session_id}` - Real-time updates for dashboard sessions
+- **Endpoint**: `/ws/subagents/{subagent_id}/output` - Stream subagent output in real-time
+- **Endpoint**: `/ws/subagents/output` - Stream output from all active subagents
 - **Events**: task.created, task.output, task.completed, task.failed
 
 ### Webhooks
@@ -666,7 +685,6 @@ A powerful webhook system using a **hybrid approach**: **static routes** (hard-c
 | `POST /webhooks/github` | GitHub events (hard-coded handler) |
 | `POST /webhooks/jira` | Jira events (hard-coded handler) |
 | `POST /webhooks/slack` | Slack events (hard-coded handler) |
-| `POST /webhooks/sentry` | Sentry events (hard-coded handler) |
 
 **Dynamic Routes** (Database-Driven):
 | Endpoint | Description |
@@ -858,7 +876,7 @@ docker stack deploy -c docker-compose.yml claude-agent
 ### What's Working
 | Feature | Status |
 |---------|--------|
-| Static Webhooks (GitHub, Jira, Slack, Sentry) | ✅ Full implementation |
+| Static Webhooks (GitHub, Jira, Slack) | ✅ Full implementation |
 | Dynamic Webhook CRUD | ✅ API endpoints working |
 | Task Queue & Worker | ✅ Concurrent processing |
 | Conversation Flow Tracking | ✅ flow_id, conversation_id |

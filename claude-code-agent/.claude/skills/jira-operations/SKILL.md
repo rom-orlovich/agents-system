@@ -101,3 +101,49 @@ BUILD_STATUS="✅ Build #123 succeeded. Tests: 150 passed, 0 failed."
 ANALYSIS_RESULT=$(gh pr view 42 --json title,body | jq -r '.title + "\n\n" + .body')
 .claude/skills/jira-operations/scripts/post_comment.sh PROJ-123 "$ANALYSIS_RESULT"
 ```
+
+## Response Posting (Webhook Tasks)
+
+When a task originates from Jira (ticket with AI-Fix label, webhook), post response back:
+
+```bash
+# Post analysis result to originating Jira ticket
+post_response() {
+    TICKET_KEY=$1
+    RESULT=$2
+
+    .claude/skills/jira-operations/scripts/post_comment.sh "$TICKET_KEY" "$RESULT"
+}
+
+# Example usage:
+post_response "PROJ-123" "## Analysis Complete
+
+Found authentication bug in login.py line 45.
+Suggested fix: Add rate limiting.
+
+---
+*Automated response by Claude Agent*"
+```
+
+### Response Format for Jira
+
+Use Atlassian Document Format (ADF) for rich formatting:
+
+```bash
+# Format markdown to ADF and post
+FORMATTED=$(.claude/skills/jira-operations/scripts/format_analysis.sh "$MARKDOWN_RESULT")
+jira issue comment PROJ-123 --template adf "$FORMATTED"
+```
+
+### Task Metadata Required
+
+For Jira response routing, task must include:
+```json
+{
+  "source": "jira",
+  "source_metadata": {
+    "ticket_key": "PROJ-123",
+    "project": "PROJ"
+  }
+}
+```

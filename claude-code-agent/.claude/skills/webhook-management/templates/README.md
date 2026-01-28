@@ -40,28 +40,7 @@ Commands:
 
 **Use Case:** Agile teams using Jira for sprint planning and task management.
 
-### 3. custom-sentry-webhook.json
-**Intelligent error triage and resolution**
-
-Features:
-- Error triage and prioritization
-- Root cause analysis
-- Automated fix generation
-- Pattern detection
-- Regression checking
-- Monitoring setup recommendations
-
-Commands:
-- `triage` - Triage and analyze errors (default)
-- `root-cause` - Perform deep root cause analysis
-- `auto-fix` - Create automated fixes
-- `pattern-detection` - Detect error patterns
-- `regression-check` - Check for regressions
-- `monitoring-setup` - Set up monitoring
-
-**Use Case:** DevOps teams managing production errors with Sentry.
-
-### 4. custom-slack-webhook.json
+### 3. custom-slack-webhook.json
 **DevOps and incident management**
 
 Features:
@@ -252,7 +231,6 @@ Variables depend on the provider. See templates for examples.
 - GitHub: `{{issue.title}}`, `{{pull_request.number}}`, `{{repository.full_name}}`
 - Jira: `{{issue.key}}`, `{{issue.fields.summary}}`, `{{issue.fields.project.name}}`
 - Slack: `{{event.text}}`, `{{event.user}}`, `{{event.channel}}`
-- Sentry: `{{event.title}}`, `{{event.stacktrace}}`, `{{event.level}}`
 
 ## Agent Targeting Guide
 
@@ -358,13 +336,18 @@ export GITHUB_WEBHOOK_SECRET="your-github-secret"
 4. Configure slash commands if needed
 5. Install app to workspace
 
-### Sentry
+### Sentry (Indirect Integration)
 
-1. Go to Settings → Integrations → WebHooks
-2. Callback URL: `https://your-machine.example.com/webhooks/custom-sentry-triage`
-3. Events: Error created, Issue assigned, etc.
-4. Configure secret token
-5. Save configuration
+Sentry is not directly supported. Instead:
+
+1. Configure Sentry to create Jira tickets on error
+2. Add the `AI-Fix` label to auto-created tickets
+3. The jira-code-fix workflow will handle the rest
+
+This approach:
+- Uses existing Jira workflow
+- Keeps error context in the ticket
+- Provides full audit trail
 
 ## Examples
 
@@ -376,20 +359,18 @@ Combine multiple templates for comprehensive coverage:
 # 1. Deploy GitHub webhook for code review
 # 2. Deploy Jira webhook for task management
 # 3. Deploy Slack webhook for team notifications
-# 4. Deploy Sentry webhook for error handling
 
-# Result: Complete DevOps workflow from ticket → code → deploy → monitor
+# Result: Complete DevOps workflow from ticket → code → deploy → notify
 ```
 
 ### Chaining Commands
 
 Design commands that work together:
 
-1. Sentry detects error → Creates Jira ticket
-2. Jira ticket assigned → Planning agent analyzes
-3. Analysis complete → Executor implements fix
-4. Fix deployed → GitHub PR created
-5. PR merged → Slack notification sent
+1. Jira ticket created (or via Sentry→Jira) → Planning agent analyzes
+2. Analysis complete → Executor implements fix
+3. Fix deployed → GitHub PR created
+4. PR merged → Slack notification sent
 
 ## Troubleshooting
 

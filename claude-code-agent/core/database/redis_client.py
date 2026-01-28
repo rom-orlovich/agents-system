@@ -45,6 +45,15 @@ class RedisKeys:
     
     # Skill execution queue
     SKILL_QUEUE = "skills:queue"  # List of pending skill executions
+    
+    # GitHub comment tracking (prevent infinite loops)
+    GITHUB_POSTED_COMMENT = "github:posted_comment:{id}"  # Track comment IDs posted by agent
+    
+    # Slack message tracking (prevent infinite loops)
+    SLACK_POSTED_MESSAGE = "slack:posted_message:{ts}"  # Track message timestamps posted by agent
+    
+    # Jira comment tracking (prevent infinite loops)
+    JIRA_POSTED_COMMENT = "jira:posted_comment:{id}"  # Track comment IDs posted by agent
 
 
 class RedisClient:
@@ -367,6 +376,12 @@ class RedisClient:
         if not self._client:
             raise RuntimeError("Redis not connected")
         return await self._client.hgetall(RedisKeys.CONTAINER_RESOURCES)
+    
+    async def exists(self, key: str) -> bool:
+        """Check if key exists."""
+        if not self._client:
+            raise RuntimeError("Redis not connected")
+        return await self._client.exists(key) > 0
 
 
 # Global Redis client instance

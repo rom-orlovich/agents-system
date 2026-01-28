@@ -22,7 +22,12 @@
       "Bash(cat:*)",
       "Bash(claude --version:*)",
       "Bash(__NEW_LINE_e5d927b0e92cf323__ echo)",
-      "Bash(node --version:*)"
+      "Bash(node --version:*)",
+      "mcp__filesystem__list_directory",
+      "mcp__filesystem__read_multiple_files",
+      "Bash(xargs ls:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)"
     ]
   },
   "enabledMcpjsonServers": [

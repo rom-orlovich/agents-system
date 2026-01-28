@@ -60,7 +60,18 @@ def sync_task_to_claude_tasks(
         }
         claude_status = status_map.get(task_db.status, "pending")
         
-        # Create Claude Code task structure
+        source_metadata = json.loads(task_db.source_metadata or "{}")
+        
+        metadata = {
+            "orchestration_task_id": task_db.task_id,
+            "flow_id": flow_id,
+            "conversation_id": conversation_id,
+            "source": task_db.source,
+        }
+        
+        if source_metadata:
+            metadata["source_metadata"] = source_metadata
+        
         claude_task = {
             "id": claude_task_id,
             "title": (task_db.input_message[:100] if task_db.input_message else f"Task {task_db.task_id}"),
@@ -69,12 +80,7 @@ def sync_task_to_claude_tasks(
             "dependencies": [parent_claude_task_id] if parent_claude_task_id else [],
             "created_at": task_db.created_at.isoformat() if task_db.created_at else datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
-            "metadata": {
-                "orchestration_task_id": task_db.task_id,
-                "flow_id": flow_id,
-                "conversation_id": conversation_id,
-                "source": task_db.source,
-            }
+            "metadata": metadata
         }
         
         # Write to Claude Code Tasks directory
@@ -90,8 +96,6 @@ def sync_task_to_claude_tasks(
             conversation_id=conversation_id
         )
         
-        # Update task source_metadata with Claude task ID
-        source_metadata = json.loads(task_db.source_metadata or "{}")
         source_metadata["claude_task_id"] = claude_task_id
         task_db.source_metadata = json.dumps(source_metadata)
         

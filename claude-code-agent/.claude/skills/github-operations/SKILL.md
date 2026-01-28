@@ -142,6 +142,8 @@ Scripts available in `scripts/` directory:
 - `setup_repo.sh` - Clone/update repo and create feature branch
 - `commit_changes.sh` - Commit changes with proper format
 - `create_pr.sh` - Create pull request after changes
+- `post_issue_comment.sh` - Post comment to GitHub issue
+- `post_pr_comment.sh` - Post comment to GitHub PR
 
 See examples.md for complete workflow examples, troubleshooting, and integration patterns.
 

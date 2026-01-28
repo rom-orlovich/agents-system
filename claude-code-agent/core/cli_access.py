@@ -28,6 +28,9 @@ async def test_cli_access() -> bool:
             error_msg = error_text if error_text else "Unknown error"
             logger.warning("CLI test failed", returncode=result.returncode, error=error_msg)
             
+            if not isinstance(error_msg, str):
+                error_msg = str(error_msg) if error_msg else ""
+            
             error_lower = error_msg.lower()
             if "invalid api key" in error_lower or "please run /login" in error_lower or "authentication" in error_lower:
                 logger.warning("Authentication error detected in CLI test")

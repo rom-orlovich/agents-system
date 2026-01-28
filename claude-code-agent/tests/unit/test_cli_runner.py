@@ -1,5 +1,3 @@
-"""Unit tests for CLI runner."""
-
 import pytest
 import asyncio
 from pathlib import Path
@@ -9,8 +7,6 @@ from core.cli_runner import run_claude_cli, CLIResult
 
 
 class MockAsyncIterator:
-    """Mock async iterator for subprocess stdout."""
-
     def __init__(self, lines):
         self.lines = lines
         self.index = 0
@@ -25,14 +21,11 @@ class MockAsyncIterator:
         self.index += 1
         return line
 async def test_cli_runner_success():
-    """Test successful CLI execution."""
     output_queue = asyncio.Queue()
 
-    # Mock subprocess that outputs JSON
     mock_proc = AsyncMock()
     mock_proc.returncode = 0
 
-    # Simulate CLI output
     output_lines = [
         b'{"type": "content", "content": "Hello"}\n',
         b'{"type": "content", "content": " World"}\n',
@@ -58,26 +51,21 @@ async def test_cli_runner_success():
     assert result.output_tokens == 50
     assert result.error is None
 
-    # Check output was queued
     chunks = []
     while not output_queue.empty():
         chunk = await output_queue.get()
         if chunk is not None:
             chunks.append(chunk)
 
-    # Filter out CLI process started message
     content_chunks = [chunk for chunk in chunks if not chunk.startswith("[CLI] Process started")]
     assert content_chunks == ["Hello", " World"]
 async def test_cli_runner_timeout():
-    """Test CLI execution timeout."""
     output_queue = asyncio.Queue()
 
-    # Mock subprocess that never completes
     mock_proc = AsyncMock()
     mock_proc.returncode = None
     mock_proc.kill = MagicMock()
 
-    # Infinite async iterator
     class InfiniteIterator:
         def __aiter__(self):
             return self
@@ -94,17 +82,15 @@ async def test_cli_runner_timeout():
             working_dir=Path("/tmp"),
             output_queue=output_queue,
             task_id="test-001",
-            timeout_seconds=1  # Short timeout
+            timeout_seconds=1
         )
 
     assert result.success is False
     assert result.error == "Timeout exceeded"
     mock_proc.kill.assert_called_once()
 async def test_cli_runner_process_error():
-    """Test CLI execution with process error."""
     output_queue = asyncio.Queue()
 
-    # Mock subprocess that fails
     mock_proc = AsyncMock()
     mock_proc.returncode = 1
 
@@ -125,16 +111,14 @@ async def test_cli_runner_process_error():
     assert result.error == "Exit code: 1"
     assert "Error occurred" in result.output
 async def test_cli_runner_json_parsing():
-    """Test CLI runner handles both JSON and plain text output."""
     output_queue = asyncio.Queue()
 
     mock_proc = AsyncMock()
     mock_proc.returncode = 0
 
-    # Mix of JSON and plain text
     output_lines = [
         b'{"type": "content", "content": "JSON output"}\n',
-        b'Plain text line\n',  # Not JSON
+        b'Plain text line\n',
         b'{"type": "result", "cost_usd": 0.01, "input_tokens": 10, "output_tokens": 5}\n',
     ]
 
@@ -156,7 +140,6 @@ async def test_cli_runner_json_parsing():
 
 
 async def test_cli_runner_logs_chunks():
-    """Test that CLI runner processes content chunks (logging verified manually via Docker logs)."""
     output_queue = asyncio.Queue()
 
     mock_proc = AsyncMock()
@@ -181,29 +164,23 @@ async def test_cli_runner_logs_chunks():
             timeout_seconds=60
         )
 
-    # Verify chunks were queued
     chunks = []
     while not output_queue.empty():
         chunk = await output_queue.get()
         if chunk is not None:
             chunks.append(chunk)
     
-    # Filter out CLI process started message
     content_chunks = [chunk for chunk in chunks if not chunk.startswith("[CLI] Process started")]
     assert content_chunks == ["First chunk", " Second chunk"]
     assert result.success is True
-    # Note: logger.debug("chunk_received") calls verified manually via:
-    # docker-compose logs -f app | grep chunk_received
 
 
 async def test_cli_runner_rate_limit_error():
-    """Test CLI runner extracts rate limit error from JSON result."""
     output_queue = asyncio.Queue()
 
     mock_proc = AsyncMock()
-    mock_proc.returncode = 1  # Non-zero exit code
+    mock_proc.returncode = 1
 
-    # Simulate rate limit response from Claude CLI
     output_lines = [
         b'{"type":"system","subtype":"init","cwd":"/app","session_id":"test-session"}\n',
         b'{"type":"assistant","message":{"content":[{"type":"text","text":"You\'ve hit your limit \\u00b7 resets 4pm (UTC)"}]},"error":"rate_limit"}\n',
@@ -224,19 +201,16 @@ async def test_cli_runner_rate_limit_error():
         )
 
     assert result.success is False
-    # Should contain the real error message, not just "Exit code: 1"
     assert "hit your limit" in result.error
     assert "4pm (UTC)" in result.error
 
 
 async def test_cli_runner_result_field_output():
-    """Test CLI runner outputs result field from successful result message."""
     output_queue = asyncio.Queue()
 
     mock_proc = AsyncMock()
     mock_proc.returncode = 0
 
-    # Simulate CLI output with result field in result message
     output_lines = [
         b'{"type": "content", "content": "Processing task"}\n',
         b'{"type": "result", "result": "Task completed successfully", "cost_usd": 0.05, "usage": {"input_tokens": 100, "output_tokens": 50}}\n',
@@ -260,18 +234,140 @@ async def test_cli_runner_result_field_output():
     assert result.input_tokens == 100
     assert result.output_tokens == 50
     
-    # Check that result field was output to queue
     chunks = []
     while not output_queue.empty():
         chunk = await output_queue.get()
         if chunk is not None:
             chunks.append(chunk)
     
-    # Filter out CLI process started message
     content_chunks = [chunk for chunk in chunks if not chunk.startswith("[CLI] Process started")]
     
-    # Should contain both the content and the result field
     assert "Processing task" in content_chunks
     assert "Task completed successfully" in content_chunks
-    # Verify result field is in accumulated output
     assert "Task completed successfully" in result.output
+
+
+async def test_cli_runner_tool_result_no_truncation():
+    import json
+    
+    output_queue = asyncio.Queue()
+
+    mock_proc = AsyncMock()
+    mock_proc.returncode = 0
+
+    large_tool_result = "A" * 3000
+
+    tool_result_message = {
+        "type": "user",
+        "message": {
+            "content": [{
+                "type": "tool_result",
+                "content": large_tool_result,
+                "is_error": False
+            }]
+        }
+    }
+    
+    output_lines = [
+        b'{"type": "assistant", "message": {"content": [{"type": "text", "text": "I will read the file"}]}}\n',
+        b'{"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Read", "input": {"file_path": "large_file.txt"}}]}}\n',
+        json.dumps(tool_result_message).encode() + b'\n',
+        b'{"type": "assistant", "message": {"content": [{"type": "text", "text": "File read successfully"}]}}\n',
+        b'{"type": "result", "cost_usd": 0.05, "usage": {"input_tokens": 100, "output_tokens": 50}}\n',
+    ]
+
+    mock_proc.stdout = MockAsyncIterator(output_lines)
+    mock_proc.stderr = MockAsyncIterator([])
+    mock_proc.wait = AsyncMock()
+
+    with patch('asyncio.create_subprocess_exec', return_value=mock_proc):
+        result = await run_claude_cli(
+            prompt="Read a large file",
+            working_dir=Path("/tmp"),
+            output_queue=output_queue,
+            task_id="test-large-tool-result",
+            timeout_seconds=60
+        )
+
+    assert result.success is True
+
+    chunks = []
+    while not output_queue.empty():
+        chunk = await output_queue.get()
+        if chunk is not None:
+            chunks.append(chunk)
+
+    full_output = "".join(chunks)
+
+    assert "[TOOL RESULT]" in full_output
+    assert large_tool_result in full_output
+    assert len(large_tool_result) == 3000
+    
+    assert large_tool_result in result.output
+    
+    assert hasattr(result, 'clean_output')
+    assert "[TOOL RESULT]" not in result.clean_output
+    assert large_tool_result not in result.clean_output
+    
+    assert "I will read the file" in result.clean_output
+    assert "File read successfully" in result.clean_output
+
+
+async def test_cli_runner_tool_error_no_truncation():
+    import json
+    
+    output_queue = asyncio.Queue()
+
+    mock_proc = AsyncMock()
+    mock_proc.returncode = 0
+
+    large_error_result = "Error: " + "B" * 3000
+
+    tool_error_message = {
+        "type": "user",
+        "message": {
+            "content": [{
+                "type": "tool_result",
+                "content": large_error_result,
+                "is_error": True
+            }]
+        }
+    }
+    
+    output_lines = [
+        b'{"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Read", "input": {"file_path": "missing.txt"}}]}}\n',
+        json.dumps(tool_error_message).encode() + b'\n',
+        b'{"type": "result", "cost_usd": 0.05, "usage": {"input_tokens": 100, "output_tokens": 50}}\n',
+    ]
+
+    mock_proc.stdout = MockAsyncIterator(output_lines)
+    mock_proc.stderr = MockAsyncIterator([])
+    mock_proc.wait = AsyncMock()
+
+    with patch('asyncio.create_subprocess_exec', return_value=mock_proc):
+        result = await run_claude_cli(
+            prompt="Read a file",
+            working_dir=Path("/tmp"),
+            output_queue=output_queue,
+            task_id="test-large-tool-error",
+            timeout_seconds=60
+        )
+
+    assert result.success is True
+
+    chunks = []
+    while not output_queue.empty():
+        chunk = await output_queue.get()
+        if chunk is not None:
+            chunks.append(chunk)
+
+    full_output = "".join(chunks)
+
+    assert "[TOOL ERROR]" in full_output
+    assert large_error_result in full_output
+    assert len(large_error_result) == 3007
+    
+    assert large_error_result in result.output
+    
+    assert "[TOOL ERROR]" not in result.clean_output
+    assert large_error_result not in result.clean_output
