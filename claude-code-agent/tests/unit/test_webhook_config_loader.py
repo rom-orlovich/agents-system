@@ -25,6 +25,7 @@ def valid_github_config():
         "signature_header": "X-Hub-Signature-256",
         "secret_env_var": "GITHUB_WEBHOOK_SECRET",
         "default_command": "analyze",
+        "target_agent": "claude",
         "commands": [
             {
                 "name": "analyze",
@@ -192,6 +193,7 @@ class TestWebhookConfigLoader:
             "name": "test",
             "endpoint": "/webhooks/test",
             "source": "custom",
+            "target_agent": "claude",
             "commands": [
                 {
                     "name": "INVALID_NAME",
@@ -210,7 +212,7 @@ class TestWebhookConfigLoader:
             yaml.dump(valid_schema, f)
 
         loader = WebhookConfigLoader(config_dir=temp_config_dir)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             loader.load_webhook_config("test")
 
     def test_duplicate_command_names(self, temp_config_dir, valid_schema):
@@ -218,6 +220,7 @@ class TestWebhookConfigLoader:
             "name": "test",
             "endpoint": "/webhooks/test",
             "source": "custom",
+            "target_agent": "claude",
             "commands": [
                 {
                     "name": "analyze",
@@ -250,6 +253,7 @@ class TestWebhookConfigLoader:
             "name": "test",
             "endpoint": "/webhooks/test",
             "source": "custom",
+            "target_agent": "claude",
             "default_command": "nonexistent",
             "commands": [
                 {

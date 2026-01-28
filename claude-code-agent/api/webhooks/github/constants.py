@@ -42,3 +42,19 @@ MESSAGE_ISSUE_RESPONSE: Final[str] = "👀 I'll analyze this issue and get back 
 MESSAGE_PR_RESPONSE: Final[str] = "👀 I'll review this PR and provide feedback shortly."
 
 STATUS_CODE_UNAUTHORIZED: Final[int] = 401
+
+PROVIDER_NAME: Final[str] = "github"
+EVENT_HEADER: Final[str] = "X-GitHub-Event"
+
+STATUS_ACCEPTED: Final[str] = "accepted"
+STATUS_REJECTED: Final[str] = "rejected"
+STATUS_RECEIVED: Final[str] = "received"
+STATUS_ERROR: Final[str] = "error"
+
+MESSAGE_DOES_NOT_MEET_RULES: Final[str] = "Does not meet activation rules"
+MESSAGE_NO_COMMAND_MATCHED: Final[str] = "No command matched"
+MESSAGE_TASK_QUEUED: Final[str] = "Task queued for processing"
+MESSAGE_IMMEDIATE_RESPONSE_FAILED: Final[str] = "Failed to send immediate response. Check GITHUB_TOKEN configuration and permissions."
+ERROR_IMMEDIATE_RESPONSE_FAILED: Final[str] = "immediate_response_failed"
+
+DEFAULT_EVENT_TYPE: Final[str] = "unknown"

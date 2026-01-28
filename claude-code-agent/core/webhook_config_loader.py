@@ -26,6 +26,15 @@ class WebhookConfigLoader:
             WebhookCommand(**cmd_data) for cmd_data in yaml_data.get("commands", [])
         ]
 
+        command_names = [cmd.name for cmd in commands]
+        if len(command_names) != len(set(command_names)):
+            duplicates = [name for name in command_names if command_names.count(name) > 1]
+            raise ValueError(f"Duplicate command names found: {set(duplicates)}")
+
+        default_command = yaml_data.get("default_command")
+        if default_command and default_command not in command_names:
+            raise ValueError(f"Default command '{default_command}' not found in commands")
+
         config = WebhookConfig(
             name=yaml_data["name"],
             endpoint=yaml_data["endpoint"],
@@ -36,6 +45,7 @@ class WebhookConfigLoader:
             signature_header=yaml_data.get("signature_header"),
             secret_env_var=yaml_data.get("secret_env_var"),
             default_command=yaml_data.get("default_command"),
+            target_agent=yaml_data.get("target_agent", "claude"),
         )
 
         logger.info("webhook_config_loaded", webhook=webhook_name, commands_count=len(commands))

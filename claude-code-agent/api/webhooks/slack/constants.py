@@ -29,11 +29,19 @@ FIELD_USERNAME: Final[str] = "username"
 FIELD_NAME: Final[str] = "name"
 FIELD_DOMAIN: Final[str] = "domain"
 
+PROVIDER_NAME: Final[str] = "slack"
+
+STATUS_PROCESSED: Final[str] = "processed"
 STATUS_RECEIVED: Final[str] = "received"
 STATUS_REJECTED: Final[str] = "rejected"
 
+DEFAULT_EVENT_TYPE: Final[str] = "unknown"
+DEFAULT_CHANNEL: Final[str] = "unknown"
+
 MESSAGE_NO_COMMAND_MATCHED: Final[str] = "No command matched"
 MESSAGE_DOES_NOT_MEET_RULES: Final[str] = "Does not meet activation rules"
+
+SLACK_MESSAGE_MAX_LENGTH: Final[int] = 4000
 
 ENV_SLACK_TOKEN: Final[str] = "SLACK_BOT_TOKEN"
 ENV_SLACK_SIGNING_SECRET: Final[str] = "SLACK_SIGNING_SECRET"

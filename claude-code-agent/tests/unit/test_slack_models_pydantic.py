@@ -1,5 +1,5 @@
 import pytest
-from pydantic import ValidationError
+from pydantic import ValidationError, TypeAdapter
 from api.webhooks.slack.models import (
     SlackUser,
     SlackTeam,
@@ -12,6 +12,8 @@ from api.webhooks.slack.models import (
     SlackSlashCommand,
     SlackWebhookPayload,
 )
+
+SlackPayloadAdapter = TypeAdapter(SlackWebhookPayload)
 
 
 class TestSlackUser:
@@ -272,13 +274,13 @@ class TestSlackWebhookPayload:
                 "channel": "C123ABC",
             },
         }
-        payload = SlackWebhookPayload.parse_obj(payload_data)
+        payload = SlackPayloadAdapter.validate_python(payload_data)
         assert isinstance(payload, SlackEventCallback)
         assert payload.event.text == "<@U456DEF> help"
 
     def test_discriminated_union_url_verification(self):
         payload_data = {"type": "url_verification", "challenge": "challenge_string"}
-        payload = SlackWebhookPayload.parse_obj(payload_data)
+        payload = SlackPayloadAdapter.validate_python(payload_data)
         assert isinstance(payload, SlackUrlVerification)
         assert payload.challenge == "challenge_string"
 
@@ -296,7 +298,7 @@ class TestSlackWebhookPayload:
             "response_url": "https://hooks.slack.com/commands/123/456",
             "trigger_id": "123.456",
         }
-        payload = SlackWebhookPayload.parse_obj(payload_data)
+        payload = SlackPayloadAdapter.validate_python(payload_data)
         assert isinstance(payload, SlackSlashCommand)
         assert payload.text == "analyze"
 
@@ -314,7 +316,7 @@ class TestSlackWebhookPayload:
                 "channel": "C123ABC",
             },
         }
-        payload = SlackWebhookPayload.parse_obj(payload_data)
+        payload = SlackPayloadAdapter.validate_python(payload_data)
         text = payload.extract_text()
         assert text == "Extracted text"
 
@@ -332,11 +334,11 @@ class TestSlackWebhookPayload:
             "response_url": "https://hooks.slack.com/commands/123/456",
             "trigger_id": "123.456",
         }
-        payload = SlackWebhookPayload.parse_obj(payload_data)
+        payload = SlackPayloadAdapter.validate_python(payload_data)
         text = payload.extract_text()
         assert text == "Command text"
 
     def test_validation_error_invalid_type(self):
         payload_data = {"type": "invalid_type", "some_field": "some_value"}
         with pytest.raises(ValidationError):
-            SlackWebhookPayload.parse_obj(payload_data)
+            SlackPayloadAdapter.validate_python(payload_data)

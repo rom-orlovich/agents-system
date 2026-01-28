@@ -1,8 +1,3 @@
-"""
-Slack Webhook Routes
-Main route handlers for Slack webhooks.
-"""
-
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
@@ -21,9 +16,28 @@ from api.webhooks.slack.utils import (
     create_slack_task,
     post_github_comment,
     update_slack_message,
-    post_slack_task_comment,
     send_slack_notification,
     create_task_from_button_action,
+    extract_task_summary,
+    build_task_completion_blocks,
+)
+from api.webhooks.slack.handlers import SlackResponseHandler
+from api.webhooks.slack.metadata import extract_slack_routing
+from core.database.redis_client import redis_client
+from api.webhooks.slack.constants import (
+    PROVIDER_NAME,
+    TYPE_URL_VERIFICATION,
+    FIELD_TYPE,
+    FIELD_CHALLENGE,
+    FIELD_EVENT,
+    FIELD_CHANNEL,
+    STATUS_PROCESSED,
+    STATUS_REJECTED,
+    STATUS_RECEIVED,
+    MESSAGE_DOES_NOT_MEET_RULES,
+    MESSAGE_NO_COMMAND_MATCHED,
+    DEFAULT_EVENT_TYPE,
+    DEFAULT_CHANNEL,
 )
 
 logger = structlog.get_logger()
@@ -56,59 +70,68 @@ async def handle_slack_task_completion(
     Returns:
         True if message posted successfully, False otherwise
     """
-    from api.webhooks.slack.utils import extract_task_summary, build_task_completion_blocks
     from core.webhook_configs import SLACK_WEBHOOK
-    
-    # Extract routing from payload
-    event = payload.get("event", {})
-    routing = {
-        "channel": event.get("channel"),
-        "thread_ts": event.get("ts"),
+
+    # Extract routing metadata from payload
+    routing = extract_slack_routing(payload)
+
+    # Build Block Kit blocks for rich formatting
+    routing_dict = {
+        "channel": routing.channel_id,
+        "thread_ts": routing.thread_ts,
         "repo": payload.get("routing", {}).get("repo"),
         "pr_number": payload.get("routing", {}).get("pr_number"),
         "ticket_key": payload.get("routing", {}).get("ticket_key")
     }
-    
-    # Extract task summary from result
-    task_metadata = {
-        "classification": payload.get("classification", "SIMPLE")
-    }
+
+    task_metadata = {"classification": payload.get("classification", "SIMPLE")}
     summary = extract_task_summary(result or message, task_metadata)
-    
-    # Determine if buttons are needed
-    # Check if command requires approval
+
     requires_approval = False
     if command:
         for cmd in SLACK_WEBHOOK.commands:
             if cmd.name == command:
                 requires_approval = cmd.requires_approval
                 break
-    
-    # Build Block Kit blocks
+
     blocks = build_task_completion_blocks(
         summary=summary,
-        routing=routing,
+        routing=routing_dict,
         requires_approval=requires_approval,
         task_id=task_id or "unknown",
         cost_usd=cost_usd,
         command=command or "",
-        source=payload.get("routing", {}).get("source", "slack")
+        source=payload.get("routing", {}).get("source", PROVIDER_NAME)
     )
-    
-    # Post message with Block Kit blocks
+
     formatted_message = error if not success and error else message
     
-    comment_posted = await post_slack_task_comment(
-        payload=payload,
-        message=formatted_message,
-        success=success,
-        cost_usd=cost_usd,
-        blocks=blocks
-    )
+    # Post using handler with Block Kit blocks
+    handler = SlackResponseHandler()
+    try:
+        comment_posted, response = await handler.post_response(
+            routing=routing,
+            result=formatted_message,
+            blocks=blocks
+        )
+        
+        # Track message timestamp in Redis if available
+        if comment_posted and response and isinstance(response, dict):
+            posted_message_ts = response.get("ts") or response.get("message", {}).get("ts")
+            if posted_message_ts:
+                try:
+                    key = f"slack:posted_message:{posted_message_ts}"
+                    await redis_client._client.setex(key, 3600, "1")
+                    logger.debug("slack_message_ts_tracked", message_ts=posted_message_ts)
+                except Exception as e:
+                    logger.warning("slack_message_ts_tracking_failed", message_ts=posted_message_ts, error=str(e))
+    except Exception as e:
+        logger.error("slack_handler_post_failed", error=str(e), task_id=task_id)
+        comment_posted = False
     
     await send_slack_notification(
         task_id=task_id,
-        webhook_source="slack",
+        webhook_source=PROVIDER_NAME,
         command=command,
         success=success,
         result=result,
@@ -153,7 +176,7 @@ async def slack_webhook(
         
         try:
             payload = json.loads(body.decode())
-            payload["provider"] = "slack"
+            payload["provider"] = PROVIDER_NAME
         except json.JSONDecodeError as e:
             logger.error("slack_payload_parse_error", error=str(e))
             raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {str(e)}")
@@ -161,10 +184,10 @@ async def slack_webhook(
             logger.error("slack_payload_decode_error", error=str(e))
             raise HTTPException(status_code=400, detail=f"Failed to decode payload: {str(e)}")
         
-        if payload.get("type") == "url_verification":
-            challenge = payload.get("challenge")
+        if payload.get(FIELD_TYPE) == TYPE_URL_VERIFICATION:
+            challenge = payload.get(FIELD_CHALLENGE)
             logger.info("slack_url_verification_challenge", challenge=challenge)
-            return {"challenge": challenge}
+            return {FIELD_CHALLENGE: challenge}
         
         try:
             await verify_slack_signature(request, body)
@@ -174,10 +197,10 @@ async def slack_webhook(
             logger.error("slack_signature_verification_error", error=str(e))
             raise HTTPException(status_code=401, detail=f"Signature verification failed: {str(e)}")
         
-        event = payload.get("event", {})
-        channel = event.get("channel", "unknown")
-        
-        event_type = event.get("type", "unknown")
+        event = payload.get(FIELD_EVENT, {})
+        channel = event.get(FIELD_CHANNEL, DEFAULT_CHANNEL)
+
+        event_type = event.get(FIELD_TYPE, DEFAULT_EVENT_TYPE)
         
         logger.info("slack_webhook_received", event_type=event_type, channel=channel)
         
@@ -191,7 +214,7 @@ async def slack_webhook(
                     channel=channel,
                     reason=validation_result.error_message
                 )
-                return {"status": "rejected", "actions": 0, "message": "Does not meet activation rules"}
+                return {"status": STATUS_REJECTED, "actions": 0, "message": MESSAGE_DOES_NOT_MEET_RULES}
         except Exception as e:
             logger.error("slack_webhook_validation_error", error=str(e), event_type=event_type)
         
@@ -199,7 +222,7 @@ async def slack_webhook(
             command = await match_slack_command(payload, event_type)
             if not command:
                 logger.warning("slack_no_command_matched", event_type=event_type, channel=channel)
-                return {"status": "received", "actions": 0, "message": "No command matched"}
+                return {"status": STATUS_RECEIVED, "actions": 0, "message": MESSAGE_NO_COMMAND_MATCHED}
         except Exception as e:
             logger.error("slack_command_matching_error", error=str(e), channel=channel)
             raise HTTPException(status_code=500, detail=f"Command matching failed: {str(e)}")
@@ -214,7 +237,7 @@ async def slack_webhook(
             event_db = WebhookEventDB(
                 event_id=event_id,
                 webhook_id=SLACK_WEBHOOK.name,
-                provider="slack",
+                provider=PROVIDER_NAME,
                 event_type=event_type,
                 payload_json=json.dumps(payload),
                 matched_command=command.name,
@@ -238,7 +261,7 @@ async def slack_webhook(
         logger.info("slack_webhook_processed", task_id=task_id, command=command.name, event_type=event_type, channel=channel)
         
         return {
-            "status": "processed",
+            "status": STATUS_PROCESSED,
             "task_id": task_id,
             "command": command.name,
             "immediate_response_sent": immediate_response_sent,

@@ -49,58 +49,58 @@ todos:
     status: completed
   - id: "5.1"
     content: "RED: Write tests for domain response handlers"
-    status: pending
+    status: completed
   - id: "5.2"
     content: "GREEN: Implement domain response handlers (move from response_poster.py)"
-    status: pending
+    status: completed
   - id: "5.3"
     content: "REFACTOR: Make response_poster.py a simple dispatcher"
-    status: pending
+    status: completed
   - id: "6.1"
     content: "RED: Write tests for domain routing extractors"
-    status: pending
+    status: completed
   - id: "6.2"
     content: "GREEN: Implement domain routing extractors with strict Pydantic models"
-    status: pending
+    status: completed
   - id: "6.3"
     content: "REFACTOR: Make routing_metadata.py a simple dispatcher"
-    status: pending
+    status: completed
   - id: "7.1"
     content: "RED→GREEN→REFACTOR: Refactor post_github_task_comment into smaller functions"
-    status: pending
+    status: completed
   - id: "7.2"
     content: "RED→GREEN→REFACTOR: Refactor send_github_immediate_response (extract event handlers)"
-    status: pending
+    status: completed
   - id: "7.3"
     content: "RED→GREEN→REFACTOR: Refactor handle_github_task_completion (extract error/approval/Slack logic)"
-    status: pending
+    status: completed
   - id: "8.1"
     content: "RED→GREEN→REFACTOR: Refactor GitHub route to show full flow, use errors/constants"
-    status: pending
+    status: completed
   - id: "8.2"
     content: "RED→GREEN→REFACTOR: Refactor Jira route to show full flow"
-    status: pending
+    status: completed
   - id: "8.3"
     content: "RED→GREEN→REFACTOR: Refactor Slack route to show full flow"
-    status: pending
+    status: completed
   - id: "9.1"
     content: "RED→GREEN→REFACTOR: Remove all dead code (verify reachability)"
-    status: pending
+    status: completed
   - id: "9.2"
     content: "RED→GREEN→REFACTOR: Remove unused imports/args/parameters"
-    status: pending
+    status: completed
   - id: "9.3"
     content: "RED→GREEN→REFACTOR: Remove all comments (code self-documenting)"
-    status: pending
+    status: completed
   - id: "9.4"
     content: "RED→GREEN→REFACTOR: Validate type safety (mypy --strict, no Any)"
-    status: pending
+    status: completed
   - id: "10.1"
     content: "RED→GREEN→REFACTOR: Write and run integration tests (full webhook flow)"
-    status: pending
+    status: completed
   - id: "10.2"
     content: "RED→GREEN→REFACTOR: Run regression tests (ensure no breaking changes)"
-    status: pending
+    status: completed
 isProject: false
 ---
 

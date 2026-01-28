@@ -88,3 +88,4 @@ class SlackRoutingMetadata(BaseModel):
     team_id: str
     user_id: Optional[str] = None
     user_name: Optional[str] = None
+    thread_ts: Optional[str] = None

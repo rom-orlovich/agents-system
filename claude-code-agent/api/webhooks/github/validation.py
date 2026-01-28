@@ -3,6 +3,7 @@ GitHub webhook validation.
 Pydantic models and validation logic for GitHub webhooks.
 """
 
+import re
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
 from core.webhook_validation import (
@@ -11,6 +12,52 @@ from core.webhook_validation import (
     validate_command,
 )
 from api.webhooks.github.utils import extract_github_text
+
+
+def validate_response_format(result: str, format_type: str) -> tuple[bool, str]:
+    if format_type == "pr_review":
+        if "## PR Review" not in result:
+            return False, "Missing '## PR Review' header"
+
+        if "### Summary" not in result:
+            return False, "Missing '### Summary' section"
+
+        if "### Code Quality" not in result:
+            return False, "Missing '### Code Quality' section"
+
+        if "### Findings" not in result:
+            return False, "Missing '### Findings' section"
+
+        if "### Verdict" not in result:
+            return False, "Missing '### Verdict' section"
+
+        verdict_section = result[result.find("### Verdict"):]
+        verdict_match = re.search(r'\b(approve|request_changes|comment)\b', verdict_section, re.IGNORECASE)
+        if not verdict_match:
+            return False, "Verdict must be one of: approve, request_changes, comment"
+
+        if "*Reviewed by AI Agent*" not in result:
+            return False, "Missing footer '*Reviewed by AI Agent*'"
+
+        return True, ""
+
+    elif format_type == "issue_analysis":
+        if "## Analysis" not in result:
+            return False, "Missing '## Analysis' header"
+
+        if "### Findings" not in result:
+            return False, "Missing '### Findings' section"
+
+        if "### Recommendations" not in result:
+            return False, "Missing '### Recommendations' section"
+
+        if "*Analyzed by AI Agent*" not in result:
+            return False, "Missing footer '*Analyzed by AI Agent*'"
+
+        return True, ""
+
+    else:
+        return False, f"Unknown format type: {format_type}"
 
 
 class GitHubWebhookPayload(BaseModel):
