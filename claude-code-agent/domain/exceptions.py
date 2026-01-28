@@ -1,23 +1,7 @@
-"""
-Custom exception hierarchy for webhook handling.
-
-This module defines a structured exception hierarchy that:
-- Distinguishes between different error types
-- Carries context information for better error messages
-- Supports determining if errors are recoverable
-"""
-
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 
 class WebhookError(Exception):
-    """
-    Base exception for all webhook-related errors.
-
-    All webhook exceptions inherit from this class, allowing
-    handlers to catch all webhook errors with a single except clause.
-    """
-
     def __init__(
         self,
         message: str,
@@ -34,7 +18,6 @@ class WebhookError(Exception):
         return self.message
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert exception to dictionary for logging."""
         return {
             "error": self.message,
             "error_type": type(self).__name__,
@@ -44,15 +27,6 @@ class WebhookError(Exception):
 
 
 class WebhookValidationError(WebhookError):
-    """
-    Exception raised when webhook payload validation fails.
-
-    This includes:
-    - Missing required fields
-    - Invalid field values
-    - Payload structure issues
-    """
-
     def __init__(
         self,
         message: str,
@@ -77,15 +51,6 @@ class WebhookValidationError(WebhookError):
 
 
 class WebhookAuthenticationError(WebhookError):
-    """
-    Exception raised when webhook authentication fails.
-
-    This includes:
-    - Invalid signature
-    - Missing signature when required
-    - Secret not configured
-    """
-
     def __init__(
         self,
         message: str,
@@ -102,15 +67,6 @@ class WebhookAuthenticationError(WebhookError):
 
 
 class TaskCreationError(WebhookError):
-    """
-    Exception raised when task creation fails.
-
-    This includes:
-    - Database errors during task creation
-    - Redis queue errors
-    - Invalid task parameters
-    """
-
     def __init__(
         self,
         message: str,
@@ -135,16 +91,6 @@ class TaskCreationError(WebhookError):
 
 
 class ExternalServiceError(WebhookError):
-    """
-    Exception raised when an external service call fails.
-
-    This includes:
-    - GitHub API errors
-    - Jira API errors
-    - Slack API errors
-    - Rate limiting
-    """
-
     def __init__(
         self,
         message: str,
@@ -158,7 +104,6 @@ class ExternalServiceError(WebhookError):
         if status_code:
             ctx["status_code"] = status_code
 
-        # Rate limit errors are recoverable
         recoverable = status_code in (429, 502, 503, 504) if status_code else True
 
         super().__init__(message, context=ctx, recoverable=recoverable)
@@ -167,21 +112,12 @@ class ExternalServiceError(WebhookError):
 
 
 class CommandMatchError(WebhookError):
-    """
-    Exception raised when command matching fails.
-
-    This includes:
-    - No command found in text
-    - Invalid command format
-    - Unknown command
-    """
-
     def __init__(
         self,
         message: str,
         *,
         command: Optional[str] = None,
-        available_commands: Optional[list] = None,
+        available_commands: Optional[List[str]] = None,
         context: Optional[Dict[str, Any]] = None,
     ):
         ctx = context or {}
@@ -196,12 +132,6 @@ class CommandMatchError(WebhookError):
 
 
 class TokenNotConfiguredError(WebhookError):
-    """
-    Exception raised when a required token is not configured.
-
-    This is a configuration error that cannot be retried.
-    """
-
     def __init__(
         self,
         token_name: str,
@@ -224,12 +154,6 @@ class TokenNotConfiguredError(WebhookError):
 
 
 class RateLimitError(ExternalServiceError):
-    """
-    Exception raised when an API rate limit is hit.
-
-    Includes retry-after information when available.
-    """
-
     def __init__(
         self,
         service: str,

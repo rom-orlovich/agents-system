@@ -1,13 +1,3 @@
-"""
-Retry logic with tenacity for external service calls.
-
-This module provides:
-- Configurable retry decorators
-- Retry policies for different error types
-- Rate limit handling
-- Service-specific retry wrappers
-"""
-
 import asyncio
 import structlog
 from dataclasses import dataclass
@@ -29,7 +19,6 @@ logger = structlog.get_logger()
 
 T = TypeVar("T")
 
-# Default transient errors that should trigger retry
 TRANSIENT_ERRORS: Tuple[Type[Exception], ...] = (
     ConnectionError,
     TimeoutError,
@@ -39,16 +28,6 @@ TRANSIENT_ERRORS: Tuple[Type[Exception], ...] = (
 
 @dataclass
 class RetryPolicy:
-    """
-    Configuration for retry behavior.
-
-    Attributes:
-        max_attempts: Maximum number of retry attempts
-        wait_min: Minimum wait time between retries (seconds)
-        wait_max: Maximum wait time between retries (seconds)
-        wait_multiplier: Exponential backoff multiplier
-        retry_on: Tuple of exception types to retry on
-    """
     max_attempts: int = 3
     wait_min: float = 2.0
     wait_max: float = 10.0
@@ -57,7 +36,6 @@ class RetryPolicy:
 
     @classmethod
     def default(cls) -> "RetryPolicy":
-        """Default retry policy (3 attempts, exponential backoff)."""
         return cls(
             max_attempts=3,
             wait_min=2,
@@ -67,7 +45,6 @@ class RetryPolicy:
 
     @classmethod
     def aggressive(cls) -> "RetryPolicy":
-        """Aggressive retry policy (5 attempts, faster retries)."""
         return cls(
             max_attempts=5,
             wait_min=1,
@@ -77,7 +54,6 @@ class RetryPolicy:
 
     @classmethod
     def conservative(cls) -> "RetryPolicy":
-        """Conservative retry policy (2 attempts, longer waits)."""
         return cls(
             max_attempts=2,
             wait_min=5,
@@ -87,7 +63,6 @@ class RetryPolicy:
 
     @classmethod
     def no_retry(cls) -> "RetryPolicy":
-        """No retry policy (single attempt)."""
         return cls(max_attempts=1)
 
 
@@ -98,22 +73,6 @@ def with_retry(
     wait_multiplier: float = 1.0,
     retry_on: Tuple[Type[Exception], ...] = TRANSIENT_ERRORS,
 ):
-    """
-    Decorator for adding retry logic to async functions.
-
-    Args:
-        max_attempts: Maximum retry attempts
-        wait_min: Minimum wait time (seconds)
-        wait_max: Maximum wait time (seconds)
-        wait_multiplier: Exponential backoff multiplier
-        retry_on: Exception types to retry on
-
-    Example:
-        @with_retry(max_attempts=3)
-        async def call_external_api():
-            return await client.get("/api/data")
-    """
-
     def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
@@ -153,7 +112,6 @@ def with_retry(
                         )
                         raise
 
-            # This shouldn't be reached, but just in case
             if last_exception:
                 raise last_exception
 
@@ -165,12 +123,6 @@ def with_retry(
 def with_rate_limit_handling(
     func: Callable[..., Awaitable[T]],
 ) -> Callable[..., Awaitable[T]]:
-    """
-    Decorator for handling rate limits with retry-after.
-
-    Automatically waits the retry-after duration before retrying.
-    """
-
     @wraps(func)
     async def wrapper(*args: Any, **kwargs: Any) -> T:
         max_attempts = 3
@@ -191,7 +143,6 @@ def with_rate_limit_handling(
                 )
                 await asyncio.sleep(wait_time)
 
-        # Should not reach here
         raise RuntimeError("Unexpected state in rate limit handler")
 
     return wrapper
@@ -202,18 +153,6 @@ async def github_api_call(
     *args: Any,
     **kwargs: Any,
 ) -> T:
-    """
-    Execute a GitHub API call with retry logic.
-
-    Args:
-        func: Async function to call
-        *args: Positional arguments
-        **kwargs: Keyword arguments
-
-    Returns:
-        Result of the API call
-    """
-
     @with_retry(
         max_attempts=3,
         wait_min=2,
@@ -231,18 +170,6 @@ async def jira_api_call(
     *args: Any,
     **kwargs: Any,
 ) -> T:
-    """
-    Execute a Jira API call with retry logic.
-
-    Args:
-        func: Async function to call
-        *args: Positional arguments
-        **kwargs: Keyword arguments
-
-    Returns:
-        Result of the API call
-    """
-
     @with_retry(
         max_attempts=3,
         wait_min=2,
@@ -260,18 +187,6 @@ async def slack_api_call(
     *args: Any,
     **kwargs: Any,
 ) -> T:
-    """
-    Execute a Slack API call with retry logic.
-
-    Args:
-        func: Async function to call
-        *args: Positional arguments
-        **kwargs: Keyword arguments
-
-    Returns:
-        Result of the API call
-    """
-
     @with_retry(
         max_attempts=3,
         wait_min=1,
@@ -285,16 +200,6 @@ async def slack_api_call(
 
 
 class RetryableClient:
-    """
-    Mixin class for adding retry logic to API clients.
-
-    Example:
-        class GitHubClient(RetryableClient):
-            async def get_pr(self, repo, number):
-                return await self._with_retry(
-                    self._http_client.get(f"/repos/{repo}/pulls/{number}")
-                )
-    """
 
     _retry_policy: RetryPolicy = RetryPolicy.default()
 
@@ -303,16 +208,6 @@ class RetryableClient:
         coro: Awaitable[T],
         policy: RetryPolicy = None,
     ) -> T:
-        """
-        Execute coroutine with retry logic.
-
-        Args:
-            coro: Coroutine to execute
-            policy: Optional retry policy override
-
-        Returns:
-            Result of the coroutine
-        """
         policy = policy or self._retry_policy
 
         @with_retry(

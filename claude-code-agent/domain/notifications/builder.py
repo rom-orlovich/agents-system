@@ -1,37 +1,16 @@
-"""
-Notification block builder.
-
-Builds Slack Block Kit blocks for task notifications.
-"""
-
 import json
 from typing import Any, Dict, List, Optional
 
-from domain.models.notifications import TaskNotification
+from domain.models.notifications import TaskNotification, TaskSummary
 from domain.models.routing import RoutingMetadata
 
 
 class NotificationBuilder:
-    """
-    Builds Slack Block Kit blocks for notifications.
-
-    Consolidates block building logic from multiple webhook handlers.
-    """
 
     @staticmethod
     def build_blocks(notification: TaskNotification) -> List[Dict[str, Any]]:
-        """
-        Build Slack Block Kit blocks for a notification.
-
-        Args:
-            notification: TaskNotification with all notification data
-
-        Returns:
-            List of Slack block dictionaries
-        """
         blocks = []
 
-        # Header section with status
         status_emoji = notification.get_status_emoji()
         status_text = notification.get_status_text()
 
@@ -50,7 +29,6 @@ class NotificationBuilder:
             }
         })
 
-        # Result section (for success)
         if notification.success and notification.result:
             result_preview = (
                 notification.result[:500] + "..."
@@ -65,7 +43,6 @@ class NotificationBuilder:
                 }
             })
 
-        # Error section (for failure)
         if notification.error:
             blocks.append({
                 "type": "section",
@@ -75,7 +52,6 @@ class NotificationBuilder:
                 }
             })
 
-        # Cost section
         if notification.cost_usd > 0:
             blocks.append({
                 "type": "context",
@@ -85,7 +61,6 @@ class NotificationBuilder:
                 }]
             })
 
-        # PR URL link
         if notification.pr_url:
             blocks.append({
                 "type": "section",
@@ -95,7 +70,6 @@ class NotificationBuilder:
                 }
             })
 
-        # Ticket key
         if notification.ticket_key:
             blocks.append({
                 "type": "context",
@@ -114,19 +88,6 @@ class NotificationBuilder:
         routing: Optional[RoutingMetadata],
         source: str,
     ) -> List[Dict[str, Any]]:
-        """
-        Build approval/review/reject buttons.
-
-        Args:
-            task_id: Task identifier
-            command: Command that was executed
-            routing: Routing metadata
-            source: Source platform
-
-        Returns:
-            List of Slack block dictionaries with action buttons
-        """
-        # Build value payload for buttons
         value_data = {
             "original_task_id": task_id,
             "command": command,
@@ -138,7 +99,6 @@ class NotificationBuilder:
 
         buttons = []
 
-        # Approve button
         buttons.append({
             "type": "button",
             "text": {
@@ -151,7 +111,6 @@ class NotificationBuilder:
             "value": json.dumps({**value_data, "action": "approve"}),
         })
 
-        # Review button
         buttons.append({
             "type": "button",
             "text": {
@@ -163,7 +122,6 @@ class NotificationBuilder:
             "value": json.dumps({**value_data, "action": "review"}),
         })
 
-        # Reject button
         buttons.append({
             "type": "button",
             "text": {
@@ -183,7 +141,7 @@ class NotificationBuilder:
 
     @staticmethod
     def build_task_completion_blocks(
-        summary: "TaskSummary",
+        summary: TaskSummary,
         routing: Optional[Dict[str, Any]],
         requires_approval: bool,
         task_id: str,
@@ -191,27 +149,8 @@ class NotificationBuilder:
         command: str,
         source: str,
     ) -> List[Dict[str, Any]]:
-        """
-        Build complete task completion blocks.
-
-        This is the full block set for task completion notifications,
-        including optional approval buttons.
-
-        Args:
-            summary: Task summary
-            routing: Routing metadata dict
-            requires_approval: Whether to include approval buttons
-            task_id: Task identifier
-            cost_usd: Task cost
-            command: Command executed
-            source: Source platform
-
-        Returns:
-            List of Slack block dictionaries
-        """
         blocks = []
 
-        # Header
         blocks.append({
             "type": "header",
             "text": {
@@ -221,7 +160,6 @@ class NotificationBuilder:
             }
         })
 
-        # Summary section
         summary_text = f"*Summary:* {summary.summary}"
         if summary.classification and summary.classification != "SIMPLE":
             summary_text += f"\n*Classification:* {summary.classification}"
@@ -234,7 +172,6 @@ class NotificationBuilder:
             }
         })
 
-        # What was done
         if summary.what_was_done:
             blocks.append({
                 "type": "section",
@@ -244,7 +181,6 @@ class NotificationBuilder:
                 }
             })
 
-        # Key insights
         if summary.key_insights:
             blocks.append({
                 "type": "section",
@@ -254,7 +190,6 @@ class NotificationBuilder:
                 }
             })
 
-        # Metadata context
         context_elements = [
             {"type": "mrkdwn", "text": f"*Source:* {source.title()}"},
             {"type": "mrkdwn", "text": f"*Task ID:* `{task_id}`"},
@@ -269,7 +204,6 @@ class NotificationBuilder:
             "elements": context_elements,
         })
 
-        # Routing info
         if routing:
             routing_parts = []
             if routing.get("repo"):
@@ -287,11 +221,9 @@ class NotificationBuilder:
                     ],
                 })
 
-        # Approval buttons
         if requires_approval:
             routing_metadata = None
             if routing:
-                from domain.models.routing import RoutingMetadata
                 routing_metadata = RoutingMetadata(
                     repo=routing.get("repo"),
                     pr_number=routing.get("pr_number"),
@@ -307,7 +239,3 @@ class NotificationBuilder:
             blocks.extend(approval_blocks)
 
         return blocks
-
-
-# Import TaskSummary for type hints
-from domain.models.notifications import TaskSummary

@@ -1,9 +1,3 @@
-"""
-Domain models - pure Pydantic models with validation.
-
-No I/O dependencies - these are pure data structures with business rules.
-"""
-
 from domain.models.webhook_payload import (
     WebhookSource,
     GitHubWebhookPayload,
@@ -24,19 +18,14 @@ from domain.models.notifications import (
 )
 
 __all__ = [
-    # Webhook source
     "WebhookSource",
-    # Webhook payloads
     "GitHubWebhookPayload",
     "JiraWebhookPayload",
     "SlackWebhookPayload",
-    # Task completion
     "TaskCompletionContext",
     "TaskCompletionResult",
-    # Routing
     "RoutingMetadata",
     "PRRouting",
-    # Notifications
     "TaskSummary",
     "TaskNotification",
 ]
