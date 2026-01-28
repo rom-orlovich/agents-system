@@ -4,40 +4,40 @@ overview: Refactor webhook handlers to use strict Pydantic types, YAML configura
 todos:
   - id: "1.1"
     content: "RED: Write tests for GitHub Pydantic models (discriminated unions, validation, text extraction)"
-    status: pending
+    status: completed
   - id: "1.2"
     content: "RED: Write tests for Jira Pydantic models"
-    status: pending
+    status: completed
   - id: "1.3"
     content: "RED: Write tests for Slack Pydantic models"
-    status: pending
+    status: completed
   - id: "1.4"
     content: "RED: Write tests for domain error classes with context"
-    status: pending
+    status: completed
   - id: "1.5"
     content: "RED: Write tests for YAML config loader"
-    status: pending
+    status: completed
   - id: "2.1"
     content: "GREEN: Implement GitHub Pydantic models, run tests, cleanup unused code"
-    status: pending
+    status: completed
   - id: "2.2"
     content: "GREEN: Implement Jira Pydantic models, run tests, cleanup unused code"
-    status: pending
+    status: completed
   - id: "2.3"
     content: "GREEN: Implement Slack Pydantic models, run tests, cleanup unused code"
-    status: pending
+    status: completed
   - id: "2.4"
     content: "GREEN: Implement domain error classes, run tests, cleanup unused code"
-    status: pending
+    status: completed
   - id: "2.5"
     content: "GREEN: Create YAML configs and loader, run tests, cleanup unused code"
-    status: pending
+    status: completed
   - id: "3.1"
     content: "RED→GREEN→REFACTOR: Create domain constants files, replace magic strings"
-    status: pending
+    status: completed
   - id: "3.2"
     content: "RED→GREEN→REFACTOR: Refactor text extraction to Strategy pattern"
-    status: pending
+    status: in_progress
   - id: "4.1"
     content: "RED: Write tests for modular CLI runner"
     status: pending

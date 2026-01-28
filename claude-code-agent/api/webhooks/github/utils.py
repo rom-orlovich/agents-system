@@ -1,8 +1,3 @@
-"""
-GitHub webhook utility functions.
-Signature verification, command matching, task creation, and immediate responses.
-"""
-
 import hmac
 import hashlib
 import os
@@ -25,6 +20,33 @@ from core.github_client import github_client
 from core.routing_metadata import extract_github_metadata
 from shared.machine_models import WebhookCommand
 from shared import TaskStatus, AgentType
+from api.webhooks.github.constants import (
+    SIGNATURE_HEADER,
+    SIGNATURE_PREFIX,
+    EVENT_ISSUE_COMMENT,
+    EVENT_ISSUES,
+    EVENT_PULL_REQUEST,
+    EVENT_PULL_REQUEST_REVIEW_COMMENT,
+    FIELD_REPOSITORY,
+    FIELD_OWNER,
+    FIELD_LOGIN,
+    FIELD_NAME,
+    FIELD_COMMENT,
+    FIELD_ID,
+    FIELD_ISSUE,
+    FIELD_NUMBER,
+    FIELD_PULL_REQUEST,
+    FIELD_BODY,
+    FIELD_TITLE,
+    REACTION_EYES,
+    REDIS_KEY_PREFIX_POSTED_COMMENT,
+    REDIS_TTL_POSTED_COMMENT,
+    ENV_GITHUB_TOKEN,
+    ENV_GITHUB_WEBHOOK_SECRET,
+    MESSAGE_ISSUE_RESPONSE,
+    MESSAGE_PR_RESPONSE,
+    STATUS_CODE_UNAUTHORIZED,
+)
 
 logger = structlog.get_logger()
 
@@ -71,27 +93,26 @@ def extract_github_text(value: Any, default: str = "") -> str:
 
 
 async def verify_github_signature(request: Request, body: bytes) -> None:
-    """Verify GitHub webhook signature."""
-    signature = request.headers.get("X-Hub-Signature-256", "")
-    secret = os.getenv("GITHUB_WEBHOOK_SECRET") or settings.github_webhook_secret
-    
+    signature = request.headers.get(SIGNATURE_HEADER, "")
+    secret = os.getenv(ENV_GITHUB_WEBHOOK_SECRET) or settings.github_webhook_secret
+
     if signature:
         if not secret:
-            raise HTTPException(status_code=401, detail="Webhook secret not configured but signature provided")
-        
-        if signature.startswith("sha256="):
-            signature = signature[7:]
-        
+            raise HTTPException(status_code=STATUS_CODE_UNAUTHORIZED, detail="Webhook secret not configured but signature provided")
+
+        if signature.startswith(SIGNATURE_PREFIX):
+            signature = signature[len(SIGNATURE_PREFIX):]
+
         expected_signature = hmac.new(
             secret.encode(),
             body,
             hashlib.sha256
         ).hexdigest()
-        
+
         if not hmac.compare_digest(signature, expected_signature):
-            raise HTTPException(status_code=401, detail="Invalid signature")
+            raise HTTPException(status_code=STATUS_CODE_UNAUTHORIZED, detail="Invalid signature")
     elif secret:
-        logger.warning("GITHUB_WEBHOOK_SECRET configured but no signature header provided")
+        logger.warning("github_webhook_secret_no_header")
 
 
 async def send_github_immediate_response(
@@ -99,23 +120,22 @@ async def send_github_immediate_response(
     command: WebhookCommand,
     event_type: str
 ) -> bool:
-    """Send immediate response to GitHub (reaction or comment)."""
     try:
-        repo = payload.get("repository", {})
-        owner = repo.get("owner", {}).get("login", "")
-        repo_name = repo.get("name", "")
-        
+        repo = payload.get(FIELD_REPOSITORY, {})
+        owner = repo.get(FIELD_OWNER, {}).get(FIELD_LOGIN, "")
+        repo_name = repo.get(FIELD_NAME, "")
+
         if not owner or not repo_name:
             logger.warning("github_immediate_response_no_repo", payload=payload)
             return False
-        
-        if event_type.startswith("issue_comment"):
-            comment = payload.get("comment", {})
-            comment_id = comment.get("id")
+
+        if event_type.startswith(EVENT_ISSUE_COMMENT):
+            comment = payload.get(FIELD_COMMENT, {})
+            comment_id = comment.get(FIELD_ID)
             
             if comment_id:
                 import os
-                github_client.token = github_client.token or os.getenv("GITHUB_TOKEN")
+                github_client.token = github_client.token or os.getenv(ENV_GITHUB_TOKEN)
                 if github_client.token:
                     github_client.headers["Authorization"] = f"token {github_client.token}"
                 
@@ -133,7 +153,7 @@ async def send_github_immediate_response(
                         owner,
                         repo_name,
                         comment_id,
-                        reaction="eyes"
+                        reaction=REACTION_EYES
                     )
                     logger.info(
                         "github_reaction_sent",
@@ -179,13 +199,13 @@ async def send_github_immediate_response(
                     )
                     return False
         
-        elif event_type.startswith("issues"):
+        elif event_type.startswith(EVENT_ISSUES):
             issue = payload.get("issue", {})
             issue_number = issue.get("number")
             
             if issue_number:
                 import os
-                github_client.token = github_client.token or os.getenv("GITHUB_TOKEN")
+                github_client.token = github_client.token or os.getenv(ENV_GITHUB_TOKEN)
                 if github_client.token:
                     github_client.headers["Authorization"] = f"token {github_client.token}"
                 
@@ -199,7 +219,7 @@ async def send_github_immediate_response(
                     return False
                 
                 try:
-                    message = "👀 I'll analyze this issue and get back to you shortly."
+                    message = "MESSAGE_ISSUE_RESPONSE"
                     await github_client.post_issue_comment(
                         owner,
                         repo_name,
@@ -217,13 +237,13 @@ async def send_github_immediate_response(
                     )
                     return False
         
-        elif event_type.startswith("pull_request"):
+        elif event_type.startswith(EVENT_PULL_REQUEST):
             pr = payload.get("pull_request", {})
             pr_number = pr.get("number")
             
             if pr_number:
                 import os
-                github_client.token = github_client.token or os.getenv("GITHUB_TOKEN")
+                github_client.token = github_client.token or os.getenv(ENV_GITHUB_TOKEN)
                 if github_client.token:
                     github_client.headers["Authorization"] = f"token {github_client.token}"
                 
@@ -277,7 +297,7 @@ async def is_agent_posted_comment(comment_id: Optional[int]) -> bool:
         return False
     
     try:
-        key = f"github:posted_comment:{comment_id}"
+        key = f"{REDIS_KEY_PREFIX_POSTED_COMMENT}{comment_id}"
         exists = await redis_client.exists(key)
         if exists:
             logger.debug("github_skipped_posted_comment", comment_id=comment_id)
@@ -339,11 +359,11 @@ async def match_github_command(payload: dict, event_type: str) -> Optional[Webho
     elif event_type.startswith("pull_request_review_comment"):
         comment_body = payload.get("comment", {}).get("body", "")
         text = extract_github_text(comment_body)
-    elif event_type.startswith("issues"):
+    elif event_type.startswith(EVENT_ISSUES):
         issue_body = payload.get("issue", {}).get("body", "")
         issue_title = payload.get("issue", {}).get("title", "")
         text = extract_github_text(issue_body) or extract_github_text(issue_title)
-    elif event_type.startswith("pull_request"):
+    elif event_type.startswith(EVENT_PULL_REQUEST):
         pr_body = payload.get("pull_request", {}).get("body", "")
         pr_title = payload.get("pull_request", {}).get("title", "")
         text = extract_github_text(pr_body) or extract_github_text(pr_title)
@@ -543,7 +563,7 @@ async def post_github_task_comment(
         
         if comment_id:
             try:
-                key = f"github:posted_comment:{comment_id}"
+                key = f"{REDIS_KEY_PREFIX_POSTED_COMMENT}{comment_id}"
                 await redis_client._client.setex(key, 3600, "1")
                 logger.debug("github_comment_id_tracked", comment_id=comment_id)
             except Exception as e:
