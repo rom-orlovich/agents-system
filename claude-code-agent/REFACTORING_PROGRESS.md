@@ -24,15 +24,22 @@
 - ✅ All models in final locations
 - ✅ Old tests preserved and will work with new models
 
+### Phase 3: Domain Constants & Text Extraction
+
+**Todos 3.1-3.2 - COMPLETED:**
+- ✅ api/webhooks/github/constants.py - GitHub constants (events, fields, env vars)
+- ✅ api/webhooks/jira/constants.py - Jira constants (events, ADF fields)
+- ✅ api/webhooks/slack/constants.py - Slack constants (types, fields)
+- ✅ Replaced magic strings in api/webhooks/github/utils.py with constants
+- ✅ Text extraction Strategy: Already implemented via Pydantic discriminated unions
+
 ### Commits:
 1. `bfbdcf4` - Phase 1 & 2 implementation
 2. `86e3fa1` - Integration and cleanup
+3. `4dd6562` - Progress documentation
+4. `96de40d` - Phase 3: Domain constants
 
-## 📋 Remaining Work (31 todos from Phase 3-10)
-
-### Phase 3: Domain Constants & Text Extraction (2 todos)
-- 3.1: Create domain constants files
-- 3.2: Refactor text extraction to Strategy pattern
+## 📋 Remaining Work (21 todos from Phase 4-10)
 
 ### Phase 4: Modular CLI Runner (3 todos)
 - 4.1-4.3: Tests, implementation, refactor run_claude_cli
@@ -61,9 +68,10 @@
 
 ## 🎯 Current Status
 
-**Completed:** 10/33 todos (30%)
+**Completed:** 12/33 todos (36%)
 **Branch:** `claude/webhook-refactoring-tdd-23Snd`
 **All commits pushed:** Yes
+**Latest commit:** `96de40d` - Phase 3: Domain constants
 
 ## ✨ Key Achievements
 

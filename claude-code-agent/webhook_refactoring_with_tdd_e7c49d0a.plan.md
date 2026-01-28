@@ -37,7 +37,7 @@ todos:
     status: completed
   - id: "3.2"
     content: "RED→GREEN→REFACTOR: Refactor text extraction to Strategy pattern"
-    status: in_progress
+    status: completed
   - id: "4.1"
     content: "RED: Write tests for modular CLI runner"
     status: pending
