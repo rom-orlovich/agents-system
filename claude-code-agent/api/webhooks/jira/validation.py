@@ -4,7 +4,6 @@ Pydantic models and validation logic for Jira webhooks.
 """
 
 import json
-import re
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
 from core.webhook_validation import (

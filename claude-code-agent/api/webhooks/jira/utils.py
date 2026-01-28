@@ -589,7 +589,7 @@ async def send_slack_notification(
         return False
     
     from core.slack_client import slack_client
-    from api.webhooks.slack.utils import extract_task_summary, build_task_completion_blocks
+    from api.webhooks.slack.utils import extract_task_summary
     from core.webhook_configs import JIRA_WEBHOOK
     from api.webhooks.jira.models import SlackNotificationRequest
     
