@@ -94,13 +94,13 @@ todos:
     status: completed
   - id: "9.4"
     content: "RED→GREEN→REFACTOR: Validate type safety (mypy --strict, no Any)"
-    status: pending
+    status: completed
   - id: "10.1"
     content: "RED→GREEN→REFACTOR: Write and run integration tests (full webhook flow)"
-    status: pending
+    status: completed
   - id: "10.2"
     content: "RED→GREEN→REFACTOR: Run regression tests (ensure no breaking changes)"
-    status: pending
+    status: completed
 isProject: false
 ---
 
