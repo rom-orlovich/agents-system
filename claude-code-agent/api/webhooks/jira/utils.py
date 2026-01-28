@@ -26,88 +26,22 @@ from core.routing_metadata import extract_jira_metadata
 from shared.machine_models import WebhookCommand
 from shared import TaskStatus, AgentType
 from api.webhooks.jira.models import TaskSummary
+from domain.services.text_extraction import TextExtractor
+from domain.services.message_formatting import MessageFormatter
 
 logger = structlog.get_logger()
 
 
 def _safe_string(value: Any, default: str = "") -> str:
-    """
-    Safely convert a value to a string.
-    
-    Handles cases where Jira webhook fields might be lists or other non-string types.
-    
-    Args:
-        value: Value to convert (can be str, list, dict, None, etc.)
-        default: Default value to return if value is None or empty
-        
-    Returns:
-        String representation of the value
-    """
-    if value is None:
-        return default
-    
-    if isinstance(value, str):
-        return value
-    
-    if isinstance(value, list):
-        if not value:
-            return default
-        return " ".join(str(item) for item in value if item)
-    
-    return str(value) if value else default
+    return TextExtractor.safe_string(value, default)
 
 
 def extract_jira_comment_text(comment_body: Any) -> str:
-    """
-    Extract plain text from Jira comment body.
-    
-    Handles both plain string format and ADF (Atlassian Document Format).
-    
-    Args:
-        comment_body: Comment body as string, dict (ADF), list, or None
-        
-    Returns:
-        Plain text string extracted from comment body
-    """
-    if comment_body is None:
-        return ""
-    
-    if isinstance(comment_body, str):
-        return comment_body
-    
-    if isinstance(comment_body, list):
-        text_parts = []
-        for item in comment_body:
-            text_parts.append(extract_jira_comment_text(item))
-        return " ".join(text_parts)
-    
-    if isinstance(comment_body, dict):
-        if comment_body.get("type") == "text" and "text" in comment_body:
-            return comment_body.get("text", "")
-        
-        if "content" in comment_body:
-            return extract_jira_comment_text(comment_body.get("content"))
-        
-        if "text" in comment_body:
-            return str(comment_body.get("text", ""))
-    
-    return str(comment_body) if comment_body else ""
+    return TextExtractor.extract_jira_adf(comment_body)
 
 
 def _truncate_text(text: str, max_length: int = 2000) -> str:
-    """Truncate text at a natural break point (sentence or line)."""
-    if len(text) <= max_length:
-        return text
-    
-    truncated = text[:max_length]
-    last_period = truncated.rfind(".")
-    last_newline = truncated.rfind("\n")
-    truncate_at = max(last_period, last_newline)
-    
-    if truncate_at > max_length * 0.8:
-        truncated = truncated[:truncate_at + 1]
-    
-    return truncated + "\n\n_(message truncated)_"
+    return MessageFormatter.truncate(text, max_length, suffix="\n\n_(message truncated)_")
 
 
 async def verify_jira_signature(request: Request, body: bytes) -> None:
@@ -532,23 +466,13 @@ async def post_jira_task_comment(
         
         pr_url = request.pr_url or extract_pr_url(request.message)
         
-        formatted_message = request.message
-        
-        if pr_url and request.success:
-            formatted_message = f"{formatted_message}\n\n🔗 *Pull Request:* {pr_url}"
-        
-        max_length = 8000
-        if len(formatted_message) > max_length:
-            truncated_message = formatted_message[:max_length]
-            last_period = truncated_message.rfind(".")
-            last_newline = truncated_message.rfind("\n")
-            truncate_at = max(last_period, last_newline)
-            if truncate_at > max_length * 0.8:
-                truncated_message = truncated_message[:truncate_at + 1]
-            formatted_message = truncated_message + "\n\n... (message truncated)"
-        
-        if request.success and request.cost_usd > 0:
-            formatted_message += f"\n\n💰 Cost: ${request.cost_usd:.4f}"
+        formatted_message = MessageFormatter.format_jira_comment(
+            message=request.message,
+            success=request.success,
+            cost_usd=request.cost_usd,
+            pr_url=pr_url,
+            max_length=MessageFormatter.MAX_JIRA_COMMENT,
+        )
         
         response = await jira_client.post_comment(issue_key, formatted_message)
         

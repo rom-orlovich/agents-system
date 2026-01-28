@@ -9,77 +9,7 @@ class NotificationBuilder:
 
     @staticmethod
     def build_blocks(notification: TaskNotification) -> List[Dict[str, Any]]:
-        blocks = []
-
-        status_emoji = notification.get_status_emoji()
-        status_text = notification.get_status_text()
-
-        header_text = (
-            f"{status_emoji} *Task {status_text}*\n"
-            f"*Source:* {notification.source.value.title()}\n"
-            f"*Command:* {notification.command}\n"
-            f"*Task ID:* `{notification.task_id}`"
-        )
-
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": header_text,
-            }
-        })
-
-        if notification.success and notification.result:
-            result_preview = (
-                notification.result[:500] + "..."
-                if len(notification.result) > 500
-                else notification.result
-            )
-            blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*Result:*\n```{result_preview}```",
-                }
-            })
-
-        if notification.error:
-            blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*Error:*\n```{notification.error}```",
-                }
-            })
-
-        if notification.cost_usd > 0:
-            blocks.append({
-                "type": "context",
-                "elements": [{
-                    "type": "mrkdwn",
-                    "text": f"💰 Cost: ${notification.cost_usd:.4f}",
-                }]
-            })
-
-        if notification.pr_url:
-            blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"🔗 <{notification.pr_url}|View Pull Request>",
-                }
-            })
-
-        if notification.ticket_key:
-            blocks.append({
-                "type": "context",
-                "elements": [{
-                    "type": "mrkdwn",
-                    "text": f"🎫 Jira: `{notification.ticket_key}`",
-                }]
-            })
-
-        return blocks
+        return notification.build_slack_blocks()
 
     @staticmethod
     def build_approval_buttons(
@@ -160,7 +90,7 @@ class NotificationBuilder:
             }
         })
 
-        summary_text = f"*Summary:* {summary.summary}"
+        summary_text = summary.to_slack_text()
         if summary.classification and summary.classification != "SIMPLE":
             summary_text += f"\n*Classification:* {summary.classification}"
 
@@ -171,24 +101,6 @@ class NotificationBuilder:
                 "text": summary_text,
             }
         })
-
-        if summary.what_was_done:
-            blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*What was done:* {summary.what_was_done}",
-                }
-            })
-
-        if summary.key_insights:
-            blocks.append({
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*Key insights:* {summary.key_insights}",
-                }
-            })
 
         context_elements = [
             {"type": "mrkdwn", "text": f"*Source:* {source.title()}"},

@@ -25,44 +25,14 @@ from core.github_client import github_client
 from core.routing_metadata import extract_github_metadata
 from shared.machine_models import WebhookCommand
 from shared import TaskStatus, AgentType
+from domain.services.text_extraction import TextExtractor
+from domain.services.message_formatting import MessageFormatter
 
 logger = structlog.get_logger()
 
 
 def extract_github_text(value: Any, default: str = "") -> str:
-    """
-    Safely extract text from GitHub webhook payload fields.
-    
-    Handles cases where GitHub webhook fields might be lists, dicts, or other non-string types.
-    This can happen in edge cases or with certain webhook formats.
-    
-    Args:
-        value: Value to extract text from (can be str, list, dict, None, etc.)
-        default: Default value to return if value is None or empty
-        
-    Returns:
-        String representation of the value
-    """
-    if value is None:
-        return default
-    
-    if isinstance(value, str):
-        return value
-    
-    if isinstance(value, list):
-        if not value:
-            return default
-        return " ".join(str(item) for item in value if item)
-    
-    if isinstance(value, dict):
-        if "text" in value:
-            return str(value.get("text", default))
-        if "body" in value:
-            return extract_github_text(value.get("body"), default)
-        if "content" in value:
-            return extract_github_text(value.get("content"), default)
-    
-    return str(value) if value else default
+    return TextExtractor.extract(value, default, keys_to_try=("text", "body", "content"))
 
 
 async def verify_github_signature(request: Request, body: bytes) -> None:
@@ -491,26 +461,11 @@ async def post_github_task_comment(
             logger.debug("github_post_comment_no_repo", payload_keys=list(payload.keys()))
             return False
         
-        if success:
-            formatted_message = f"✅ {message}"
-        else:
-            if message == "❌":
-                formatted_message = "❌"
-            else:
-                formatted_message = f"❌ {message}"
-        
-        max_length = 8000 if not success else 4000
-        if len(formatted_message) > max_length:
-            truncated_message = formatted_message[:max_length]
-            last_period = truncated_message.rfind(".")
-            last_newline = truncated_message.rfind("\n")
-            truncate_at = max(last_period, last_newline)
-            if truncate_at > max_length * 0.8:
-                truncated_message = truncated_message[:truncate_at + 1]
-            formatted_message = truncated_message + "\n\n... (message truncated)"
-        
-        if success and cost_usd > 0:
-            formatted_message += f"\n\n💰 Cost: ${cost_usd:.4f}"
+        formatted_message = MessageFormatter.format_github_comment(
+            message=message,
+            success=success,
+            cost_usd=cost_usd,
+        )
         
         pr = payload.get("pull_request", {})
         issue = payload.get("issue", {})
@@ -569,46 +524,29 @@ async def send_slack_notification(
     """Send Slack notification when webhook task completes."""
     if not os.getenv("SLACK_NOTIFICATIONS_ENABLED", "true").lower() == "true":
         return False
-    
+
     from core.slack_client import slack_client
-    
-    status_emoji = "✅" if success else "❌"
-    status_text = "Completed" if success else "Failed"
-    
-    blocks = [
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"{status_emoji} *Task {status_text}*\n*Source:* {webhook_source.title()}\n*Command:* {command}\n*Task ID:* `{task_id}`"
-            }
-        }
-    ]
-    
-    if success and result:
-        result_preview = result[:500] + "..." if len(result) > 500 else result
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"*Result:*\n```{result_preview}```"
-            }
-        })
-    
-    if error:
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"*Error:*\n```{error}```"
-            }
-        })
-    
-    if success:
-        channel = os.getenv("SLACK_CHANNEL_AGENTS", "#ai-agent-activity")
-    else:
-        channel = os.getenv("SLACK_CHANNEL_ERRORS", "#ai-agent-errors")
-    text = f"{status_emoji} Task {status_text} - {webhook_source.title()} - {command}"
+    from domain.models.notifications import TaskNotification
+    from domain.models.webhook_payload import WebhookSource
+
+    source_map = {
+        "github": WebhookSource.GITHUB,
+        "jira": WebhookSource.JIRA,
+        "slack": WebhookSource.SLACK,
+    }
+
+    notification = TaskNotification(
+        task_id=task_id,
+        source=source_map.get(webhook_source.lower(), WebhookSource.GITHUB),
+        command=command,
+        success=success,
+        result=result,
+        error=error,
+    )
+
+    blocks = notification.build_slack_blocks()
+    channel = notification.get_default_channel()
+    text = notification.get_summary_text()
     
     try:
         await slack_client.post_message(
