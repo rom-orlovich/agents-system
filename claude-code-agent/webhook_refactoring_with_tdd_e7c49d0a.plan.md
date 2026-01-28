@@ -67,13 +67,13 @@ todos:
     status: completed
   - id: "7.1"
     content: "RED→GREEN→REFACTOR: Refactor post_github_task_comment into smaller functions"
-    status: pending
+    status: completed
   - id: "7.2"
     content: "RED→GREEN→REFACTOR: Refactor send_github_immediate_response (extract event handlers)"
-    status: pending
+    status: completed
   - id: "7.3"
     content: "RED→GREEN→REFACTOR: Refactor handle_github_task_completion (extract error/approval/Slack logic)"
-    status: pending
+    status: completed
   - id: "8.1"
     content: "RED→GREEN→REFACTOR: Refactor GitHub route to show full flow, use errors/constants"
     status: pending

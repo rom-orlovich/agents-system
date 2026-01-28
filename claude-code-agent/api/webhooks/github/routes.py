@@ -33,6 +33,91 @@ router = APIRouter()
 COMPLETION_HANDLER = "api.webhooks.github.routes.handle_github_task_completion"
 
 
+def _has_meaningful_response(result: str, message: str) -> bool:
+    return bool(
+        (result and len(result.strip()) > 50) or
+        (message and len(message.strip()) > 50 and message.strip() != "❌")
+    )
+
+
+async def _add_error_reaction(payload: dict, task_id: str, error: str) -> None:
+    original_comment_id = payload.get("comment", {}).get("id")
+    if not original_comment_id:
+        return
+
+    repo = payload.get("repository", {})
+    owner = repo.get("owner", {}).get("login", "")
+    repo_name = repo.get("name", "")
+
+    if not owner or not repo_name:
+        logger.warning("github_reaction_skipped_no_repo", task_id=task_id)
+        return
+
+    try:
+        from core.github_client import github_client
+        github_client.token = github_client.token or os.getenv("GITHUB_TOKEN")
+        if github_client.token:
+            github_client.headers["Authorization"] = f"token {github_client.token}"
+            await github_client.add_reaction(owner, repo_name, original_comment_id, reaction="-1")
+            logger.info(
+                "github_error_reaction_added",
+                task_id=task_id,
+                comment_id=original_comment_id,
+                error_preview=error[:200] if error else None
+            )
+        else:
+            logger.warning("github_reaction_skipped_no_token", comment_id=original_comment_id)
+    except Exception as e:
+        logger.warning("github_error_reaction_failed", task_id=task_id, comment_id=original_comment_id, error=str(e))
+
+
+def _get_command_requires_approval(command: str) -> bool:
+    if not command:
+        return False
+    for cmd in GITHUB_WEBHOOK.commands:
+        if cmd.name == command:
+            return cmd.requires_approval
+    return False
+
+
+async def _send_approval_notification(
+    payload: dict,
+    task_id: str,
+    command: str,
+    message: str,
+    result: str,
+    cost_usd: float
+) -> None:
+    repo = payload.get("repository", {}).get("full_name", "")
+    pr_number = payload.get("pull_request", {}).get("number") or payload.get("issue", {}).get("number")
+
+    routing = {"repo": repo, "pr_number": pr_number}
+    task_metadata = {"classification": payload.get("classification", "SIMPLE")}
+    summary = extract_task_summary(result or message, task_metadata)
+
+    blocks = build_task_completion_blocks(
+        summary=summary,
+        routing=routing,
+        requires_approval=True,
+        task_id=task_id or "unknown",
+        cost_usd=cost_usd,
+        command=command or "",
+        source="github"
+    )
+
+    channel = payload.get("routing", {}).get("slack_channel") or os.getenv("SLACK_CHANNEL_AGENTS", "#ai-agent-activity")
+
+    try:
+        await slack_client.post_message(
+            channel=channel,
+            text=message[:200] if message else "Task completed",
+            blocks=blocks
+        )
+        logger.info("github_slack_rich_notification_sent", task_id=task_id, channel=channel, has_buttons=True)
+    except Exception as e:
+        logger.warning("github_slack_rich_notification_failed", task_id=task_id, error=str(e))
+
+
 async def handle_github_task_completion(
     payload: dict,
     message: str,
@@ -43,132 +128,28 @@ async def handle_github_task_completion(
     result: str = None,
     error: str = None
 ) -> bool:
-    has_meaningful_response = bool(
-        (result and len(result.strip()) > 50) or 
-        (message and len(message.strip()) > 50 and message.strip() != "❌")
-    )
-    
+    has_meaningful = _has_meaningful_response(result, message)
+
     if not success and error:
-        original_comment_id = (
-            payload.get("comment", {}).get("id") or
-            None
-        )
-        
-        if original_comment_id:
-            repo = payload.get("repository", {})
-            owner = repo.get("owner", {}).get("login", "")
-            repo_name = repo.get("name", "")
-            
-            if owner and repo_name:
-                try:
-                    from core.github_client import github_client
-                    github_client.token = github_client.token or os.getenv("GITHUB_TOKEN")
-                    if github_client.token:
-                        github_client.headers["Authorization"] = f"token {github_client.token}"
-                        await github_client.add_reaction(
-                            owner,
-                            repo_name,
-                            original_comment_id,
-                            reaction="-1"
-                        )
-                        logger.info(
-                            "github_error_reaction_added",
-                            task_id=task_id,
-                            comment_id=original_comment_id,
-                            error_preview=error[:200] if error else None,
-                            message="Added error reaction to original comment"
-                        )
-                    else:
-                        logger.warning(
-                            "github_reaction_skipped_no_token",
-                            comment_id=original_comment_id,
-                            message="GITHUB_TOKEN not configured - reaction not sent"
-                        )
-                except Exception as e:
-                    logger.warning(
-                        "github_error_reaction_failed",
-                        task_id=task_id,
-                        comment_id=original_comment_id,
-                        error=str(e),
-                        message="Failed to add reaction"
-                    )
-            else:
-                logger.warning(
-                    "github_reaction_skipped_no_repo",
-                    task_id=task_id,
-                    message="Repository info missing - cannot add reaction"
-                )
-        
-        if has_meaningful_response:
-            logger.info(
-                "github_task_failed_but_response_already_posted",
-                task_id=task_id,
-                error_preview=error[:200] if error else None,
-                message="Task failed but response already posted to GitHub - skipping error comment, sending to Slack only"
-            )
+        await _add_error_reaction(payload, task_id, error)
+
+        if has_meaningful:
+            logger.info("github_task_failed_but_response_already_posted", task_id=task_id, error_preview=error[:200] if error else None)
         else:
-            logger.info(
-                "github_task_failed_no_new_comment",
-                task_id=task_id,
-                error_preview=error[:200] if error else None,
-                message="Task failed - error reaction added to original comment, sending to Slack only"
-            )
-        
+            logger.info("github_task_failed_no_new_comment", task_id=task_id, error_preview=error[:200] if error else None)
+
         comment_posted = False
     else:
-        formatted_message = message
         comment_posted = await post_github_task_comment(
             payload=payload,
-            message=formatted_message,
+            message=message,
             success=success,
             cost_usd=cost_usd
         )
-    
-    requires_approval = False
-    if command:
-        for cmd in GITHUB_WEBHOOK.commands:
-            if cmd.name == command:
-                requires_approval = cmd.requires_approval
-                break
-    
-    if requires_approval:
-        repo = payload.get("repository", {}).get("full_name", "")
-        pr_number = payload.get("pull_request", {}).get("number")
-        if not pr_number:
-            pr_number = payload.get("issue", {}).get("number")
-        
-        routing = {
-            "repo": repo,
-            "pr_number": pr_number
-        }
-        
-        task_metadata = {
-            "classification": payload.get("classification", "SIMPLE")
-        }
-        summary = extract_task_summary(result or message, task_metadata)
-        
-        blocks = build_task_completion_blocks(
-            summary=summary,
-            routing=routing,
-            requires_approval=requires_approval,
-            task_id=task_id or "unknown",
-            cost_usd=cost_usd,
-            command=command or "",
-            source="github"
-        )
-        
-        channel = payload.get("routing", {}).get("slack_channel") or os.getenv("SLACK_CHANNEL_AGENTS", "#ai-agent-activity")
-        
-        try:
-            await slack_client.post_message(
-                channel=channel,
-                text=message[:200] if message else "Task completed",
-                blocks=blocks
-            )
-            logger.info("github_slack_rich_notification_sent", task_id=task_id, channel=channel, has_buttons=True)
-        except Exception as e:
-            logger.warning("github_slack_rich_notification_failed", task_id=task_id, error=str(e))
-    
+
+    if _get_command_requires_approval(command):
+        await _send_approval_notification(payload, task_id, command, message, result, cost_usd)
+
     await send_slack_notification(
         task_id=task_id,
         webhook_source="github",
@@ -177,7 +158,7 @@ async def handle_github_task_completion(
         result=result,
         error=error
     )
-    
+
     return comment_posted
 
 

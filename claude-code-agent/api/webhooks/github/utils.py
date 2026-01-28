@@ -115,6 +115,105 @@ async def verify_github_signature(request: Request, body: bytes) -> None:
         logger.warning("github_webhook_secret_no_header")
 
 
+def _ensure_github_token() -> bool:
+    github_client.token = github_client.token or os.getenv(ENV_GITHUB_TOKEN)
+    if github_client.token:
+        github_client.headers["Authorization"] = f"token {github_client.token}"
+    return bool(github_client.token)
+
+
+async def _send_comment_reaction(owner: str, repo_name: str, comment_id: int, event_type: str) -> bool:
+    if not _ensure_github_token():
+        logger.warning(
+            "github_reaction_skipped_no_token",
+            comment_id=comment_id,
+            event_type=event_type,
+            message="GITHUB_TOKEN not configured - reaction not sent"
+        )
+        return False
+
+    try:
+        reaction_response = await github_client.add_reaction(
+            owner, repo_name, comment_id, reaction=REACTION_EYES
+        )
+        logger.info(
+            "github_reaction_sent",
+            comment_id=comment_id,
+            event_type=event_type,
+            reaction_id=reaction_response.get("id") if reaction_response else None,
+            reaction_content=reaction_response.get("content") if reaction_response else None
+        )
+        return True
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 401:
+            logger.error(
+                "github_reaction_auth_failed",
+                comment_id=comment_id,
+                status_code=401,
+                event_type=event_type,
+                message="GitHub authentication failed"
+            )
+        else:
+            logger.warning(
+                "github_reaction_failed",
+                comment_id=comment_id,
+                status_code=e.response.status_code,
+                error=str(e),
+                event_type=event_type
+            )
+        return False
+    except ValueError as e:
+        logger.warning(
+            "github_reaction_skipped_no_token",
+            comment_id=comment_id,
+            error=str(e),
+            event_type=event_type,
+            message="GITHUB_TOKEN not configured - reaction not sent"
+        )
+        return False
+    except Exception as e:
+        logger.warning("github_reaction_failed", comment_id=comment_id, error=str(e), event_type=event_type)
+        return False
+
+
+async def _send_issue_immediate_comment(owner: str, repo_name: str, issue_number: int, event_type: str) -> bool:
+    if not _ensure_github_token():
+        logger.warning(
+            "github_comment_skipped_no_token",
+            issue_number=issue_number,
+            event_type=event_type,
+            message="GITHUB_TOKEN not configured - comment not sent"
+        )
+        return False
+
+    try:
+        await github_client.post_issue_comment(owner, repo_name, issue_number, MESSAGE_ISSUE_RESPONSE)
+        logger.info("github_comment_sent", issue_number=issue_number)
+        return True
+    except Exception as e:
+        logger.warning("github_comment_failed", issue_number=issue_number, error=str(e), event_type=event_type)
+        return False
+
+
+async def _send_pr_immediate_comment(owner: str, repo_name: str, pr_number: int, event_type: str) -> bool:
+    if not _ensure_github_token():
+        logger.warning(
+            "github_pr_comment_skipped_no_token",
+            pr_number=pr_number,
+            event_type=event_type,
+            message="GITHUB_TOKEN not configured - comment not sent"
+        )
+        return False
+
+    try:
+        await github_client.post_pr_comment(owner, repo_name, pr_number, MESSAGE_PR_RESPONSE)
+        logger.info("github_pr_comment_sent", pr_number=pr_number)
+        return True
+    except Exception as e:
+        logger.warning("github_pr_comment_failed", pr_number=pr_number, error=str(e), event_type=event_type)
+        return False
+
+
 async def send_github_immediate_response(
     payload: dict,
     command: WebhookCommand,
@@ -130,153 +229,22 @@ async def send_github_immediate_response(
             return False
 
         if event_type.startswith(EVENT_ISSUE_COMMENT):
-            comment = payload.get(FIELD_COMMENT, {})
-            comment_id = comment.get(FIELD_ID)
-            
+            comment_id = payload.get(FIELD_COMMENT, {}).get(FIELD_ID)
             if comment_id:
-                import os
-                github_client.token = github_client.token or os.getenv(ENV_GITHUB_TOKEN)
-                if github_client.token:
-                    github_client.headers["Authorization"] = f"token {github_client.token}"
-                
-                if not github_client.token:
-                    logger.warning(
-                        "github_reaction_skipped_no_token",
-                        comment_id=comment_id,
-                        event_type=event_type,
-                        message="GITHUB_TOKEN not configured - reaction not sent. Set GITHUB_TOKEN environment variable."
-                    )
-                    return False
-                
-                try:
-                    reaction_response = await github_client.add_reaction(
-                        owner,
-                        repo_name,
-                        comment_id,
-                        reaction=REACTION_EYES
-                    )
-                    logger.info(
-                        "github_reaction_sent",
-                        comment_id=comment_id,
-                        event_type=event_type,
-                        reaction_id=reaction_response.get("id") if reaction_response else None,
-                        reaction_content=reaction_response.get("content") if reaction_response else None
-                    )
-                    return True
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code == 401:
-                        logger.error(
-                            "github_reaction_auth_failed",
-                            comment_id=comment_id,
-                            status_code=401,
-                            event_type=event_type,
-                            message="GitHub authentication failed. Ensure GITHUB_TOKEN is valid and has required scopes: 'repo' (for classic tokens) or 'Metadata: read' (for fine-grained tokens). Reactions require repository access."
-                        )
-                    else:
-                        logger.warning(
-                            "github_reaction_failed",
-                            comment_id=comment_id,
-                            status_code=e.response.status_code,
-                            error=str(e),
-                            event_type=event_type
-                        )
-                    return False
-                except ValueError as e:
-                    logger.warning(
-                        "github_reaction_skipped_no_token",
-                        comment_id=comment_id,
-                        error=str(e),
-                        event_type=event_type,
-                        message="GITHUB_TOKEN not configured - reaction not sent"
-                    )
-                    return False
-                except Exception as e:
-                    logger.warning(
-                        "github_reaction_failed",
-                        comment_id=comment_id,
-                        error=str(e),
-                        event_type=event_type
-                    )
-                    return False
-        
+                return await _send_comment_reaction(owner, repo_name, comment_id, event_type)
+
         elif event_type.startswith(EVENT_ISSUES):
-            issue = payload.get("issue", {})
-            issue_number = issue.get("number")
-            
+            issue_number = payload.get("issue", {}).get("number")
             if issue_number:
-                import os
-                github_client.token = github_client.token or os.getenv(ENV_GITHUB_TOKEN)
-                if github_client.token:
-                    github_client.headers["Authorization"] = f"token {github_client.token}"
-                
-                if not github_client.token:
-                    logger.warning(
-                        "github_comment_skipped_no_token",
-                        issue_number=issue_number,
-                        event_type=event_type,
-                        message="GITHUB_TOKEN not configured - comment not sent"
-                    )
-                    return False
-                
-                try:
-                    message = "MESSAGE_ISSUE_RESPONSE"
-                    await github_client.post_issue_comment(
-                        owner,
-                        repo_name,
-                        issue_number,
-                        message
-                    )
-                    logger.info("github_comment_sent", issue_number=issue_number)
-                    return True
-                except Exception as e:
-                    logger.warning(
-                        "github_comment_failed",
-                        issue_number=issue_number,
-                        error=str(e),
-                        event_type=event_type
-                    )
-                    return False
-        
+                return await _send_issue_immediate_comment(owner, repo_name, issue_number, event_type)
+
         elif event_type.startswith(EVENT_PULL_REQUEST):
-            pr = payload.get("pull_request", {})
-            pr_number = pr.get("number")
-            
+            pr_number = payload.get("pull_request", {}).get("number")
             if pr_number:
-                import os
-                github_client.token = github_client.token or os.getenv(ENV_GITHUB_TOKEN)
-                if github_client.token:
-                    github_client.headers["Authorization"] = f"token {github_client.token}"
-                
-                if not github_client.token:
-                    logger.warning(
-                        "github_pr_comment_skipped_no_token",
-                        pr_number=pr_number,
-                        event_type=event_type,
-                        message="GITHUB_TOKEN not configured - comment not sent"
-                    )
-                    return False
-                
-                try:
-                    message = "👀 I'll review this PR and provide feedback shortly."
-                    await github_client.post_pr_comment(
-                        owner,
-                        repo_name,
-                        pr_number,
-                        message
-                    )
-                    logger.info("github_pr_comment_sent", pr_number=pr_number)
-                    return True
-                except Exception as e:
-                    logger.warning(
-                        "github_pr_comment_failed",
-                        pr_number=pr_number,
-                        error=str(e),
-                        event_type=event_type
-                    )
-                    return False
-        
+                return await _send_pr_immediate_comment(owner, repo_name, pr_number, event_type)
+
         return False
-        
+
     except Exception as e:
         logger.error("github_immediate_response_error", error=str(e))
         return False
@@ -500,77 +468,91 @@ async def create_github_task(
     return task_id
 
 
+def _extract_repo_info(payload: dict) -> tuple[str, str]:
+    repo = payload.get("repository", {})
+    owner = repo.get("owner", {}).get("login", "")
+    repo_name = repo.get("name", "")
+    return owner, repo_name
+
+
+def _format_github_message(message: str, success: bool, cost_usd: float) -> str:
+    if success:
+        formatted = f"✅ {message}"
+    else:
+        formatted = "❌" if message == "❌" else f"❌ {message}"
+
+    max_length = 4000 if success else 8000
+    if len(formatted) > max_length:
+        truncated = formatted[:max_length]
+        last_period = truncated.rfind(".")
+        last_newline = truncated.rfind("\n")
+        truncate_at = max(last_period, last_newline)
+        if truncate_at > max_length * 0.8:
+            truncated = truncated[:truncate_at + 1]
+        formatted = truncated + "\n\n... (message truncated)"
+
+    if success and cost_usd > 0:
+        formatted += f"\n\n💰 Cost: ${cost_usd:.4f}"
+
+    return formatted
+
+
+def _get_github_target(payload: dict) -> tuple[str, Optional[int]]:
+    pr = payload.get("pull_request", {})
+    issue = payload.get("issue", {})
+
+    if pr and pr.get("number"):
+        return "pr", pr.get("number")
+    elif issue and issue.get("number"):
+        if issue.get("pull_request"):
+            return "pr", issue.get("number")
+        else:
+            return "issue", issue.get("number")
+    return "none", None
+
+
+async def _track_github_comment(comment_id: Optional[int]) -> None:
+    if comment_id:
+        try:
+            key = f"{REDIS_KEY_PREFIX_POSTED_COMMENT}{comment_id}"
+            await redis_client._client.setex(key, 3600, "1")
+            logger.debug("github_comment_id_tracked", comment_id=comment_id)
+        except Exception as e:
+            logger.warning("github_comment_id_tracking_failed", comment_id=comment_id, error=str(e))
+
+
 async def post_github_task_comment(
     payload: dict,
     message: str,
     success: bool,
     cost_usd: float = 0.0
 ) -> bool:
-    """Post a comment to GitHub after task completion."""
     try:
-        repo = payload.get("repository", {})
-        owner = repo.get("owner", {}).get("login", "")
-        repo_name = repo.get("name", "")
-        
+        owner, repo_name = _extract_repo_info(payload)
+
         if not owner or not repo_name:
             logger.debug("github_post_comment_no_repo", payload_keys=list(payload.keys()))
             return False
-        
-        if success:
-            formatted_message = f"✅ {message}"
-        else:
-            if message == "❌":
-                formatted_message = "❌"
-            else:
-                formatted_message = f"❌ {message}"
-        
-        max_length = 8000 if not success else 4000
-        if len(formatted_message) > max_length:
-            truncated_message = formatted_message[:max_length]
-            last_period = truncated_message.rfind(".")
-            last_newline = truncated_message.rfind("\n")
-            truncate_at = max(last_period, last_newline)
-            if truncate_at > max_length * 0.8:
-                truncated_message = truncated_message[:truncate_at + 1]
-            formatted_message = truncated_message + "\n\n... (message truncated)"
-        
-        if success and cost_usd > 0:
-            formatted_message += f"\n\n💰 Cost: ${cost_usd:.4f}"
-        
-        pr = payload.get("pull_request", {})
-        issue = payload.get("issue", {})
+
+        formatted_message = _format_github_message(message, success, cost_usd)
+        target_type, target_number = _get_github_target(payload)
         comment_id = None
-        
-        if pr and pr.get("number"):
-            pr_number = pr.get("number")
-            response = await github_client.post_pr_comment(owner, repo_name, pr_number, formatted_message)
+
+        if target_type == "pr":
+            response = await github_client.post_pr_comment(owner, repo_name, target_number, formatted_message)
             comment_id = response.get("id") if isinstance(response, dict) else None
-            logger.info("github_pr_comment_posted", pr_number=pr_number, comment_id=comment_id)
-        elif issue and issue.get("number"):
-            if issue.get("pull_request"):
-                pr_number = issue.get("number")
-                response = await github_client.post_pr_comment(owner, repo_name, pr_number, formatted_message)
-                comment_id = response.get("id") if isinstance(response, dict) else None
-                logger.info("github_pr_comment_posted_from_issue", pr_number=pr_number, comment_id=comment_id)
-            else:
-                issue_number = issue.get("number")
-                response = await github_client.post_issue_comment(owner, repo_name, issue_number, formatted_message)
-                comment_id = response.get("id") if isinstance(response, dict) else None
-                logger.info("github_issue_comment_posted", issue_number=issue_number, comment_id=comment_id)
+            logger.info("github_pr_comment_posted", pr_number=target_number, comment_id=comment_id)
+        elif target_type == "issue":
+            response = await github_client.post_issue_comment(owner, repo_name, target_number, formatted_message)
+            comment_id = response.get("id") if isinstance(response, dict) else None
+            logger.info("github_issue_comment_posted", issue_number=target_number, comment_id=comment_id)
         else:
             logger.warning("github_no_issue_or_pr_found", payload_keys=list(payload.keys()))
             return False
-        
-        if comment_id:
-            try:
-                key = f"{REDIS_KEY_PREFIX_POSTED_COMMENT}{comment_id}"
-                await redis_client._client.setex(key, 3600, "1")
-                logger.debug("github_comment_id_tracked", comment_id=comment_id)
-            except Exception as e:
-                logger.warning("github_comment_id_tracking_failed", comment_id=comment_id, error=str(e))
-        
+
+        await _track_github_comment(comment_id)
         return True
-        
+
     except ValueError as e:
         logger.warning(
             "github_post_task_comment_skipped_no_token",
