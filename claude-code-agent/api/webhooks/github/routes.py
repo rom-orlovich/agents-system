@@ -1,14 +1,10 @@
-"""
-GitHub Webhook Routes
-Main route handler for GitHub webhooks.
-"""
-
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
 import uuid
 from datetime import datetime, timezone
 import structlog
+import os
 
 from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB
@@ -22,9 +18,21 @@ from api.webhooks.github.utils import (
     post_github_task_comment,
     send_slack_notification,
 )
+from api.webhooks.github.constants import (
+    PROVIDER_NAME,
+    EVENT_HEADER,
+    DEFAULT_EVENT_TYPE,
+    STATUS_ACCEPTED,
+    STATUS_REJECTED,
+    STATUS_RECEIVED,
+    MESSAGE_DOES_NOT_MEET_RULES,
+    MESSAGE_NO_COMMAND_MATCHED,
+    MESSAGE_TASK_QUEUED,
+    MESSAGE_IMMEDIATE_RESPONSE_FAILED,
+    ERROR_IMMEDIATE_RESPONSE_FAILED,
+)
 from api.webhooks.slack.utils import extract_task_summary, build_task_completion_blocks
 from core.slack_client import slack_client
-import os
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -99,10 +107,10 @@ async def _send_approval_notification(
         summary=summary,
         routing=routing,
         requires_approval=True,
-        task_id=task_id or "unknown",
+        task_id=task_id or DEFAULT_EVENT_TYPE,
         cost_usd=cost_usd,
         command=command or "",
-        source="github"
+        source=PROVIDER_NAME
     )
 
     channel = payload.get("routing", {}).get("slack_channel") or os.getenv("SLACK_CHANNEL_AGENTS", "#ai-agent-activity")
@@ -152,7 +160,7 @@ async def handle_github_task_completion(
 
     await send_slack_notification(
         task_id=task_id,
-        webhook_source="github",
+        webhook_source=PROVIDER_NAME,
         command=command,
         success=success,
         result=result,
@@ -195,7 +203,7 @@ async def github_webhook(
         await verify_github_signature(request, body)
         
         payload = json.loads(body.decode())
-        payload["provider"] = "github"
+        payload["provider"] = PROVIDER_NAME
         
         repo = payload.get("repository", {})
         repo_info = f"{repo.get('owner', {}).get('login', 'unknown')}/{repo.get('name', 'unknown')}"
@@ -203,7 +211,7 @@ async def github_webhook(
         if issue:
             issue_number = issue.get("number")
         
-        event_type = request.headers.get("X-GitHub-Event", "unknown")
+        event_type = request.headers.get(EVENT_HEADER, DEFAULT_EVENT_TYPE)
         action = payload.get("action", "")
         if action:
             event_type = f"{event_type}.{action}"
@@ -229,7 +237,7 @@ async def github_webhook(
                 reason=validation_result.error_message,
                 comment_preview=payload.get("comment", {}).get("body", "")[:100] if payload.get("comment") else None
             )
-            return {"status": "rejected", "actions": 0, "message": "Does not meet activation rules"}
+            return {"status": STATUS_REJECTED, "actions": 0, "message": MESSAGE_DOES_NOT_MEET_RULES}
         
         command = await match_github_command(payload, event_type)
         if not command:
@@ -241,7 +249,7 @@ async def github_webhook(
                 issue_number=issue_number,
                 comment_preview=payload.get("comment", {}).get("body", "")[:100] if payload.get("comment") else None
             )
-            return {"status": "received", "actions": 0, "message": "No command matched"}
+            return {"status": STATUS_RECEIVED, "actions": 0, "message": MESSAGE_NO_COMMAND_MATCHED}
         
         immediate_response_sent = await send_github_immediate_response(payload, command, event_type)
         
@@ -254,9 +262,9 @@ async def github_webhook(
                 message="Immediate response failed - webhook rejected"
             )
             return {
-                "status": "rejected",
-                "message": "Failed to send immediate response. Check GITHUB_TOKEN configuration and permissions.",
-                "error": "immediate_response_failed"
+                "status": STATUS_REJECTED,
+                "message": MESSAGE_IMMEDIATE_RESPONSE_FAILED,
+                "error": ERROR_IMMEDIATE_RESPONSE_FAILED
             }
         
         task_id = await create_github_task(command, payload, db, completion_handler=COMPLETION_HANDLER)
@@ -266,7 +274,7 @@ async def github_webhook(
         event_db = WebhookEventDB(
             event_id=event_id,
             webhook_id=GITHUB_WEBHOOK.name,
-            provider="github",
+            provider=PROVIDER_NAME,
             event_type=event_type,
             payload_json=json.dumps(payload),
             matched_command=command.name,
@@ -296,12 +304,12 @@ async def github_webhook(
         )
         
         return {
-            "status": "accepted",
+            "status": STATUS_ACCEPTED,
             "task_id": task_id,
             "command": command.name,
             "immediate_response_sent": immediate_response_sent,
             "completion_handler": COMPLETION_HANDLER,
-            "message": "Task queued for processing"
+            "message": MESSAGE_TASK_QUEUED
         }
         
     except HTTPException:

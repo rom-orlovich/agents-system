@@ -42,3 +42,16 @@ REDIS_TTL_POSTED_COMMENT: Final[int] = 3600
 ENV_JIRA_TOKEN: Final[str] = "JIRA_TOKEN"
 ENV_JIRA_USER_EMAIL: Final[str] = "JIRA_USER_EMAIL"
 ENV_JIRA_WEBHOOK_SECRET: Final[str] = "JIRA_WEBHOOK_SECRET"
+
+PROVIDER_NAME: Final[str] = "jira"
+
+STATUS_PROCESSED: Final[str] = "processed"
+STATUS_REJECTED: Final[str] = "rejected"
+STATUS_RECEIVED: Final[str] = "received"
+STATUS_ERROR: Final[str] = "error"
+
+MESSAGE_DOES_NOT_MEET_RULES: Final[str] = "Does not meet activation rules"
+MESSAGE_NO_COMMAND_MATCHED: Final[str] = "No command matched - requires assignee change to AI agent or @agent prefix"
+
+DEFAULT_EVENT_TYPE: Final[str] = "unknown"
+DEFAULT_ISSUE_KEY: Final[str] = "unknown"

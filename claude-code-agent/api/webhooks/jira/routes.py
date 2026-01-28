@@ -1,8 +1,3 @@
-"""
-Jira Webhook Routes
-Main route handler for Jira webhooks.
-"""
-
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
@@ -22,6 +17,20 @@ from api.webhooks.jira.utils import (
     is_assignee_changed_to_ai,
     post_jira_task_comment,
     send_slack_notification,
+)
+from api.webhooks.jira.constants import (
+    PROVIDER_NAME,
+    FIELD_WEBHOOK_EVENT,
+    FIELD_ISSUE,
+    FIELD_KEY,
+    STATUS_PROCESSED,
+    STATUS_REJECTED,
+    STATUS_RECEIVED,
+    STATUS_ERROR,
+    MESSAGE_DOES_NOT_MEET_RULES,
+    MESSAGE_NO_COMMAND_MATCHED,
+    DEFAULT_EVENT_TYPE,
+    DEFAULT_ISSUE_KEY,
 )
 
 logger = structlog.get_logger()
@@ -89,7 +98,7 @@ async def handle_jira_task_completion(
     
     await send_slack_notification(
         task_id=task_id,
-        webhook_source="jira",
+        webhook_source=PROVIDER_NAME,
         command=command,
         success=success,
         result=result,
@@ -147,7 +156,7 @@ async def jira_webhook(
         
         try:
             payload = json.loads(body.decode())
-            payload["provider"] = "jira"
+            payload["provider"] = PROVIDER_NAME
         except json.JSONDecodeError as e:
             logger.error("jira_payload_parse_error", error=str(e))
             raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {str(e)}")
@@ -155,8 +164,8 @@ async def jira_webhook(
             logger.error("jira_payload_decode_error", error=str(e))
             raise HTTPException(status_code=400, detail=f"Failed to decode payload: {str(e)}")
         
-        issue_key = payload.get("issue", {}).get("key", "unknown")
-        event_type = payload.get("webhookEvent", "unknown")
+        issue_key = payload.get(FIELD_ISSUE, {}).get(FIELD_KEY, DEFAULT_ISSUE_KEY)
+        event_type = payload.get(FIELD_WEBHOOK_EVENT, DEFAULT_EVENT_TYPE)
         
         logger.info("jira_webhook_received", event_type=event_type, issue_key=issue_key, payload_keys=list(payload.keys()))
         
@@ -170,7 +179,7 @@ async def jira_webhook(
                     issue_key=issue_key,
                     reason=validation_result.error_message
                 )
-                return {"status": "rejected", "actions": 0, "message": "Does not meet activation rules"}
+                return {"status": STATUS_REJECTED, "actions": 0, "message": MESSAGE_DOES_NOT_MEET_RULES}
         except Exception as e:
             logger.error("jira_webhook_validation_error", error=str(e), event_type=event_type)
         
@@ -178,7 +187,7 @@ async def jira_webhook(
             command = await match_jira_command(payload, event_type)
             if not command:
                 logger.warning("jira_no_command_matched", event_type=event_type, issue_key=issue_key, payload_sample=str(payload)[:500])
-                return {"status": "received", "actions": 0, "message": "No command matched - requires assignee change to AI agent or @agent prefix"}
+                return {"status": STATUS_RECEIVED, "actions": 0, "message": MESSAGE_NO_COMMAND_MATCHED}
         except Exception as e:
             logger.error("jira_command_matching_error", error=str(e), issue_key=issue_key)
             raise HTTPException(status_code=500, detail=f"Command matching failed: {str(e)}")
@@ -195,7 +204,7 @@ async def jira_webhook(
             event_db = WebhookEventDB(
                 event_id=event_id,
                 webhook_id=JIRA_WEBHOOK.name,
-                provider="jira",
+                provider=PROVIDER_NAME,
                 event_type=event_type,
                 payload_json=json.dumps(payload),
                 matched_command=command.name,
@@ -219,7 +228,7 @@ async def jira_webhook(
         logger.info("jira_webhook_processed", task_id=task_id, command=command.name, event_type=event_type, issue_key=issue_key)
         
         return {
-            "status": "processed",
+            "status": STATUS_PROCESSED,
             "task_id": task_id,
             "command": command.name,
             "immediate_response_sent": immediate_response_sent,
@@ -238,7 +247,7 @@ async def jira_webhook(
             exc_info=True
         )
         return {
-            "status": "error",
+            "status": STATUS_ERROR,
             "error": str(e),
             "error_type": type(e).__name__,
             "issue_key": issue_key
