@@ -49,22 +49,22 @@ todos:
     status: completed
   - id: "5.1"
     content: "RED: Write tests for domain response handlers"
-    status: pending
+    status: completed
   - id: "5.2"
     content: "GREEN: Implement domain response handlers (move from response_poster.py)"
-    status: pending
+    status: completed
   - id: "5.3"
     content: "REFACTOR: Make response_poster.py a simple dispatcher"
-    status: pending
+    status: completed
   - id: "6.1"
     content: "RED: Write tests for domain routing extractors"
-    status: pending
+    status: completed
   - id: "6.2"
     content: "GREEN: Implement domain routing extractors with strict Pydantic models"
-    status: pending
+    status: completed
   - id: "6.3"
     content: "REFACTOR: Make routing_metadata.py a simple dispatcher"
-    status: pending
+    status: completed
   - id: "7.1"
     content: "RED→GREEN→REFACTOR: Refactor post_github_task_comment into smaller functions"
     status: pending
