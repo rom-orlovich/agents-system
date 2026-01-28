@@ -14,9 +14,13 @@ from api.webhooks.jira.utils import (
     send_jira_immediate_response,
     match_jira_command,
     create_jira_task,
-    post_jira_task_comment,
     send_slack_notification,
+    extract_pr_url,
 )
+from api.webhooks.jira.handlers import JiraResponseHandler
+from api.webhooks.jira.routing import extract_jira_routing
+from api.webhooks.jira.models import JiraTaskCompletionPayload
+from core.database.redis_client import redis_client
 from api.webhooks.jira.constants import (
     PROVIDER_NAME,
     FIELD_WEBHOOK_EVENT,
@@ -61,24 +65,52 @@ async def handle_jira_task_completion(
     Returns:
         True if comment posted successfully, False otherwise
     """
-    from api.webhooks.jira.utils import extract_pr_url
-    from api.webhooks.jira.models import JiraTaskCompletionPayload
-    
     jira_payload = JiraTaskCompletionPayload(**payload)
     
     formatted_message = error if not success and error else message
     pr_url = extract_pr_url(result or message)
     
+    # Add PR URL and cost to formatted message
+    if pr_url and success:
+        formatted_message = f"{formatted_message}\n\n🔗 *Pull Request:* {pr_url}"
+    
+    max_length = 8000
+    if len(formatted_message) > max_length:
+        truncated_message = formatted_message[:max_length]
+        last_period = truncated_message.rfind(".")
+        last_newline = truncated_message.rfind("\n")
+        truncate_at = max(last_period, last_newline)
+        if truncate_at > max_length * 0.8:
+            truncated_message = truncated_message[:truncate_at + 1]
+        formatted_message = truncated_message + "\n\n... (message truncated)"
+    
+    if success and cost_usd > 0:
+        formatted_message += f"\n\n💰 Cost: ${cost_usd:.4f}"
+    
+    # Extract routing metadata from payload
+    routing = extract_jira_routing(payload)
+    
+    # Post using handler
+    handler = JiraResponseHandler()
+    try:
+        comment_posted, response = await handler.post_response(routing, formatted_message)
+        
+        # Track comment ID in Redis if available
+        if comment_posted and response and isinstance(response, dict):
+            comment_id = response.get("id")
+            if comment_id:
+                try:
+                    key = f"jira:posted_comment:{comment_id}"
+                    await redis_client._client.setex(key, 3600, "1")
+                    logger.debug("jira_comment_id_tracked", comment_id=comment_id)
+                except Exception as e:
+                    logger.warning("jira_comment_id_tracking_failed", comment_id=comment_id, error=str(e))
+    except Exception as e:
+        logger.error("jira_handler_post_failed", error=str(e), task_id=task_id)
+        comment_posted = False
+    
     ticket_key = jira_payload.get_ticket_key()
     user_request = jira_payload.get_user_request()
-    
-    comment_posted = await post_jira_task_comment(
-        issue=jira_payload.issue,
-        message=formatted_message,
-        success=success,
-        cost_usd=cost_usd,
-        pr_url=pr_url
-    )
     
     routing_metadata = {}
     if jira_payload.routing:

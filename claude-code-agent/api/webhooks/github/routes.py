@@ -15,9 +15,10 @@ from api.webhooks.github.utils import (
     send_github_immediate_response,
     match_github_command,
     create_github_task,
-    post_github_task_comment,
     send_slack_notification,
 )
+from api.webhooks.github.handlers import GitHubResponseHandler
+from api.webhooks.github.routing import extract_github_routing
 from api.webhooks.github.constants import (
     PROVIDER_NAME,
     EVENT_HEADER,
@@ -30,7 +31,9 @@ from api.webhooks.github.constants import (
     MESSAGE_TASK_QUEUED,
     MESSAGE_IMMEDIATE_RESPONSE_FAILED,
     ERROR_IMMEDIATE_RESPONSE_FAILED,
+    REDIS_KEY_PREFIX_POSTED_COMMENT,
 )
+from core.database.redis_client import redis_client
 from api.webhooks.slack.utils import extract_task_summary, build_task_completion_blocks
 from core.slack_client import slack_client
 
@@ -46,6 +49,40 @@ def _has_meaningful_response(result: str, message: str) -> bool:
         (result and len(result.strip()) > 50) or
         (message and len(message.strip()) > 50 and message.strip() != "❌")
     )
+
+
+def _format_github_message(message: str, success: bool, cost_usd: float) -> str:
+    """Format GitHub message with emoji, cost, and truncation."""
+    if success:
+        formatted = f"✅ {message}"
+    else:
+        formatted = "❌" if message == "❌" else f"❌ {message}"
+
+    max_length = 4000 if success else 8000
+    if len(formatted) > max_length:
+        truncated = formatted[:max_length]
+        last_period = truncated.rfind(".")
+        last_newline = truncated.rfind("\n")
+        truncate_at = max(last_period, last_newline)
+        if truncate_at > max_length * 0.8:
+            truncated = truncated[:truncate_at + 1]
+        formatted = truncated + "\n\n... (message truncated)"
+
+    if success and cost_usd > 0:
+        formatted += f"\n\n💰 Cost: ${cost_usd:.4f}"
+
+    return formatted
+
+
+async def _track_github_comment(comment_id: int | None) -> None:
+    """Track GitHub comment ID in Redis to prevent infinite loops."""
+    if comment_id:
+        try:
+            key = f"{REDIS_KEY_PREFIX_POSTED_COMMENT}{comment_id}"
+            await redis_client._client.setex(key, 3600, "1")
+            logger.debug("github_comment_id_tracked", comment_id=comment_id)
+        except Exception as e:
+            logger.warning("github_comment_id_tracking_failed", comment_id=comment_id, error=str(e))
 
 
 async def _add_error_reaction(payload: dict, task_id: str, error: str) -> None:
@@ -148,12 +185,25 @@ async def handle_github_task_completion(
 
         comment_posted = False
     else:
-        comment_posted = await post_github_task_comment(
-            payload=payload,
-            message=message,
-            success=success,
-            cost_usd=cost_usd
-        )
+        # Extract routing metadata from payload
+        routing = extract_github_routing(payload)
+        
+        # Format message
+        formatted_message = _format_github_message(message, success, cost_usd)
+        
+        # Post using handler
+        handler = GitHubResponseHandler()
+        try:
+            comment_posted, response = await handler.post_response(routing, formatted_message)
+            
+            # Track comment ID in Redis if available
+            if comment_posted and response and isinstance(response, dict):
+                comment_id = response.get("id")
+                if comment_id:
+                    await _track_github_comment(comment_id)
+        except Exception as e:
+            logger.error("github_handler_post_failed", error=str(e), task_id=task_id)
+            comment_posted = False
 
     if _get_command_requires_approval(command):
         await _send_approval_notification(payload, task_id, command, message, result, cost_usd)

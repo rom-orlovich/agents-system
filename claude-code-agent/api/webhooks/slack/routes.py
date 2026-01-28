@@ -16,10 +16,14 @@ from api.webhooks.slack.utils import (
     create_slack_task,
     post_github_comment,
     update_slack_message,
-    post_slack_task_comment,
     send_slack_notification,
     create_task_from_button_action,
+    extract_task_summary,
+    build_task_completion_blocks,
 )
+from api.webhooks.slack.handlers import SlackResponseHandler
+from api.webhooks.slack.routing import extract_slack_routing
+from core.database.redis_client import redis_client
 from api.webhooks.slack.constants import (
     PROVIDER_NAME,
     TYPE_URL_VERIFICATION,
@@ -66,13 +70,15 @@ async def handle_slack_task_completion(
     Returns:
         True if message posted successfully, False otherwise
     """
-    from api.webhooks.slack.utils import extract_task_summary, build_task_completion_blocks
     from core.webhook_configs import SLACK_WEBHOOK
 
-    event = payload.get("event", {})
-    routing = {
-        "channel": event.get("channel"),
-        "thread_ts": event.get("ts"),
+    # Extract routing metadata from payload
+    routing = extract_slack_routing(payload)
+
+    # Build Block Kit blocks for rich formatting
+    routing_dict = {
+        "channel": routing.channel_id,
+        "thread_ts": routing.thread_ts,
         "repo": payload.get("routing", {}).get("repo"),
         "pr_number": payload.get("routing", {}).get("pr_number"),
         "ticket_key": payload.get("routing", {}).get("ticket_key")
@@ -90,7 +96,7 @@ async def handle_slack_task_completion(
 
     blocks = build_task_completion_blocks(
         summary=summary,
-        routing=routing,
+        routing=routing_dict,
         requires_approval=requires_approval,
         task_id=task_id or "unknown",
         cost_usd=cost_usd,
@@ -100,13 +106,28 @@ async def handle_slack_task_completion(
 
     formatted_message = error if not success and error else message
     
-    comment_posted = await post_slack_task_comment(
-        payload=payload,
-        message=formatted_message,
-        success=success,
-        cost_usd=cost_usd,
-        blocks=blocks
-    )
+    # Post using handler with Block Kit blocks
+    handler = SlackResponseHandler()
+    try:
+        comment_posted, response = await handler.post_response(
+            routing=routing,
+            result=formatted_message,
+            blocks=blocks
+        )
+        
+        # Track message timestamp in Redis if available
+        if comment_posted and response and isinstance(response, dict):
+            posted_message_ts = response.get("ts") or response.get("message", {}).get("ts")
+            if posted_message_ts:
+                try:
+                    key = f"slack:posted_message:{posted_message_ts}"
+                    await redis_client._client.setex(key, 3600, "1")
+                    logger.debug("slack_message_ts_tracked", message_ts=posted_message_ts)
+                except Exception as e:
+                    logger.warning("slack_message_ts_tracking_failed", message_ts=posted_message_ts, error=str(e))
+    except Exception as e:
+        logger.error("slack_handler_post_failed", error=str(e), task_id=task_id)
+        comment_posted = False
     
     await send_slack_notification(
         task_id=task_id,
