@@ -40,13 +40,13 @@ todos:
     status: completed
   - id: "4.1"
     content: "RED: Write tests for modular CLI runner"
-    status: pending
+    status: completed
   - id: "4.2"
     content: "GREEN: Implement modular CLI runner (base protocol + Claude implementation)"
-    status: pending
+    status: completed
   - id: "4.3"
     content: "REFACTOR: Break down run_claude_cli into smaller functions"
-    status: pending
+    status: completed
   - id: "5.1"
     content: "RED: Write tests for domain response handlers"
     status: pending
