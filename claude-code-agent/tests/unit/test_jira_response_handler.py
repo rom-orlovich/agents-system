@@ -27,7 +27,7 @@ class TestJiraResponseHandler:
         with patch.object(handler, '_post_via_script', new_callable=AsyncMock) as mock_script:
             mock_script.return_value = True
 
-            success = await handler.post_response(routing, result)
+            success, response = await handler.post_response(routing, result)
 
             assert success is True
             mock_script.assert_called_once_with("PROJ-123", result)
@@ -47,7 +47,7 @@ class TestJiraResponseHandler:
         )
 
         with patch.object(handler, '_post_via_script', new_callable=AsyncMock) as mock_script:
-            success = await handler.post_response(routing, "test result")
+            success, response = await handler.post_response(routing, "test result")
 
             assert success is False
             mock_script.assert_not_called()
@@ -71,7 +71,7 @@ class TestJiraResponseHandler:
              patch('api.webhooks.jira.handlers.validate_response_format') as mock_validate:
             mock_validate.return_value = (True, "")
 
-            await handler.post_response(routing, result)
+            success, response = await handler.post_response(routing, result)
 
             mock_validate.assert_called_once_with(result, "jira")
 
@@ -95,7 +95,7 @@ class TestJiraResponseHandler:
              patch('api.webhooks.jira.handlers.logger') as mock_logger:
             mock_validate.return_value = (False, "Format validation failed")
 
-            success = await handler.post_response(routing, result)
+            success, response = await handler.post_response(routing, result)
 
             assert success is True
             mock_logger.warning.assert_called()
@@ -118,9 +118,9 @@ class TestJiraResponseHandler:
              patch.object(handler, '_post_via_api', new_callable=AsyncMock) as mock_api, \
              patch('api.webhooks.jira.handlers.validate_response_format', return_value=(True, "")):
             mock_script.side_effect = FileNotFoundError("Script not found")
-            mock_api.return_value = True
+            mock_api.return_value = (True, None)
 
-            success = await handler.post_response(routing, "test result")
+            success, response = await handler.post_response(routing, "test result")
 
             assert success is True
             mock_api.assert_called_once_with("PROJ-123", "test result")
@@ -144,9 +144,9 @@ class TestJiraResponseHandler:
              patch('api.webhooks.jira.handlers.validate_response_format', return_value=(True, "")), \
              patch('api.webhooks.jira.handlers.logger') as mock_logger:
             mock_script.side_effect = Exception("Script error")
-            mock_api.return_value = True
+            mock_api.return_value = (True, None)
 
-            success = await handler.post_response(routing, "test result")
+            success, response = await handler.post_response(routing, "test result")
 
             assert success is True
             mock_api.assert_called_once()
@@ -194,7 +194,7 @@ class TestJiraResponseHandler:
         with patch.object(handler, '_post_via_script', new_callable=AsyncMock, return_value=True), \
              patch('api.webhooks.jira.handlers.validate_response_format', return_value=(True, "")), \
              patch('api.webhooks.jira.handlers.logger') as mock_logger:
-            await handler.post_response(routing, "test result")
+            success, response = await handler.post_response(routing, "test result")
 
             mock_logger.info.assert_called()
             call_args = mock_logger.info.call_args
@@ -267,11 +267,11 @@ class TestJiraResponseHandlerAPI:
                 "JIRA_USER_EMAIL": "test@test.com",
                 "JIRA_API_TOKEN": "test-token"
             }.get(key)
-            mock_run.return_value = MagicMock(returncode=0)
+            mock_run.return_value = MagicMock(returncode=0, stdout='{"id": "12345"}')
 
-            result = await handler._post_via_api("PROJ-123", "test body")
+            success, response = await handler._post_via_api("PROJ-123", "test body")
 
-            assert result is True
+            assert success is True
             call_args = mock_run.call_args[0][0]
             assert "https://test.atlassian.net/rest/api/3/issue/PROJ-123/comment" in call_args
 
@@ -286,9 +286,9 @@ class TestJiraResponseHandlerAPI:
         handler = JiraResponseHandler()
 
         with patch('os.environ.get', return_value=None):
-            result = await handler._post_via_api("PROJ-123", "test body")
+            success, response = await handler._post_via_api("PROJ-123", "test body")
 
-            assert result is False
+            assert success is False
 
     @pytest.mark.asyncio
     async def test_api_formats_body_as_adf(self):

@@ -3,6 +3,7 @@ Jira webhook validation.
 Pydantic models and validation logic for Jira webhooks.
 """
 
+import json
 import re
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
@@ -12,6 +13,28 @@ from core.webhook_validation import (
     validate_command,
 )
 from core.config import settings
+
+
+def validate_response_format(result: str, format_type: str) -> tuple[bool, str]:
+    if format_type == "jira":
+        try:
+            adf_data = json.loads(result)
+        except json.JSONDecodeError as e:
+            return False, f"Invalid JSON format: {str(e)}"
+
+        if not isinstance(adf_data, dict):
+            return False, "Invalid JSON format: expected object"
+
+        if adf_data.get("type") != "doc":
+            return False, "Missing ADF doc type (expected type='doc')"
+
+        if "content" not in adf_data:
+            return False, "Missing content array"
+
+        return True, ""
+
+    else:
+        return False, f"Unknown format type: {format_type}"
 
 
 def _safe_string(value: Any, default: str = "") -> str:

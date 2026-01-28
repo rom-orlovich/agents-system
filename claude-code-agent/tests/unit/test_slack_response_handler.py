@@ -66,7 +66,7 @@ class TestSlackResponseHandler:
                 stdout='{"ok": true}'
             )
 
-            success = await handler.post_response(routing, result)
+            success, response = await handler.post_response(routing, result)
 
             assert success is True
 
@@ -94,7 +94,7 @@ class TestSlackResponseHandler:
                 stdout='{"ok": true}'
             )
 
-            success = await handler.post_response(routing, result)
+            success, response = await handler.post_response(routing, result)
 
             assert success is True
             call_args = mock_run.call_args[0][0]
@@ -122,7 +122,7 @@ class TestSlackResponseHandler:
             team_id="T12345"
         )
 
-        success = await handler.post_response(routing, "test result")
+        success, response = await handler.post_response(routing, "test result")
 
         assert success is False
 
@@ -142,7 +142,7 @@ class TestSlackResponseHandler:
         )
 
         with patch('os.environ.get', return_value=None):
-            success = await handler.post_response(routing, "test result")
+            success, response = await handler.post_response(routing, "test result")
 
             assert success is False
 
@@ -168,7 +168,7 @@ class TestSlackResponseHandler:
             mock_run.return_value = MagicMock(returncode=0, stdout='{"ok": true}')
             mock_validate.return_value = (True, "")
 
-            await handler.post_response(routing, result)
+            success, response = await handler.post_response(routing, result)
 
             mock_validate.assert_called_once_with(result, "slack")
 
@@ -195,7 +195,7 @@ class TestSlackResponseHandler:
             mock_run.return_value = MagicMock(returncode=0, stdout='{"ok": true}')
             mock_validate.return_value = (False, "Format validation failed")
 
-            success = await handler.post_response(routing, result)
+            success, response = await handler.post_response(routing, result)
 
             assert success is True
             mock_logger.warning.assert_called()
@@ -224,7 +224,7 @@ class TestSlackResponseHandler:
                 stdout='{"ok": false, "error": "channel_not_found"}'
             )
 
-            success = await handler.post_response(routing, "test result")
+            success, response = await handler.post_response(routing, "test result")
 
             assert success is False
             mock_logger.error.assert_called()
@@ -277,7 +277,7 @@ class TestSlackResponseHandler:
              patch('api.webhooks.slack.handlers.logger') as mock_logger:
             mock_run.return_value = MagicMock(returncode=0, stdout='{"ok": true}')
 
-            await handler.post_response(routing, "test result")
+            success, response = await handler.post_response(routing, "test result")
 
             mock_logger.info.assert_called()
             call_args = mock_logger.info.call_args
@@ -304,7 +304,7 @@ class TestSlackResponseHandler:
              patch('api.webhooks.slack.handlers.validate_response_format', return_value=(True, "")):
             mock_run.return_value = MagicMock(returncode=0, stdout='{"ok": true}')
 
-            await handler.post_response(routing, "test result")
+            success, response = await handler.post_response(routing, "test result")
 
             call_args = mock_run.call_args[0][0]
             assert "https://slack.com/api/chat.postMessage" in call_args
@@ -329,7 +329,7 @@ class TestSlackResponseHandler:
              patch('api.webhooks.slack.handlers.validate_response_format', return_value=(True, "")):
             mock_run.return_value = MagicMock(returncode=0, stdout='{"ok": true}')
 
-            await handler.post_response(routing, "test result")
+            success, response = await handler.post_response(routing, "test result")
 
             call_args = mock_run.call_args[0][0]
             auth_index = call_args.index("-H") + 1
@@ -359,7 +359,7 @@ class TestSlackResponseHandlerPayload:
              patch('api.webhooks.slack.handlers.validate_response_format', return_value=(True, "")):
             mock_run.return_value = MagicMock(returncode=0, stdout='{"ok": true}')
 
-            await handler.post_response(routing, "test message")
+            success, response = await handler.post_response(routing, "test message")
 
             call_args = mock_run.call_args[0][0]
             body_arg = None
@@ -390,7 +390,7 @@ class TestSlackResponseHandlerPayload:
              patch('api.webhooks.slack.handlers.validate_response_format', return_value=(True, "")):
             mock_run.return_value = MagicMock(returncode=0, stdout='{"ok": true}')
 
-            await handler.post_response(routing, "test message content")
+            success, response = await handler.post_response(routing, "test message content")
 
             call_args = mock_run.call_args[0][0]
             body_arg = None
@@ -421,7 +421,7 @@ class TestSlackResponseHandlerPayload:
              patch('api.webhooks.slack.handlers.validate_response_format', return_value=(True, "")):
             mock_run.return_value = MagicMock(returncode=0, stdout='{"ok": true}')
 
-            await handler.post_response(routing, "test message")
+            success, response = await handler.post_response(routing, "test message")
 
             call_args = mock_run.call_args[0][0]
             body_arg = None
