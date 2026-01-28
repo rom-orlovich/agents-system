@@ -68,8 +68,7 @@ async def handle_slack_task_completion(
     """
     from api.webhooks.slack.utils import extract_task_summary, build_task_completion_blocks
     from core.webhook_configs import SLACK_WEBHOOK
-    
-    # Extract routing from payload
+
     event = payload.get("event", {})
     routing = {
         "channel": event.get("channel"),
@@ -78,23 +77,17 @@ async def handle_slack_task_completion(
         "pr_number": payload.get("routing", {}).get("pr_number"),
         "ticket_key": payload.get("routing", {}).get("ticket_key")
     }
-    
-    # Extract task summary from result
-    task_metadata = {
-        "classification": payload.get("classification", "SIMPLE")
-    }
+
+    task_metadata = {"classification": payload.get("classification", "SIMPLE")}
     summary = extract_task_summary(result or message, task_metadata)
-    
-    # Determine if buttons are needed
-    # Check if command requires approval
+
     requires_approval = False
     if command:
         for cmd in SLACK_WEBHOOK.commands:
             if cmd.name == command:
                 requires_approval = cmd.requires_approval
                 break
-    
-    # Build Block Kit blocks
+
     blocks = build_task_completion_blocks(
         summary=summary,
         routing=routing,
@@ -102,10 +95,9 @@ async def handle_slack_task_completion(
         task_id=task_id or "unknown",
         cost_usd=cost_usd,
         command=command or "",
-        source=payload.get("routing", {}).get("source", "slack")
+        source=payload.get("routing", {}).get("source", PROVIDER_NAME)
     )
-    
-    # Post message with Block Kit blocks
+
     formatted_message = error if not success and error else message
     
     comment_posted = await post_slack_task_comment(

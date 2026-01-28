@@ -14,7 +14,6 @@ from api.webhooks.jira.utils import (
     send_jira_immediate_response,
     match_jira_command,
     create_jira_task,
-    is_assignee_changed_to_ai,
     post_jira_task_comment,
     send_slack_notification,
 )

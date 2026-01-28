@@ -76,22 +76,22 @@ todos:
     status: completed
   - id: "8.1"
     content: "RED→GREEN→REFACTOR: Refactor GitHub route to show full flow, use errors/constants"
-    status: pending
+    status: completed
   - id: "8.2"
     content: "RED→GREEN→REFACTOR: Refactor Jira route to show full flow"
-    status: pending
+    status: completed
   - id: "8.3"
     content: "RED→GREEN→REFACTOR: Refactor Slack route to show full flow"
-    status: pending
+    status: completed
   - id: "9.1"
     content: "RED→GREEN→REFACTOR: Remove all dead code (verify reachability)"
-    status: pending
+    status: completed
   - id: "9.2"
     content: "RED→GREEN→REFACTOR: Remove unused imports/args/parameters"
-    status: pending
+    status: completed
   - id: "9.3"
     content: "RED→GREEN→REFACTOR: Remove all comments (code self-documenting)"
-    status: pending
+    status: completed
   - id: "9.4"
     content: "RED→GREEN→REFACTOR: Validate type safety (mypy --strict, no Any)"
     status: pending
