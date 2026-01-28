@@ -236,92 +236,21 @@ async def create_slack_task(
     db: AsyncSession,
     completion_handler: str
 ) -> str:
-    """Create a task from Slack webhook."""
-    task_id = f"task-{uuid.uuid4().hex[:12]}"
-    
-    base_message = render_template(command.prompt_template, payload, task_id=task_id)
-    
-    from core.webhook_engine import wrap_prompt_with_brain_instructions
-    message = wrap_prompt_with_brain_instructions(base_message, task_id=task_id)
-    
-    webhook_session_id = f"webhook-{uuid.uuid4().hex[:12]}"
-    session_db = SessionDB(
-        session_id=webhook_session_id,
-        user_id="webhook-system",
-        machine_id="claude-agent-001",
-        connected_at=datetime.now(timezone.utc),
-    )
-    db.add(session_db)
-    
-    agent_type_map = {
-        "planning": AgentType.PLANNING,
-        "executor": AgentType.EXECUTOR,
-        "brain": AgentType.PLANNING,
-    }
-    agent_type = agent_type_map.get("brain", AgentType.PLANNING)
-    
+    """Create a task from Slack webhook using WebhookTaskFactory."""
+    from domain.task_factory.factory import WebhookTaskFactory
+
     routing = extract_slack_metadata(payload)
 
-    task_db = TaskDB(
-        task_id=task_id,
-        session_id=webhook_session_id,
-        user_id="webhook-system",
-        assigned_agent="brain",
-        agent_type=agent_type,
-        status=TaskStatus.QUEUED,
-        input_message=message,
-        source="webhook",
-        source_metadata=json.dumps({
-            "webhook_source": "slack",
-            "webhook_name": SLACK_WEBHOOK.name,
-            "command": command.name,
-            "original_target_agent": command.target_agent,
-            "routing": routing,
-            "payload": payload,
-            "completion_handler": completion_handler
-        }),
+    factory = WebhookTaskFactory(db=db, redis_client=redis_client)
+    task_id = await factory.create_task(
+        source="slack",
+        command=command,
+        payload=payload,
+        completion_handler=completion_handler,
+        routing_metadata=routing,
     )
-    db.add(task_db)
-    await db.flush()
-    
-    from core.webhook_engine import generate_external_id, generate_flow_id
-    external_id = generate_external_id("slack", payload)
-    flow_id = generate_flow_id(external_id)
-    
-    source_metadata = json.loads(task_db.source_metadata or "{}")
-    source_metadata["flow_id"] = flow_id
-    source_metadata["external_id"] = external_id
-    task_db.source_metadata = json.dumps(source_metadata)
-    task_db.flow_id = flow_id
-    
-    conversation_id = await create_webhook_conversation(task_db, db)
-    if conversation_id:
-        logger.info("slack_conversation_created", conversation_id=conversation_id, task_id=task_id)
-    
-    try:
-        from core.claude_tasks_sync import sync_task_to_claude_tasks
-        claude_task_id = sync_task_to_claude_tasks(
-            task_db=task_db,
-            flow_id=flow_id,
-            conversation_id=conversation_id
-        )
-        if claude_task_id:
-            source_metadata = json.loads(task_db.source_metadata or "{}")
-            source_metadata["claude_task_id"] = claude_task_id
-            task_db.source_metadata = json.dumps(source_metadata)
-    except Exception as sync_error:
-        logger.warning(
-            "slack_claude_tasks_sync_failed",
-            task_id=task_id,
-            error=str(sync_error)
-        )
-    
-    await db.commit()
-    
-    await redis_client.push_task(task_id)
-    
+
     logger.info("slack_task_created", task_id=task_id, command=command.name)
-    
     return task_id
 
 

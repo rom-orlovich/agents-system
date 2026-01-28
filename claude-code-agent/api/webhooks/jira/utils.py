@@ -289,105 +289,22 @@ async def create_jira_task(
     db: AsyncSession,
     completion_handler: str
 ) -> str:
-    """Create a task from Jira webhook."""
-    task_id = f"task-{uuid.uuid4().hex[:12]}"
-    
-    base_message = render_template(command.prompt_template, payload, task_id=task_id)
-    
-    from core.webhook_engine import wrap_prompt_with_brain_instructions
-    message = wrap_prompt_with_brain_instructions(base_message, task_id=task_id)
-    
-    webhook_session_id = f"webhook-{uuid.uuid4().hex[:12]}"
-    session_db = SessionDB(
-        session_id=webhook_session_id,
-        user_id="webhook-system",
-        machine_id="claude-agent-001",
-        connected_at=datetime.now(timezone.utc),
-    )
-    db.add(session_db)
-    
-    agent_type_map = {
-        "planning": AgentType.PLANNING,
-        "executor": AgentType.EXECUTOR,
-        "brain": AgentType.PLANNING,
-    }
-    agent_type = agent_type_map.get("brain", AgentType.PLANNING)
-    
+    """Create a task from Jira webhook using WebhookTaskFactory."""
+    from domain.task_factory.factory import WebhookTaskFactory
+    from core.routing_metadata import extract_jira_metadata
+
     routing = extract_jira_metadata(payload)
 
-    task_db = TaskDB(
-        task_id=task_id,
-        session_id=webhook_session_id,
-        user_id="webhook-system",
-        assigned_agent="brain",
-        agent_type=agent_type,
-        status=TaskStatus.QUEUED,
-        input_message=message,
-        source="webhook",
-        source_metadata=json.dumps({
-            "webhook_source": "jira",
-            "webhook_name": JIRA_WEBHOOK.name,
-            "command": command.name,
-            "original_target_agent": command.target_agent,
-            "routing": routing,
-            "payload": payload,
-            "completion_handler": completion_handler
-        }),
+    factory = WebhookTaskFactory(db=db, redis_client=redis_client)
+    task_id = await factory.create_task(
+        source="jira",
+        command=command,
+        payload=payload,
+        completion_handler=completion_handler,
+        routing_metadata=routing,
     )
-    db.add(task_db)
-    await db.flush()
-    
-    from core.webhook_engine import generate_external_id, generate_flow_id
-    external_id = generate_external_id("jira", payload)
-    flow_id = generate_flow_id(external_id)
-    
-    source_metadata = json.loads(task_db.source_metadata or "{}")
-    source_metadata["flow_id"] = flow_id
-    source_metadata["external_id"] = external_id
-    task_db.source_metadata = json.dumps(source_metadata)
-    task_db.flow_id = flow_id
-    
-    conversation_id = await create_webhook_conversation(task_db, db)
-    if conversation_id:
-        logger.info("jira_conversation_created", conversation_id=conversation_id, task_id=task_id)
-    
-    try:
-        from core.claude_tasks_sync import sync_task_to_claude_tasks
-        claude_task_id = sync_task_to_claude_tasks(
-            task_db=task_db,
-            flow_id=flow_id,
-            conversation_id=conversation_id
-        )
-        if claude_task_id:
-            source_metadata = json.loads(task_db.source_metadata or "{}")
-            source_metadata["claude_task_id"] = claude_task_id
-            task_db.source_metadata = json.dumps(source_metadata)
-    except Exception as sync_error:
-        logger.warning(
-            "jira_claude_tasks_sync_failed",
-            task_id=task_id,
-            error=str(sync_error)
-        )
-    
-    await db.commit()
-    
-    logger.info("jira_task_saved_to_db", task_id=task_id, session_id=webhook_session_id, agent=command.target_agent)
-    
-    try:
-        await redis_client.push_task(task_id)
-        logger.info("jira_task_pushed_to_queue", task_id=task_id)
-    except Exception as e:
-        logger.error("jira_task_queue_push_failed", task_id=task_id, error=str(e))
-        raise
-    
-    try:
-        await redis_client.add_session_task(webhook_session_id, task_id)
-        logger.info("jira_task_added_to_session", task_id=task_id, session_id=webhook_session_id)
-    except Exception as e:
-        logger.warning("jira_session_task_add_failed", task_id=task_id, error=str(e))
-    
-    logger.info("jira_task_created", task_id=task_id, command=command.name, message_preview=message[:100])
-    
+
+    logger.info("jira_task_created", task_id=task_id, command=command.name)
     return task_id
 
 
