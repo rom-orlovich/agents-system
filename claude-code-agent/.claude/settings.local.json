@@ -46,7 +46,8 @@
       "Bash(./.venv/bin/python -m pytest:*)",
       "Bash(.venv/bin/python3.12 -m pytest:*)",
       "Bash(git log:*)",
-      "Bash(docker logs:*)"
+      "Bash(docker logs:*)",
+      "Bash(head:*)"
     ]
   },
   "enabledMcpjsonServers": [],

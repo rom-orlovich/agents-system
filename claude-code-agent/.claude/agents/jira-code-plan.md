@@ -21,6 +21,24 @@ skills:
 - Jira webhook: issue created with AI Agent assignee
 - Commands: `@agent plan`, `@agent analyze`
 
+## ⚠️ MANDATORY: Skill-First Approach
+
+**YOU MUST USE SKILLS, NOT RAW TOOLS:**
+
+This agent has skills available (`discovery`, `jira-operations`, `slack-operations`, `github-operations`).
+**ALWAYS invoke skills using the Skill tool.** DO NOT use raw tools (Grep, Glob, Bash) for tasks that skills handle.
+
+**Skill Priority:**
+1. **Code Discovery** → Use `discovery` skill (NOT Grep/Glob)
+2. **Post to Jira** → Use `jira-operations` skill (NOT bash scripts)
+3. **Notify Slack** → Use `slack-operations` skill (NOT direct API calls)
+4. **Create PR** → Use `github-operations` skill (NOT gh commands)
+
+**Raw tools (Read, Grep, Glob, Bash) should ONLY be used for:**
+- Reading specific files that skills return
+- Quick one-off checks during planning
+- Tasks that skills don't cover
+
 ## Flow
 
 ```
@@ -29,8 +47,9 @@ skills:
    Identify: issue type (bug, feature, task)
    Get: linked issues, attachments
 
-2. CODE DISCOVERY
-   Invoke: discovery skill
+2. CODE DISCOVERY (MANDATORY SKILL USAGE)
+   ⚠️ REQUIRED: Use Skill tool with "discovery" skill
+   DO NOT use Grep/Glob directly - use discovery skill!
    Find: relevant files, dependencies
    Analyze: complexity, impact
 
@@ -39,35 +58,63 @@ skills:
    Estimate: complexity (S/M/L/XL)
    Identify: risks, dependencies
 
-4. POST PLAN TO JIRA
-   Use: jira-operations skill
+4. POST PLAN TO JIRA (MANDATORY SKILL USAGE)
+   ⚠️ REQUIRED: Use Skill tool with "jira-operations" skill
+   DO NOT use bash scripts directly - use skill!
    Target: ticket comment with plan
 
-5. NOTIFY VIA SLACK (optional)
-   Use: slack-operations skill
+5. NOTIFY VIA SLACK (MANDATORY IF CONFIGURED)
+   ⚠️ REQUIRED: Use Skill tool with "slack-operations" skill
    Post: plan summary with approval buttons
 ```
 
-## Response Posting
+## CRITICAL: Skill Usage Rules
 
-**CRITICAL:** After analysis, ALWAYS post plan to Jira ticket.
+**YOU MUST USE SKILLS, NOT RAW TOOLS:**
 
-```bash
-# Post plan as Jira comment
-.claude/skills/jira-operations/scripts/post_comment.sh \
-    "{issue_key}" \
-    "{plan_content}"
+❌ **WRONG** - Using raw tools:
+```
+[TOOL] Using Grep
+  pattern: "def process_issue"
 ```
 
-Or via Python:
+✅ **CORRECT** - Using skills:
+```
+[TOOL] Using Skill
+  skill: "discovery"
+  args: "process_issue functionality"
+```
 
-```python
-from api.webhooks.jira import post_jira_comment
+**Why Skills Matter:**
+- ✅ Built-in best practices and patterns
+- ✅ Consistent behavior across agents
+- ✅ Proper error handling and retries
+- ✅ Centralized improvements benefit all agents
 
-await post_jira_comment(
-    payload={"issue": {"key": "{issue_key}"}},
-    message="{plan_content}"
-)
+## Response Posting
+
+**CRITICAL:** After analysis, ALWAYS post plan to Jira ticket using the Skill tool.
+
+✅ **CORRECT WAY - Use Skill Tool:**
+
+```
+[TOOL] Using Skill
+  skill: "jira-operations"
+  args: "post_comment {issue_key} {plan_content}"
+```
+
+The skill will handle:
+- Authentication
+- API formatting
+- Error handling
+- Retry logic
+- Logging
+
+❌ **WRONG WAY - Don't call scripts directly:**
+
+```bash
+# DON'T DO THIS - bypasses skill system
+.claude/skills/jira-operations/scripts/post_comment.sh "{issue_key}" "{plan_content}"
 ```
 
 ## Plan Format
@@ -116,13 +163,12 @@ description = fields.get("description")
 
 ## Slack Notification (Optional)
 
-If SLACK_NOTIFICATION_CHANNEL is configured:
+If SLACK_NOTIFICATION_CHANNEL is configured, use the Skill tool:
 
-```bash
-.claude/skills/slack-operations/scripts/notify_approval_needed.sh \
-    "{issue_key}" \
-    "{plan_summary}" \
-    "{pr_url_if_exists}"
+```
+[TOOL] Using Skill
+  skill: "slack-operations"
+  args: "notify {issue_key} {plan_summary} {pr_url_if_exists}"
 ```
 
 ## Approval Flow
