@@ -183,6 +183,14 @@ async def handle_github_task_completion(
         routing = extract_github_routing(payload)
         formatted_message = format_github_message(message, success, cost_usd)
 
+        logger.info(
+            "github_posting_final_response",
+            task_id=task_id,
+            repo=f"{routing.owner}/{routing.repo}",
+            issue_or_pr=routing.issue_number or routing.pr_number,
+            message_length=len(formatted_message)
+        )
+
         handler = GitHubResponseHandler()
         try:
             comment_posted, response = await handler.post_response(routing, formatted_message)
@@ -191,6 +199,11 @@ async def handle_github_task_completion(
                 comment_id = response.get("id")
                 if comment_id:
                     await track_github_comment(comment_id)
+                    logger.info(
+                        "github_final_response_posted",
+                        task_id=task_id,
+                        comment_id=comment_id
+                    )
         except Exception as e:
             logger.error("github_handler_post_failed", error=str(e), task_id=task_id)
             comment_posted = False

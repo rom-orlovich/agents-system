@@ -218,7 +218,7 @@ async def jira_webhook(
         if settings.task_logs_enabled:
             try:
                 task_logger = TaskLogger(task_id, settings.task_logs_dir)
-
+ 
                 task_logger.append_webhook_event({
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "stage": "received",
