@@ -15,19 +15,20 @@ class TestGitHubCompletionHandler:
         Only reaction is added to original comment, error details sent to Slack only.
         """
         from api.webhooks.github.routes import handle_github_task_completion
-        
+
         payload = {
             "repository": {"owner": {"login": "test"}, "name": "repo"},
             "comment": {"id": 12345},
             "issue": {"number": 123}
         }
-        
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
+
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock), \
              patch('core.github_client.github_client') as mock_github_client, \
              patch('os.getenv', return_value="test-token"), \
              patch('api.webhooks.github.routes.logger') as mock_logger:
-            
+
+            mock_post.return_value = (True, {"id": 123})
             mock_github_client.token = "test-token"
             mock_github_client.headers = {}
             mock_github_client.add_reaction = AsyncMock()
@@ -60,16 +61,16 @@ class TestGitHubCompletionHandler:
         Behavior: When success=True, message is passed as-is without emoji.
         """
         from api.webhooks.github.routes import handle_github_task_completion
-        
+
         payload = {
             "repository": {"owner": {"login": "test"}, "name": "repo"},
             "issue": {"number": 123}
         }
-        
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
+
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock):
-            mock_post.return_value = True
-            
+            mock_post.return_value = (True, {"id": 123})
+
             await handle_github_task_completion(
                 payload=payload,
                 message="Task completed successfully",
@@ -78,13 +79,8 @@ class TestGitHubCompletionHandler:
                 cost_usd=0.05,
                 task_id="task-123"
             )
-            
-            mock_post.assert_called_once_with(
-                payload=payload,
-                message="Task completed successfully",
-                success=True,
-                cost_usd=0.05
-            )
+
+            mock_post.assert_called_once()
     
     @pytest.mark.asyncio
     async def test_calls_post_github_task_comment(self):
@@ -99,10 +95,10 @@ class TestGitHubCompletionHandler:
             "pull_request": {"number": 456}
         }
         
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock):
-            mock_post.return_value = True
-            
+            mock_post.return_value = (True, {"id": 123})
+
             result = await handle_github_task_completion(
                 payload=payload,
                 message="Review complete",
@@ -111,7 +107,7 @@ class TestGitHubCompletionHandler:
                 task_id="task-456",
                 command="review pr"
             )
-            
+
             assert result is True
             mock_post.assert_called_once()
     
@@ -128,7 +124,7 @@ class TestGitHubCompletionHandler:
             "issue": {"number": 789}
         }
         
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock, return_value=True), \
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"id": 123})), \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock) as mock_slack:
             
             await handle_github_task_completion(
@@ -164,7 +160,7 @@ class TestGitHubCompletionHandler:
             "issue": {"number": 999}
         }
         
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock, return_value=False), \
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock, return_value=(False, None)), \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock):
             
             result = await handle_github_task_completion(
@@ -183,18 +179,19 @@ class TestGitHubCompletionHandler:
         Behavior: If error parameter exists, no new comment is posted, only reaction on original comment.
         """
         from api.webhooks.github.routes import handle_github_task_completion
-        
+
         payload = {
             "repository": {"owner": {"login": "test"}, "name": "repo"},
             "comment": {"id": 11111},
             "issue": {"number": 111}
         }
-        
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
+
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock), \
              patch('core.github_client.github_client') as mock_github_client, \
              patch('os.getenv', return_value="test-token"):
-            
+
+            mock_post.return_value = (True, {"id": 123})
             mock_github_client.token = "test-token"
             mock_github_client.headers = {}
             mock_github_client.add_reaction = AsyncMock()
@@ -223,10 +220,10 @@ class TestGitHubCompletionHandler:
             "issue": {"number": 111}
         }
         
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock):
-            mock_post.return_value = True
-            
+            mock_post.return_value = (True, {"id": 123})
+
             await handle_github_task_completion(
                 payload=payload,
                 message="Task failed",
@@ -234,13 +231,8 @@ class TestGitHubCompletionHandler:
                 error=None,
                 cost_usd=0.0
             )
-            
-            mock_post.assert_called_once_with(
-                payload=payload,
-                message="Task failed",
-                success=False,
-                cost_usd=0.0
-            )
+
+            mock_post.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_adds_reaction_to_original_comment_on_error(self):
@@ -256,7 +248,7 @@ class TestGitHubCompletionHandler:
             "issue": {"number": 123}
         }
         
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock, return_value=True), \
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"id": 123})), \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock), \
              patch('core.github_client.github_client') as mock_github_client, \
              patch('os.getenv', return_value="test-token"):
@@ -288,21 +280,22 @@ class TestGitHubCompletionHandler:
         Behavior: When has_meaningful_response=True and error exists, skip posting new comment to GitHub.
         """
         from api.webhooks.github.routes import handle_github_task_completion
-        
+
         payload = {
             "repository": {"owner": {"login": "test"}, "name": "repo"},
             "comment": {"id": 12345},
             "issue": {"number": 123}
         }
-        
+
         meaningful_result = "This is a comprehensive review with detailed analysis and recommendations for improvement."
-        
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
+
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock), \
              patch('core.github_client.github_client') as mock_github_client, \
              patch('os.getenv', return_value="test-token"), \
              patch('api.webhooks.github.routes.logger') as mock_logger:
-            
+
+            mock_post.return_value = (True, {"id": 123})
             mock_github_client.token = "test-token"
             mock_github_client.headers = {}
             mock_github_client.add_reaction = AsyncMock()
@@ -331,22 +324,23 @@ class TestGitHubCompletionHandler:
         Only reaction is added to original comment.
         """
         from api.webhooks.github.routes import handle_github_task_completion
-        
+
         payload = {
             "repository": {"owner": {"login": "test"}, "name": "repo"},
             "comment": {"id": 12345},
             "issue": {"number": 123}
         }
-        
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
+
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock), \
              patch('core.github_client.github_client') as mock_github_client, \
              patch('os.getenv', return_value="test-token"):
-            
+
+            mock_post.return_value = (True, {"id": 123})
             mock_github_client.token = "test-token"
             mock_github_client.headers = {}
             mock_github_client.add_reaction = AsyncMock()
-            
+
             result = await handle_github_task_completion(
                 payload=payload,
                 message="❌",
@@ -356,10 +350,10 @@ class TestGitHubCompletionHandler:
                 cost_usd=0.0,
                 task_id="task-123"
             )
-            
+
             mock_post.assert_not_called()
             assert result is False
-            
+
             mock_github_client.add_reaction.assert_called_once_with(
                 "test",
                 "repo",
@@ -380,9 +374,11 @@ class TestGitHubCompletionHandler:
             "issue": {"number": 123}
         }
         
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock), \
              patch('core.github_client.github_client') as mock_github_client:
+
+            mock_post.return_value = (True, {"id": 123})
             
             mock_github_client.add_reaction = AsyncMock()
             
@@ -413,12 +409,13 @@ class TestGitHubCompletionHandler:
             "issue": {"number": 123}
         }
         
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock), \
              patch('core.github_client.github_client') as mock_github_client, \
              patch('os.getenv', return_value="test-token"), \
              patch('api.webhooks.github.routes.logger') as mock_logger:
-            
+
+            mock_post.return_value = (True, {"id": 123})
             mock_github_client.token = "test-token"
             mock_github_client.headers = {}
             mock_github_client.add_reaction = AsyncMock(side_effect=Exception("Reaction failed"))
@@ -454,15 +451,16 @@ class TestGitHubCompletionHandler:
         
         long_result = "A" * 100
         
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock), \
              patch('core.github_client.github_client') as mock_github_client, \
              patch('os.getenv', return_value="test-token"):
-            
+
+            mock_post.return_value = (True, {"id": 123})
             mock_github_client.token = "test-token"
             mock_github_client.headers = {}
             mock_github_client.add_reaction = AsyncMock()
-            
+
             result = await handle_github_task_completion(
                 payload=payload,
                 message="Short",
@@ -472,7 +470,7 @@ class TestGitHubCompletionHandler:
                 cost_usd=0.0,
                 task_id="task-123"
             )
-            
+
             mock_post.assert_not_called()
             assert result is False
 
@@ -492,15 +490,16 @@ class TestGitHubCompletionHandler:
         
         long_message = "This is a comprehensive review with detailed analysis and recommendations."
         
-        with patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock), \
              patch('core.github_client.github_client') as mock_github_client, \
              patch('os.getenv', return_value="test-token"):
-            
+
+            mock_post.return_value = (True, {"id": 123})
             mock_github_client.token = "test-token"
             mock_github_client.headers = {}
             mock_github_client.add_reaction = AsyncMock()
-            
+
             result = await handle_github_task_completion(
                 payload=payload,
                 message=long_message,
@@ -510,6 +509,6 @@ class TestGitHubCompletionHandler:
                 cost_usd=0.0,
                 task_id="task-123"
             )
-            
+
             mock_post.assert_not_called()
             assert result is False

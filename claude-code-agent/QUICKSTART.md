@@ -92,16 +92,22 @@ You should see the Claude Machine Dashboard!
 - **Chat**: Real-time chat with Brain, persistent conversations
 - **Registry**: Skills and agents management
 
-### 2. Specialized Agents (9 Total)
-- **Brain**: Main orchestrator (opus)
-- **Planning**: Analysis and planning (opus)
-- **Executor**: Implementation with TDD (sonnet)
-- **Service Integrator**: Cross-service workflows (sonnet)
-- **Self-Improvement**: Code analysis and refactoring (sonnet)
-- **Agent Creator**: Create new agents (sonnet)
-- **Skill Creator**: Create new skills (sonnet)
-- **Verifier**: Validation and verification (sonnet)
-- **Webhook Generator**: Webhook creation and configuration (sonnet)
+### 2. Specialized Agents (13 Total: 9 Core + 4 Workflow)
+- **Core Agents (9)**:
+  - **Brain**: Main orchestrator (opus)
+  - **Planning**: Analysis and planning (opus)
+  - **Executor**: Implementation with TDD (sonnet)
+  - **Service Integrator**: Cross-service workflows (sonnet)
+  - **Self-Improvement**: Code analysis and refactoring (sonnet)
+  - **Agent Creator**: Create new agents (sonnet)
+  - **Skill Creator**: Create new skills (sonnet)
+  - **Verifier**: Validation and verification (sonnet)
+  - **Webhook Generator**: Webhook creation and configuration (sonnet)
+- **Workflow Agents (4)**:
+  - **GitHub Issue Handler**: Analyzes GitHub issues/comments
+  - **GitHub PR Review**: Reviews PRs and posts comments
+  - **Jira Code Plan**: Creates implementation plans for Jira tickets
+  - **Slack Inquiry**: Answers code/Jira questions in Slack threads
 
 ### 3. Webhook Endpoints
 

@@ -3,7 +3,7 @@ Shared command matching logic for all webhooks.
 DETERMINISTIC CODE - NOT LLM-based.
 """
 import re
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 from core.config import settings
 from core.github_client import github_client
 
@@ -32,7 +32,7 @@ def is_bot_comment(sender_login: str, sender_type: str) -> bool:
     return False
 
 
-def extract_command(text: str) -> Optional[Tuple[str, str]]:
+def extract_command(text: Any) -> Optional[Tuple[str, str]]:
     """
     Extract command from text following format: @agent <command> [user-content]
 
@@ -51,13 +51,7 @@ def extract_command(text: str) -> Optional[Tuple[str, str]]:
         return None
     
     if not isinstance(text, str):
-        try:
-            if isinstance(text, list):
-                text = " ".join(str(item) for item in text if item)
-            else:
-                text = str(text)
-        except Exception:
-            return None
+        text = " ".join(str(item) for item in text if item) if isinstance(text, list) else str(text)
     
     if not text:
         return None
@@ -65,12 +59,9 @@ def extract_command(text: str) -> Optional[Tuple[str, str]]:
     prefix = settings.webhook_agent_prefix.lower()
     text_lower = text.lower()
 
-    # Must contain the prefix
     if prefix not in text_lower:
         return None
 
-    # Extract word immediately after @agent
-    # Pattern: @agent\s+(\w+)(.*)
     pattern = rf'{re.escape(prefix)}\s+(\w+)(.*)'
     match = re.search(pattern, text_lower, re.IGNORECASE | re.DOTALL)
 
@@ -79,11 +70,9 @@ def extract_command(text: str) -> Optional[Tuple[str, str]]:
 
     command_word = match.group(1).lower()
 
-    # Validate against configured valid commands
     if command_word not in settings.valid_commands_list:
         return None
 
-    # Get the original case user content from original text
     original_match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
     if original_match:
         user_content = original_match.group(2).strip()

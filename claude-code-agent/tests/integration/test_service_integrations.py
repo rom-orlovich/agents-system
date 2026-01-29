@@ -153,17 +153,6 @@ class TestSlackIntegrationAgent:
         assert response.status_code == 200
 
 
-@pytest.mark.skip(reason="Sentry operations are not used in this project")
-class TestSentryIntegrationAgent:
-    """Test Sentry integration agent capabilities - SKIPPED."""
-    async def test_sentry_agent_can_list_errors(self, client, redis_mock):
-        """Sentry operations not used."""
-        pytest.skip("Sentry operations not used")
-    async def test_sentry_agent_can_analyze_error_patterns(self, client, redis_mock):
-        """Sentry operations not used."""
-        pytest.skip("Sentry operations not used")
-
-
 class TestMultiServiceOrchestration:
     """Test cross-service orchestration workflows."""
     async def test_incident_response_workflow(self, client, redis_mock):

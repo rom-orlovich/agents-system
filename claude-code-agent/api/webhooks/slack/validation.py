@@ -11,6 +11,29 @@ from core.webhook_validation import (
     validate_command,
 )
 from api.webhooks.slack.utils import extract_slack_text
+from api.webhooks.slack.constants import SLACK_MESSAGE_MAX_LENGTH
+
+
+def validate_response_format(result: str, format_type: str) -> tuple[bool, str]:
+    # Defensive type conversion to prevent TypeError
+    if result is None:
+        result = ""
+    elif isinstance(result, list):
+        result = "\n".join(str(item) for item in result if item)
+    elif not isinstance(result, str):
+        result = str(result) if result else ""
+
+    if format_type == "slack":
+        if not result or not result.strip():
+            return False, "Empty message"
+
+        if len(result) > SLACK_MESSAGE_MAX_LENGTH:
+            return False, f"Message exceeds {SLACK_MESSAGE_MAX_LENGTH} character limit ({len(result)} chars)"
+
+        return True, ""
+
+    else:
+        return False, f"Unknown format type: {format_type}"
 
 
 class SlackWebhookPayload(BaseModel):

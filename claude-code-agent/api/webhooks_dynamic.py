@@ -13,6 +13,8 @@ import structlog
 from core.database import get_session as get_db_session
 from core.database.models import WebhookConfigDB, WebhookEventDB
 from core.webhook_engine import match_commands, execute_command
+from core.task_logger import TaskLogger
+from core.config import settings
 
 logger = structlog.get_logger()
 
@@ -122,9 +124,39 @@ async def dynamic_webhook_receiver(
             provider=provider,
             event_type=event_type
         )
-        
+
+        # Initialize TaskLogger for tracking webhook flow
+        task_id = f"task-{uuid.uuid4().hex[:12]}"
+        task_logger = None
+        if settings.task_logs_enabled:
+            try:
+                task_logger = TaskLogger(task_id, settings.task_logs_dir)
+
+                # Log webhook received stage
+                task_logger.append_webhook_event({
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "stage": "received",
+                    "provider": provider,
+                    "event_type": event_type,
+                    "webhook_id": webhook_id
+                })
+            except Exception as e:
+                logger.warning("dynamic_webhook_task_logger_init_failed", task_id=task_id, error=str(e))
+
         # 5. Match event to commands
         matched_commands = match_commands(webhook.commands, event_type, payload)
+
+        # Log command matching stage
+        if task_logger:
+            try:
+                task_logger.append_webhook_event({
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "stage": "command_matching",
+                    "matched_count": len(matched_commands),
+                    "commands": [cmd.command_id for cmd in matched_commands] if matched_commands else []
+                })
+            except Exception as e:
+                logger.warning("dynamic_webhook_command_match_log_failed", task_id=task_id, error=str(e))
         
         if not matched_commands:
             logger.info(
@@ -154,13 +186,56 @@ async def dynamic_webhook_receiver(
         # 6. Execute actions
         results = []
         task_ids = []
-        
+
         for command in matched_commands:
             result = await execute_command(command, payload, db)
             results.append(result)
-            
+
             if result.get("task_id"):
-                task_ids.append(result["task_id"])
+                created_task_id = result["task_id"]
+                task_ids.append(created_task_id)
+
+                # Initialize TaskLogger for the created task
+                if settings.task_logs_enabled:
+                    try:
+                        from core.webhook_engine import render_template
+                        task_logger_for_task = TaskLogger(created_task_id, settings.task_logs_dir)
+
+                        # Log task created stage
+                        task_logger_for_task.append_webhook_event({
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "stage": "task_created",
+                            "task_id": created_task_id,
+                            "command": command.command_id,
+                            "agent": command.agent
+                        })
+
+                        # Write metadata
+                        task_logger_for_task.write_metadata({
+                            "task_id": created_task_id,
+                            "source": "webhook",
+                            "provider": provider,
+                            "created_at": datetime.now(timezone.utc).isoformat(),
+                            "status": "queued",
+                            "assigned_agent": command.agent,
+                            "webhook_id": webhook_id
+                        })
+
+                        # Render template to get the message
+                        rendered_message = render_template(command.template, payload)
+
+                        # Write input
+                        task_logger_for_task.write_input({
+                            "message": rendered_message,
+                            "source_metadata": {
+                                "provider": provider,
+                                "event_type": event_type,
+                                "webhook_id": webhook_id,
+                                "command_id": command.command_id
+                            }
+                        })
+                    except Exception as e:
+                        logger.warning("dynamic_webhook_task_logger_failed", task_id=created_task_id, error=str(e))
         
         # 7. Log event
         event_id = f"evt-{uuid.uuid4().hex[:12]}"

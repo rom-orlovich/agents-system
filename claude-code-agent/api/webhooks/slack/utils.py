@@ -92,7 +92,7 @@ async def send_slack_immediate_response(
         event = payload.get("event", {})
         channel = event.get("channel")
         user = event.get("user")
-        text = event.get("text", "")
+        event.get("text", "")
         
         if channel and user:
             try:
@@ -218,8 +218,13 @@ async def match_slack_command(payload: dict, event_type: str) -> Optional[Webhoo
         return None
     
     command_name_lower = command_name.lower()
-    
-    for cmd in SLACK_WEBHOOK.commands:
+
+    from core.webhook_utils import get_webhook_commands
+    commands = get_webhook_commands(SLACK_WEBHOOK, "slack")
+    if not commands:
+        return None
+
+    for cmd in commands:
         if cmd.name.lower() == command_name_lower:
             return cmd
         for alias in cmd.aliases:
@@ -238,8 +243,14 @@ async def create_slack_task(
 ) -> str:
     """Create a task from Slack webhook."""
     task_id = f"task-{uuid.uuid4().hex[:12]}"
-    
-    base_message = render_template(command.prompt_template, payload, task_id=task_id)
+
+    from api.webhooks.common.utils import get_template_content
+    template_content = get_template_content(command, "slack")
+
+    if not template_content:
+        raise ValueError(f"No template found for command: {command.name}")
+
+    base_message = render_template(template_content, payload, task_id=task_id)
     
     from core.webhook_engine import wrap_prompt_with_brain_instructions
     message = wrap_prompt_with_brain_instructions(base_message, task_id=task_id)
@@ -546,22 +557,35 @@ def build_task_completion_blocks(
 def extract_task_summary(result: str, task_metadata: dict):
     """
     Extract structured task summary from result string.
-    
+
     Args:
         result: Task result string (may contain markdown sections)
         task_metadata: Task metadata dict (may contain classification)
-    
+
     Returns:
         TaskSummary model with summary, what_was_done, key_insights, classification
     """
     from api.webhooks.jira.models import TaskSummary
     import re
-    
+
+    if result is None:
+        result = ""
+    elif isinstance(result, list):
+        result = "\n".join(str(item) for item in result)
+    elif not isinstance(result, str):
+        try:
+            result = str(result)
+        except Exception as e:
+            logger.warning(f"Failed to convert result to string: {e}")
+            result = ""
+
+    if not isinstance(result, str):
+        result = ""
+
     summary_text = ""
     what_was_done_text = ""
     key_insights_text = ""
-    
-    # Try to extract sections from markdown
+
     summary_match = re.search(r'##\s*Summary\s*\n(.*?)(?=\n##|\Z)', result, re.DOTALL | re.IGNORECASE)
     if summary_match:
         summary_text = summary_match.group(1).strip()
@@ -691,6 +715,12 @@ async def send_slack_notification(
     ]
     
     if success and result:
+        if not isinstance(result, str):
+            if isinstance(result, list):
+                result = "\n".join(str(item) for item in result)
+            else:
+                result = str(result) if result else ""
+
         result_preview = result[:500] + "..." if len(result) > 500 else result
         blocks.append({
             "type": "section",
@@ -766,14 +796,20 @@ async def create_task_from_button_action(
         if source == "github":
             from api.webhooks.github.utils import create_github_task
             from core.webhook_configs import GITHUB_WEBHOOK
-            
+            from core.webhook_utils import get_webhook_commands
+
             # Find the command
+            commands = get_webhook_commands(GITHUB_WEBHOOK, "github")
+            if not commands:
+                logger.error("github_webhook_config_missing", action=action)
+                return None
+
             webhook_command = None
-            for cmd in GITHUB_WEBHOOK.commands:
+            for cmd in commands:
                 if cmd.name == action:
                     webhook_command = cmd
                     break
-            
+
             if not webhook_command:
                 logger.warning("github_command_not_found", action=action)
                 return None
@@ -819,14 +855,20 @@ async def create_task_from_button_action(
         elif source == "jira":
             from api.webhooks.jira.utils import create_jira_task
             from core.webhook_configs import JIRA_WEBHOOK
-            
+            from core.webhook_utils import get_webhook_commands
+
             # Find the command
+            commands = get_webhook_commands(JIRA_WEBHOOK, "jira")
+            if not commands:
+                logger.error("jira_webhook_config_missing", action=action)
+                return None
+
             webhook_command = None
-            for cmd in JIRA_WEBHOOK.commands:
+            for cmd in commands:
                 if cmd.name == action:
                     webhook_command = cmd
                     break
-            
+
             if not webhook_command:
                 logger.warning("jira_command_not_found", action=action)
                 return None
@@ -865,13 +907,20 @@ async def create_task_from_button_action(
             return task_id
             
         elif source == "slack":
+            from core.webhook_utils import get_webhook_commands
+
             # Find the command
+            commands = get_webhook_commands(SLACK_WEBHOOK, "slack")
+            if not commands:
+                logger.error("slack_webhook_config_missing", action=action)
+                return None
+
             webhook_command = None
-            for cmd in SLACK_WEBHOOK.commands:
+            for cmd in commands:
                 if cmd.name == action:
                     webhook_command = cmd
                     break
-            
+
             if not webhook_command:
                 logger.warning("slack_command_not_found", action=action)
                 return None
