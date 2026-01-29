@@ -187,10 +187,15 @@ class ClaudeCLIRunner:
                                                     task_id=task_id,
                                                     text=sanitized_text,
                                                 )
-                                                logger.debug("cli_output_append", task_id=task_id, source="content_block_text", length=len(text_content))
-                                                accumulated_output.append(text_content)
-                                                clean_output.append(text_content)
-                                                await output_queue.put(text_content)
+                                                # SKIP: This full text is redundant with content_block_delta
+                                                # The same content arrives via streaming deltas - processing both causes duplication
+                                                logger.debug(
+                                                    "cli_output_skipped_redundant",
+                                                    task_id=task_id,
+                                                    source="content_block_text",
+                                                    length=len(text_content),
+                                                    reason="Redundant with content_block_delta streaming"
+                                                )
                                     elif block_type == "tool_use":
                                         tool_name = block.get("name", "unknown")
                                         tool_input = block.get("input", {})
