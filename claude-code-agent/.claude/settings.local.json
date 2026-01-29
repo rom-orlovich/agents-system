@@ -48,5 +48,10 @@
     ]
   },
   "enabledMcpjsonServers": [],
-  "disabledMcpjsonServers": []
+  "disabledMcpjsonServers": [
+    "filesystem",
+    "reddit",
+    "gitmcp",
+    "github"
+  ]
 }
