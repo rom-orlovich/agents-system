@@ -9,6 +9,8 @@ from pathlib import Path
 from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB
 from core.webhook_configs import JIRA_WEBHOOK
+from core.task_logger import TaskLogger
+from core.config import settings
 from api.webhooks.jira.utils import (
     send_slack_notification,
     extract_pr_url,
