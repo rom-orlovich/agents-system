@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 
 class TestSlackInteractivity:
     """Test Slack interactivity button handler behavior."""
-    
+
     @pytest.mark.asyncio
     async def test_approve_task_creates_github_task(self):
         """
@@ -16,7 +16,7 @@ class TestSlackInteractivity:
         """
         from api.webhooks.slack.routes import slack_interactivity
         from fastapi import Request
-        
+
         request = MagicMock(spec=Request)
         payload_json = json.dumps({
             "actions": [{
@@ -29,14 +29,14 @@ class TestSlackInteractivity:
         })
         request.form = AsyncMock(return_value={"payload": payload_json})
         request.body = AsyncMock(return_value=b"test")
-        
-        with patch('api.webhooks.slack.routes.verify_slack_signature', new_callable=AsyncMock), \
+
+        with patch('api.webhooks.slack.handlers.SlackWebhookHandler.verify_signature', new_callable=AsyncMock), \
              patch('api.webhooks.slack.routes.create_task_from_button_action', new_callable=AsyncMock) as mock_create, \
              patch('api.webhooks.slack.routes.update_slack_message', new_callable=AsyncMock) as mock_update:
             mock_create.return_value = "task-new-123"
-            
+
             result = await slack_interactivity(request)
-            
+
             assert result == {"ok": True}
             mock_create.assert_called_once()
             call_kwargs = mock_create.call_args[1]
@@ -45,7 +45,7 @@ class TestSlackInteractivity:
             assert call_kwargs["routing"]["pr_number"] == 42
             assert call_kwargs["source"] == "github"
             mock_update.assert_called_once()
-    
+
     @pytest.mark.asyncio
     async def test_review_task_creates_jira_task(self):
         """
@@ -54,7 +54,7 @@ class TestSlackInteractivity:
         """
         from api.webhooks.slack.routes import slack_interactivity
         from fastapi import Request
-        
+
         request = MagicMock(spec=Request)
         payload_json = json.dumps({
             "actions": [{
@@ -67,14 +67,14 @@ class TestSlackInteractivity:
         })
         request.form = AsyncMock(return_value={"payload": payload_json})
         request.body = AsyncMock(return_value=b"test")
-        
-        with patch('api.webhooks.slack.routes.verify_slack_signature', new_callable=AsyncMock), \
+
+        with patch('api.webhooks.slack.handlers.SlackWebhookHandler.verify_signature', new_callable=AsyncMock), \
              patch('api.webhooks.slack.routes.create_task_from_button_action', new_callable=AsyncMock) as mock_create, \
              patch('api.webhooks.slack.routes.update_slack_message', new_callable=AsyncMock) as mock_update:
             mock_create.return_value = "task-new-456"
-            
+
             result = await slack_interactivity(request)
-            
+
             assert result == {"ok": True}
             mock_create.assert_called_once()
             call_kwargs = mock_create.call_args[1]
@@ -82,7 +82,7 @@ class TestSlackInteractivity:
             assert call_kwargs["routing"]["ticket_key"] == "PROJ-123"
             assert call_kwargs["source"] == "jira"
             mock_update.assert_called_once()
-    
+
     @pytest.mark.asyncio
     async def test_reject_task_creates_slack_task(self):
         """
@@ -91,7 +91,7 @@ class TestSlackInteractivity:
         """
         from api.webhooks.slack.routes import slack_interactivity
         from fastapi import Request
-        
+
         request = MagicMock(spec=Request)
         payload_json = json.dumps({
             "actions": [{
@@ -104,14 +104,14 @@ class TestSlackInteractivity:
         })
         request.form = AsyncMock(return_value={"payload": payload_json})
         request.body = AsyncMock(return_value=b"test")
-        
-        with patch('api.webhooks.slack.routes.verify_slack_signature', new_callable=AsyncMock), \
+
+        with patch('api.webhooks.slack.handlers.SlackWebhookHandler.verify_signature', new_callable=AsyncMock), \
              patch('api.webhooks.slack.routes.create_task_from_button_action', new_callable=AsyncMock) as mock_create, \
              patch('api.webhooks.slack.routes.update_slack_message', new_callable=AsyncMock) as mock_update:
             mock_create.return_value = "task-new-789"
-            
+
             result = await slack_interactivity(request)
-            
+
             assert result == {"ok": True}
             mock_create.assert_called_once()
             call_kwargs = mock_create.call_args[1]
@@ -141,13 +141,13 @@ class TestSlackInteractivity:
         })
         request.form = AsyncMock(return_value={"payload": payload_json})
         request.body = AsyncMock(return_value=b"test")
-        
-        with patch('api.webhooks.slack.routes.verify_slack_signature', new_callable=AsyncMock), \
+
+        with patch('api.webhooks.slack.handlers.SlackWebhookHandler.verify_signature', new_callable=AsyncMock), \
              patch('api.webhooks.slack.routes.create_task_from_button_action', new_callable=AsyncMock, return_value="task-new-123"), \
              patch('api.webhooks.slack.routes.update_slack_message', new_callable=AsyncMock) as mock_update:
-            
+
             await slack_interactivity(request)
-            
+
             mock_update.assert_called_once()
             call_args = mock_update.call_args
             assert call_args[0][0] == "C123"
@@ -175,13 +175,13 @@ class TestSlackInteractivity:
         })
         request.form = AsyncMock(return_value={"payload": payload_json})
         request.body = AsyncMock(return_value=b"test")
-        
-        with patch('api.webhooks.slack.routes.verify_slack_signature', new_callable=AsyncMock), \
+
+        with patch('api.webhooks.slack.handlers.SlackWebhookHandler.verify_signature', new_callable=AsyncMock), \
              patch('api.webhooks.slack.routes.create_task_from_button_action', new_callable=AsyncMock, return_value="task-new-123") as mock_create, \
              patch('api.webhooks.slack.routes.update_slack_message', new_callable=AsyncMock):
-            
+
             result = await slack_interactivity(request)
-            
+
             # Button actions create tasks but don't trigger webhook loops
             # because they're user-initiated actions, not webhook events
             assert result == {"ok": True}

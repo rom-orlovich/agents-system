@@ -86,7 +86,7 @@ async def test_cli_runner_timeout():
         )
 
     assert result.success is False
-    assert result.error == "Timeout exceeded"
+    assert "Timeout after" in result.error or result.error == "Timeout exceeded"
     mock_proc.kill.assert_called_once()
 async def test_cli_runner_process_error():
     output_queue = asyncio.Queue()

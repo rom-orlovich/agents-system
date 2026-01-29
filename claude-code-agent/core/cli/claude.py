@@ -141,11 +141,12 @@ class ClaudeCLIRunner:
         input_tokens = 0
         output_tokens = 0
         cli_error_message = None
+        has_streaming_output = False
 
         try:
 
             async def read_stdout():
-                nonlocal cost_usd, input_tokens, output_tokens, cli_error_message
+                nonlocal cost_usd, input_tokens, output_tokens, cli_error_message, has_streaming_output
 
                 if not process.stdout:
                     return
@@ -193,15 +194,17 @@ class ClaudeCLIRunner:
                                                     task_id=task_id,
                                                     text=sanitized_text,
                                                 )
-                                                # SKIP: This full text is redundant with content_block_delta
-                                                # The same content arrives via streaming deltas - processing both causes duplication
-                                                logger.debug(
-                                                    "cli_output_skipped_redundant",
-                                                    task_id=task_id,
-                                                    source="content_block_text",
-                                                    length=len(text_content),
-                                                    reason="Redundant with content_block_delta streaming"
-                                                )
+                                                # Add to clean_output only if we haven't seen streaming deltas
+                                                # In streaming mode, content_block_delta populates clean_output
+                                                # In complete message mode (tests), we need to populate it here
+                                                if not has_streaming_output:
+                                                    clean_output.append(text_content)
+                                                    logger.debug(
+                                                        "cli_output_append",
+                                                        task_id=task_id,
+                                                        source="assistant_text_block",
+                                                        length=len(text_content),
+                                                    )
                                     elif block_type == "tool_use":
                                         tool_name = block.get("name", "unknown")
                                         tool_input = block.get("input", {})
@@ -273,6 +276,7 @@ class ClaudeCLIRunner:
                                 if delta.get("type") == "text_delta":
                                     text = delta.get("text", "")
                                     if text:
+                                        has_streaming_output = True
                                         logger.debug("cli_output_append", task_id=task_id, source="content_block_delta", length=len(text))
                                         accumulated_output.append(text)
                                         clean_output.append(text)

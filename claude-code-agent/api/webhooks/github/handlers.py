@@ -361,15 +361,15 @@ class GitHubWebhookHandler:
         from api.webhooks.github.validation import validate_github_webhook
         return validate_github_webhook(payload)
 
-    async def match_command(self, payload: dict):
+    async def match_command(self, payload: dict, event_type: str):
         """Match command from webhook payload."""
         from api.webhooks.github.utils import match_github_command
-        return await match_github_command(payload)
+        return await match_github_command(payload, event_type)
 
-    async def send_immediate_response(self, payload: dict, command, task_id: str):
+    async def send_immediate_response(self, payload: dict, command, event_type: str):
         """Send immediate response to GitHub."""
         from api.webhooks.github.utils import send_github_immediate_response
-        return await send_github_immediate_response(payload, command, task_id)
+        return await send_github_immediate_response(payload, command, event_type)
 
     async def create_task(self, command, payload: dict, db, completion_handler: str):
         """Create task for processing."""

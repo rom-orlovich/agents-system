@@ -30,18 +30,25 @@ class TestGitHubSlackButtons:
             }
         }
         
-        with patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock), \
-             patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock, return_value=True), \
-             patch('api.webhooks.github.routes.extract_task_summary') as mock_extract, \
-             patch('api.webhooks.github.routes.build_task_completion_blocks') as mock_build, \
-             patch('api.webhooks.github.routes.slack_client.post_message', new_callable=AsyncMock) as mock_slack:
+        with patch('api.webhooks.github.utils.send_slack_notification', new_callable=AsyncMock), \
+             patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"id": 123})), \
+             patch('api.webhooks.slack.utils.extract_task_summary') as mock_extract, \
+             patch('api.webhooks.slack.utils.build_task_completion_blocks') as mock_build, \
+             patch('core.slack_client.slack_client.post_message', new_callable=AsyncMock) as mock_slack:
             
             mock_extract.return_value = {"summary": "Fix implemented", "classification": "WORKFLOW"}
             mock_build.return_value = [
                 {"type": "header", "text": {"type": "plain_text", "text": "Task Completed"}},
                 {"type": "actions", "elements": [{"type": "button", "action_id": "approve_task"}]}
             ]
-            
+
+            # Create mock webhook config with approval required
+            mock_webhook_config = MagicMock()
+            mock_command = MagicMock()
+            mock_command.name = "fix"
+            mock_command.requires_approval = True
+            mock_webhook_config.commands = [mock_command]
+
             await handle_github_task_completion(
                 payload=payload,
                 message="Fix implemented",
@@ -49,7 +56,8 @@ class TestGitHubSlackButtons:
                 cost_usd=0.0,
                 task_id="task-123",
                 command="fix",
-                result="Fix summary"
+                result="Fix summary",
+                webhook_config=mock_webhook_config
             )
             
             mock_build.assert_called_once()
@@ -81,11 +89,11 @@ class TestGitHubSlackButtons:
             }
         }
         
-        with patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock), \
-             patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock, return_value=True), \
-             patch('api.webhooks.github.routes.extract_task_summary') as mock_extract, \
-             patch('api.webhooks.github.routes.build_task_completion_blocks') as mock_build, \
-             patch('api.webhooks.github.routes.slack_client.post_message', new_callable=AsyncMock) as mock_slack:
+        with patch('api.webhooks.github.utils.send_slack_notification', new_callable=AsyncMock), \
+             patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"id": 123})), \
+             patch('api.webhooks.slack.utils.extract_task_summary') as mock_extract, \
+             patch('api.webhooks.slack.utils.build_task_completion_blocks') as mock_build, \
+             patch('core.slack_client.slack_client.post_message', new_callable=AsyncMock) as mock_slack:
             
             await handle_github_task_completion(
                 payload=payload,
@@ -106,8 +114,8 @@ class TestGitHubSlackButtons:
         Business Rule: GitHub routing metadata must be extracted and included in button values.
         Behavior: Button values contain repo, pr_number, and source="github".
         """
-        from api.webhooks.github.routes import handle_github_task_completion
-        
+        from api.webhooks.github.handlers import handle_github_task_completion
+
         payload = {
             "repository": {
                 "full_name": "test-org/test-repo",
@@ -118,16 +126,23 @@ class TestGitHubSlackButtons:
                 "number": 99
             }
         }
-        
-        with patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock), \
-             patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock, return_value=True), \
-             patch('api.webhooks.github.routes.extract_task_summary') as mock_extract, \
-             patch('api.webhooks.github.routes.build_task_completion_blocks') as mock_build, \
-             patch('api.webhooks.github.routes.slack_client.post_message', new_callable=AsyncMock):
-            
+
+        # Create mock webhook config with approval required
+        mock_webhook_config = MagicMock()
+        mock_command = MagicMock()
+        mock_command.name = "fix"
+        mock_command.requires_approval = True
+        mock_webhook_config.commands = [mock_command]
+
+        with patch('api.webhooks.github.utils.send_slack_notification', new_callable=AsyncMock), \
+             patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"id": 123})), \
+             patch('api.webhooks.slack.utils.extract_task_summary') as mock_extract, \
+             patch('api.webhooks.slack.utils.build_task_completion_blocks') as mock_build, \
+             patch('core.slack_client.slack_client.post_message', new_callable=AsyncMock):
+
             mock_extract.return_value = {"summary": "Fix", "classification": "WORKFLOW"}
             mock_build.return_value = []
-            
+
             await handle_github_task_completion(
                 payload=payload,
                 message="Fix implemented",
@@ -135,7 +150,8 @@ class TestGitHubSlackButtons:
                 cost_usd=0.0,
                 task_id="task-789",
                 command="fix",
-                result="Fix"
+                result="Fix",
+                webhook_config=mock_webhook_config
             )
             
             mock_build.assert_called_once()
@@ -152,8 +168,8 @@ class TestGitHubSlackButtons:
         Behavior: slack_client.post_message() is called with correct channel and blocks.
         """
         import os
-        from api.webhooks.github.routes import handle_github_task_completion
-        
+        from api.webhooks.github.handlers import handle_github_task_completion
+
         payload = {
             "repository": {
                 "full_name": "owner/repo",
@@ -163,17 +179,24 @@ class TestGitHubSlackButtons:
                 "number": 5
             }
         }
-        
-        with patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock), \
-             patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock, return_value=True), \
-             patch('api.webhooks.github.routes.extract_task_summary') as mock_extract, \
-             patch('api.webhooks.github.routes.build_task_completion_blocks') as mock_build, \
-             patch('api.webhooks.github.routes.slack_client.post_message', new_callable=AsyncMock) as mock_slack, \
+
+        # Create mock webhook config with approval required
+        mock_webhook_config = MagicMock()
+        mock_command = MagicMock()
+        mock_command.name = "fix"
+        mock_command.requires_approval = True
+        mock_webhook_config.commands = [mock_command]
+
+        with patch('api.webhooks.github.utils.send_slack_notification', new_callable=AsyncMock), \
+             patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"id": 123})), \
+             patch('api.webhooks.slack.utils.extract_task_summary') as mock_extract, \
+             patch('api.webhooks.slack.utils.build_task_completion_blocks') as mock_build, \
+             patch('core.slack_client.slack_client.post_message', new_callable=AsyncMock) as mock_slack, \
              patch.dict(os.environ, {"SLACK_CHANNEL_AGENTS": "#test-channel"}):
-            
+
             mock_extract.return_value = {"summary": "Fix", "classification": "WORKFLOW"}
             mock_build.return_value = [{"type": "header", "text": {"type": "plain_text", "text": "Task"}}]
-            
+
             await handle_github_task_completion(
                 payload=payload,
                 message="Fix implemented",
@@ -181,7 +204,8 @@ class TestGitHubSlackButtons:
                 cost_usd=0.0,
                 task_id="task-111",
                 command="fix",
-                result="Fix"
+                result="Fix",
+                webhook_config=mock_webhook_config
             )
             
             mock_slack.assert_called_once()

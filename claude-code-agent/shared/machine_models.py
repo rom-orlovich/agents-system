@@ -389,6 +389,24 @@ class WebhookYamlConfig(BaseModel):
         description="Default command when no specific command matched"
     )
 
+    @model_validator(mode="after")
+    def validate_commands_not_empty(self) -> "WebhookYamlConfig":
+        """Commands list must not be empty."""
+        if not self.commands:
+            raise ValueError("commands list cannot be empty - at least one command is required")
+
+        # Check for duplicate command names
+        command_names = [cmd.name for cmd in self.commands]
+        if len(command_names) != len(set(command_names)):
+            duplicates = [name for name in command_names if command_names.count(name) > 1]
+            raise ValueError(f"Duplicate command names found: {', '.join(set(duplicates))}")
+
+        # Check that default_command exists in commands
+        if self.default_command and self.default_command not in command_names:
+            raise ValueError(f"default_command '{self.default_command}' not found in commands list")
+
+        return self
+
     # Security
     security: SecurityConfig = Field(
         default_factory=SecurityConfig,

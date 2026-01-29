@@ -34,11 +34,11 @@ Task completed successfully.
 - Found root cause
 """
         
-        with patch('api.webhooks.slack.routes.post_slack_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.slack.handlers.SlackResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.slack.routes.send_slack_notification', new_callable=AsyncMock), \
-             patch('api.webhooks.slack.utils.extract_task_summary') as mock_extract, \
-             patch('api.webhooks.slack.utils.build_task_completion_blocks') as mock_build:
-            
+             patch('api.webhooks.slack.routes.extract_task_summary') as mock_extract, \
+             patch('api.webhooks.slack.routes.build_task_completion_blocks') as mock_build:
+
             mock_extract.return_value = {
                 "summary": "Task completed successfully.",
                 "what_was_done": "- Fixed bug\n- Added tests",
@@ -46,7 +46,7 @@ Task completed successfully.
                 "classification": "WORKFLOW"
             }
             mock_build.return_value = [{"type": "header", "text": {"type": "plain_text", "text": "✅ Task Completed"}}]
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"ts": "123"})
             
             await handle_slack_task_completion(
                 payload=payload,
@@ -83,11 +83,11 @@ Task completed successfully.
         
         # This test verifies routing extraction happens
         # The actual extraction happens in the handler
-        with patch('api.webhooks.slack.routes.post_slack_task_comment', new_callable=AsyncMock, return_value=True), \
+        with patch('api.webhooks.slack.handlers.SlackResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"ts": "123"})), \
              patch('api.webhooks.slack.routes.send_slack_notification', new_callable=AsyncMock), \
-             patch('api.webhooks.slack.utils.extract_task_summary') as mock_extract, \
-             patch('api.webhooks.slack.utils.build_task_completion_blocks') as mock_build:
-            
+             patch('api.webhooks.slack.routes.extract_task_summary') as mock_extract, \
+             patch('api.webhooks.slack.routes.build_task_completion_blocks') as mock_build:
+
             mock_extract.return_value = {"summary": "Done", "what_was_done": "", "key_insights": "", "classification": "SIMPLE"}
             mock_build.return_value = []
             
@@ -120,11 +120,11 @@ Task completed successfully.
             }
         }
         
-        with patch('api.webhooks.slack.routes.post_slack_task_comment', new_callable=AsyncMock, return_value=True), \
+        with patch('api.webhooks.slack.handlers.SlackResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"ts": "123"})), \
              patch('api.webhooks.slack.routes.send_slack_notification', new_callable=AsyncMock), \
-             patch('api.webhooks.slack.utils.extract_task_summary') as mock_extract, \
-             patch('api.webhooks.slack.utils.build_task_completion_blocks') as mock_build:
-            
+             patch('api.webhooks.slack.routes.extract_task_summary') as mock_extract, \
+             patch('api.webhooks.slack.routes.build_task_completion_blocks') as mock_build:
+
             mock_extract.return_value = {"summary": "Plan created", "what_was_done": "", "key_insights": "", "classification": "WORKFLOW"}
             mock_build.return_value = []
             

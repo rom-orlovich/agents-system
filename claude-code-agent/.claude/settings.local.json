@@ -47,7 +47,12 @@
       "Bash(.venv/bin/python3.12 -m pytest:*)",
       "Bash(git log:*)",
       "Bash(docker logs:*)",
-      "Bash(head:*)"
+      "Bash(head:*)",
+      "Bash(pytest:*)",
+      "Bash(make test-unit:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(uv run python3:*)",
+      "Bash(tee:*)"
     ]
   },
   "enabledMcpjsonServers": [],

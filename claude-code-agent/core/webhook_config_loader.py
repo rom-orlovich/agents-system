@@ -245,13 +245,38 @@ class WebhookConfigLoader:
         self.config_dir = config_dir or WEBHOOKS_BASE_PATH
 
     def load_webhook_config(self, webhook_name: str) -> WebhookConfig:
-        config = load_webhook_config(webhook_name)
-        if not config:
-            raise FileNotFoundError(f"Webhook config not found: {webhook_name}")
-        return config
+        """Load webhook config from the configured directory."""
+        config_path = self.config_dir / f"{webhook_name}.yaml"
+
+        if not config_path.exists():
+            raise FileNotFoundError(f"Webhook config not found: {webhook_name} at {config_path}")
+
+        try:
+            yaml_config = WebhookYamlConfig.from_yaml_file(config_path)
+            return yaml_config.to_webhook_config()
+        except Exception as e:
+            logger.error("webhook_config_load_error", webhook=webhook_name, error=str(e))
+            raise
 
     def load_all_webhook_configs(self) -> Dict[str, WebhookConfig]:
-        return get_webhook_configs_map()
+        """Load all webhook configs from the configured directory."""
+        configs = {}
+        if not self.config_dir.exists():
+            return configs
+
+        for yaml_file in self.config_dir.glob("*.yaml"):
+            if yaml_file.stem == "schema":
+                continue
+
+            try:
+                webhook_name = yaml_file.stem
+                config = self.load_webhook_config(webhook_name)
+                configs[webhook_name] = config
+            except Exception as e:
+                logger.error("webhook_config_load_error", webhook=webhook_name, error=str(e))
+                raise
+
+        return configs
 
 
 webhook_config_loader = WebhookConfigLoader()

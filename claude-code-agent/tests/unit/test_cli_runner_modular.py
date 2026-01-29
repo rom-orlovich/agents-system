@@ -4,6 +4,18 @@ from pathlib import Path
 from typing import Protocol, runtime_checkable
 from dataclasses import dataclass
 from unittest.mock import AsyncMock, Mock
+import tempfile
+import shutil
+
+
+@pytest.fixture
+def temp_working_dir():
+    """Create a temporary working directory for CLI tests."""
+    temp_dir = Path(tempfile.mkdtemp())
+    yield temp_dir
+    # Cleanup
+    if temp_dir.exists():
+        shutil.rmtree(temp_dir)
 
 
 @dataclass
@@ -81,17 +93,16 @@ class TestClaudeCLIRunner:
         assert isinstance(runner, CLIRunner)
 
     @pytest.mark.asyncio
-    async def test_claude_runner_returns_cli_result(self):
+    async def test_claude_runner_returns_cli_result(self, temp_working_dir):
         from core.cli.claude import ClaudeCLIRunner
         from core.cli.base import CLIResult
 
         runner = ClaudeCLIRunner()
         queue = asyncio.Queue()
-        working_dir = Path("/tmp/test")
 
         result = await runner.run(
             prompt="test prompt",
-            working_dir=working_dir,
+            working_dir=temp_working_dir,
             output_queue=queue,
             task_id="test-123",
         )
@@ -106,16 +117,15 @@ class TestClaudeCLIRunner:
         assert hasattr(result, "error")
 
     @pytest.mark.asyncio
-    async def test_claude_runner_handles_subprocess_creation(self):
+    async def test_claude_runner_handles_subprocess_creation(self, temp_working_dir):
         from core.cli.claude import ClaudeCLIRunner
 
         runner = ClaudeCLIRunner()
         queue = asyncio.Queue()
-        working_dir = Path("/tmp/test")
 
         result = await runner.run(
             prompt="echo test",
-            working_dir=working_dir,
+            working_dir=temp_working_dir,
             output_queue=queue,
             task_id="test-subprocess",
             timeout_seconds=10,
@@ -124,16 +134,16 @@ class TestClaudeCLIRunner:
         assert isinstance(result.success, bool)
 
     @pytest.mark.asyncio
-    async def test_claude_runner_supports_model_parameter(self):
+    async def test_claude_runner_supports_model_parameter(self, temp_working_dir):
         from core.cli.claude import ClaudeCLIRunner
+        from core.cli.base import CLIResult
 
         runner = ClaudeCLIRunner()
         queue = asyncio.Queue()
-        working_dir = Path("/tmp/test")
 
         result = await runner.run(
             prompt="test",
-            working_dir=working_dir,
+            working_dir=temp_working_dir,
             output_queue=queue,
             model="opus",
         )
@@ -141,16 +151,16 @@ class TestClaudeCLIRunner:
         assert isinstance(result, CLIResult)
 
     @pytest.mark.asyncio
-    async def test_claude_runner_supports_allowed_tools(self):
+    async def test_claude_runner_supports_allowed_tools(self, temp_working_dir):
         from core.cli.claude import ClaudeCLIRunner
+        from core.cli.base import CLIResult
 
         runner = ClaudeCLIRunner()
         queue = asyncio.Queue()
-        working_dir = Path("/tmp/test")
 
         result = await runner.run(
             prompt="test",
-            working_dir=working_dir,
+            working_dir=temp_working_dir,
             output_queue=queue,
             allowed_tools="Read,Edit",
         )
@@ -158,17 +168,17 @@ class TestClaudeCLIRunner:
         assert isinstance(result, CLIResult)
 
     @pytest.mark.asyncio
-    async def test_claude_runner_supports_agents_parameter(self):
+    async def test_claude_runner_supports_agents_parameter(self, temp_working_dir):
         from core.cli.claude import ClaudeCLIRunner
+        from core.cli.base import CLIResult
 
         runner = ClaudeCLIRunner()
         queue = asyncio.Queue()
-        working_dir = Path("/tmp/test")
 
         agents_config = '{"test": {"description": "test agent"}}'
         result = await runner.run(
             prompt="test",
-            working_dir=working_dir,
+            working_dir=temp_working_dir,
             output_queue=queue,
             agents=agents_config,
         )

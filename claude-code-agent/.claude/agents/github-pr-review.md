@@ -42,12 +42,14 @@ This agent has skills available (`discovery`, `github-operations`).
    ⚠️ REQUIRED: Use Skill tool with "github-operations" skill
    DO NOT use gh commands directly - use skill!
    Get: PR files, diff, description, linked issues
+   NOTE: Large files (package-lock.json, etc.) are automatically filtered
 
 2. ANALYZE CHANGES (MANDATORY SKILL USAGE)
    ⚠️ REQUIRED: Use Skill tool with "discovery" skill
    DO NOT use Grep/Glob directly - use discovery skill!
    Check: code quality, patterns, tests
    Identify: issues, improvements, concerns
+   ⚠️ ONLY review "Reviewable Files" - DO NOT read "Skipped Files"
 
 3. GENERATE REVIEW
    Format: GitHub PR review format
@@ -58,6 +60,17 @@ This agent has skills available (`discovery`, `github-operations`).
    DO NOT use gh commands or direct API calls - use skill!
    Target: PR review comment
 ```
+
+## File Filtering
+
+The github-operations skill automatically filters out:
+- Dependency lock files (package-lock.json, yarn.lock, etc.)
+- Minified/bundled files (.min.js, .bundle.js)
+- Very large files (>1000 line changes)
+- Binary files (images, fonts, videos)
+- Build artifacts (node_modules/, dist/, build/)
+
+**CRITICAL:** Only review files listed under "Reviewable Files". DO NOT attempt to read files listed under "Skipped Files" - they will cause Read tool errors.
 
 ## CRITICAL: Skill Usage Rules
 

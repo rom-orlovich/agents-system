@@ -297,8 +297,19 @@ async def jira_webhook(
                     "model": None
                 })
 
+                # Generate the same input message that will be sent to the agent
+                from api.webhooks.common.utils import get_template_content
+                from core.webhook_engine import render_template, wrap_prompt_with_brain_instructions
+
+                template_content = get_template_content(command, "jira")
+                if template_content:
+                    base_message = render_template(template_content, payload, task_id=actual_task_id)
+                    user_message = wrap_prompt_with_brain_instructions(base_message, task_id=actual_task_id)
+                else:
+                    user_message = f"Jira {event_type}: {issue_key}"
+
                 task_logger.write_input({
-                    "message": f"Jira {event_type}: {issue_key}",
+                    "message": user_message,
                     "source_metadata": {
                         "provider": PROVIDER_NAME,
                         "event_type": event_type,

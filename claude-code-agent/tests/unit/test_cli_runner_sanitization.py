@@ -1,7 +1,7 @@
 """Unit tests for CLI runner sensitive data sanitization."""
 
 import pytest
-from core.cli_runner import sanitize_sensitive_content
+from core.cli.claude import sanitize_sensitive_content
 
 
 class TestSanitizeSensitiveContent:
