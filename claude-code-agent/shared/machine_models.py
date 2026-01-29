@@ -281,6 +281,131 @@ class WebhookConfig(BaseModel):
 
 
 # =============================================================================
+# YAML WEBHOOK CONFIG MODELS (for easy config.yaml files)
+# =============================================================================
+
+
+class CommandYamlConfig(BaseModel):
+    """YAML-friendly command configuration."""
+
+    name: str = Field(..., description="Command name, e.g. 'approve', 'review'")
+    aliases: List[str] = Field(default_factory=list, description="Alternative trigger names")
+    description: str = Field(default="", description="Human-readable description")
+    target_agent: str = Field(default="planning", description="Which agent handles this command")
+    prompt_template: str = Field(..., description="Prompt template with {{placeholders}}")
+    requires_approval: bool = Field(default=False, description="Whether approval is needed")
+
+    def to_webhook_command(self) -> "WebhookCommand":
+        """Convert to WebhookCommand model."""
+        return WebhookCommand(
+            name=self.name,
+            aliases=self.aliases,
+            description=self.description,
+            target_agent=self.target_agent,
+            prompt_template=self.prompt_template,
+            requires_approval=self.requires_approval,
+        )
+
+
+class AgentTriggerConfig(BaseModel):
+    """Configuration for how to trigger the agent."""
+
+    prefix: str = Field(default="@agent", description="Command prefix (e.g. '@agent', '@claude')")
+    aliases: List[str] = Field(
+        default_factory=list,
+        description="Alternative prefixes/names (e.g. ['@claude', '@bot'])"
+    )
+    # For Jira: the assignee name that triggers the agent
+    assignee_trigger: Optional[str] = Field(
+        default=None,
+        description="For Jira: assignee name that triggers the agent"
+    )
+
+
+class SecurityConfig(BaseModel):
+    """Webhook security configuration."""
+
+    requires_signature: bool = Field(default=True, description="Require signature verification")
+    signature_header: Optional[str] = Field(
+        default=None,
+        description="Header name for signature (e.g. 'X-Hub-Signature-256')"
+    )
+    secret_env_var: Optional[str] = Field(
+        default=None,
+        description="Environment variable name for webhook secret"
+    )
+
+
+class WebhookYamlConfig(BaseModel):
+    """
+    YAML-friendly webhook configuration.
+
+    This model is designed for easy editing in config.yaml files.
+    Each webhook folder has its own config.yaml with this structure.
+    """
+
+    # Basic info
+    name: str = Field(..., description="Webhook name (e.g. 'github', 'jira')")
+    description: str = Field(default="", description="Human-readable description")
+    endpoint: str = Field(..., description="URL endpoint (e.g. '/webhooks/github')")
+    source: Literal["github", "jira", "sentry", "slack", "gitlab", "custom"] = Field(
+        default="custom",
+        description="Webhook source type"
+    )
+
+    # Agent trigger configuration
+    agent_trigger: AgentTriggerConfig = Field(
+        default_factory=AgentTriggerConfig,
+        description="How to trigger the agent"
+    )
+
+    # Target agent for routing
+    target_agent: str = Field(default="brain", description="Default agent for routing tasks")
+
+    # Commands
+    commands: List[CommandYamlConfig] = Field(
+        default_factory=list,
+        description="List of commands this webhook supports"
+    )
+    default_command: Optional[str] = Field(
+        default=None,
+        description="Default command when no specific command matched"
+    )
+
+    # Security
+    security: SecurityConfig = Field(
+        default_factory=SecurityConfig,
+        description="Security configuration"
+    )
+
+    def to_webhook_config(self) -> "WebhookConfig":
+        """Convert to WebhookConfig model."""
+        return WebhookConfig(
+            name=self.name,
+            endpoint=self.endpoint,
+            source=self.source,
+            description=self.description,
+            target_agent=self.target_agent,
+            command_prefix=self.agent_trigger.prefix,
+            commands=[cmd.to_webhook_command() for cmd in self.commands],
+            default_command=self.default_command,
+            requires_signature=self.security.requires_signature,
+            signature_header=self.security.signature_header,
+            secret_env_var=self.security.secret_env_var,
+            is_builtin=True,
+        )
+
+    @classmethod
+    def from_yaml_file(cls, file_path: Path) -> "WebhookYamlConfig":
+        """Load configuration from a YAML file."""
+        import yaml
+
+        with open(file_path, "r") as f:
+            data = yaml.safe_load(f)
+        return cls(**data)
+
+
+# =============================================================================
 # SKILL MODEL
 # =============================================================================
 
