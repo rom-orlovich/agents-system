@@ -74,7 +74,6 @@ async def handle_slack_task_completion(
     """
     from core.webhook_configs import SLACK_WEBHOOK
 
-    # Extract routing metadata from payload
     routing = extract_slack_routing(payload)
 
     # Build Block Kit blocks for rich formatting
@@ -193,7 +192,6 @@ async def slack_webhook(
             logger.info("slack_url_verification_challenge", challenge=challenge)
             return {FIELD_CHALLENGE: challenge}
         
-        # Step 1: Verify signature
         try:
             await webhook_handler.verify_signature(request, body)
         except HTTPException:
@@ -202,7 +200,6 @@ async def slack_webhook(
             logger.error("slack_signature_verification_error", error=str(e))
             raise HTTPException(status_code=401, detail=f"Signature verification failed: {str(e)}")
 
-        # Step 2: Check config loaded
         if SLACK_CONFIG is None:
             logger.error("slack_webhook_config_not_loaded")
             raise HTTPException(
@@ -217,16 +214,13 @@ async def slack_webhook(
 
         logger.info("slack_webhook_received", event_type=event_type, channel=channel)
 
-        # Generate task_id early for logging
         task_id = f"task-{uuid.uuid4().hex[:12]}"
 
-        # Initialize TaskLogger if enabled
         task_logger = None
         if settings.task_logs_enabled:
             try:
                 task_logger = TaskLogger(task_id, settings.task_logs_dir)
 
-                # Log webhook received stage
                 task_logger.append_webhook_event({
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "stage": "received",
@@ -236,11 +230,9 @@ async def slack_webhook(
             except Exception as e:
                 logger.warning("slack_task_logger_init_failed", task_id=task_id, error=str(e))
 
-        # Step 3: Validate webhook
         try:
             validation_result = await webhook_handler.validate_webhook(payload)
 
-            # Log validation stage
             if task_logger:
                 try:
                     task_logger.append_webhook_event({
@@ -263,11 +255,9 @@ async def slack_webhook(
         except Exception as e:
             logger.error("slack_webhook_validation_error", error=str(e), event_type=event_type)
         
-        # Step 4: Match command
         try:
             command = await webhook_handler.match_command(payload)
 
-            # Log command matching stage
             if task_logger:
                 try:
                     task_logger.append_webhook_event({
@@ -286,10 +276,8 @@ async def slack_webhook(
             logger.error("slack_command_matching_error", error=str(e), channel=channel)
             raise HTTPException(status_code=500, detail=f"Command matching failed: {str(e)}")
 
-        # Step 5: Send immediate response
         immediate_response_sent = await webhook_handler.send_immediate_response(payload, command, event_type)
 
-        # Log immediate response stage
         if task_logger:
             try:
                 task_logger.append_webhook_event({
@@ -301,7 +289,6 @@ async def slack_webhook(
             except Exception as e:
                 logger.warning("slack_immediate_response_log_failed", task_id=task_id, error=str(e))
 
-        # Step 6: Create task
         actual_task_id = await webhook_handler.create_task(command, payload, db, COMPLETION_HANDLER)
         logger.info("slack_task_created_success", task_id=actual_task_id, channel=channel)
 
@@ -316,7 +303,6 @@ async def slack_webhook(
                     "command": command.name
                 })
 
-                # Write metadata
                 task_logger.write_metadata({
                     "task_id": actual_task_id,
                     "source": "webhook",
@@ -327,7 +313,6 @@ async def slack_webhook(
                     "model": None
                 })
 
-                # Write input
                 message_text = event.get(FIELD_TEXT, "")
                 task_logger.write_input({
                     "message": message_text,
@@ -341,7 +326,6 @@ async def slack_webhook(
             except Exception as e:
                 logger.warning("slack_task_creation_log_failed", task_id=task_id, error=str(e))
 
-        # Update task_id to actual task_id from create_task
         task_id = actual_task_id
         
         try:
@@ -370,7 +354,6 @@ async def slack_webhook(
             message="Completion handler will be called by task worker when task completes"
         )
         
-        # Log queue push stage
         if task_logger:
             try:
                 task_logger.append_webhook_event({

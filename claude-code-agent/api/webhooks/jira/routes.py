@@ -89,7 +89,6 @@ async def handle_jira_task_completion(
     if success and cost_usd > 0:
         formatted_message += f"\n\n💰 Cost: ${cost_usd:.4f}"
     
-    # Extract routing metadata from payload
     routing = extract_jira_routing(payload)
     
     # Post using handler
@@ -179,7 +178,6 @@ async def jira_webhook(
             logger.error("jira_webhook_body_read_failed", error=str(e))
             raise HTTPException(status_code=400, detail=f"Failed to read request body: {str(e)}")
         
-        # Step 1: Verify signature
         try:
             await webhook_handler.verify_signature(request, body)
         except HTTPException:
@@ -188,7 +186,6 @@ async def jira_webhook(
             logger.error("jira_signature_verification_error", error=str(e))
             raise HTTPException(status_code=401, detail=f"Signature verification failed: {str(e)}")
 
-        # Step 2: Check config loaded
         if JIRA_CONFIG is None:
             logger.error("jira_webhook_config_not_loaded")
             raise HTTPException(
@@ -196,7 +193,6 @@ async def jira_webhook(
                 detail="Jira webhook configuration not loaded"
             )
 
-        # Step 3: Parse payload
         try:
             payload = webhook_handler.parse_payload(body, PROVIDER_NAME)
         except json.JSONDecodeError as e:
@@ -211,16 +207,13 @@ async def jira_webhook(
 
         logger.info("jira_webhook_received", event_type=event_type, issue_key=issue_key, payload_keys=list(payload.keys()))
 
-        # Generate task_id early for logging
         task_id = f"task-{uuid.uuid4().hex[:12]}"
 
-        # Initialize TaskLogger if enabled
         task_logger = None
         if settings.task_logs_enabled:
             try:
                 task_logger = TaskLogger(task_id, settings.task_logs_dir)
 
-                # Log webhook received stage
                 task_logger.append_webhook_event({
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "stage": "received",
@@ -230,11 +223,9 @@ async def jira_webhook(
             except Exception as e:
                 logger.warning("jira_task_logger_init_failed", task_id=task_id, error=str(e))
         
-        # Step 4: Validate webhook
         try:
             validation_result = await webhook_handler.validate_webhook(payload)
 
-            # Log validation stage
             if task_logger:
                 try:
                     task_logger.append_webhook_event({
@@ -258,10 +249,8 @@ async def jira_webhook(
             logger.error("jira_webhook_validation_error", error=str(e), event_type=event_type)
         
         try:
-            # Step 5: Match command
             command = await webhook_handler.match_command(payload, event_type)
 
-            # Log command matching stage
             if task_logger:
                 try:
                     task_logger.append_webhook_event({
@@ -282,10 +271,8 @@ async def jira_webhook(
 
         logger.info("jira_command_matched", command=command.name, event_type=event_type, issue_key=issue_key)
         
-        # Step 6: Send immediate response
         immediate_response_sent = await webhook_handler.send_immediate_response(payload, command, event_type)
 
-        # Log immediate response stage
         if task_logger:
             try:
                 task_logger.append_webhook_event({
@@ -297,7 +284,6 @@ async def jira_webhook(
             except Exception as e:
                 logger.warning("jira_immediate_response_log_failed", task_id=task_id, error=str(e))
 
-        # Step 7: Create task
         actual_task_id = await webhook_handler.create_task(command, payload, db, COMPLETION_HANDLER)
         logger.info("jira_task_created_success", task_id=actual_task_id, issue_key=issue_key)
 
@@ -312,7 +298,6 @@ async def jira_webhook(
                     "command": command.name
                 })
 
-                # Write metadata
                 task_logger.write_metadata({
                     "task_id": actual_task_id,
                     "source": "webhook",
@@ -323,7 +308,6 @@ async def jira_webhook(
                     "model": None
                 })
 
-                # Write input
                 task_logger.write_input({
                     "message": f"Jira {event_type}: {issue_key}",
                     "source_metadata": {
@@ -336,7 +320,6 @@ async def jira_webhook(
             except Exception as e:
                 logger.warning("jira_task_creation_log_failed", task_id=task_id, error=str(e))
 
-        # Update task_id to actual task_id from create_task
         task_id = actual_task_id
         
         try:
@@ -365,7 +348,6 @@ async def jira_webhook(
             message="Completion handler will be called by task worker when task completes"
         )
         
-        # Log queue push stage
         if task_logger:
             try:
                 task_logger.append_webhook_event({

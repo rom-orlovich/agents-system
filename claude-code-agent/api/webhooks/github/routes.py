@@ -68,10 +68,8 @@ async def github_webhook(
     try:
         body = await request.body()
 
-        # Step 1: Verify signature
         await webhook_handler.verify_signature(request, body)
 
-        # Step 2: Check config loaded
         if GITHUB_CONFIG is None:
             logger.error("github_webhook_config_not_loaded")
             raise HTTPException(
@@ -79,7 +77,6 @@ async def github_webhook(
                 detail="GitHub webhook configuration not loaded"
             )
 
-        # Step 3: Parse payload
         payload = webhook_handler.parse_payload(body, PROVIDER_NAME)
         
         repo = payload.get("repository", {})
@@ -103,16 +100,13 @@ async def github_webhook(
             comment_preview=payload.get("comment", {}).get("body", "")[:100] if payload.get("comment") else None
         )
 
-        # Generate task_id early for logging
         task_id = f"task-{uuid.uuid4().hex[:12]}"
 
-        # Initialize TaskLogger if enabled
         task_logger = None
         if settings.task_logs_enabled:
             try:
                 task_logger = TaskLogger(task_id, settings.task_logs_dir)
 
-                # Log webhook received stage
                 task_logger.append_webhook_event({
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                     "stage": "received",
@@ -125,10 +119,8 @@ async def github_webhook(
             except Exception as e:
                 logger.warning("github_task_logger_init_failed", task_id=task_id, error=str(e))
         
-        # Step 4: Validate webhook
         validation_result = await webhook_handler.validate_webhook(payload)
 
-        # Log validation stage
         if task_logger:
             try:
                 task_logger.append_webhook_event({
@@ -152,10 +144,8 @@ async def github_webhook(
             )
             return {"status": STATUS_REJECTED, "actions": 0, "message": MESSAGE_DOES_NOT_MEET_RULES}
         
-        # Step 5: Match command
         command = await webhook_handler.match_command(payload)
 
-        # Log command matching stage
         if task_logger:
             try:
                 task_logger.append_webhook_event({
@@ -178,10 +168,8 @@ async def github_webhook(
             )
             return {"status": STATUS_RECEIVED, "actions": 0, "message": MESSAGE_NO_COMMAND_MATCHED}
         
-        # Step 6: Send immediate response
         immediate_response_sent = await webhook_handler.send_immediate_response(payload, command, event_type)
 
-        # Log immediate response stage
         if task_logger:
             try:
                 task_logger.append_webhook_event({
@@ -207,11 +195,9 @@ async def github_webhook(
                 "error": ERROR_IMMEDIATE_RESPONSE_FAILED
             }
 
-        # Step 7: Create task
         actual_task_id = await webhook_handler.create_task(command, payload, db, COMPLETION_HANDLER)
         logger.info("github_task_created_success", task_id=actual_task_id, repo=repo_info, issue_number=issue_number)
 
-        # Log task created stage
         if task_logger:
             try:
                 task_logger.append_webhook_event({
@@ -222,7 +208,6 @@ async def github_webhook(
                     "command": command.name
                 })
 
-                # Write metadata
                 task_logger.write_metadata({
                     "task_id": actual_task_id,
                     "source": "webhook",
@@ -233,7 +218,6 @@ async def github_webhook(
                     "command": command.name
                 })
 
-                # Write input
                 comment_body = payload.get("comment", {}).get("body", "")
                 task_logger.write_input({
                     "message": command.generate_input_message(payload),
@@ -250,7 +234,6 @@ async def github_webhook(
             except Exception as e:
                 logger.warning("github_task_creation_log_failed", task_id=actual_task_id, error=str(e))
         
-        # Log queue push stage
         if task_logger:
             try:
                 task_logger.append_webhook_event({
