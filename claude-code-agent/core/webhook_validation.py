@@ -29,6 +29,17 @@ class WebhookValidationResult(BaseModel):
 
 def extract_command(text: str) -> Optional[str]:
     """Extract @agent command from text."""
+    # Defensive type conversion to prevent TypeError with regex
+    if text is None:
+        return None
+    if isinstance(text, list):
+        text = " ".join(str(item) for item in text if item)
+    elif not isinstance(text, str):
+        text = str(text) if text else ""
+
+    if not text:
+        return None
+
     match = re.search(r"@agent\s+(\w+)", text, re.IGNORECASE)
     if match:
         return match.group(1).lower()

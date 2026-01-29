@@ -492,21 +492,39 @@ def extract_pr_url(text: str) -> Optional[str]:
     """Extract PR URL from text if present."""
     if not text:
         return None
-    
+
+    # Defensive type conversion to prevent TypeError with regex
+    if isinstance(text, list):
+        text = " ".join(str(item) for item in text if item)
+    elif not isinstance(text, str):
+        text = str(text) if text else ""
+
+    if not text:
+        return None
+
     url_match = re.search(r'https://github\.com/[^/\s]+/[^/\s]+/(?:pull|pulls)/\d+', text, re.IGNORECASE)
     if url_match:
         return url_match.group(0)
-    
+
     return None
 
 
 def extract_pr_routing(pr_url: str):
     """Extract repo and PR number from PR URL."""
     from api.webhooks.jira.models import PRRouting
-    
+
     if not pr_url:
         return None
-    
+
+    # Defensive type conversion to prevent TypeError with regex
+    if isinstance(pr_url, list):
+        pr_url = " ".join(str(item) for item in pr_url if item)
+    elif not isinstance(pr_url, str):
+        pr_url = str(pr_url) if pr_url else ""
+
+    if not pr_url:
+        return None
+
     match = re.match(r'https://github\.com/([^/]+)/([^/]+)/(?:pull|pulls)/(\d+)', pr_url, re.IGNORECASE)
     if match:
         owner, repo_name, pr_number = match.groups()
@@ -514,7 +532,7 @@ def extract_pr_routing(pr_url: str):
             repo=f"{owner}/{repo_name}",
             pr_number=int(pr_number)
         )
-    
+
     return None
 
 

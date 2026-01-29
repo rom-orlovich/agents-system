@@ -15,6 +15,14 @@ from core.config import settings
 
 
 def validate_response_format(result: str, format_type: str) -> tuple[bool, str]:
+    # Defensive type conversion to prevent TypeError
+    if result is None:
+        result = ""
+    elif isinstance(result, list):
+        result = "\n".join(str(item) for item in result if item)
+    elif not isinstance(result, str):
+        result = str(result) if result else ""
+
     if format_type == "jira":
         try:
             adf_data = json.loads(result)

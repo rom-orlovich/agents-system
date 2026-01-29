@@ -116,8 +116,8 @@ app.include_router(credentials.router, prefix="/api", tags=["credentials"])
 app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(registry.router, prefix="/api", tags=["registry"])
 app.include_router(webhook_status.router, prefix="/api", tags=["webhooks"])
-app.include_router(webhooks_dynamic.router, prefix="/webhooks", tags=["webhooks"])  # Old system (backward compat)
-app.include_router(webhooks_router, tags=["webhooks"])  # New hard-coded webhooks
+app.include_router(webhooks_router, tags=["webhooks"])  # Static webhooks (hard-coded)
+app.include_router(webhooks_dynamic.router, prefix="/webhooks", tags=["webhooks-dynamic"])  # Dynamic webhooks (database-driven)
 app.include_router(websocket.router, tags=["websocket"])
 
 # V2 API routers (Multi-Subagent Orchestration)

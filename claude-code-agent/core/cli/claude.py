@@ -14,6 +14,12 @@ def sanitize_sensitive_content(content: str) -> str:
     if not content:
         return content
 
+    # Defensive type conversion - handle lists and non-strings
+    if isinstance(content, list):
+        content = "\n".join(str(item) for item in content)
+    elif not isinstance(content, str):
+        content = str(content) if content else ""
+
     sensitive_patterns = [
         (
             r"(JIRA_API_TOKEN|JIRA_EMAIL|GITHUB_TOKEN|SLACK_BOT_TOKEN|SLACK_WEBHOOK_SECRET|GITHUB_WEBHOOK_SECRET|JIRA_WEBHOOK_SECRET)\s*=\s*([^\s\n]+)",
