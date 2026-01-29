@@ -836,10 +836,19 @@ class TaskWorker:
     ) -> bool:
         """
         Invoke completion handler callback registered by route.
-        
+
         Generic callback invocation - task worker doesn't know about webhook sources.
+
+        IMPORTANT: This is a SYSTEM BOUNDARY. We use WebhookCompletionParams to
+        coerce all parameters to proper string types before passing to handlers.
+        This prevents TypeError ("expected string or bytes-like object, got 'list'")
+        in downstream functions that use regex operations.
         """
         try:
+            # Coerce types at system boundary using Pydantic validation
+            from core.type_coercion import WebhookCompletionParams
+            params = WebhookCompletionParams(message=message, result=result, error=error)
+
             source_metadata = json.loads(task_db.source_metadata or "{}")
             payload = source_metadata.get("payload", {})
             completion_handler_path = source_metadata.get("completion_handler")
@@ -856,15 +865,16 @@ class TaskWorker:
             module = __import__(module_path, fromlist=[function_name])
             handler = getattr(module, function_name)
 
+            # Pass coerced params - guaranteed to be str or None
             return await handler(
                 payload=payload,
-                message=message,
+                message=params.message,
                 success=success,
                 cost_usd=task_db.cost_usd or 0.0,
                 task_id=task_db.task_id,
                 command=source_metadata.get("command"),
-                result=result,
-                error=error
+                result=params.result,
+                error=params.error
             )
 
         except Exception as e:
