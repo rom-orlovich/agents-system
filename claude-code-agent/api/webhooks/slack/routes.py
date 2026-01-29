@@ -80,6 +80,11 @@ async def handle_slack_task_completion(
     elif result and not isinstance(result, str):
         result = str(result)
 
+    if isinstance(message, list):
+        message = "\n".join(str(item) for item in message)
+    elif message and not isinstance(message, str):
+        message = str(message)
+
     routing = extract_slack_routing(payload)
 
     # Build Block Kit blocks for rich formatting
