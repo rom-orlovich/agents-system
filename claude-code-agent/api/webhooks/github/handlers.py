@@ -155,13 +155,18 @@ async def handle_github_task_completion(
     cost_usd: float = 0.0,
     task_id: str = None,
     command: str = None,
-    result: str = None,
+    result: str | list[str] | None = None,
     error: str = None,
     webhook_config = None
 ) -> bool:
     """Handle GitHub task completion - post response and notifications."""
     from api.webhooks.github.utils import send_slack_notification
     from api.webhooks.github.constants import PROVIDER_NAME
+
+    if isinstance(result, list):
+        result = "\n".join(str(item) for item in result)
+    elif result and not isinstance(result, str):
+        result = str(result)
 
     has_meaningful = has_meaningful_response(result, message)
 

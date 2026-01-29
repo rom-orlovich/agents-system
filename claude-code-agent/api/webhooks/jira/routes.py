@@ -51,22 +51,27 @@ async def handle_jira_task_completion(
     cost_usd: float = 0.0,
     task_id: str = None,
     command: str = None,
-    result: str = None,
+    result: str | list[str] | None = None,
     error: str = None
 ) -> bool:
     """
     Handle Jira task completion callback.
-    
+
     Called by task worker when task completes.
-    
+
     Actions:
     1. Format message (clean error message for Jira)
     2. Post comment to Jira ticket with task result
     3. Send Slack notification (if enabled)
-    
+
     Returns:
         True if comment posted successfully, False otherwise
     """
+    if isinstance(result, list):
+        result = "\n".join(str(item) for item in result)
+    elif result and not isinstance(result, str):
+        result = str(result)
+
     jira_payload = JiraTaskCompletionPayload(**payload)
     
     formatted_message = error if not success and error else message

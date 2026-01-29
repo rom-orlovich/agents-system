@@ -29,6 +29,7 @@ from api.webhooks.slack.constants import (
     FIELD_CHALLENGE,
     FIELD_EVENT,
     FIELD_CHANNEL,
+    FIELD_TEXT,
     STATUS_PROCESSED,
     STATUS_REJECTED,
     STATUS_RECEIVED,
@@ -55,24 +56,29 @@ async def handle_slack_task_completion(
     cost_usd: float = 0.0,
     task_id: str = None,
     command: str = None,
-    result: str = None,
+    result: str | list[str] | None = None,
     error: str = None
 ) -> bool:
     """
     Handle Slack task completion callback.
-    
+
     Called by task worker when task completes.
-    
+
     Actions:
     1. Extract routing metadata and task summary
     2. Build Block Kit message with rich formatting
     3. Post message to Slack thread with task result
     4. Send Slack notification (if enabled)
-    
+
     Returns:
         True if message posted successfully, False otherwise
     """
     from core.webhook_configs import SLACK_WEBHOOK
+
+    if isinstance(result, list):
+        result = "\n".join(str(item) for item in result)
+    elif result and not isinstance(result, str):
+        result = str(result)
 
     routing = extract_slack_routing(payload)
 

@@ -568,17 +568,13 @@ def extract_task_summary(result: str, task_metadata: dict):
     from api.webhooks.jira.models import TaskSummary
     import re
 
-    # Handle list input by converting to string
-    if isinstance(result, list):
-        result = "\n".join(str(item) for item in result)
-    elif not isinstance(result, str):
-        result = str(result)
+    if not isinstance(result, str):
+        result = str(result) if result else ""
 
     summary_text = ""
     what_was_done_text = ""
     key_insights_text = ""
 
-    # Try to extract sections from markdown
     summary_match = re.search(r'##\s*Summary\s*\n(.*?)(?=\n##|\Z)', result, re.DOTALL | re.IGNORECASE)
     if summary_match:
         summary_text = summary_match.group(1).strip()
