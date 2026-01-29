@@ -12,15 +12,27 @@ graph TB
         GitHub["GitHub"]
         Jira["Jira"]
         Slack["Slack"]
+        Sentry["Sentry"]
     end
 
     subgraph Gateway["API Gateway"]
         WebhookAPI["Webhook API<br/>/webhooks/*"]
-        ServicesAPI["Services API<br/>/api/services/*"]
+    end
+
+    subgraph ServicesContainer["Services Container (External)"]
+        ServicesAPIDesc["Services API<br/>/api/services/*<br/>API or MCP<br/>GitHub/Jira/Slack/Sentry"]
+    end
+
+    subgraph Queue["Task Queue"]
+        TaskQueue["Task Queue<br/>Redis<br/>Webhook → Agent Bridge"]
     end
 
     subgraph Agent["Agent Container"]
-        AgentDesc["Task Execution<br/>Internal Management<br/>Internal Dashboard"]
+        AgentDesc["Task Execution<br/>Internal Management<br/>Internal Dashboard<br/>Skills & Agents"]
+    end
+
+    subgraph KnowledgeGraph["Knowledge Graph API (External)"]
+        KGDesc["Knowledge Graph API<br/>Receives Webhooks<br/>Entity Relationships<br/>Context Storage"]
     end
 
     subgraph External["External Container"]
@@ -32,22 +44,32 @@ graph TB
     end
 
     Services -->|Webhooks| WebhookAPI
-    Services -->|API Calls| ServicesAPI
+    Services -->|API Calls| ServicesContainer
+    ServicesContainer -->|GitHub API| GitHub
+    ServicesContainer -->|Jira API| Jira
+    ServicesContainer -->|Slack API| Slack
+    ServicesContainer -->|Sentry API| Sentry
 
-    WebhookAPI -->|Route| Agent
+    WebhookAPI -->|Enqueue Tasks| TaskQueue
+    TaskQueue -->|Dequeue Tasks| Agent
     WebhookAPI -->|Store| External
-    ServicesAPI -->|Call| Agent
-    ServicesAPI -->|Data| External
+    ServicesContainer -->|Call| Agent
+    ServicesContainer -->|Data| External
 
     Agent -->|Logs/Metrics| External
+    Agent -->|Queries| KnowledgeGraph
+    Agent -->|Uses| ServicesContainer
+    WebhookAPI -->|Webhook Events| KnowledgeGraph
 
     Root -.->|Configures| Gateway
     Root -.->|Configures| Agent
     Root -.->|Configures| External
+    Root -.->|Configures| KnowledgeGraph
+    Root -.->|Configures| ServicesContainer
 
     classDef defaultNode fill:#000000,stroke:#ffffff,stroke-width:2px,color:#ffffff
 
-    class Services,GitHub,Jira,Slack,Gateway,WebhookAPI,ServicesAPI,Agent,AgentDesc,External,ExternalDesc,Root,RootDesc defaultNode
+    class Services,GitHub,Jira,Slack,Sentry,Gateway,WebhookAPI,ServicesContainer,ServicesAPIDesc,Queue,TaskQueue,Agent,AgentDesc,KnowledgeGraph,KGDesc,External,ExternalDesc,Root,RootDesc defaultNode
 ```
 
 ---
@@ -78,8 +100,8 @@ graph TB
         subgraph AgentConfig["Configuration"]
             direction LR
             Rules["Rules<br/>.claude/rules/"]
-            Skills["Skills<br/>.claude/skills/"]
-            Agents["Agents<br/>.claude/agents/"]
+            Skills["Skills<br/>.claude/skills/<br/>github-operations<br/>jira-operations<br/>slack-operations<br/>webhook-management<br/>testing<br/>verification"]
+            Agents["Agents<br/>.claude/agents/<br/>planning<br/>executor<br/>verifier<br/>github-issue-handler<br/>github-pr-review<br/>jira-code-plan"]
             Commands["Commands<br/>.claude/commands/"]
             Hooks["Hooks<br/>.claude/hooks/"]
         end
@@ -96,6 +118,13 @@ graph TB
             direction TB
             LocalDB["Local Database"]
             LocalLogs["Local Logs"]
+            TmpRepos["tmp/<br/>Relevant Repositories<br/>Cloned for Tasks"]
+        end
+
+        subgraph AgentExternalAccess["External Service Access"]
+            direction TB
+            MCPServer["MCP Server<br/>Model Context Protocol<br/>Service Integration"]
+            ExternalService["External Service<br/>API Keys Manager<br/>GitHub/Jira/Slack APIs"]
         end
     end
 
@@ -118,6 +147,16 @@ graph TB
     Worker -->|Streams| TaskLogsUI
     Worker -->|Updates| LocalDB
     Worker -->|Writes| LocalLogs
+    Worker -->|Clones Repos| TmpRepos
+
+    Engine -->|Loads| Skills
+    Engine -->|Loads| Agents
+    Engine -->|Uses| MCPServer
+    MCPServer -->|Connects| ExternalService
+    Worker -->|Accesses| ExternalService
+    ExternalService -->|GitHub API| GitHub
+    ExternalService -->|Jira API| Jira
+    ExternalService -->|Slack API| Slack
 
     ClaudeMD -.->|Configures| Engine
     Dockerfile -.->|Builds| AgentContainer
@@ -125,7 +164,48 @@ graph TB
 
     classDef defaultNode fill:#000000,stroke:#ffffff,stroke-width:2px,color:#ffffff
 
-    class AgentContainer,AgentDashboard,AgentMgmt,SkillsMgmt,RulesMgmt,ChatUI,TaskLogsUI,AgentCore,Engine,Queue,Worker,CLIExec,AgentConfig,Rules,Skills,Agents,Commands,Hooks,AgentFiles,Dockerfile,ClaudeMD,MainPy,Requirements,AgentStorage,LocalDB,LocalLogs defaultNode
+    class AgentContainer,AgentDashboard,AgentMgmt,SkillsMgmt,RulesMgmt,ChatUI,TaskLogsUI,AgentCore,Engine,Queue,Worker,CLIExec,AgentConfig,Rules,Skills,Agents,Commands,Hooks,AgentFiles,Dockerfile,ClaudeMD,MainPy,Requirements,AgentStorage,LocalDB,LocalLogs,TmpRepos,AgentExternalAccess,MCPServer,ExternalService defaultNode
+```
+
+```mermaid
+graph TB
+    subgraph AgentContainer["Agent Container"]
+        AgentEngine["Agent Engine"]
+        Worker["Task Worker"]
+    end
+
+    subgraph WebhookAPI["Webhook API"]
+        WebhookReceiver["Webhook Receiver<br/>/webhooks/*"]
+    end
+
+    subgraph KnowledgeGraph["Knowledge Graph API (External)"]
+        direction TB
+        KGAPI["Knowledge Graph API<br/>External Service"]
+        KGEngine["Knowledge Graph Engine<br/>Entity Relationships<br/>Context Storage"]
+        KGStorage["Knowledge Graph Storage<br/>Entities, Relationships"]
+    end
+
+    subgraph ExternalServices["External Services"]
+        GitHub["GitHub"]
+        Jira["Jira"]
+        Slack["Slack"]
+    end
+
+    GitHub -->|Webhooks| WebhookReceiver
+    Jira -->|Webhooks| WebhookReceiver
+    Slack -->|Webhooks| WebhookReceiver
+
+    WebhookReceiver -->|Webhook Events| KGAPI
+    KGAPI -->|Processes| KGEngine
+    KGEngine -->|Stores| KGStorage
+
+    AgentEngine -->|Queries| KGAPI
+    Worker -->|Queries| KGAPI
+    Worker -->|Updates| KGAPI
+
+    classDef defaultNode fill:#000000,stroke:#ffffff,stroke-width:2px,color:#ffffff
+
+    class AgentContainer,AgentEngine,Worker,WebhookAPI,WebhookReceiver,KnowledgeGraph,KGAPI,KGEngine,KGStorage,ExternalServices,GitHub,Jira,Slack defaultNode
 ```
 
 ---
@@ -195,14 +275,20 @@ graph TB
             direction TB
             Receiver["Webhook Receiver<br/>/webhooks/*<br/>Event Reception"]
             Validator["Webhook Validator<br/>Signature Validation<br/>Routing"]
-            Router["Webhook Router<br/>Route to Agents<br/>Load Balancing"]
+            Router["Webhook Router<br/>Route to Queue<br/>Load Balancing"]
         end
 
-        subgraph ServicesAPI["Services API"]
-            direction TB
-            Endpoint["Services Endpoint<br/>/api/services/*<br/>Service Calls"]
-            Registry["Service Registry<br/>Service Registration<br/>Discovery, Health Checks"]
+        subgraph TaskQueue["Task Queue"]
+            Queue["Task Queue<br/>Redis<br/>Webhook → Agent Bridge"]
         end
+    end
+
+    subgraph ServicesContainer["Services Container (External)"]
+        direction TB
+        ServicesAPI["Services API<br/>/api/services/*"]
+        MCP["MCP Server<br/>Model Context Protocol<br/>Future Support"]
+        APIKeyManager["API Keys Manager<br/>GitHub/Jira/Slack/Sentry"]
+        ServiceProxy["Service Proxy<br/>Unified API Access"]
     end
 
     subgraph Agent["Agent Container"]
@@ -213,21 +299,41 @@ graph TB
         ExternalContainer["External Container"]
     end
 
+    subgraph KnowledgeGraph["Knowledge Graph API (External)"]
+        KGAPI["Knowledge Graph API<br/>External Service"]
+    end
+
     Services -->|Webhook Events| Receiver
-    Services -->|API Calls| Endpoint
+    Services -->|API Calls| ServicesAPI
 
     Receiver -->|Validates| Validator
     Validator -->|Routes| Router
-    Router -->|Routes Tasks| AgentContainer
+    Router -->|Enqueues Tasks| Queue
+    Router -->|Webhook Events| KGAPI
+    Queue -->|Dequeues Tasks| AgentContainer
     Router -->|Stores Events| ExternalContainer
 
-    Endpoint -->|Service Calls| AgentContainer
-    Endpoint -->|Service Data| ExternalContainer
-    Endpoint -->|Registers| Registry
+    ServicesAPI -->|Service Calls| AgentContainer
+    ServicesAPI -->|Service Data| ExternalContainer
+    ServicesAPI -->|Uses| ServiceProxy
+    ServiceProxy -->|Uses| APIKeyManager
+    ServiceProxy -->|GitHub API| GitHub
+    ServiceProxy -->|Jira API| Jira
+    ServiceProxy -->|Slack API| Slack
+    ServiceProxy -->|Sentry API| Sentry
+
+    MCP -->|Future: Direct Access| GitHub
+    MCP -->|Future: Direct Access| Jira
+    MCP -->|Future: Direct Access| Slack
+    MCP -->|Future: Direct Access| Sentry
+
+    AgentContainer -->|Queries| KGAPI
+    AgentContainer -->|Uses| ServicesAPI
+    AgentContainer -->|Uses| MCP
 
     classDef defaultNode fill:#000000,stroke:#ffffff,stroke-width:2px,color:#ffffff
 
-    class Services,GitHub,Jira,Slack,Sentry,APIGateway,WebhookAPI,Receiver,Validator,Router,ServicesAPI,Endpoint,Registry,Agent,AgentContainer,External,ExternalContainer defaultNode
+    class Services,GitHub,Jira,Slack,Sentry,APIGateway,WebhookAPI,Receiver,Validator,Router,TaskQueue,Queue,ServicesContainer,ServicesAPI,MCP,APIKeyManager,ServiceProxy,Agent,AgentContainer,External,ExternalContainer,KnowledgeGraph,KGAPI defaultNode
 ```
 
 ---
@@ -241,6 +347,8 @@ sequenceDiagram
     autonumber
     participant ExtService as External Service
     participant WebhookAPI as Webhook API
+    participant Queue as Task Queue
+    participant KGAPI as Knowledge Graph API
     participant Agent as Agent Container
     participant External as External Container
     participant User as User
@@ -248,13 +356,18 @@ sequenceDiagram
     Note over ExtService,User: Webhook Event Flow
     ExtService->>WebhookAPI: 1. Webhook Event
     WebhookAPI->>WebhookAPI: 2. Validate Signature
-    WebhookAPI->>Agent: 3. Route to Agent
-    Agent->>Agent: 4. Process Task
-    Agent->>External: 5. Send Logs
-    Agent->>External: 6. Send Metrics
-    Agent->>External: 7. Send Costs
-    External->>External: 8. Store in Database
-    External->>User: 9. Display in Dashboard
+    WebhookAPI->>Queue: 3. Enqueue Task
+    WebhookAPI->>KGAPI: 4. Forward Webhook Event
+    KGAPI->>KGAPI: 5. Process & Store
+    Queue->>Agent: 6. Dequeue Task
+    Agent->>Agent: 7. Process Task
+    Agent->>KGAPI: 8. Query Knowledge Graph
+    KGAPI->>Agent: 9. Return Context
+    Agent->>External: 10. Send Logs
+    Agent->>External: 11. Send Metrics
+    Agent->>External: 12. Send Costs
+    External->>External: 13. Store in Database
+    External->>User: 14. Display in Dashboard
 ```
 
 ### 5.2 Statistics Viewing Flow
@@ -285,6 +398,8 @@ sequenceDiagram
     participant AgentDashboard as Agent Dashboard
     participant AgentEngine as Agent Engine
     participant CLI as Claude CLI
+    participant ServicesContainer as Services Container
+    participant ExternalServices as GitHub/Jira/Slack
     participant External as External Container
 
     Note over User,External: Chat with Agent Flow
@@ -292,9 +407,13 @@ sequenceDiagram
     AgentDashboard->>AgentEngine: 2. Process Chat
     AgentEngine->>CLI: 3. Execute Claude CLI
     CLI->>AgentEngine: 4. Return Response
-    AgentEngine->>AgentDashboard: 5. Stream Response
-    AgentDashboard->>User: 6. Display Response
-    AgentEngine->>External: 7. Log Chat Interaction
+    AgentEngine->>ServicesContainer: 5. Request External Service (if needed)
+    ServicesContainer->>ExternalServices: 6. Call Service API
+    ExternalServices->>ServicesContainer: 7. Return Data
+    ServicesContainer->>AgentEngine: 8. Return Service Data
+    AgentEngine->>AgentDashboard: 9. Stream Response
+    AgentDashboard->>User: 10. Display Response
+    AgentEngine->>External: 11. Log Chat Interaction
 ```
 
 ### 5.4 Webhook Management Flow
@@ -366,6 +485,7 @@ graph TD
     AgentClaudeDir --> AgentRules
     AgentClaudeDir --> AgentSkills
     AgentClaudeDir --> AgentAgents
+    AgentDir --> AgentTmp["tmp/<br/>Relevant Repositories"]
 
     ExternalDir --> ExternalDockerfile
     ExternalDir --> ExternalClaude
@@ -373,12 +493,36 @@ graph TD
     ExternalDir --> ExternalDashboard
     ExternalDir --> ExternalAPI
 
+    ServicesDir["services-container/<br/>Services Container<br/>External to API Gateway"]
+    ServicesDockerfile["Dockerfile<br/>Services Container Build"]
+    ServicesMain["main.py<br/>Services API Entry Point"]
+    ServicesAPI["api/<br/>Services API endpoints"]
+    ServicesMCP["mcp/<br/>MCP Server<br/>Future Support"]
+    ServicesConfig["config/<br/>API Keys Configuration"]
+
+    KGDir["knowledge-graph/<br/>Knowledge Graph Service<br/>External to Agent"]
+    KGDockerfile["Dockerfile<br/>Knowledge Graph Build"]
+    KGMain["main.py<br/>Knowledge Graph Engine"]
+    KGStorage["storage/<br/>Knowledge Graph Storage"]
+
+    Root --> ServicesDir
+    Root --> KGDir
+    ServicesDir --> ServicesDockerfile
+    ServicesDir --> ServicesMain
+    ServicesDir --> ServicesAPI
+    ServicesDir --> ServicesMCP
+    ServicesDir --> ServicesConfig
+    KGDir --> KGDockerfile
+    KGDir --> KGMain
+    KGDir --> KGStorage
+
     RootClaude -.->|Defines| AgentClaude
     RootClaude -.->|Defines| ExternalClaude
+    RootClaude -.->|Defines| ServicesDir
 
     classDef defaultNode fill:#000000,stroke:#ffffff,stroke-width:2px,color:#ffffff
 
-    class Root,RootClaude,RootDocker,RootEnv,RootMakefile,AgentDir,AgentDockerfile,AgentClaude,AgentMain,AgentRequirements,AgentConfig,AgentClaudeDir,AgentRules,AgentSkills,AgentAgents,ExternalDir,ExternalDockerfile,ExternalClaude,ExternalMain,ExternalDashboard,ExternalAPI defaultNode
+    class Root,RootClaude,RootDocker,RootEnv,RootMakefile,AgentDir,AgentDockerfile,AgentClaude,AgentMain,AgentRequirements,AgentConfig,AgentClaudeDir,AgentRules,AgentSkills,AgentAgents,AgentTmp,ExternalDir,ExternalDockerfile,ExternalClaude,ExternalMain,ExternalDashboard,ExternalAPI,ServicesDir,ServicesDockerfile,ServicesMain,ServicesAPI,ServicesMCP,ServicesConfig,KGDir,KGDockerfile,KGMain,KGStorage defaultNode
 ```
 
 ---
@@ -409,7 +553,7 @@ graph TB
     subgraph SharedStorage["Shared Storage"]
         direction TB
         SharedDB["Shared Database<br/>- Tasks<br/>- Logs<br/>- Metrics<br/>- Costs"]
-        SharedQueue["Shared Queue<br/>Redis<br/>Task Distribution"]
+        SharedQueue["Shared Queue<br/>Redis<br/>Webhook → Agent Bridge<br/>Task Distribution"]
     end
 
     Requests -->|Routes| LB
@@ -441,7 +585,244 @@ graph TB
 
 ---
 
-## 8. Configuration Management
+## 8. Services Container (External) - Detailed Architecture
+
+```mermaid
+graph TB
+    subgraph AgentContainer["Agent Container"]
+        AgentEngine["Agent Engine"]
+        Worker["Task Worker"]
+    end
+
+    subgraph ExternalServices["External Services"]
+        GitHub["GitHub"]
+        Jira["Jira"]
+        Slack["Slack"]
+        Sentry["Sentry"]
+    end
+
+    subgraph ServicesContainer["Services Container (External)"]
+        direction TB
+
+        subgraph ServicesAPI["Services API"]
+            APIEndpoint["API Endpoint<br/>/api/services/*<br/>REST API"]
+            ServiceRegistry["Service Registry<br/>Service Registration<br/>Discovery, Health Checks"]
+        end
+
+        subgraph MCPServer["MCP Server"]
+            MCP["Model Context Protocol<br/>Service Integration<br/>Tool Discovery<br/>Future Support"]
+            MCPTools["MCP Tools<br/>GitHub Operations<br/>Jira Operations<br/>Slack Operations<br/>Sentry Operations"]
+        end
+
+        subgraph ServiceManagement["Service Management"]
+            APIKeyManager["API Keys Manager<br/>Secure Storage<br/>GitHub/Jira/Slack/Sentry"]
+            ServiceProxy["Service Proxy<br/>Unified API Access"]
+        end
+    end
+
+    subgraph WebhookAPI["Webhook API"]
+        WebhookReceiver["Webhook Receiver<br/>/webhooks/*"]
+    end
+
+    subgraph KnowledgeGraph["Knowledge Graph API (External)"]
+        direction TB
+        KGAPI["Knowledge Graph API<br/>External Service"]
+        KGEngine["Knowledge Graph Engine<br/>Entity Relationships<br/>Context Storage"]
+    end
+
+    GitHub -->|Webhooks| WebhookReceiver
+    Jira -->|Webhooks| WebhookReceiver
+    Slack -->|Webhooks| WebhookReceiver
+    Sentry -->|Webhooks| WebhookReceiver
+
+    GitHub -->|API Calls| APIEndpoint
+    Jira -->|API Calls| APIEndpoint
+    Slack -->|API Calls| APIEndpoint
+    Sentry -->|API Calls| APIEndpoint
+
+    WebhookReceiver -->|Webhook Events| KGAPI
+    KGAPI -->|Processes| KGEngine
+
+    AgentEngine -->|Uses| APIEndpoint
+    Worker -->|Uses| APIEndpoint
+    AgentEngine -->|Uses| MCP
+    Worker -->|Uses| MCP
+    AgentEngine -->|Queries| KGAPI
+    Worker -->|Queries| KGAPI
+    Worker -->|Updates| KGAPI
+
+    APIEndpoint -->|Uses| ServiceProxy
+    ServiceProxy -->|Uses| APIKeyManager
+    ServiceProxy -->|GitHub API| GitHub
+    ServiceProxy -->|Jira API| Jira
+    ServiceProxy -->|Slack API| Slack
+    ServiceProxy -->|Sentry API| Sentry
+
+    MCP -->|Discovers| MCPTools
+    MCP -->|Future: Direct Access| GitHub
+    MCP -->|Future: Direct Access| Jira
+    MCP -->|Future: Direct Access| Slack
+    MCP -->|Future: Direct Access| Sentry
+
+    APIEndpoint -->|Registers| ServiceRegistry
+
+    classDef defaultNode fill:#000000,stroke:#ffffff,stroke-width:2px,color:#ffffff
+
+    class AgentContainer,AgentEngine,Worker,ExternalServices,GitHub,Jira,Slack,Sentry,ServicesContainer,ServicesAPI,APIEndpoint,ServiceRegistry,MCPServer,MCP,MCPTools,ServiceManagement,APIKeyManager,ServiceProxy,WebhookAPI,WebhookReceiver,KnowledgeGraph,KGAPI,KGEngine defaultNode
+```
+
+### Service Access Methods:
+
+1. **MCP (Model Context Protocol)**
+   - Direct integration with external services
+   - Tool discovery and execution
+   - No API key management needed in agent
+   - Supports GitHub, Jira, Slack operations
+
+2. **External Service with API Keys**
+   - Centralized API key management
+   - Service proxy for unified access
+   - Secure credential storage
+   - Supports all external services
+
+---
+
+## 9. Agent Capabilities & Resources
+
+```mermaid
+graph TB
+    subgraph AgentContainer["Agent Container"]
+
+        subgraph Skills["Available Skills"]
+            direction LR
+            GitHubSkill["github-operations<br/>PRs, Issues, Actions"]
+            JiraSkill["jira-operations<br/>Issues, Sprints, Boards"]
+            SlackSkill["slack-operations<br/>Messages, Channels"]
+            WebhookSkill["webhook-management<br/>Create, Edit, Test"]
+            TestingSkill["testing<br/>Test Creation, Validation"]
+            VerificationSkill["verification<br/>Script-based Verification"]
+            OtherSkills["... More Skills"]
+        end
+
+        subgraph Agents["Available Agents"]
+            direction LR
+            PlanningAgent["planning<br/>Task Planning"]
+            ExecutorAgent["executor<br/>Task Execution"]
+            VerifierAgent["verifier<br/>Verification"]
+            GitHubIssueAgent["github-issue-handler<br/>Issue Management"]
+            GitHubPRAgent["github-pr-review<br/>PR Review"]
+            JiraCodeAgent["jira-code-plan<br/>Code Planning"]
+            OtherAgents["... More Agents"]
+        end
+
+        subgraph Repositories["Repository Access"]
+            direction TB
+            TmpFolder["tmp/<br/>Temporary Storage"]
+            Repo1["Repository 1<br/>Cloned for Task"]
+            Repo2["Repository 2<br/>Cloned for Task"]
+            RepoN["Repository N<br/>..."]
+        end
+
+        subgraph AgentEngine["Agent Engine"]
+            Engine["Engine<br/>Orchestrates Skills & Agents"]
+        end
+    end
+
+    subgraph WebhookAPI["Webhook API"]
+        WebhookReceiver["Webhook Receiver<br/>/webhooks/*"]
+    end
+
+    subgraph KnowledgeGraph["Knowledge Graph API (External)"]
+        direction TB
+        KGAPI["Knowledge Graph API<br/>External Service"]
+        KGEngine["Knowledge Graph Engine<br/>Entity Relationships<br/>Context Storage"]
+        Entities["Entities<br/>People, Projects, Issues"]
+        Relationships["Relationships<br/>Connections, Dependencies"]
+        Context["Context<br/>Historical Information"]
+    end
+
+    subgraph ExternalServices["External Services"]
+        GitHub["GitHub"]
+        Jira["Jira"]
+        Slack["Slack"]
+    end
+
+    GitHub -->|Webhooks| WebhookReceiver
+    Jira -->|Webhooks| WebhookReceiver
+    Slack -->|Webhooks| WebhookReceiver
+
+    WebhookReceiver -->|Webhook Events| KGAPI
+    KGAPI -->|Processes| KGEngine
+    KGEngine -->|Manages| Entities
+    KGEngine -->|Manages| Relationships
+    KGEngine -->|Stores| Context
+
+    AgentEngine -->|Loads| Skills
+    AgentEngine -->|Loads| Agents
+    AgentEngine -->|Manages| Repositories
+    AgentEngine -->|Queries| KGAPI
+    Engine -->|Queries| KGAPI
+    Engine -->|Updates| KGAPI
+
+    Skills -->|Can Use| GitHubSkill
+    Skills -->|Can Use| JiraSkill
+    Skills -->|Can Use| SlackSkill
+    Skills -->|Can Use| WebhookSkill
+    Skills -->|Can Use| TestingSkill
+    Skills -->|Can Use| VerificationSkill
+
+    Agents -->|Can Use| PlanningAgent
+    Agents -->|Can Use| ExecutorAgent
+    Agents -->|Can Use| VerifierAgent
+    Agents -->|Can Use| GitHubIssueAgent
+    Agents -->|Can Use| GitHubPRAgent
+    Agents -->|Can Use| JiraCodeAgent
+
+    TmpFolder -->|Contains| Repo1
+    TmpFolder -->|Contains| Repo2
+    TmpFolder -->|Contains| RepoN
+
+    KGEngine -->|Manages| Entities
+    KGEngine -->|Manages| Relationships
+    KGEngine -->|Stores| Context
+
+    classDef defaultNode fill:#000000,stroke:#ffffff,stroke-width:2px,color:#ffffff
+
+    class AgentContainer,Skills,GitHubSkill,JiraSkill,SlackSkill,WebhookSkill,TestingSkill,VerificationSkill,OtherSkills,Agents,PlanningAgent,ExecutorAgent,VerifierAgent,GitHubIssueAgent,GitHubPRAgent,JiraCodeAgent,OtherAgents,Repositories,TmpFolder,Repo1,Repo2,RepoN,WebhookAPI,WebhookReceiver,KnowledgeGraph,KGAPI,KGEngine,Entities,Relationships,Context,AgentEngine,Engine,ExternalServices,GitHub,Jira,Slack defaultNode
+```
+
+### Agent Capabilities:
+
+1. **Skills Library**
+   - Pre-built skills for common operations
+   - GitHub, Jira, Slack integrations
+   - Webhook management
+   - Testing and verification capabilities
+   - Extensible through `.claude/skills/`
+
+2. **Agent Library**
+   - Specialized agents for different tasks
+   - Planning, execution, verification agents
+   - Domain-specific agents (GitHub, Jira)
+   - Extensible through `.claude/agents/`
+
+3. **Repository Access**
+   - Can clone relevant repositories to `tmp/` folder
+   - Isolated workspace per task
+   - Automatic cleanup after task completion
+
+4. **Knowledge Graph API (External)**
+   - External API service separate from agent container
+   - Receives data through webhooks from GitHub, Jira, and Slack
+   - Webhook API forwards events to Knowledge Graph API
+   - Entity relationship tracking
+   - Context preservation across tasks
+   - Historical information storage
+   - Agent queries and updates knowledge graph through API
+
+---
+
+## 10. Configuration Management
 
 ```mermaid
 graph TB
@@ -511,7 +892,7 @@ graph TB
 
 ---
 
-## 9. Summary
+## 11. Summary
 
 ### Main Components:
 
@@ -521,18 +902,47 @@ graph TB
    - Real-time task logs
    - Task execution engine
    - Independent configuration (claude.md)
+   - **Skills**: github-operations, jira-operations, slack-operations, webhook-management, testing, verification, and more
+   - **Agents**: planning, executor, verifier, github-issue-handler, github-pr-review, jira-code-plan, and more
+   - **Repository Access**: Can clone and work with relevant repositories in `tmp/` folder
+   - **External Service Access**:
+     - Through Services Container (External) - API or MCP
+     - Accesses GitHub, Jira, Slack, Sentry services
 
-2. **External Container**
+2. **Task Queue**
+   - Redis-based queue connecting webhooks to agents
+   - Decouples webhook reception from agent processing
+   - Enables load balancing and task distribution
+
+3. **External Container**
    - Dashboard for statistics and costs
    - Historical logs viewing
    - Webhook, command, and trigger management
    - API for application data
 
-3. **API Gateway**
-   - Webhook API - event reception and routing
-   - Services API - service calls
+4. **API Gateway**
+   - Webhook API - event reception and routing to queue
+   - Routes API calls to Services Container
 
-4. **Hierarchical Configuration**
+5. **Services Container (External)**
+   - External container separate from API Gateway
+   - Services API endpoint `/api/services/*` - REST API
+   - MCP Server for service integration (future support)
+   - API Keys Manager for GitHub/Jira/Slack/Sentry
+   - Service Proxy for unified API access
+   - Provides access to external services (GitHub, Jira, Slack, Sentry)
+   - Can work as API or MCP (Model Context Protocol)
+
+6. **Knowledge Graph API (External Service)**
+   - External API service separate from agent container
+   - Receives data through webhooks from GitHub, Jira, and Slack
+   - Webhook API forwards events to Knowledge Graph API
+   - Entity relationship tracking
+   - Context preservation across tasks
+   - Historical information storage
+   - Agent queries and updates knowledge graph through API
+
+7. **Hierarchical Configuration**
    - Root claude.md - global settings
    - Agent claude.md - agent-specific settings
    - External claude.md - external settings
@@ -540,7 +950,15 @@ graph TB
 ### Architecture Benefits:
 
 - **Scaling**: Ability to run multiple agent instances
-- **Separation**: Clear separation between execution (agent) and monitoring (external)
-- **Flexibility**: Easy replacement of agent container
+- **Separation**: Clear separation between execution (agent), monitoring (external), and service access (services container)
+- **Flexibility**: Easy replacement of agent container, services container, and knowledge graph
 - **Centralized Management**: Webhook and trigger management from one place
 - **Modular Configuration**: Each container with its own claude.md
+- **Queue-Based Architecture**: Decoupled webhook processing through task queue
+- **Extensibility**: Skills and agents can be added dynamically
+- **Repository Access**: Agents can work with cloned repositories in isolated tmp folders
+- **Knowledge Management**: External Knowledge Graph API that receives data through webhooks from GitHub/Jira/Slack
+- **Service Integration**: External Services Container provides unified access to GitHub/Jira/Slack/Sentry via API or MCP
+- **Webhook-Based Knowledge Graph**: Knowledge Graph API receives events through webhooks, not direct API calls
+- **External Services Container**: Separate container for service access, can work as REST API or MCP (future)
+- **API Gateway Separation**: Webhook API in gateway, Services API in external container

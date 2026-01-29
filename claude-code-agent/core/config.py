@@ -37,7 +37,7 @@ class Settings(BaseSettings):
 
     # Task Logging (Structured logs for each task)
     task_logs_enabled: bool = True  # Enable structured task logging
-    task_logs_dir: Path = Path("/data/logs/tasks")  # Directory for task logs
+    task_logs_dir: Path = Path(".log/tasks")  # Directory for task logs (local: .log/tasks, production: /data/logs/tasks)
     task_logs_retention_days: int = 30  # Retention period for automatic cleanup (future feature)
 
     # API

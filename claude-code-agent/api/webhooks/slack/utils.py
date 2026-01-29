@@ -557,21 +557,27 @@ def build_task_completion_blocks(
 def extract_task_summary(result: str, task_metadata: dict):
     """
     Extract structured task summary from result string.
-    
+
     Args:
         result: Task result string (may contain markdown sections)
         task_metadata: Task metadata dict (may contain classification)
-    
+
     Returns:
         TaskSummary model with summary, what_was_done, key_insights, classification
     """
     from api.webhooks.jira.models import TaskSummary
     import re
-    
+
+    # Handle list input by converting to string
+    if isinstance(result, list):
+        result = "\n".join(str(item) for item in result)
+    elif not isinstance(result, str):
+        result = str(result)
+
     summary_text = ""
     what_was_done_text = ""
     key_insights_text = ""
-    
+
     # Try to extract sections from markdown
     summary_match = re.search(r'##\s*Summary\s*\n(.*?)(?=\n##|\Z)', result, re.DOTALL | re.IGNORECASE)
     if summary_match:
