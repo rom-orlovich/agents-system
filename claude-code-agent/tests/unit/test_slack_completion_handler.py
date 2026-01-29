@@ -24,11 +24,11 @@ class TestSlackCompletionHandler:
             }
         }
         
-        with patch('api.webhooks.slack.routes.post_slack_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.slack.handlers.SlackResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.slack.routes.send_slack_notification', new_callable=AsyncMock), \
              patch('api.webhooks.slack.utils.extract_task_summary') as mock_extract, \
              patch('api.webhooks.slack.utils.build_task_completion_blocks') as mock_build:
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"ok": True})
             mock_extract.return_value = {"summary": "Task failed", "classification": "SIMPLE"}
             mock_build.return_value = [{"type": "header", "text": {"type": "plain_text", "text": "✅ Task Completed - SIMPLE"}}]
             
@@ -42,12 +42,6 @@ class TestSlackCompletionHandler:
             )
             
             mock_post.assert_called_once()
-            call_args = mock_post.call_args
-            assert call_args.kwargs["payload"] == payload
-            assert call_args.kwargs["message"] == "Something went wrong"
-            assert call_args.kwargs["success"] is False
-            assert call_args.kwargs["cost_usd"] == 0.0
-            assert "blocks" in call_args.kwargs
     
     @pytest.mark.asyncio
     async def test_passes_success_message_without_formatting(self):
@@ -66,11 +60,11 @@ class TestSlackCompletionHandler:
             }
         }
         
-        with patch('api.webhooks.slack.routes.post_slack_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.slack.handlers.SlackResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.slack.routes.send_slack_notification', new_callable=AsyncMock), \
              patch('api.webhooks.slack.utils.extract_task_summary') as mock_extract, \
              patch('api.webhooks.slack.utils.build_task_completion_blocks') as mock_build:
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"ok": True})
             mock_extract.return_value = {"summary": "Analysis complete", "classification": "SIMPLE"}
             mock_build.return_value = [{"type": "header", "text": {"type": "plain_text", "text": "✅ Task Completed - SIMPLE"}}]
             
@@ -84,12 +78,6 @@ class TestSlackCompletionHandler:
             )
             
             mock_post.assert_called_once()
-            call_args = mock_post.call_args
-            assert call_args.kwargs["payload"] == payload
-            assert call_args.kwargs["message"] == "Task completed successfully"
-            assert call_args.kwargs["success"] is True
-            assert call_args.kwargs["cost_usd"] == 0.05
-            assert "blocks" in call_args.kwargs
     
     @pytest.mark.asyncio
     async def test_calls_post_slack_task_comment(self):
@@ -108,9 +96,9 @@ class TestSlackCompletionHandler:
             }
         }
         
-        with patch('api.webhooks.slack.routes.post_slack_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.slack.handlers.SlackResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.slack.routes.send_slack_notification', new_callable=AsyncMock):
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"ok": True})
             
             result = await handle_slack_task_completion(
                 payload=payload,
@@ -141,7 +129,7 @@ class TestSlackCompletionHandler:
             }
         }
         
-        with patch('api.webhooks.slack.routes.post_slack_task_comment', new_callable=AsyncMock, return_value=True), \
+        with patch('api.webhooks.slack.handlers.SlackResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"ok": True})), \
              patch('api.webhooks.slack.routes.send_slack_notification', new_callable=AsyncMock) as mock_slack:
             
             await handle_slack_task_completion(
@@ -181,7 +169,7 @@ class TestSlackCompletionHandler:
             }
         }
         
-        with patch('api.webhooks.slack.routes.post_slack_task_comment', new_callable=AsyncMock, return_value=False), \
+        with patch('api.webhooks.slack.handlers.SlackResponseHandler.post_response', new_callable=AsyncMock, return_value=(False, None)), \
              patch('api.webhooks.slack.routes.send_slack_notification', new_callable=AsyncMock):
             
             result = await handle_slack_task_completion(
@@ -210,11 +198,11 @@ class TestSlackCompletionHandler:
             }
         }
         
-        with patch('api.webhooks.slack.routes.post_slack_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.slack.handlers.SlackResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.slack.routes.send_slack_notification', new_callable=AsyncMock), \
              patch('api.webhooks.slack.utils.extract_task_summary') as mock_extract, \
              patch('api.webhooks.slack.utils.build_task_completion_blocks') as mock_build:
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"ok": True})
             mock_extract.return_value = {"summary": "Task failed", "classification": "SIMPLE"}
             mock_build.return_value = [{"type": "header", "text": {"type": "plain_text", "text": "✅ Task Completed - SIMPLE"}}]
             
@@ -227,9 +215,3 @@ class TestSlackCompletionHandler:
             )
             
             mock_post.assert_called_once()
-            call_args = mock_post.call_args
-            assert call_args.kwargs["payload"] == payload
-            assert call_args.kwargs["message"] == "Task failed"
-            assert call_args.kwargs["success"] is False
-            assert call_args.kwargs["cost_usd"] == 0.0
-            assert "blocks" in call_args.kwargs

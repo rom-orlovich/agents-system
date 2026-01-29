@@ -60,17 +60,26 @@ class TestGitHubWebhookValidationIntegration:
         Behavior: Valid payload → Processing continues
         """
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "test-secret")
-        
+        monkeypatch.setenv("GITHUB_TOKEN", "ghp_test_token")
+
         import json
         
         payload = {
             "action": "created",
             "comment": {
+                "id": 456,
                 "body": "@agent review this PR",
                 "user": {"login": "testuser", "type": "User"}
             },
-            "repository": {"full_name": "owner/repo"},
-            "issue": {"number": 123}
+            "repository": {
+                "id": 111,
+                "name": "repo",
+                "full_name": "owner/repo",
+                "owner": {"login": "owner", "id": 1, "type": "User"},
+                "private": False
+            },
+            "issue": {"number": 123, "pull_request": {}},
+            "sender": {"login": "testuser", "id": 789, "type": "User"}
         }
         body = json.dumps(payload).encode()
         
@@ -82,17 +91,18 @@ class TestGitHubWebhookValidationIntegration:
             "X-Hub-Signature-256": f"sha256={signature}"
         }
         
-        with patch('api.webhooks.github.utils.github_client.post_issue_comment', new_callable=AsyncMock):
-            with patch('api.webhooks.github.utils.redis_client.push_task', new_callable=AsyncMock):
-                response = await client.post(
-                    "/webhooks/github",
-                    content=body,
-                    headers=headers
-                )
-                
-                assert response.status_code in [200, 201]
-                data = response.json()
-                assert data["status"] != "rejected"
+        with patch('api.webhooks.github.utils.github_client.add_reaction', new_callable=AsyncMock), \
+             patch('api.webhooks.github.utils.github_client.post_issue_comment', new_callable=AsyncMock), \
+             patch('api.webhooks.github.utils.redis_client.push_task', new_callable=AsyncMock):
+            response = await client.post(
+                "/webhooks/github",
+                content=body,
+                headers=headers
+            )
+
+            assert response.status_code in [200, 201]
+            data = response.json()
+            assert data["status"] != "rejected"
     
     async def test_webhook_rejects_invalid_command(self, client: AsyncClient, monkeypatch):
         """

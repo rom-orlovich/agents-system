@@ -230,6 +230,14 @@ class WebhookCommand(BaseModel):
     prompt_template: str = Field(..., description="Prompt template with {placeholders}")
     requires_approval: bool = Field(default=False)
 
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        import re
+        if not re.match(r"^[a-z0-9_-]+$", v):
+            raise ValueError("name must be lowercase alphanumeric with hyphens/underscores")
+        return v
+
 
 class WebhookConfig(BaseModel):
     """Complete webhook configuration with commands."""

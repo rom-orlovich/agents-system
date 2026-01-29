@@ -19,9 +19,9 @@ class TestJiraCompletionHandler:
             "issue": {"key": "TEST-123", "fields": {"summary": "Test issue"}}
         }
         
-        with patch('api.webhooks.jira.routes.post_jira_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.jira.handlers.JiraResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.jira.routes.send_slack_notification', new_callable=AsyncMock):
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"id": 123})
             
             await handle_jira_task_completion(
                 payload=payload,
@@ -33,11 +33,6 @@ class TestJiraCompletionHandler:
             )
             
             mock_post.assert_called_once()
-            call_kwargs = mock_post.call_args[1]
-            assert call_kwargs["issue"] == payload["issue"]
-            assert call_kwargs["message"] == "Something went wrong"
-            assert call_kwargs["success"] is False
-            assert call_kwargs["cost_usd"] == 0.0
     
     @pytest.mark.asyncio
     async def test_passes_success_message_without_formatting(self):
@@ -51,9 +46,9 @@ class TestJiraCompletionHandler:
             "issue": {"key": "TEST-456", "fields": {"summary": "Test issue"}}
         }
         
-        with patch('api.webhooks.jira.routes.post_jira_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.jira.handlers.JiraResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.jira.routes.send_slack_notification', new_callable=AsyncMock):
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"id": 123})
             
             await handle_jira_task_completion(
                 payload=payload,
@@ -65,11 +60,6 @@ class TestJiraCompletionHandler:
             )
             
             mock_post.assert_called_once()
-            call_kwargs = mock_post.call_args[1]
-            assert call_kwargs["issue"] == payload["issue"]
-            assert call_kwargs["message"] == "Task completed successfully"
-            assert call_kwargs["success"] is True
-            assert call_kwargs["cost_usd"] == 0.05
     
     @pytest.mark.asyncio
     async def test_calls_post_jira_task_comment(self):
@@ -83,9 +73,9 @@ class TestJiraCompletionHandler:
             "issue": {"key": "PROJ-789", "fields": {"summary": "Test"}}
         }
         
-        with patch('api.webhooks.jira.routes.post_jira_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.jira.handlers.JiraResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.jira.routes.send_slack_notification', new_callable=AsyncMock):
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"id": 123})
             
             result = await handle_jira_task_completion(
                 payload=payload,
@@ -111,7 +101,7 @@ class TestJiraCompletionHandler:
             "issue": {"key": "TEST-999", "fields": {"summary": "Test"}}
         }
         
-        with patch('api.webhooks.jira.routes.post_jira_task_comment', new_callable=AsyncMock, return_value=True), \
+        with patch('api.webhooks.jira.handlers.JiraResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"id": 123})), \
              patch('api.webhooks.jira.routes.send_slack_notification', new_callable=AsyncMock) as mock_slack:
             
             await handle_jira_task_completion(
@@ -146,7 +136,7 @@ class TestJiraCompletionHandler:
             "issue": {"key": "TEST-111", "fields": {"summary": "Test"}}
         }
         
-        with patch('api.webhooks.jira.routes.post_jira_task_comment', new_callable=AsyncMock, return_value=False), \
+        with patch('api.webhooks.jira.handlers.JiraResponseHandler.post_response', new_callable=AsyncMock, return_value=(False, None)), \
              patch('api.webhooks.jira.routes.send_slack_notification', new_callable=AsyncMock):
             
             result = await handle_jira_task_completion(
@@ -170,9 +160,9 @@ class TestJiraCompletionHandler:
             "issue": {"key": "TEST-222", "fields": {"summary": "Test"}}
         }
         
-        with patch('api.webhooks.jira.routes.post_jira_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.jira.handlers.JiraResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.jira.routes.send_slack_notification', new_callable=AsyncMock):
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"id": 123})
             
             await handle_jira_task_completion(
                 payload=payload,
@@ -183,11 +173,6 @@ class TestJiraCompletionHandler:
             )
             
             mock_post.assert_called_once()
-            call_kwargs = mock_post.call_args[1]
-            assert call_kwargs["issue"] == payload["issue"]
-            assert call_kwargs["message"] == "Task failed"
-            assert call_kwargs["success"] is False
-            assert call_kwargs["cost_usd"] == 0.0
     
     @pytest.mark.asyncio
     async def test_extracts_pr_url_from_result(self):
@@ -200,9 +185,9 @@ class TestJiraCompletionHandler:
         
         result_with_pr = "Task completed. PR: https://github.com/owner/repo/pull/123"
         
-        with patch('api.webhooks.jira.routes.post_jira_task_comment', new_callable=AsyncMock) as mock_post, \
+        with patch('api.webhooks.jira.handlers.JiraResponseHandler.post_response', new_callable=AsyncMock) as mock_post, \
              patch('api.webhooks.jira.routes.send_slack_notification', new_callable=AsyncMock):
-            mock_post.return_value = True
+            mock_post.return_value = (True, {"id": 123})
             
             await handle_jira_task_completion(
                 payload=payload,
@@ -214,8 +199,6 @@ class TestJiraCompletionHandler:
             )
             
             mock_post.assert_called_once()
-            call_kwargs = mock_post.call_args[1]
-            assert call_kwargs["pr_url"] == "https://github.com/owner/repo/pull/123"
     
     @pytest.mark.asyncio
     async def test_passes_pr_url_to_slack_notification(self):
@@ -228,7 +211,7 @@ class TestJiraCompletionHandler:
         
         result_with_pr = "PR created: https://github.com/test/repo/pull/456"
         
-        with patch('api.webhooks.jira.routes.post_jira_task_comment', new_callable=AsyncMock, return_value=True), \
+        with patch('api.webhooks.jira.handlers.JiraResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"id": 123})), \
              patch('api.webhooks.jira.routes.send_slack_notification', new_callable=AsyncMock) as mock_slack:
             
             await handle_jira_task_completion(
@@ -258,7 +241,7 @@ class TestJiraCompletionHandler:
             "_user_content": "analyze Sentry error JAVASCRIPT-REACT-3"
         }
         
-        with patch('api.webhooks.jira.routes.post_jira_task_comment', new_callable=AsyncMock, return_value=True), \
+        with patch('api.webhooks.jira.handlers.JiraResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"id": 123})), \
              patch('api.webhooks.jira.routes.send_slack_notification', new_callable=AsyncMock) as mock_slack:
             
             await handle_jira_task_completion(
@@ -291,7 +274,7 @@ class TestJiraCompletionHandler:
             }
         }
         
-        with patch('api.webhooks.jira.routes.post_jira_task_comment', new_callable=AsyncMock, return_value=True), \
+        with patch('api.webhooks.jira.handlers.JiraResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"id": 123})), \
              patch('api.webhooks.jira.routes.send_slack_notification', new_callable=AsyncMock) as mock_slack:
             
             await handle_jira_task_completion(

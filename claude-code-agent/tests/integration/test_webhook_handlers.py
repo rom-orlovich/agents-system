@@ -351,17 +351,3 @@ class TestSlackWebhookBehavior:
                 
                 assert mock_http.called or response.status_code in [200, 201]
                 assert response.status_code in [200, 201]
-
-
-@pytest.mark.skip(reason="Sentry operations are not used in this project")
-@pytest.mark.integration
-class TestSentryWebhookBehavior:
-    """Test Sentry webhook business logic and behavior - SKIPPED."""
-    
-    async def test_sentry_webhook_rejects_invalid_signature(self, client: AsyncClient):
-        """Sentry operations not used."""
-        pytest.skip("Sentry operations not used")
-    
-    async def test_sentry_webhook_processes_error_event(self, client: AsyncClient, monkeypatch):
-        """Sentry operations not used."""
-        pytest.skip("Sentry operations not used")

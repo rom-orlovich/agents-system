@@ -1,8 +1,3 @@
-"""
-Jira Webhook Routes
-Main route handler for Jira webhooks.
-"""
-
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
@@ -19,9 +14,26 @@ from api.webhooks.jira.utils import (
     send_jira_immediate_response,
     match_jira_command,
     create_jira_task,
-    is_assignee_changed_to_ai,
-    post_jira_task_comment,
     send_slack_notification,
+    extract_pr_url,
+)
+from api.webhooks.jira.handlers import JiraResponseHandler
+from api.webhooks.jira.metadata import extract_jira_routing
+from api.webhooks.jira.models import JiraTaskCompletionPayload
+from core.database.redis_client import redis_client
+from api.webhooks.jira.constants import (
+    PROVIDER_NAME,
+    FIELD_WEBHOOK_EVENT,
+    FIELD_ISSUE,
+    FIELD_KEY,
+    STATUS_PROCESSED,
+    STATUS_REJECTED,
+    STATUS_RECEIVED,
+    STATUS_ERROR,
+    MESSAGE_DOES_NOT_MEET_RULES,
+    MESSAGE_NO_COMMAND_MATCHED,
+    DEFAULT_EVENT_TYPE,
+    DEFAULT_ISSUE_KEY,
 )
 
 logger = structlog.get_logger()
@@ -53,24 +65,52 @@ async def handle_jira_task_completion(
     Returns:
         True if comment posted successfully, False otherwise
     """
-    from api.webhooks.jira.utils import extract_pr_url
-    from api.webhooks.jira.models import JiraTaskCompletionPayload
-    
     jira_payload = JiraTaskCompletionPayload(**payload)
     
     formatted_message = error if not success and error else message
     pr_url = extract_pr_url(result or message)
     
+    # Add PR URL and cost to formatted message
+    if pr_url and success:
+        formatted_message = f"{formatted_message}\n\n🔗 *Pull Request:* {pr_url}"
+    
+    max_length = 8000
+    if len(formatted_message) > max_length:
+        truncated_message = formatted_message[:max_length]
+        last_period = truncated_message.rfind(".")
+        last_newline = truncated_message.rfind("\n")
+        truncate_at = max(last_period, last_newline)
+        if truncate_at > max_length * 0.8:
+            truncated_message = truncated_message[:truncate_at + 1]
+        formatted_message = truncated_message + "\n\n... (message truncated)"
+    
+    if success and cost_usd > 0:
+        formatted_message += f"\n\n💰 Cost: ${cost_usd:.4f}"
+    
+    # Extract routing metadata from payload
+    routing = extract_jira_routing(payload)
+    
+    # Post using handler
+    handler = JiraResponseHandler()
+    try:
+        comment_posted, response = await handler.post_response(routing, formatted_message)
+        
+        # Track comment ID in Redis if available
+        if comment_posted and response and isinstance(response, dict):
+            comment_id = response.get("id")
+            if comment_id:
+                try:
+                    key = f"jira:posted_comment:{comment_id}"
+                    await redis_client._client.setex(key, 3600, "1")
+                    logger.debug("jira_comment_id_tracked", comment_id=comment_id)
+                except Exception as e:
+                    logger.warning("jira_comment_id_tracking_failed", comment_id=comment_id, error=str(e))
+    except Exception as e:
+        logger.error("jira_handler_post_failed", error=str(e), task_id=task_id)
+        comment_posted = False
+    
     ticket_key = jira_payload.get_ticket_key()
     user_request = jira_payload.get_user_request()
-    
-    comment_posted = await post_jira_task_comment(
-        issue=jira_payload.issue,
-        message=formatted_message,
-        success=success,
-        cost_usd=cost_usd,
-        pr_url=pr_url
-    )
     
     routing_metadata = {}
     if jira_payload.routing:
@@ -89,7 +129,7 @@ async def handle_jira_task_completion(
     
     await send_slack_notification(
         task_id=task_id,
-        webhook_source="jira",
+        webhook_source=PROVIDER_NAME,
         command=command,
         success=success,
         result=result,
@@ -147,7 +187,7 @@ async def jira_webhook(
         
         try:
             payload = json.loads(body.decode())
-            payload["provider"] = "jira"
+            payload["provider"] = PROVIDER_NAME
         except json.JSONDecodeError as e:
             logger.error("jira_payload_parse_error", error=str(e))
             raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {str(e)}")
@@ -155,8 +195,8 @@ async def jira_webhook(
             logger.error("jira_payload_decode_error", error=str(e))
             raise HTTPException(status_code=400, detail=f"Failed to decode payload: {str(e)}")
         
-        issue_key = payload.get("issue", {}).get("key", "unknown")
-        event_type = payload.get("webhookEvent", "unknown")
+        issue_key = payload.get(FIELD_ISSUE, {}).get(FIELD_KEY, DEFAULT_ISSUE_KEY)
+        event_type = payload.get(FIELD_WEBHOOK_EVENT, DEFAULT_EVENT_TYPE)
         
         logger.info("jira_webhook_received", event_type=event_type, issue_key=issue_key, payload_keys=list(payload.keys()))
         
@@ -170,7 +210,7 @@ async def jira_webhook(
                     issue_key=issue_key,
                     reason=validation_result.error_message
                 )
-                return {"status": "rejected", "actions": 0, "message": "Does not meet activation rules"}
+                return {"status": STATUS_REJECTED, "actions": 0, "message": MESSAGE_DOES_NOT_MEET_RULES}
         except Exception as e:
             logger.error("jira_webhook_validation_error", error=str(e), event_type=event_type)
         
@@ -178,7 +218,7 @@ async def jira_webhook(
             command = await match_jira_command(payload, event_type)
             if not command:
                 logger.warning("jira_no_command_matched", event_type=event_type, issue_key=issue_key, payload_sample=str(payload)[:500])
-                return {"status": "received", "actions": 0, "message": "No command matched - requires assignee change to AI agent or @agent prefix"}
+                return {"status": STATUS_RECEIVED, "actions": 0, "message": MESSAGE_NO_COMMAND_MATCHED}
         except Exception as e:
             logger.error("jira_command_matching_error", error=str(e), issue_key=issue_key)
             raise HTTPException(status_code=500, detail=f"Command matching failed: {str(e)}")
@@ -195,7 +235,7 @@ async def jira_webhook(
             event_db = WebhookEventDB(
                 event_id=event_id,
                 webhook_id=JIRA_WEBHOOK.name,
-                provider="jira",
+                provider=PROVIDER_NAME,
                 event_type=event_type,
                 payload_json=json.dumps(payload),
                 matched_command=command.name,
@@ -219,7 +259,7 @@ async def jira_webhook(
         logger.info("jira_webhook_processed", task_id=task_id, command=command.name, event_type=event_type, issue_key=issue_key)
         
         return {
-            "status": "processed",
+            "status": STATUS_PROCESSED,
             "task_id": task_id,
             "command": command.name,
             "immediate_response_sent": immediate_response_sent,
@@ -238,7 +278,7 @@ async def jira_webhook(
             exc_info=True
         )
         return {
-            "status": "error",
+            "status": STATUS_ERROR,
             "error": str(e),
             "error_type": type(e).__name__,
             "issue_key": issue_key

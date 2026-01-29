@@ -47,7 +47,8 @@ class TestGitHubFullProcessVerification:
         10. Completion handler sends Slack notification ✅
         """
         monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "test-secret")
-        
+        monkeypatch.setenv("GITHUB_TOKEN", "test-token")
+
         payload = {
             "action": "created",
             "comment": {"id": 999, "body": "@agent review the pr"},
@@ -78,12 +79,11 @@ class TestGitHubFullProcessVerification:
         
         with patch('api.webhooks.github.utils.github_client.add_reaction', new_callable=AsyncMock) as mock_reaction, \
              patch('api.webhooks.github.utils.redis_client.push_task', new_callable=AsyncMock) as mock_queue, \
-             patch('api.webhooks.github.routes.post_github_task_comment', new_callable=AsyncMock) as mock_post_comment, \
+             patch('api.webhooks.github.handlers.GitHubResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"id": 123})) as mock_post_comment, \
              patch('api.webhooks.github.routes.send_slack_notification', new_callable=AsyncMock) as mock_slack:
-            
-            mock_reaction.return_value = True
+
+            mock_reaction.return_value = {"id": 1, "content": "+1"}
             mock_queue.return_value = None
-            mock_post_comment.return_value = True
             
             # Step 1-5: Route receives, validates, creates task
             response = await client.post(
@@ -144,7 +144,9 @@ class TestGitHubFullProcessVerification:
             # Step 8-9: Verify comment posted
             assert mock_post_comment.called, "GitHub comment should be posted"
             call_args = mock_post_comment.call_args
-            assert call_args[1]["message"] == "Review complete", "Message should be formatted correctly"
+            # post_response() is called with (routing, formatted_message) as positional args
+            formatted_message = call_args[0][1]
+            assert "Review complete" in formatted_message, "Message should be formatted correctly"
             step_tracker["comment_posted"] = True
             
             # Step 10: Verify Slack notification sent
@@ -222,11 +224,10 @@ class TestJiraFullProcessVerification:
         }
         
         with patch('api.webhooks.jira.utils.redis_client.push_task', new_callable=AsyncMock) as mock_queue, \
-             patch('api.webhooks.jira.routes.post_jira_task_comment', new_callable=AsyncMock) as mock_post_comment, \
+             patch('api.webhooks.jira.handlers.JiraResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"id": 123})) as mock_post_comment, \
              patch('api.webhooks.jira.routes.send_slack_notification', new_callable=AsyncMock) as mock_slack:
             
             mock_queue.return_value = None
-            mock_post_comment.return_value = True
             
             # Step 1-4: Route receives, validates, creates task
             response = await client.post(
@@ -283,8 +284,10 @@ class TestJiraFullProcessVerification:
                     # Step 7-8: Verify comment posted with clean formatting
                     assert mock_post_comment.called, "Jira comment should be posted"
                     call_args = mock_post_comment.call_args
-                    assert call_args[1]["message"] == "Analysis complete", "Message should be clean (no emoji)"
-                    assert "❌" not in call_args[1]["message"], "Jira messages should not have emoji"
+                    # post_response() is called with (routing, formatted_message) as positional args
+                    formatted_message = call_args[0][1]
+                    assert "Analysis complete" in formatted_message, "Message should be clean (no emoji)"
+                    assert "❌" not in formatted_message, "Jira messages should not have emoji"
                     step_tracker["message_formatted_cleanly"] = True
                     step_tracker["comment_posted"] = True
                     
@@ -345,12 +348,11 @@ class TestSlackFullProcessVerification:
         
         with patch('api.webhooks.slack.utils.slack_client.post_ephemeral', new_callable=AsyncMock) as mock_ephemeral, \
              patch('api.webhooks.slack.utils.redis_client.push_task', new_callable=AsyncMock) as mock_queue, \
-             patch('api.webhooks.slack.routes.post_slack_task_comment', new_callable=AsyncMock) as mock_post_message, \
+             patch('api.webhooks.slack.handlers.SlackResponseHandler.post_response', new_callable=AsyncMock, return_value=(True, {"ok": True})) as mock_post_message, \
              patch('api.webhooks.slack.routes.send_slack_notification', new_callable=AsyncMock) as mock_slack:
             
             mock_ephemeral.return_value = True
             mock_queue.return_value = None
-            mock_post_message.return_value = True
             
             # Step 1-4: Route receives, validates, creates task
             response = await client.post(
@@ -410,8 +412,10 @@ class TestSlackFullProcessVerification:
                     # Step 7-8: Verify Slack message posted with clean formatting
                     assert mock_post_message.called, "Slack message should be posted"
                     call_args = mock_post_message.call_args
-                    assert call_args[1]["message"] == "Help response", "Message should be clean (no emoji)"
-                    assert "❌" not in call_args[1]["message"], "Slack messages should not have emoji"
+                    # post_response() is called with keyword args: routing=, result=, blocks=
+                    formatted_message = call_args.kwargs.get("result", "")
+                    assert "Help response" in formatted_message, "Message should be clean (no emoji)"
+                    assert "❌" not in formatted_message, "Slack messages should not have emoji"
                     step_tracker["message_formatted_cleanly"] = True
                     step_tracker["slack_message_posted"] = True
                     

@@ -12,7 +12,7 @@ The Claude Code Agent is a self-managing machine where FastAPI runs as a daemon 
 graph TB
     subgraph Container["Container (Pod)"]
         subgraph FastAPIServer["FastAPI Server (DAEMON)"]
-            WebhooksAPI["Webhooks API<br/>/webhooks/github<br/>/webhooks/jira<br/>/webhooks/slack<br/>/webhooks/sentry"]
+            WebhooksAPI["Webhooks API<br/>/webhooks/github<br/>/webhooks/jira<br/>/webhooks/slack"]
             DashboardAPI["Dashboard API<br/>/api/dashboard<br/>/api/conversations<br/>/api/analytics"]
             WebSocketAPI["WebSocket API<br/>/ws/{session_id}"]
             DynamicWebhooks["Dynamic Webhooks<br/>/webhooks/{provider}/{id}"]
@@ -43,7 +43,6 @@ graph TB
         GitHub["GitHub"]
         Jira["Jira"]
         Slack["Slack"]
-        Sentry["Sentry"]
     end
     
     subgraph Dashboard["Dashboard v2 (React)"]
@@ -95,7 +94,7 @@ graph LR
     subgraph APILayer["API Layer"]
         DashboardAPI["api/dashboard.py"]
         ConversationsAPI["api/conversations.py"]
-        WebhooksStatic["api/webhooks/<br/>github.py, jira.py<br/>slack.py, sentry.py"]
+        WebhooksStatic["api/webhooks/<br/>github/, jira/<br/>slack/"]
         WebhooksDynamic["api/webhooks_dynamic.py"]
         WebSocketAPI["api/websocket.py"]
         AnalyticsAPI["api/analytics.py"]

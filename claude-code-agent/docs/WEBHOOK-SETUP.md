@@ -53,10 +53,9 @@ core/
 api/
   webhooks/               # Static webhook handlers
     __init__.py          # Router registration
-    github.py            # GitHub webhook handler (all logic in one file)
-    jira.py              # Jira webhook handler
-    slack.py             # Slack webhook handler
-    sentry.py            # Sentry webhook handler
+    github/              # GitHub webhook module
+    jira/                 # Jira webhook module
+    slack/                # Slack webhook module
   webhooks_dynamic.py    # Dynamic webhook receiver (database-driven)
   webhook_status.py       # Webhook status/monitoring API
 ```
@@ -67,7 +66,6 @@ api/
 - `POST /webhooks/github` - GitHub webhook handler
 - `POST /webhooks/jira` - Jira webhook handler
 - `POST /webhooks/slack` - Slack webhook handler
-- `POST /webhooks/sentry` - Sentry webhook handler
 
 #### Configuration
 **File**: `core/webhook_configs.py`
@@ -182,7 +180,7 @@ Each handler (`api/webhooks/github.py`, etc.) contains:
 ### Recommendations
 
 #### Use Static Routes When:
-- ✅ Standard integrations (GitHub, Jira, Slack, Sentry)
+- ✅ Standard integrations (GitHub, Jira, Slack)
 - ✅ Production webhooks
 - ✅ Team-managed configurations
 - ✅ Type safety is important
@@ -571,7 +569,6 @@ Commands:
 | GitHub | `POST /webhooks/github` | Static | `core/webhook_configs.py` |
 | Jira | `POST /webhooks/jira` | Static | `core/webhook_configs.py` |
 | Slack | `POST /webhooks/slack` | Static | `core/webhook_configs.py` |
-| Sentry | `POST /webhooks/sentry` | Static | `core/webhook_configs.py` |
 
 #### Dynamic Routes (Database-Driven)
 
@@ -580,7 +577,6 @@ Commands:
 | GitHub | `POST /webhooks/github/{webhook_id}` | Dynamic | `/api/webhooks` |
 | Jira | `POST /webhooks/jira/{webhook_id}` | Dynamic | `/api/webhooks` |
 | Slack | `POST /webhooks/slack/{webhook_id}` | Dynamic | `/api/webhooks` |
-| Sentry | `POST /webhooks/sentry/{webhook_id}` | Dynamic | `/api/webhooks` |
 | Custom | `POST /webhooks/custom/{webhook_id}` | Dynamic | `/api/webhooks` |
 
 **Note**: Both static and dynamic routes can coexist. Static routes are recommended for standard integrations, while dynamic routes are useful for user-specific or runtime-configured webhooks.

@@ -92,7 +92,7 @@ async def send_slack_immediate_response(
         event = payload.get("event", {})
         channel = event.get("channel")
         user = event.get("user")
-        text = event.get("text", "")
+        event.get("text", "")
         
         if channel and user:
             try:

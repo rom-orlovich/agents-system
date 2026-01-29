@@ -97,13 +97,6 @@ class TestConversationInheritance:
         result = should_start_new_conversation(prompt, metadata)
         assert result is False  # Flag should win
     
-    def test_flow_id_propagates_even_when_conversation_breaks(self):
-        """Test: flow_id propagates even when conversation breaks."""
-        # This is a requirement test - flow_id should always propagate
-        # regardless of conversation breaks
-        # Implementation will ensure flow_id is preserved in task metadata
-        # even when new conversation is created
-        assert True  # Placeholder - actual test will be in integration tests
 
 
 class TestFlowIdPropagationWithConversationBreaks:
