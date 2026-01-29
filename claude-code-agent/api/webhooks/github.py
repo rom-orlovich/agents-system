@@ -20,7 +20,7 @@ from core.config import settings
 from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB, SessionDB, TaskDB
 from core.database.redis_client import redis_client
-from core.webhook_configs import GITHUB_WEBHOOK, get_webhook_by_endpoint
+from core.webhook_configs import GITHUB_WEBHOOK, get_webhook_by_endpoint, get_trigger_prefixes
 from core.webhook_engine import render_template, create_webhook_conversation
 from core.github_client import github_client
 from shared.machine_models import WebhookCommand
@@ -162,12 +162,15 @@ def match_github_command(payload: dict, event_type: str) -> Optional[WebhookComm
             if cmd.name == GITHUB_WEBHOOK.default_command:
                 return cmd
         return GITHUB_WEBHOOK.commands[0] if GITHUB_WEBHOOK.commands else None
-    
-    # Check prefix
-    prefix = GITHUB_WEBHOOK.command_prefix.lower()
+
+    # Check all trigger prefixes (including aliases like @agent, @claude, @bot)
+    trigger_prefixes = get_trigger_prefixes("github")
     text_lower = text.lower()
-    
-    if prefix not in text_lower:
+
+    # Check if any prefix matches
+    prefix_found = any(prefix.lower() in text_lower for prefix in trigger_prefixes if prefix)
+
+    if not prefix_found:
         # Use default command
         for cmd in GITHUB_WEBHOOK.commands:
             if cmd.name == GITHUB_WEBHOOK.default_command:

@@ -13,7 +13,7 @@ import structlog
 from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB, SessionDB, TaskDB
 from core.database.redis_client import redis_client
-from core.webhook_configs import JIRA_WEBHOOK
+from core.webhook_configs import JIRA_WEBHOOK, get_assignee_trigger, get_trigger_prefixes
 from core.webhook_engine import render_template, create_webhook_conversation
 import base64
 import httpx
@@ -46,9 +46,10 @@ async def verify_jira_signature(request: Request, body: bytes) -> None:
 
 
 def is_assignee_changed_to_ai(payload: dict, event_type: str) -> bool:
-    from core.config import settings
-    
-    ai_agent_name = settings.jira_ai_agent_name or os.getenv("JIRA_AI_AGENT_NAME", "AI Agent")
+    # Get assignee trigger from YAML config, fall back to env var or settings
+    ai_agent_name = get_assignee_trigger("jira")
+    if not ai_agent_name:
+        ai_agent_name = os.getenv("JIRA_AI_AGENT_NAME") or settings.jira_ai_agent_name or "AI Agent"
     
     changelog = payload.get("changelog", {})
     if changelog:
@@ -140,11 +141,15 @@ def match_jira_command(payload: dict, event_type: str) -> Optional[WebhookComman
             if cmd.name == JIRA_WEBHOOK.default_command:
                 return cmd
         return JIRA_WEBHOOK.commands[0] if JIRA_WEBHOOK.commands else None
-    
-    prefix = JIRA_WEBHOOK.command_prefix.lower()
+
+    # Check all trigger prefixes (including aliases like @agent, @claude, @bot)
+    trigger_prefixes = get_trigger_prefixes("jira")
     text_lower = text.lower()
-    
-    if prefix not in text_lower:
+
+    # Check if any prefix matches
+    prefix_found = any(prefix.lower() in text_lower for prefix in trigger_prefixes if prefix)
+
+    if not prefix_found:
         for cmd in JIRA_WEBHOOK.commands:
             if cmd.name == JIRA_WEBHOOK.default_command:
                 return cmd
