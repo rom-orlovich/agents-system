@@ -9,7 +9,6 @@ from pathlib import Path
 from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB
 from core.webhook_configs import JIRA_WEBHOOK
-from core.task_logger import TaskLogger
 from core.config import settings
 from api.webhooks.jira.utils import (
     send_slack_notification,
@@ -212,35 +211,8 @@ async def jira_webhook(
 
         logger.info("jira_webhook_received", event_type=event_type, issue_key=issue_key, payload_keys=list(payload.keys()))
 
-        task_id = f"task-{uuid.uuid4().hex[:12]}"
-
-        task_logger = None
-        if settings.task_logs_enabled:
-            try:
-                task_logger = TaskLogger(task_id, settings.task_logs_dir)
- 
-                task_logger.append_webhook_event({
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "stage": "received",
-                    "event_type": event_type,
-                    "issue_key": issue_key
-                })
-            except Exception as e:
-                logger.warning("jira_task_logger_init_failed", task_id=task_id, error=str(e))
-        
         try:
             validation_result = await webhook_handler.validate_webhook(payload)
-
-            if task_logger:
-                try:
-                    task_logger.append_webhook_event({
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "stage": "validation",
-                        "status": "passed" if validation_result.is_valid else "failed",
-                        "reason": validation_result.error_message if not validation_result.is_valid else None
-                    })
-                except Exception as e:
-                    logger.warning("jira_validation_log_failed", task_id=task_id, error=str(e))
 
             if not validation_result.is_valid:
                 logger.info(
@@ -256,17 +228,6 @@ async def jira_webhook(
         try:
             command = await webhook_handler.match_command(payload, event_type)
 
-            if task_logger:
-                try:
-                    task_logger.append_webhook_event({
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "stage": "command_matching",
-                        "command": command.name if command else None,
-                        "matched": bool(command)
-                    })
-                except Exception as e:
-                    logger.warning("jira_command_match_log_failed", task_id=task_id, error=str(e))
-
             if not command:
                 logger.warning("jira_no_command_matched", event_type=event_type, issue_key=issue_key, payload_sample=str(payload)[:500])
                 return {"status": STATUS_RECEIVED, "actions": 0, "message": MESSAGE_NO_COMMAND_MATCHED}
@@ -275,55 +236,11 @@ async def jira_webhook(
             raise HTTPException(status_code=500, detail=f"Command matching failed: {str(e)}")
 
         logger.info("jira_command_matched", command=command.name, event_type=event_type, issue_key=issue_key)
-        
-        immediate_response_sent = await webhook_handler.send_immediate_response(payload, command, event_type)
 
-        if task_logger:
-            try:
-                task_logger.append_webhook_event({
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "stage": "immediate_response",
-                    "action": command.immediate_response if hasattr(command, 'immediate_response') else None,
-                    "success": immediate_response_sent
-                })
-            except Exception as e:
-                logger.warning("jira_immediate_response_log_failed", task_id=task_id, error=str(e))
+        immediate_response_sent = await webhook_handler.send_immediate_response(payload, command, event_type)
 
         actual_task_id = await webhook_handler.create_task(command, payload, db, COMPLETION_HANDLER)
         logger.info("jira_task_created_success", task_id=actual_task_id, issue_key=issue_key)
-
-        # Log task creation and write metadata/input
-        if task_logger:
-            try:
-                task_logger.append_webhook_event({
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "stage": "task_created",
-                    "task_id": actual_task_id,
-                    "agent": command.target_agent if hasattr(command, 'target_agent') else None,
-                    "command": command.name
-                })
-
-                task_logger.write_metadata({
-                    "task_id": actual_task_id,
-                    "source": "webhook",
-                    "provider": PROVIDER_NAME,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "status": "queued",
-                    "assigned_agent": command.target_agent if hasattr(command, 'target_agent') else None,
-                    "model": None
-                })
-
-                task_logger.write_input({
-                    "message": f"Jira {event_type}: {issue_key}",
-                    "source_metadata": {
-                        "provider": PROVIDER_NAME,
-                        "event_type": event_type,
-                        "issue_key": issue_key,
-                        "command": command.name
-                    }
-                })
-            except Exception as e:
-                logger.warning("jira_task_creation_log_failed", task_id=task_id, error=str(e))
 
         task_id = actual_task_id
         
@@ -352,17 +269,6 @@ async def jira_webhook(
             handler=COMPLETION_HANDLER,
             message="Completion handler will be called by task worker when task completes"
         )
-        
-        if task_logger:
-            try:
-                task_logger.append_webhook_event({
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "stage": "queue_push",
-                    "task_id": task_id,
-                    "status": "queued"
-                })
-            except Exception as e:
-                logger.warning("jira_queue_push_log_failed", task_id=task_id, error=str(e))
 
         logger.info("jira_webhook_processed", task_id=task_id, command=command.name, event_type=event_type, issue_key=issue_key)
 

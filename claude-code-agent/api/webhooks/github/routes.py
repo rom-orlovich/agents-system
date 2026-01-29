@@ -7,7 +7,6 @@ import structlog
 from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB
 from core.webhook_configs import GITHUB_WEBHOOK
-from core.task_logger import TaskLogger
 from core.config import settings
 from api.webhooks.github.utils import (
     send_slack_notification,
@@ -100,37 +99,7 @@ async def github_webhook(
             comment_preview=payload.get("comment", {}).get("body", "")[:100] if payload.get("comment") else None
         )
 
-        task_id = f"task-{uuid.uuid4().hex[:12]}"
-
-        task_logger = None
-        if settings.task_logs_enabled:
-            try:
-                task_logger = TaskLogger(task_id, settings.task_logs_dir)
-
-                task_logger.append_webhook_event({
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "stage": "received",
-                    "event_type": event_type,
-                    "action": payload.get("action"),
-                    "repo": repo_info,
-                    "issue_number": issue_number,
-                    "comment_id": payload.get("comment", {}).get("id")
-                })
-            except Exception as e:
-                logger.warning("github_task_logger_init_failed", task_id=task_id, error=str(e))
-        
         validation_result = await webhook_handler.validate_webhook(payload)
-
-        if task_logger:
-            try:
-                task_logger.append_webhook_event({
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "stage": "validation",
-                    "status": "passed" if validation_result.is_valid else "failed",
-                    "reason": validation_result.error_message if not validation_result.is_valid else None
-                })
-            except Exception as e:
-                logger.warning("github_validation_log_failed", task_id=task_id, error=str(e))
 
         if not validation_result.is_valid:
             logger.info(
@@ -146,17 +115,6 @@ async def github_webhook(
         
         command = await webhook_handler.match_command(payload)
 
-        if task_logger:
-            try:
-                task_logger.append_webhook_event({
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "stage": "command_matching",
-                    "command": command.name if command else None,
-                    "matched": bool(command)
-                })
-            except Exception as e:
-                logger.warning("github_command_match_log_failed", task_id=task_id, error=str(e))
-
         if not command:
             logger.warning(
                 "github_no_command_matched",
@@ -169,17 +127,6 @@ async def github_webhook(
             return {"status": STATUS_RECEIVED, "actions": 0, "message": MESSAGE_NO_COMMAND_MATCHED}
         
         immediate_response_sent = await webhook_handler.send_immediate_response(payload, command, event_type)
-
-        if task_logger:
-            try:
-                task_logger.append_webhook_event({
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "stage": "immediate_response",
-                    "action": command.immediate_response if command else None,
-                    "success": immediate_response_sent
-                })
-            except Exception as e:
-                logger.warning("github_immediate_response_log_failed", task_id=task_id, error=str(e))
 
         if not immediate_response_sent:
             logger.error(
@@ -197,53 +144,6 @@ async def github_webhook(
 
         actual_task_id = await webhook_handler.create_task(command, payload, db, COMPLETION_HANDLER)
         logger.info("github_task_created_success", task_id=actual_task_id, repo=repo_info, issue_number=issue_number)
-
-        if task_logger:
-            try:
-                task_logger.append_webhook_event({
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "stage": "task_created",
-                    "task_id": actual_task_id,
-                    "agent": command.agent_type,
-                    "command": command.name
-                })
-
-                task_logger.write_metadata({
-                    "task_id": actual_task_id,
-                    "source": "webhook",
-                    "provider": PROVIDER_NAME,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "status": "queued",
-                    "assigned_agent": command.agent_type,
-                    "command": command.name
-                })
-
-                comment_body = payload.get("comment", {}).get("body", "")
-                task_logger.write_input({
-                    "message": command.generate_input_message(payload),
-                    "source_metadata": {
-                        "provider": PROVIDER_NAME,
-                        "event_type": event_type,
-                        "repo": repo_info,
-                        "issue_number": issue_number,
-                        "comment_id": payload.get("comment", {}).get("id"),
-                        "comment_body": comment_body[:500] if comment_body else None,
-                        "webhook_id": GITHUB_WEBHOOK.name
-                    }
-                })
-            except Exception as e:
-                logger.warning("github_task_creation_log_failed", task_id=actual_task_id, error=str(e))
-        
-        if task_logger:
-            try:
-                task_logger.append_webhook_event({
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "stage": "queue_push",
-                    "task_id": actual_task_id,
-                    "status": "queued"
-                })
-            except Exception as e:
-                logger.warning("github_queue_push_log_failed", task_id=actual_task_id, error=str(e))
 
         event_id = f"evt-{uuid.uuid4().hex[:12]}"
         event_db = WebhookEventDB(
