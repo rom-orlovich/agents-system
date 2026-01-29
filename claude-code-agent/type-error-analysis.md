@@ -232,7 +232,13 @@ async def send_approval_notification(
 | `github/handlers.py:handle_github_task_completion()` | ✅ FIXED (2026-01-29) |
 | `github/handlers.py:send_approval_notification()` | ✅ FIXED (2026-01-29) |
 | `jira/utils.py:send_slack_notification()` | ✅ SAFE (Pydantic) |
+| `core/webhook_validation.py:extract_command()` | ✅ FIXED (2026-01-29) |
+| `slack/validation.py:validate_response_format()` | ✅ FIXED (2026-01-29) |
+| `github/validation.py:validate_response_format()` | ✅ FIXED (2026-01-29) |
+| `jira/validation.py:validate_response_format()` | ✅ FIXED (2026-01-29) |
+| `jira/utils.py:extract_pr_url()` | ✅ FIXED (2026-01-29) |
+| `jira/utils.py:extract_pr_routing()` | ✅ FIXED (2026-01-29) |
 
-**Recurrence Probability**: LOW (<10%) - All entry points now have defensive type conversion.
+**Recurrence Probability**: VERY LOW (<5%) - All entry points now have defensive type conversion.
 
 **Remaining work**: Add regression tests to prevent future regressions.
