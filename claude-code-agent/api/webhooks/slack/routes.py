@@ -214,13 +214,44 @@ async def slack_webhook(
         channel = event.get(FIELD_CHANNEL, DEFAULT_CHANNEL)
 
         event_type = event.get(FIELD_TYPE, DEFAULT_EVENT_TYPE)
-        
+
         logger.info("slack_webhook_received", event_type=event_type, channel=channel)
-        
+
+        # Generate task_id early for logging
+        task_id = f"task-{uuid.uuid4().hex[:12]}"
+
+        # Initialize TaskLogger if enabled
+        task_logger = None
+        if settings.task_logs_enabled:
+            try:
+                task_logger = TaskLogger(task_id, settings.task_logs_dir)
+
+                # Log webhook received stage
+                task_logger.append_webhook_event({
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "stage": "received",
+                    "event_type": event_type,
+                    "channel": channel
+                })
+            except Exception as e:
+                logger.warning("slack_task_logger_init_failed", task_id=task_id, error=str(e))
+
         # Step 3: Validate webhook
         try:
             validation_result = await webhook_handler.validate_webhook(payload)
-            
+
+            # Log validation stage
+            if task_logger:
+                try:
+                    task_logger.append_webhook_event({
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "stage": "validation",
+                        "status": "passed" if validation_result.is_valid else "failed",
+                        "reason": validation_result.error_message if not validation_result.is_valid else None
+                    })
+                except Exception as e:
+                    logger.warning("slack_validation_log_failed", task_id=task_id, error=str(e))
+
             if not validation_result.is_valid:
                 logger.info(
                     "slack_webhook_rejected_by_validation",
@@ -235,19 +266,83 @@ async def slack_webhook(
         # Step 4: Match command
         try:
             command = await webhook_handler.match_command(payload)
+
+            # Log command matching stage
+            if task_logger:
+                try:
+                    task_logger.append_webhook_event({
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "stage": "command_matching",
+                        "command": command.name if command else None,
+                        "matched": bool(command)
+                    })
+                except Exception as e:
+                    logger.warning("slack_command_match_log_failed", task_id=task_id, error=str(e))
+
             if not command:
                 logger.warning("slack_no_command_matched", event_type=event_type, channel=channel)
                 return {"status": STATUS_RECEIVED, "actions": 0, "message": MESSAGE_NO_COMMAND_MATCHED}
         except Exception as e:
             logger.error("slack_command_matching_error", error=str(e), channel=channel)
             raise HTTPException(status_code=500, detail=f"Command matching failed: {str(e)}")
-        
+
         # Step 5: Send immediate response
         immediate_response_sent = await webhook_handler.send_immediate_response(payload, command, event_type)
 
+        # Log immediate response stage
+        if task_logger:
+            try:
+                task_logger.append_webhook_event({
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "stage": "immediate_response",
+                    "action": command.immediate_response if hasattr(command, 'immediate_response') else None,
+                    "success": immediate_response_sent
+                })
+            except Exception as e:
+                logger.warning("slack_immediate_response_log_failed", task_id=task_id, error=str(e))
+
         # Step 6: Create task
-        task_id = await webhook_handler.create_task(command, payload, db, COMPLETION_HANDLER)
-        logger.info("slack_task_created_success", task_id=task_id, channel=channel)
+        actual_task_id = await webhook_handler.create_task(command, payload, db, COMPLETION_HANDLER)
+        logger.info("slack_task_created_success", task_id=actual_task_id, channel=channel)
+
+        # Log task creation and write metadata/input
+        if task_logger:
+            try:
+                task_logger.append_webhook_event({
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "stage": "task_created",
+                    "task_id": actual_task_id,
+                    "agent": command.target_agent if hasattr(command, 'target_agent') else None,
+                    "command": command.name
+                })
+
+                # Write metadata
+                task_logger.write_metadata({
+                    "task_id": actual_task_id,
+                    "source": "webhook",
+                    "provider": PROVIDER_NAME,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "status": "queued",
+                    "assigned_agent": command.target_agent if hasattr(command, 'target_agent') else None,
+                    "model": None
+                })
+
+                # Write input
+                message_text = event.get(FIELD_TEXT, "")
+                task_logger.write_input({
+                    "message": message_text,
+                    "source_metadata": {
+                        "provider": PROVIDER_NAME,
+                        "event_type": event_type,
+                        "channel": channel,
+                        "command": command.name
+                    }
+                })
+            except Exception as e:
+                logger.warning("slack_task_creation_log_failed", task_id=task_id, error=str(e))
+
+        # Update task_id to actual task_id from create_task
+        task_id = actual_task_id
         
         try:
             event_id = f"evt-{uuid.uuid4().hex[:12]}"
@@ -275,8 +370,20 @@ async def slack_webhook(
             message="Completion handler will be called by task worker when task completes"
         )
         
+        # Log queue push stage
+        if task_logger:
+            try:
+                task_logger.append_webhook_event({
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "stage": "queue_push",
+                    "task_id": task_id,
+                    "status": "queued"
+                })
+            except Exception as e:
+                logger.warning("slack_queue_push_log_failed", task_id=task_id, error=str(e))
+
         logger.info("slack_webhook_processed", task_id=task_id, command=command.name, event_type=event_type, channel=channel)
-        
+
         return {
             "status": STATUS_PROCESSED,
             "task_id": task_id,
