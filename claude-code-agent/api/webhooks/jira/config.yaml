@@ -1,0 +1,300 @@
+# Jira Webhook Configuration
+# ==========================
+# This file configures how the agent responds to Jira events.
+# Edit this file to customize commands, triggers, and behavior.
+
+name: jira
+description: Jira webhook for issue updates and comments
+endpoint: /webhooks/jira
+source: jira
+
+# Agent Trigger Configuration
+# ---------------------------
+# These are the prefixes that trigger the agent to respond.
+# The assignee_trigger is used when a ticket is assigned to the AI agent.
+agent_trigger:
+  prefix: "@agent"
+  aliases:
+    - "@claude"
+    - "@bot"
+    - "@ai-agent"
+  # When a Jira ticket is assigned to this user, the agent is triggered
+  assignee_trigger: "ai-agent"
+
+# Default agent for routing tasks
+target_agent: brain
+
+# Default command when no specific command is detected
+default_command: analyze
+
+# Security Configuration
+# ----------------------
+security:
+  requires_signature: true
+  signature_header: X-Jira-Signature
+  secret_env_var: JIRA_WEBHOOK_SECRET
+
+# Commands Configuration
+# ----------------------
+commands:
+  - name: analyze
+    aliases:
+      - analysis
+      - analyze-ticket
+    description: Analyze a Jira ticket
+    target_agent: planning
+    requires_approval: false
+    prompt_template: |
+      Analyze this Jira ticket:
+
+      Key: {{issue.key}}
+      Summary: {{issue.fields.summary}}
+      Description: {{issue.fields.description}}
+
+      Project: {{issue.fields.project.name}}
+
+      **User Request:** {{_user_content}}
+
+      **Full Comment:**
+      {{comment.body}}
+
+      1. Perform analysis addressing the user request.
+      2. Save to file (e.g., analysis.md).
+      3. If analysis indicates code changes are needed OR if user requests implementation:
+         - Create a Draft PR with the analysis/plan
+         - Use github-operations skill to create PR:
+           .claude/skills/github-operations/scripts/create_draft_pr.sh owner/repo "[{{issue.key}}] Analysis" "$(cat analysis.md)"
+         - Extract PR URL from output
+         - Post analysis back to Jira with PR link:
+           python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} analysis.md
+         - Include PR URL in the Jira comment
+      4. If no code changes needed (test error, documentation only, etc.):
+         - Post analysis back to Jira:
+           python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} analysis.md
+         - Clearly state "No PR created - no code changes required"
+
+      Always create a PR if:
+      - Code changes are needed
+      - User explicitly requests implementation
+      - Analysis identifies bugs or improvements requiring code changes
+
+      Do NOT create PR if:
+      - Analysis confirms it's a test error (no production bug)
+      - Only documentation updates needed
+      - Issue is already resolved
+      - User only requested analysis, not implementation
+
+  - name: plan
+    aliases:
+      - plan-fix
+      - create-plan
+    description: Create a plan to resolve a Jira ticket
+    target_agent: planning
+    requires_approval: false
+    prompt_template: |
+      Create a detailed plan to resolve this Jira ticket:
+
+      {{issue.key}}: {{issue.fields.summary}}
+
+      {{issue.fields.description}}
+
+      Project: {{issue.fields.project.name}}
+
+      **User Request:** {{_user_content}}
+
+      **Full Comment:**
+      {{comment.body}}
+
+      1. Create plan addressing the user request.
+      2. Save to file (e.g., plan.md).
+      3. Post plan back to Jira:
+         python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} plan.md
+
+  - name: fix
+    aliases:
+      - implement
+      - execute
+    description: Implement a fix for a Jira ticket
+    target_agent: executor
+    requires_approval: true
+    prompt_template: |
+      Implement a fix for this Jira ticket:
+
+      {{issue.key}}: {{issue.fields.summary}}
+
+      {{issue.fields.description}}
+
+      Project: {{issue.fields.project.name}}
+
+      **User Request:** {{_user_content}}
+
+      **Full Comment:**
+      {{comment.body}}
+
+      1. Implement fix addressing the user request.
+      2. Save summary to file.
+      3. Post summary back to Jira:
+         python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} summary.md
+
+  - name: approve
+    aliases:
+      - lgtm
+      - approved
+      - ship-it
+    description: Approve a plan or implementation
+    target_agent: executor
+    requires_approval: false
+    prompt_template: |
+      Approval received for Jira ticket {{issue.key}}.
+
+      **User Comment:** {{_user_content}}
+
+      **Original Comment:**
+      {{comment.body}}
+
+      1. Process the approval
+      2. Proceed with execution if all approvals received
+      3. Post confirmation back to Jira:
+         python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} confirmation.md
+
+  - name: reject
+    aliases:
+      - changes-requested
+      - request-changes
+      - revise
+    description: Request changes or reject a plan
+    target_agent: planning
+    requires_approval: false
+    prompt_template: |
+      Changes requested for Jira ticket {{issue.key}}.
+
+      **User Feedback:** {{_user_content}}
+
+      **Original Comment:**
+      {{comment.body}}
+
+      1. Analyze the feedback
+      2. Revise the plan/implementation
+      3. Post updated plan back to Jira:
+         python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} revised_plan.md
+
+  - name: improve
+    aliases:
+      - enhance
+      - refactor
+      - optimize
+    description: Improve or refactor code
+    target_agent: executor
+    requires_approval: true
+    prompt_template: |
+      Improvement requested for Jira ticket {{issue.key}}.
+
+      **User Request:** {{_user_content}}
+
+      **Original Comment:**
+      {{comment.body}}
+
+      ## Parse External Sources
+
+      If the user request mentions external sources (e.g., "by github/confluence code from xyz"), extract:
+      - Source type: github, confluence, or other
+      - Source reference: repository path, page URL, or identifier
+      - Code location: file path, function name, or section
+
+      Examples:
+      - "@agent improve jira ticket by github code from owner/repo path/to/file.py"
+      - "@agent improve jira ticket by confluence code from space:page:section"
+
+      ## Steps
+
+      1. Parse user request to identify external source references if present
+      2. If external source specified:
+         - Fetch code/content from GitHub (using github-operations skill) or Confluence
+         - Analyze the external code/content
+         - Understand how it relates to the Jira ticket
+      3. Analyze what needs improvement in the current codebase
+      4. Implement improvements based on external reference if provided
+      5. Post summary back to Jira with source references:
+         python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} improvement_summary.md
+
+      Include in summary:
+      - External sources referenced (if any)
+      - Improvements made
+      - Files modified
+
+  - name: discover
+    aliases:
+      - code
+      - explore
+      - find-code
+      - code-insights
+    description: Discover code and provide insights from GitHub/Confluence
+    target_agent: jira-code-plan
+    requires_approval: false
+    prompt_template: |
+      Discover code and provide insights for Jira ticket {{issue.key}}.
+
+      **User Request:** {{_user_content}}
+
+      **Original Comment:**
+      {{comment.body}}
+
+      ## Parse Discovery Sources
+
+      Extract source information from user request:
+      - Source type: github, confluence, or codebase
+      - Source reference: repository path, page URL, file path, or search terms
+      - What to discover: functions, classes, patterns, relationships
+
+      Examples:
+      - "@agent discover from github owner/repo path/to/file.py"
+      - "@agent discover from confluence space:page"
+      - "@agent discover authentication flow"
+
+      ## Steps
+
+      1. Parse user request to identify discovery sources
+      2. Use discovery skill to search codebase or fetch from external sources:
+         - If GitHub: Use github-operations skill to fetch code
+         - If Confluence: Fetch content from Confluence
+         - If codebase: Use discovery skill to search locally
+      3. Analyze discovered code/content:
+         - Understand functionality and relationships
+         - Identify patterns and dependencies
+         - Extract key insights
+      4. Format findings with code snippets, file paths, and explanations
+      5. Post results back to Jira ticket:
+         python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} discovery_results.md
+
+      Include in results:
+      - Source references (GitHub URLs, Confluence links, file paths)
+      - Key findings and insights
+      - Code snippets with explanations
+      - Related files and dependencies
+
+  - name: help
+    aliases:
+      - commands
+      - what-can-you-do
+    description: Show available commands
+    target_agent: brain
+    requires_approval: false
+    prompt_template: |
+      User asked for help on Jira ticket {{issue.key}}.
+
+      **User's Question:** {{_user_content}}
+
+      Generate a helpful response listing available commands and how to use them.
+
+      Available commands:
+      - @agent analyze - Analyze a Jira ticket
+      - @agent plan - Create an implementation plan
+      - @agent fix - Implement a fix (requires approval)
+      - @agent approve - Approve a plan
+      - @agent reject - Request changes
+      - @agent improve - Improve/refactor code (requires approval)
+      - @agent discover - Discover code insights from GitHub/Confluence
+      - @agent help - Show this help message
+
+      Post response using:
+      python .claude/skills/jira-operations/scripts/post_comment.py {{issue.key}} help.md
