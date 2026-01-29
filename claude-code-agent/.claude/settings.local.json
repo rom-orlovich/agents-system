@@ -34,14 +34,11 @@
       "Bash(chmod:*)",
       "Bash(uv run pytest:*)",
       "Bash(uv run python:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   },
   "enabledMcpjsonServers": [],
-  "disabledMcpjsonServers": [
-    "filesystem",
-    "reddit",
-    "gitmcp",
-    "github"
-  ]
+  "disabledMcpjsonServers": []
 }
