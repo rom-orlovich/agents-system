@@ -44,6 +44,7 @@ A self-managing machine where FastAPI runs as a daemon and Claude Code CLI is sp
 - 🤖 **13 Agents**: 9 Core Agents (Brain, Planning, Executor, Service Integrator, Self-Improvement, Agent Creator, Skill Creator, Verifier, Webhook Generator) + 4 Workflow Agents (GitHub Issue Handler, GitHub PR Review, Jira Code Plan, Slack Inquiry)
 - 🔄 **Automatic Response Posting**: Workflow agents automatically post results back to GitHub/Jira/Slack
 - 📊 **Advanced Analytics**: Cost tracking, usage metrics, OAuth monitoring, conversation analytics
+- 📝 **Task Logging**: Structured logging for every task with JSONL streams ([docs](docs/TASK-LOGGING.md))
 - 🗄️ **Dual Storage**: Redis (queue/cache) + SQLite (persistence)
 - 🔌 **Hybrid Webhooks**: Static routes (hard-coded) + Dynamic routes (database-driven)
 - 🧪 **TDD Workflow**: Full test-driven development with E2E validation
