@@ -39,7 +39,13 @@ class SlackWebhookHandler:
     async def match_command(self, payload: dict):
         """Match command from webhook payload."""
         from api.webhooks.slack.utils import match_slack_command
-        return await match_slack_command(payload)
+        from api.webhooks.slack.constants import FIELD_EVENT, FIELD_TYPE, DEFAULT_EVENT_TYPE
+
+        # Extract event_type from payload
+        event = payload.get(FIELD_EVENT, {})
+        event_type = event.get(FIELD_TYPE, DEFAULT_EVENT_TYPE)
+
+        return await match_slack_command(payload, event_type)
 
     async def send_immediate_response(self, payload: dict, command, event_type: str):
         """Send immediate response to Slack."""
