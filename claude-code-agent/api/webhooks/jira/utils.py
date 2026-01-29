@@ -313,6 +313,9 @@ async def match_jira_command(payload: dict, event_type: str) -> Optional[Webhook
         text = fields.get("description", "") or fields.get("summary", "")
 
     if is_assignee_changed_to_ai(payload, event_type):
+        if JIRA_WEBHOOK is None:
+            logger.warning("jira_webhook_config_missing")
+            return None
         for cmd in JIRA_WEBHOOK.commands:
             if cmd.name == JIRA_WEBHOOK.default_command:
                 payload["_user_content"] = ""
@@ -338,6 +341,10 @@ async def match_jira_command(payload: dict, event_type: str) -> Optional[Webhook
     
     command_name_lower = command_name.lower()
 
+    if JIRA_WEBHOOK is None:
+        logger.warning("jira_webhook_config_missing")
+        return None
+
     for cmd in JIRA_WEBHOOK.commands:
         if cmd.name.lower() == command_name_lower:
             return cmd
@@ -357,8 +364,14 @@ async def create_jira_task(
 ) -> str:
     """Create a task from Jira webhook."""
     task_id = f"task-{uuid.uuid4().hex[:12]}"
-    
-    base_message = render_template(command.prompt_template, payload, task_id=task_id)
+
+    from api.webhooks.common.utils import get_template_content
+    template_content = get_template_content(command, "jira")
+
+    if not template_content:
+        raise ValueError(f"No template found for command: {command.name}")
+
+    base_message = render_template(template_content, payload, task_id=task_id)
     
     from core.webhook_engine import wrap_prompt_with_brain_instructions
     message = wrap_prompt_with_brain_instructions(base_message, task_id=task_id)
@@ -479,21 +492,39 @@ def extract_pr_url(text: str) -> Optional[str]:
     """Extract PR URL from text if present."""
     if not text:
         return None
-    
+
+    # Defensive type conversion to prevent TypeError with regex
+    if isinstance(text, list):
+        text = " ".join(str(item) for item in text if item)
+    elif not isinstance(text, str):
+        text = str(text) if text else ""
+
+    if not text:
+        return None
+
     url_match = re.search(r'https://github\.com/[^/\s]+/[^/\s]+/(?:pull|pulls)/\d+', text, re.IGNORECASE)
     if url_match:
         return url_match.group(0)
-    
+
     return None
 
 
 def extract_pr_routing(pr_url: str):
     """Extract repo and PR number from PR URL."""
     from api.webhooks.jira.models import PRRouting
-    
+
     if not pr_url:
         return None
-    
+
+    # Defensive type conversion to prevent TypeError with regex
+    if isinstance(pr_url, list):
+        pr_url = " ".join(str(item) for item in pr_url if item)
+    elif not isinstance(pr_url, str):
+        pr_url = str(pr_url) if pr_url else ""
+
+    if not pr_url:
+        return None
+
     match = re.match(r'https://github\.com/([^/]+)/([^/]+)/(?:pull|pulls)/(\d+)', pr_url, re.IGNORECASE)
     if match:
         owner, repo_name, pr_number = match.groups()
@@ -501,7 +532,7 @@ def extract_pr_routing(pr_url: str):
             repo=f"{owner}/{repo_name}",
             pr_number=int(pr_number)
         )
-    
+
     return None
 
 
@@ -589,7 +620,7 @@ async def send_slack_notification(
         return False
     
     from core.slack_client import slack_client
-    from api.webhooks.slack.utils import extract_task_summary, build_task_completion_blocks
+    from api.webhooks.slack.utils import extract_task_summary
     from core.webhook_configs import JIRA_WEBHOOK
     from api.webhooks.jira.models import SlackNotificationRequest
     
@@ -636,7 +667,7 @@ async def send_slack_notification(
         summary.summary = request.result[:200] + "..." if len(request.result) > 200 else request.result
     
     requires_approval = False
-    if request.command:
+    if request.command and JIRA_WEBHOOK is not None:
         for cmd in JIRA_WEBHOOK.commands:
             if cmd.name == request.command:
                 requires_approval = cmd.requires_approval

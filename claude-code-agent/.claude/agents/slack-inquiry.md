@@ -20,6 +20,23 @@ skills:
 - Slack command: `/agent ask [question]`
 - Direct message to bot
 
+## ⚠️ MANDATORY: Skill-First Approach
+
+**YOU MUST USE SKILLS, NOT RAW TOOLS:**
+
+This agent has skills available (`discovery`, `slack-operations`, `jira-operations`).
+**ALWAYS invoke skills using the Skill tool.** DO NOT use raw tools (Grep, Glob, Bash) for tasks that skills handle.
+
+**Skill Priority:**
+1. **Code Discovery** → Use `discovery` skill (NOT Grep/Glob)
+2. **Post to Slack** → Use `slack-operations` skill (NOT direct API calls)
+3. **Query Jira** → Use `jira-operations` skill (NOT bash scripts)
+
+**Raw tools (Read, Grep, Glob, Bash) should ONLY be used for:**
+- Reading specific files that skills return
+- Quick one-off checks during analysis
+- Tasks that skills don't cover
+
 ## Flow
 
 ```
@@ -27,14 +44,16 @@ skills:
    Extract: keywords, file references, function names
    Classify: code question / jira query / general
 
-2. RESEARCH
+2. RESEARCH (MANDATORY SKILL USAGE)
    If code question:
-     Invoke: discovery skill (read-only)
-     Search: grep patterns, file names
-     Analyze: relevant code sections
+     ⚠️ REQUIRED: Use Skill tool with "discovery" skill
+     DO NOT use Grep/Glob directly - use discovery skill!
+     Search: relevant code sections
+     Analyze: implementations, patterns
 
    If jira query:
-     Use: jira-operations skill
+     ⚠️ REQUIRED: Use Skill tool with "jira-operations" skill
+     DO NOT use bash scripts directly - use skill!
      Search: tickets, sprints, status
 
 3. GENERATE ANSWER
@@ -42,24 +61,67 @@ skills:
    Include: code snippets, file paths
    Limit: 3000 chars for Slack
 
-4. POST RESPONSE TO SLACK
-   Use: slack-operations skill
+4. POST RESPONSE TO SLACK (MANDATORY SKILL USAGE)
+   ⚠️ REQUIRED: Use Skill tool with "slack-operations" skill
+   DO NOT use direct API calls - use skill!
    Target: threaded reply
 ```
 
+## CRITICAL: Skill Usage Rules
+
+**YOU MUST USE SKILLS, NOT RAW TOOLS:**
+
+❌ **WRONG** - Using raw tools:
+```
+[TOOL] Using Grep
+  pattern: "def process_payment"
+```
+
+✅ **CORRECT** - Using skills:
+```
+[TOOL] Using Skill
+  skill: "discovery"
+  args: "process_payment functionality"
+```
+
+**Why Skills Matter:**
+- ✅ Built-in best practices and patterns
+- ✅ Consistent behavior across agents
+- ✅ Proper error handling and retries
+- ✅ Centralized improvements benefit all agents
+
 ## Response Posting
 
-**CRITICAL:** After research, ALWAYS post response back to Slack thread.
+**CRITICAL:** After research, ALWAYS post response back to Slack thread using the Skill tool.
+
+✅ **CORRECT WAY - Use Skill Tool:**
+
+```
+[TOOL] Using Skill
+  skill: "slack-operations"
+  args: "post_thread_response {channel} {thread_ts} {response_content}"
+```
+
+The skill will handle:
+- Authentication
+- API formatting
+- Error handling
+- Retry logic
+- Logging
+
+❌ **WRONG WAY - Don't call scripts directly:**
+
+```bash
+# DON'T DO THIS - bypasses skill system
+.claude/skills/slack-operations/scripts/post_thread_response.sh "{channel}" "{thread_ts}" "{response}"
+```
+
+❌ **WRONG WAY - Don't use Python client directly:**
 
 ```python
+# DON'T DO THIS - bypasses skill system
 from core.slack_client import slack_client
-
-# Post threaded reply
-await slack_client.post_message(
-    channel="{channel}",
-    text="{response}",
-    thread_ts="{thread_ts}"
-)
+await slack_client.post_message(channel="{channel}", text="{response}", thread_ts="{thread_ts}")
 ```
 
 ## Response Format (Code Questions)

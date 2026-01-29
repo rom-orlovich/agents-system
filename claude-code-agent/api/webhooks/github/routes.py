@@ -1,184 +1,41 @@
-"""
-GitHub Webhook Routes
-Main route handler for GitHub webhooks.
-"""
-
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
 import uuid
 from datetime import datetime, timezone
 import structlog
-
 from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB
 from core.webhook_configs import GITHUB_WEBHOOK
-from api.webhooks.github.validation import validate_github_webhook
+from core.task_logger import TaskLogger
+from core.config import settings
 from api.webhooks.github.utils import (
-    verify_github_signature,
-    send_github_immediate_response,
-    match_github_command,
-    create_github_task,
-    post_github_task_comment,
     send_slack_notification,
 )
-from api.webhooks.slack.utils import extract_task_summary, build_task_completion_blocks
-from core.slack_client import slack_client
-import os
+from api.webhooks.github.handlers import handle_github_task_completion, GitHubWebhookHandler
+from pathlib import Path
+from api.webhooks.github.constants import (
+    PROVIDER_NAME,
+    EVENT_HEADER,
+    DEFAULT_EVENT_TYPE,
+    STATUS_ACCEPTED,
+    STATUS_REJECTED,
+    STATUS_RECEIVED,
+    MESSAGE_DOES_NOT_MEET_RULES,
+    MESSAGE_NO_COMMAND_MATCHED,
+    MESSAGE_TASK_QUEUED,
+    MESSAGE_IMMEDIATE_RESPONSE_FAILED,
+    ERROR_IMMEDIATE_RESPONSE_FAILED,
+)
+
+from api.webhooks.common.utils import load_webhook_config_from_yaml
 
 logger = structlog.get_logger()
 router = APIRouter()
 
-
-COMPLETION_HANDLER = "api.webhooks.github.routes.handle_github_task_completion"
-
-
-async def handle_github_task_completion(
-    payload: dict,
-    message: str,
-    success: bool,
-    cost_usd: float = 0.0,
-    task_id: str = None,
-    command: str = None,
-    result: str = None,
-    error: str = None
-) -> bool:
-    has_meaningful_response = bool(
-        (result and len(result.strip()) > 50) or 
-        (message and len(message.strip()) > 50 and message.strip() != "❌")
-    )
-    
-    if not success and error:
-        original_comment_id = (
-            payload.get("comment", {}).get("id") or
-            None
-        )
-        
-        if original_comment_id:
-            repo = payload.get("repository", {})
-            owner = repo.get("owner", {}).get("login", "")
-            repo_name = repo.get("name", "")
-            
-            if owner and repo_name:
-                try:
-                    from core.github_client import github_client
-                    github_client.token = github_client.token or os.getenv("GITHUB_TOKEN")
-                    if github_client.token:
-                        github_client.headers["Authorization"] = f"token {github_client.token}"
-                        await github_client.add_reaction(
-                            owner,
-                            repo_name,
-                            original_comment_id,
-                            reaction="-1"
-                        )
-                        logger.info(
-                            "github_error_reaction_added",
-                            task_id=task_id,
-                            comment_id=original_comment_id,
-                            error_preview=error[:200] if error else None,
-                            message="Added error reaction to original comment"
-                        )
-                    else:
-                        logger.warning(
-                            "github_reaction_skipped_no_token",
-                            comment_id=original_comment_id,
-                            message="GITHUB_TOKEN not configured - reaction not sent"
-                        )
-                except Exception as e:
-                    logger.warning(
-                        "github_error_reaction_failed",
-                        task_id=task_id,
-                        comment_id=original_comment_id,
-                        error=str(e),
-                        message="Failed to add reaction"
-                    )
-            else:
-                logger.warning(
-                    "github_reaction_skipped_no_repo",
-                    task_id=task_id,
-                    message="Repository info missing - cannot add reaction"
-                )
-        
-        if has_meaningful_response:
-            logger.info(
-                "github_task_failed_but_response_already_posted",
-                task_id=task_id,
-                error_preview=error[:200] if error else None,
-                message="Task failed but response already posted to GitHub - skipping error comment, sending to Slack only"
-            )
-        else:
-            logger.info(
-                "github_task_failed_no_new_comment",
-                task_id=task_id,
-                error_preview=error[:200] if error else None,
-                message="Task failed - error reaction added to original comment, sending to Slack only"
-            )
-        
-        comment_posted = False
-    else:
-        formatted_message = message
-        comment_posted = await post_github_task_comment(
-            payload=payload,
-            message=formatted_message,
-            success=success,
-            cost_usd=cost_usd
-        )
-    
-    requires_approval = False
-    if command:
-        for cmd in GITHUB_WEBHOOK.commands:
-            if cmd.name == command:
-                requires_approval = cmd.requires_approval
-                break
-    
-    if requires_approval:
-        repo = payload.get("repository", {}).get("full_name", "")
-        pr_number = payload.get("pull_request", {}).get("number")
-        if not pr_number:
-            pr_number = payload.get("issue", {}).get("number")
-        
-        routing = {
-            "repo": repo,
-            "pr_number": pr_number
-        }
-        
-        task_metadata = {
-            "classification": payload.get("classification", "SIMPLE")
-        }
-        summary = extract_task_summary(result or message, task_metadata)
-        
-        blocks = build_task_completion_blocks(
-            summary=summary,
-            routing=routing,
-            requires_approval=requires_approval,
-            task_id=task_id or "unknown",
-            cost_usd=cost_usd,
-            command=command or "",
-            source="github"
-        )
-        
-        channel = payload.get("routing", {}).get("slack_channel") or os.getenv("SLACK_CHANNEL_AGENTS", "#ai-agent-activity")
-        
-        try:
-            await slack_client.post_message(
-                channel=channel,
-                text=message[:200] if message else "Task completed",
-                blocks=blocks
-            )
-            logger.info("github_slack_rich_notification_sent", task_id=task_id, channel=channel, has_buttons=True)
-        except Exception as e:
-            logger.warning("github_slack_rich_notification_failed", task_id=task_id, error=str(e))
-    
-    await send_slack_notification(
-        task_id=task_id,
-        webhook_source="github",
-        command=command,
-        success=success,
-        result=result,
-        error=error
-    )
-    
-    return comment_posted
+GITHUB_CONFIG = load_webhook_config_from_yaml(Path(__file__).parent / "config.yaml")
+COMPLETION_HANDLER = "api.webhooks.github.handlers.handle_github_task_completion"
+webhook_handler = GitHubWebhookHandler(GITHUB_CONFIG)
 
 
 @router.post("/github")
@@ -210,11 +67,17 @@ async def github_webhook(
     
     try:
         body = await request.body()
-        
-        await verify_github_signature(request, body)
-        
-        payload = json.loads(body.decode())
-        payload["provider"] = "github"
+
+        await webhook_handler.verify_signature(request, body)
+
+        if GITHUB_CONFIG is None:
+            logger.error("github_webhook_config_not_loaded")
+            raise HTTPException(
+                status_code=503,
+                detail="GitHub webhook configuration not loaded"
+            )
+
+        payload = webhook_handler.parse_payload(body, PROVIDER_NAME)
         
         repo = payload.get("repository", {})
         repo_info = f"{repo.get('owner', {}).get('login', 'unknown')}/{repo.get('name', 'unknown')}"
@@ -222,7 +85,7 @@ async def github_webhook(
         if issue:
             issue_number = issue.get("number")
         
-        event_type = request.headers.get("X-GitHub-Event", "unknown")
+        event_type = request.headers.get(EVENT_HEADER, DEFAULT_EVENT_TYPE)
         action = payload.get("action", "")
         if action:
             event_type = f"{event_type}.{action}"
@@ -236,8 +99,27 @@ async def github_webhook(
             comment_id=payload.get("comment", {}).get("id"),
             comment_preview=payload.get("comment", {}).get("body", "")[:100] if payload.get("comment") else None
         )
-        
-        validation_result = validate_github_webhook(payload)
+
+        webhook_events = []
+        webhook_events.append({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "stage": "received",
+            "event_type": event_type,
+            "action": payload.get("action"),
+            "repo": repo_info,
+            "issue_number": issue_number,
+            "comment_id": payload.get("comment", {}).get("id")
+        })
+
+        validation_result = await webhook_handler.validate_webhook(payload)
+
+        webhook_events.append({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "stage": "validation",
+            "status": "passed" if validation_result.is_valid else "failed",
+            "reason": validation_result.error_message if not validation_result.is_valid else None
+        })
+
         if not validation_result.is_valid:
             logger.info(
                 "github_webhook_rejected_by_validation",
@@ -248,9 +130,17 @@ async def github_webhook(
                 reason=validation_result.error_message,
                 comment_preview=payload.get("comment", {}).get("body", "")[:100] if payload.get("comment") else None
             )
-            return {"status": "rejected", "actions": 0, "message": "Does not meet activation rules"}
+            return {"status": STATUS_REJECTED, "actions": 0, "message": MESSAGE_DOES_NOT_MEET_RULES}
         
-        command = await match_github_command(payload, event_type)
+        command = await webhook_handler.match_command(payload)
+
+        webhook_events.append({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "stage": "command_matching",
+            "command": command.name if command else None,
+            "matched": bool(command)
+        })
+
         if not command:
             logger.warning(
                 "github_no_command_matched",
@@ -260,10 +150,17 @@ async def github_webhook(
                 issue_number=issue_number,
                 comment_preview=payload.get("comment", {}).get("body", "")[:100] if payload.get("comment") else None
             )
-            return {"status": "received", "actions": 0, "message": "No command matched"}
+            return {"status": STATUS_RECEIVED, "actions": 0, "message": MESSAGE_NO_COMMAND_MATCHED}
         
-        immediate_response_sent = await send_github_immediate_response(payload, command, event_type)
-        
+        immediate_response_sent = await webhook_handler.send_immediate_response(payload, command, event_type)
+
+        webhook_events.append({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "stage": "immediate_response",
+            "action": command.immediate_response if command else None,
+            "success": immediate_response_sent
+        })
+
         if not immediate_response_sent:
             logger.error(
                 "github_immediate_response_failed",
@@ -273,54 +170,105 @@ async def github_webhook(
                 message="Immediate response failed - webhook rejected"
             )
             return {
-                "status": "rejected",
-                "message": "Failed to send immediate response. Check GITHUB_TOKEN configuration and permissions.",
-                "error": "immediate_response_failed"
+                "status": STATUS_REJECTED,
+                "message": MESSAGE_IMMEDIATE_RESPONSE_FAILED,
+                "error": ERROR_IMMEDIATE_RESPONSE_FAILED
             }
-        
-        task_id = await create_github_task(command, payload, db, completion_handler=COMPLETION_HANDLER)
-        logger.info("github_task_created_success", task_id=task_id, repo=repo_info, issue_number=issue_number)
-        
+
+        actual_task_id = await webhook_handler.create_task(command, payload, db, COMPLETION_HANDLER)
+        logger.info("github_task_created_success", task_id=actual_task_id, repo=repo_info, issue_number=issue_number)
+
+        webhook_events.append({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "stage": "task_created",
+            "task_id": actual_task_id,
+            "agent": command.agent_type,
+            "command": command.name
+        })
+
+        if settings.task_logs_enabled:
+            try:
+                task_logger = TaskLogger(actual_task_id, settings.task_logs_dir)
+
+                for event in webhook_events:
+                    task_logger.append_webhook_event(event)
+
+                task_logger.write_metadata({
+                    "task_id": actual_task_id,
+                    "source": "webhook",
+                    "provider": PROVIDER_NAME,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "status": "queued",
+                    "assigned_agent": command.agent_type,
+                    "command": command.name
+                })
+
+                comment_body = payload.get("comment", {}).get("body", "")
+                task_logger.write_input({
+                    "message": command.generate_input_message(payload),
+                    "source_metadata": {
+                        "provider": PROVIDER_NAME,
+                        "event_type": event_type,
+                        "repo": repo_info,
+                        "issue_number": issue_number,
+                        "comment_id": payload.get("comment", {}).get("id"),
+                        "comment_body": comment_body[:500] if comment_body else None,
+                        "webhook_id": GITHUB_WEBHOOK.name
+                    }
+                })
+
+                webhook_events.append({
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "stage": "queue_push",
+                    "task_id": actual_task_id,
+                    "status": "queued"
+                })
+                task_logger.append_webhook_event(webhook_events[-1])
+
+                logger.info("github_webhook_logging_complete", task_id=actual_task_id, events_logged=len(webhook_events))
+            except Exception as e:
+                logger.warning("github_webhook_logging_failed", task_id=actual_task_id, error=str(e))
+
         event_id = f"evt-{uuid.uuid4().hex[:12]}"
         event_db = WebhookEventDB(
             event_id=event_id,
             webhook_id=GITHUB_WEBHOOK.name,
-            provider="github",
+            provider=PROVIDER_NAME,
             event_type=event_type,
             payload_json=json.dumps(payload),
             matched_command=command.name,
-            task_id=task_id,
+            task_id=actual_task_id,
             response_sent=immediate_response_sent,
             created_at=datetime.now(timezone.utc)
         )
         db.add(event_db)
         await db.commit()
-        logger.info("github_event_logged", event_id=event_id, task_id=task_id, repo=repo_info, issue_number=issue_number)
-        
+        logger.info("github_event_logged", event_id=event_id, task_id=actual_task_id, repo=repo_info, issue_number=issue_number)
+
         logger.info(
             "github_completion_handler_registered",
-            task_id=task_id,
+            task_id=actual_task_id,
             handler=COMPLETION_HANDLER,
             message="Completion handler registered - will be called by task worker when task completes"
         )
-        
+
         logger.info(
             "github_webhook_processed",
-            task_id=task_id,
+            task_id=actual_task_id,
             command=command.name,
             event_type=event_type,
             repo=repo_info,
             issue_number=issue_number,
             immediate_response_sent=immediate_response_sent
         )
-        
+
         return {
-            "status": "accepted",
-            "task_id": task_id,
+            "status": STATUS_ACCEPTED,
+            "task_id": actual_task_id,
             "command": command.name,
             "immediate_response_sent": immediate_response_sent,
             "completion_handler": COMPLETION_HANDLER,
-            "message": "Task queued for processing"
+            "message": MESSAGE_TASK_QUEUED
         }
         
     except HTTPException:

@@ -27,10 +27,31 @@
       "mcp__filesystem__read_multiple_files",
       "Bash(xargs ls:*)",
       "Bash(find:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(python:*)",
+      "Bash(grep:*)",
+      "Bash(chmod:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run python:*)",
+      "Bash(tree:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git rm:*)",
+      "Bash(git diff:*)",
+      "Bash(git checkout:*)",
+      "Bash(source:*)",
+      "Bash(.venv/bin/python3 -m pytest:*)",
+      "Bash(.venv/bin/python -m pytest:*)",
+      "Bash(./.venv/bin/python -m pytest:*)",
+      "Bash(.venv/bin/python3.12 -m pytest:*)",
+      "Bash(git log:*)",
+      "Bash(docker logs:*)",
+      "Bash(head:*)"
     ]
   },
-  "enabledMcpjsonServers": [
+  "enabledMcpjsonServers": [],
+  "disabledMcpjsonServers": [
     "filesystem",
     "reddit",
     "gitmcp",

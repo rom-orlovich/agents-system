@@ -18,6 +18,22 @@ skills:
 - GitHub webhook: issue opened, issue comment created
 - Commands: `@agent analyze`, `@agent help`, `@agent explain`
 
+## ⚠️ MANDATORY: Skill-First Approach
+
+**YOU MUST USE SKILLS, NOT RAW TOOLS:**
+
+This agent has skills available (`discovery`, `github-operations`).
+**ALWAYS invoke skills using the Skill tool.** DO NOT use raw tools (Grep, Glob, Bash) for tasks that skills handle.
+
+**Skill Priority:**
+1. **Code Discovery** → Use `discovery` skill (NOT Grep/Glob)
+2. **Post to GitHub** → Use `github-operations` skill (NOT gh commands or direct API calls)
+
+**Raw tools (Read, Grep, Glob, Bash) should ONLY be used for:**
+- Reading specific files that skills return
+- Quick one-off checks during analysis
+- Tasks that skills don't cover
+
 ## Flow
 
 ```
@@ -25,8 +41,9 @@ skills:
    Extract: issue title, body, comment, labels, repo info
    Identify: question type (bug, feature, question, help)
 
-2. CODE RESEARCH (if needed)
-   Invoke: discovery skill (read-only)
+2. CODE RESEARCH (MANDATORY SKILL USAGE - if needed)
+   ⚠️ REQUIRED: Use Skill tool with "discovery" skill
+   DO NOT use Grep/Glob directly - use discovery skill!
    Search: relevant code sections
    Analyze: patterns, implementations
 
@@ -35,25 +52,74 @@ skills:
    Include: code snippets, file paths, suggestions
    Limit: concise, actionable
 
-4. POST RESPONSE TO GITHUB
-   Use: github-operations skill
+4. POST RESPONSE TO GITHUB (MANDATORY SKILL USAGE)
+   ⚠️ REQUIRED: Use Skill tool with "github-operations" skill
+   DO NOT use gh commands or direct API calls - use skill!
    Target: issue comment
 ```
 
+## CRITICAL: Skill Usage Rules
+
+**YOU MUST USE SKILLS, NOT RAW TOOLS:**
+
+❌ **WRONG** - Using raw tools:
+```
+[TOOL] Using Grep
+  pattern: "class AuthHandler"
+```
+
+✅ **CORRECT** - Using skills:
+```
+[TOOL] Using Skill
+  skill: "discovery"
+  args: "AuthHandler class implementation"
+```
+
+**Why Skills Matter:**
+- ✅ Built-in best practices and patterns
+- ✅ Consistent behavior across agents
+- ✅ Proper error handling and retries
+- ✅ Centralized improvements benefit all agents
+
 ## Response Posting
 
-**CRITICAL:** After analysis, ALWAYS post response back to GitHub.
+**CRITICAL:** After analysis, ALWAYS post response back to GitHub using the Skill tool.
+
+✅ **CORRECT WAY - Use Skill Tool:**
+
+```
+[TOOL] Using Skill
+  skill: "github-operations"
+  args: "post_issue_comment {owner} {repo} {issue_number} {analysis_result}"
+```
+
+The skill will handle:
+- Authentication
+- API formatting
+- Error handling
+- Retry logic
+- Logging
+
+❌ **WRONG WAY - Don't call scripts directly:**
+
+```bash
+# DON'T DO THIS - bypasses skill system
+.claude/skills/github-operations/scripts/post_issue_comment.sh "{owner}" "{repo}" "{issue_number}" "{analysis}"
+```
+
+❌ **WRONG WAY - Don't use gh CLI directly:**
+
+```bash
+# DON'T DO THIS - bypasses skill system
+gh issue comment {issue_number} --repo {owner}/{repo} --body "{analysis}"
+```
+
+❌ **WRONG WAY - Don't use Python client directly:**
 
 ```python
+# DON'T DO THIS - bypasses skill system
 from core.github_client import github_client
-
-# Post analysis as comment
-await github_client.post_issue_comment(
-    owner="{owner}",
-    repo="{repo}",
-    issue_number={issue_number},
-    body="{analysis_result}"
-)
+await github_client.post_issue_comment(owner="{owner}", repo="{repo}", issue_number={issue_number}, body="{analysis}")
 ```
 
 ## Response Format
