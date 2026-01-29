@@ -109,8 +109,8 @@ async def send_approval_notification(
     payload: dict,
     task_id: str,
     command: str,
-    message: str,
-    result: str,
+    message: str | list | None,
+    result: str | list | None,
     cost_usd: float
 ) -> None:
     """Send approval notification to Slack with action buttons."""
@@ -118,12 +118,23 @@ async def send_approval_notification(
     from core.slack_client import slack_client
     from api.webhooks.github.constants import PROVIDER_NAME, DEFAULT_EVENT_TYPE
 
+    # Defensive type conversion to prevent TypeError in extract_task_summary
+    if isinstance(result, list):
+        result = "\n".join(str(item) for item in result)
+    elif result and not isinstance(result, str):
+        result = str(result)
+
+    if isinstance(message, list):
+        message = "\n".join(str(item) for item in message)
+    elif message and not isinstance(message, str):
+        message = str(message)
+
     repo = payload.get("repository", {}).get("full_name", "")
     pr_number = payload.get("pull_request", {}).get("number") or payload.get("issue", {}).get("number")
 
     routing = {"repo": repo, "pr_number": pr_number}
     task_metadata = {"classification": payload.get("classification", "SIMPLE")}
-    summary = extract_task_summary(result or message, task_metadata)
+    summary = extract_task_summary(result or message or "", task_metadata)
 
     blocks = build_task_completion_blocks(
         summary=summary,
@@ -163,10 +174,19 @@ async def handle_github_task_completion(
     from api.webhooks.github.utils import send_slack_notification
     from api.webhooks.github.constants import PROVIDER_NAME
 
+    # Convert result to string if needed
     if isinstance(result, list):
         result = "\n".join(str(item) for item in result)
     elif result and not isinstance(result, str):
         result = str(result)
+
+    # Convert message to string if needed (prevents TypeError in downstream functions)
+    if isinstance(message, list):
+        message = "\n".join(str(item) for item in message)
+    elif message and not isinstance(message, str):
+        message = str(message)
+    if not isinstance(message, str):
+        message = ""
 
     has_meaningful = has_meaningful_response(result, message)
 
