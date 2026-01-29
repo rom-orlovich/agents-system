@@ -179,6 +179,14 @@ The test suite has been analyzed to focus on **quality over quantity**. This doc
    - **Reason:** Only contained `assert True` with comment
    - **Impact:** None - real test exists in the same file at line 111
 
+6. **`test_service_integrations.py::TestSentryIntegrationAgent`** - Tests for unimplemented Sentry integration
+   - **Reason:** Sentry webhook integration is not implemented (no `/api/webhooks/sentry/` exists)
+   - **Impact:** None - tests were marked as skipped with "not used in this project"
+
+7. **`test_webhook_handlers.py::TestSentryWebhookBehavior`** - Tests for unimplemented Sentry webhooks
+   - **Reason:** Sentry is listed as valid provider but has no actual implementation
+   - **Impact:** None - tests were marked as skipped
+
 ---
 
 ## Tests Kept (But Could Be Reconsidered)
@@ -206,6 +214,7 @@ The test suite has been analyzed to focus on **quality over quantity**. This doc
 3. **Test infrastructure without logic** - Bash script execution with no assertions
 4. **Placeholder tests** - `assert True` with comments about future implementation
 5. **Duplicate tests** - Same logic tested in multiple places
+6. **Tests for unimplemented features** - Tests marked as skipped for functionality that doesn't exist
 
 ---
 
@@ -237,8 +246,10 @@ The test suite has been analyzed to focus on **quality over quantity**. This doc
 
 ## Test Statistics
 
-- **Total Test Files:** 104 → 100 (4 removed)
-- **Test Functions:** ~913 (estimate)
+- **Total Test Files:** 104 → 100 (4 files removed)
+- **Test Classes Removed:** 2 additional classes (Sentry tests)
+- **Lines of Test Code Removed:** ~327 lines total
+- **Test Functions:** ~913 → ~906 (estimate)
 - **Integration Tests:** 29 files
 - **Unit Tests:** 71 files
 - **Average Test File Size:** 150 lines
@@ -305,6 +316,7 @@ After cleanup, the test suite now focuses on **quality over quantity**:
 - Infrastructure without logic (script execution with no assertions)
 - Implementation details (internal data structures)
 - Placeholders (`assert True` tests)
+- Unimplemented features (skipped tests for functionality that doesn't exist)
 
 ---
 
