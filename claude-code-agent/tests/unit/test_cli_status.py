@@ -179,6 +179,7 @@ async def test_authentication_error_sets_session_active_false():
     cli_result = CLIResult(
         success=False,
         output="",
+        clean_output="",
         cost_usd=0.0,
         input_tokens=0,
         output_tokens=0,
@@ -223,7 +224,7 @@ async def test_authentication_error_sets_session_active_false():
                      patch.object(worker, '_update_claude_task_status'), \
                      patch.object(worker, '_add_task_response_to_conversation'), \
                      patch.object(worker, '_send_slack_notification'), \
-                     patch.object(worker, '_post_webhook_comment'), \
+                     patch.object(worker, '_invoke_completion_handler'), \
                      patch.object(worker, '_get_agent_dir', return_value=Path("/tmp")):
                     await worker._process_task("task-001")
             
@@ -265,6 +266,7 @@ async def test_conversation_error_does_not_set_session_active_false():
     cli_result = CLIResult(
         success=False,
         output="",
+        clean_output="",
         cost_usd=0.0,
         input_tokens=0,
         output_tokens=0,
@@ -309,7 +311,7 @@ async def test_conversation_error_does_not_set_session_active_false():
                      patch.object(worker, '_update_claude_task_status'), \
                      patch.object(worker, '_add_task_response_to_conversation'), \
                      patch.object(worker, '_send_slack_notification'), \
-                     patch.object(worker, '_post_webhook_comment'), \
+                     patch.object(worker, '_invoke_completion_handler'), \
                      patch.object(worker, '_get_agent_dir', return_value=Path("/tmp")):
                     await worker._process_task("task-002")
             

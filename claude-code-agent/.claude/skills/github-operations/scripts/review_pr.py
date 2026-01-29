@@ -17,10 +17,42 @@ sys.path.insert(0, str(project_root))
 from core.github_client import github_client
 
 
+def should_skip_file(filename: str, additions: int, deletions: int) -> tuple[bool, str]:
+    """
+    Determine if a file should be skipped from detailed review.
+
+    Returns:
+        (should_skip, reason)
+    """
+    # Skip large dependency lock files
+    if filename.endswith(('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'Gemfile.lock', 'poetry.lock', 'Cargo.lock')):
+        return True, "dependency lock file"
+
+    # Skip minified/bundled files
+    if '.min.' in filename or '.bundle.' in filename:
+        return True, "minified/bundled file"
+
+    # Skip very large files (>1000 line changes)
+    total_changes = additions + deletions
+    if total_changes > 1000:
+        return True, f"very large file ({total_changes} line changes)"
+
+    # Skip binary files (images, fonts, etc.)
+    binary_extensions = ('.png', '.jpg', '.jpeg', '.gif', '.ico', '.pdf', '.woff', '.woff2', '.ttf', '.eot', '.svg', '.mp4', '.webm')
+    if filename.lower().endswith(binary_extensions):
+        return True, "binary file"
+
+    # Skip generated documentation
+    if 'node_modules/' in filename or 'dist/' in filename or 'build/' in filename or '.next/' in filename:
+        return True, "generated/build artifact"
+
+    return False, ""
+
+
 async def review_pr(owner: str, repo: str, pr_number: int):
     """
     Fetch and display PR information for analysis.
-    
+
     Args:
         owner: Repository owner
         repo: Repository name
@@ -29,9 +61,25 @@ async def review_pr(owner: str, repo: str, pr_number: int):
     try:
         # Get PR details
         pr = await github_client.get_pull_request(owner, repo, pr_number)
-        
+
         # Get files changed
-        files = await github_client.get_pr_files(owner, repo, pr_number)
+        all_files = await github_client.get_pr_files(owner, repo, pr_number)
+
+        # Filter files
+        reviewable_files = []
+        skipped_files = []
+        for file in all_files:
+            should_skip, reason = should_skip_file(
+                file['filename'],
+                file['additions'],
+                file['deletions']
+            )
+            if should_skip:
+                skipped_files.append((file, reason))
+            else:
+                reviewable_files.append(file)
+
+        files = reviewable_files
         
         # Print PR info for agent to analyze
         print(f"# PR #{pr_number}: {pr['title']}")
@@ -48,7 +96,13 @@ async def review_pr(owner: str, repo: str, pr_number: int):
         print(f"\n## Description")
         print(pr.get('body', 'No description provided'))
         
-        print(f"\n## Files Changed ({len(files)} files)")
+        print(f"\n## Reviewable Files ({len(files)} files)")
+        if skipped_files:
+            print(f"\n### ⏭️ Skipped Files ({len(skipped_files)} files - too large or not reviewable)")
+            for file, reason in skipped_files:
+                print(f"- `{file['filename']}` - {reason} (+{file['additions']} -{file['deletions']})")
+
+        print(f"\n### 📋 Files to Review")
         for file in files:
             status_emoji = {
                 'added': '🆕',

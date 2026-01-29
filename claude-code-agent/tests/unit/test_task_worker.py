@@ -34,6 +34,7 @@ async def test_worker_processes_task(redis_mock):
     mock_cli_result = MagicMock()
     mock_cli_result.success = True
     mock_cli_result.output = "Task completed"
+    mock_cli_result.clean_output = "Task completed"
     mock_cli_result.cost_usd = 0.05
     mock_cli_result.input_tokens = 100
     mock_cli_result.output_tokens = 50

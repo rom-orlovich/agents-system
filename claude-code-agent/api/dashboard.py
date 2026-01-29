@@ -1,7 +1,7 @@
 """Dashboard API endpoints."""
 
 from datetime import datetime, timezone
-from typing import List, Optional, Annotated
+from typing import List, Optional
 import uuid
 import math
 
@@ -14,13 +14,14 @@ from core.database import get_session as get_db_session
 from core.database.models import TaskDB, SessionDB, WebhookEventDB, WebhookConfigDB
 from core.database.redis_client import redis_client
 from core.webhook_configs import WEBHOOK_CONFIGS
+from core.config import settings
 from shared import (
-    Task,
     TaskStatus,
     AgentType,
     APIResponse,
 )
 import structlog
+import json
 
 logger = structlog.get_logger()
 
@@ -322,27 +323,63 @@ async def chat_with_brain(
 
     conversation = None
     conversation_context = ""
-    
+    task_history_context = ""
+
     if conversation_id:
         conv_result = await db.execute(
             select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
         )
         conversation = conv_result.scalar_one_or_none()
-        
+
         if conversation:
+            # Get previous messages
             msg_result = await db.execute(
                 select(ConversationMessageDB)
                 .where(ConversationMessageDB.conversation_id == conversation_id)
                 .order_by(ConversationMessageDB.created_at.desc())
-                .limit(20)
+                .limit(50)
             )
             recent_messages = list(reversed(msg_result.scalars().all()))
-            
+
             if recent_messages:
                 conversation_context = "\n\n## Previous Conversation Context:\n"
                 for msg in recent_messages:
-                    conversation_context += f"**{msg.role.capitalize()}**: {msg.content[:500]}\n"
+                    # Use larger context window (10k chars) instead of 500
+                    content_preview = msg.content[:10000]
+                    if len(msg.content) > 10000:
+                        content_preview += "... (truncated)"
+                    conversation_context += f"**{msg.role.capitalize()}**: {content_preview}\n"
                 conversation_context += "\n## Current Message:\n"
+
+            # Get last 10 tasks for this conversation
+            tasks_result = await db.execute(
+                select(TaskDB)
+                .where(TaskDB.source_metadata.like(f'%"conversation_id": "{conversation_id}"%'))
+                .order_by(TaskDB.created_at.desc())
+                .limit(10)
+            )
+            recent_tasks = list(reversed(tasks_result.scalars().all()))
+
+            if recent_tasks:
+                task_history_context = "\n\n## Recent Tasks in This Conversation:\n"
+                for task in recent_tasks:
+                    status_emoji = {
+                        TaskStatus.COMPLETED: "✅",
+                        TaskStatus.FAILED: "❌",
+                        TaskStatus.RUNNING: "🔄",
+                        TaskStatus.QUEUED: "⏳",
+                        TaskStatus.CANCELLED: "🚫"
+                    }.get(task.status, "❓")
+
+                    task_summary = task.input_message[:200] + "..." if len(task.input_message or "") > 200 else task.input_message or ""
+                    task_result_preview = ""
+                    if task.result:
+                        task_result_preview = f" | Result: {task.result[:200]}..." if len(task.result) > 200 else f" | Result: {task.result}"
+                    elif task.error:
+                        task_result_preview = f" | Error: {task.error[:100]}..."
+
+                    task_history_context += f"- {status_emoji} **{task.task_id}** ({task.status}): {task_summary}{task_result_preview}\n"
+                task_history_context += "\n"
     else:
         conversation_id = f"conv-{uuid.uuid4().hex[:12]}"
         conversation_title = request.message[:50] + "..." if len(request.message) > 50 else request.message
@@ -360,7 +397,15 @@ async def chat_with_brain(
         await db.commit()
         logger.info("New conversation created for execute chat", conversation_id=conversation_id, session_id=session_id)
     
-    full_input_message = conversation_context + request.message if conversation_context else request.message
+    # Combine context: task history + conversation context + current message
+    context_parts = []
+    if task_history_context:
+        context_parts.append(task_history_context)
+    if conversation_context:
+        context_parts.append(conversation_context)
+    context_parts.append(request.message)
+
+    full_input_message = "".join(context_parts)
     
     task_id = f"task-{uuid.uuid4().hex[:12]}"
     task_db = TaskDB(
@@ -374,7 +419,8 @@ async def chat_with_brain(
         source="dashboard",
         source_metadata=json.dumps({
             "conversation_id": conversation_id,
-            "has_context": bool(conversation_context)
+            "has_context": bool(conversation_context),
+            "has_task_history": bool(task_history_context)
         }),
     )
     db.add(task_db)
@@ -558,3 +604,193 @@ async def get_webhook_stats(db: AsyncSession = Depends(get_db_session)):
         "active_webhooks": active,
         "events_by_webhook": events_by_webhook,
     }
+
+# Task Log Endpoints
+
+@router.get("/tasks/{task_id}/logs/metadata")
+async def get_task_log_metadata(task_id: str):
+    """Get task metadata.json."""
+    try:
+        log_dir = settings.task_logs_dir / task_id
+        metadata_file = log_dir / "metadata.json"
+
+        if not metadata_file.exists():
+            raise HTTPException(status_code=404, detail="Task logs not found")
+
+        with open(metadata_file, "r") as f:
+            return json.load(f)
+
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Task logs not found")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Invalid metadata format")
+    except Exception as e:
+        logger.error("get_metadata_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}/logs/input")
+async def get_task_log_input(task_id: str):
+    """Get task input (01-input.json)."""
+    try:
+        log_dir = settings.task_logs_dir / task_id
+        input_file = log_dir / "01-input.json"
+
+        if not input_file.exists():
+            raise HTTPException(status_code=404, detail="Task input log not found")
+
+        with open(input_file, "r") as f:
+            return json.load(f)
+
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Task input log not found")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Invalid input format")
+    except Exception as e:
+        logger.error("get_input_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}/logs/webhook-flow")
+async def get_task_log_webhook_flow(task_id: str):
+    """Get webhook flow events (02-webhook-flow.jsonl) as JSON array."""
+    try:
+        log_dir = settings.task_logs_dir / task_id
+        webhook_file = log_dir / "02-webhook-flow.jsonl"
+
+        if not webhook_file.exists():
+            raise HTTPException(status_code=404, detail="Webhook flow log not found")
+
+        # Parse JSONL file into array
+        events = []
+        with open(webhook_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line:  # Skip empty lines
+                    events.append(json.loads(line))
+
+        return events
+
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Webhook flow log not found")
+    except json.JSONDecodeError as e:
+        logger.error("webhook_flow_parse_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Invalid webhook flow format")
+    except Exception as e:
+        logger.error("get_webhook_flow_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}/logs/agent-output")
+async def get_task_log_agent_output(task_id: str):
+    """Get agent output (03-agent-output.jsonl) as JSON array."""
+    try:
+        log_dir = settings.task_logs_dir / task_id
+        output_file = log_dir / "03-agent-output.jsonl"
+
+        if not output_file.exists():
+            raise HTTPException(status_code=404, detail="Agent output log not found")
+
+        # Parse JSONL file into array
+        outputs = []
+        with open(output_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line:  # Skip empty lines
+                    outputs.append(json.loads(line))
+
+        return outputs
+
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Agent output log not found")
+    except json.JSONDecodeError as e:
+        logger.error("agent_output_parse_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Invalid agent output format")
+    except Exception as e:
+        logger.error("get_agent_output_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}/logs/final-result")
+async def get_task_log_final_result(task_id: str):
+    """Get final result (04-final-result.json)."""
+    try:
+        log_dir = settings.task_logs_dir / task_id
+        result_file = log_dir / "04-final-result.json"
+
+        if not result_file.exists():
+            raise HTTPException(status_code=404, detail="Final result log not found")
+
+        with open(result_file, "r") as f:
+            return json.load(f)
+
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Final result log not found")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Invalid result format")
+    except Exception as e:
+        logger.error("get_final_result_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}/logs/full")
+async def get_task_logs_full(task_id: str):
+    """Get all task logs in a single combined response."""
+    try:
+        log_dir = settings.task_logs_dir / task_id
+
+        if not log_dir.exists():
+            raise HTTPException(status_code=404, detail="Task logs not found")
+
+        result = {}
+
+        # Read metadata (required)
+        metadata_file = log_dir / "metadata.json"
+        if metadata_file.exists():
+            with open(metadata_file, "r") as f:
+                result["metadata"] = json.load(f)
+
+        # Read input (optional)
+        input_file = log_dir / "01-input.json"
+        if input_file.exists():
+            with open(input_file, "r") as f:
+                result["input"] = json.load(f)
+
+        # Read webhook flow (optional)
+        webhook_file = log_dir / "02-webhook-flow.jsonl"
+        if webhook_file.exists():
+            events = []
+            with open(webhook_file, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        events.append(json.loads(line))
+            result["webhook_flow"] = events
+
+        # Read agent output (optional)
+        output_file = log_dir / "03-agent-output.jsonl"
+        if output_file.exists():
+            outputs = []
+            with open(output_file, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        outputs.append(json.loads(line))
+            result["agent_output"] = outputs
+
+        # Read final result (optional)
+        result_file = log_dir / "04-final-result.json"
+        if result_file.exists():
+            with open(result_file, "r") as f:
+                result["final_result"] = json.load(f)
+
+        return result
+
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Task logs not found")
+    except json.JSONDecodeError as e:
+        logger.error("full_logs_parse_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Invalid log format")
+    except Exception as e:
+        logger.error("get_full_logs_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))

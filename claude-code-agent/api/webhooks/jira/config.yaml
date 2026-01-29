@@ -1,0 +1,114 @@
+# Jira Webhook Configuration
+# ==========================
+# This file configures how the agent responds to Jira events.
+# Edit this file to customize commands, triggers, and behavior.
+
+name: jira
+description: Jira webhook for issue updates and comments
+endpoint: /webhooks/jira
+source: jira
+
+# Agent Trigger Configuration
+# ---------------------------
+# These are the prefixes that trigger the agent to respond.
+# The assignee_trigger is used when a ticket is assigned to the AI agent.
+agent_trigger:
+  prefix: "@agent"
+  aliases:
+    - "@claude"
+    - "@bot"
+    - "@ai-agent"
+  assignee_trigger: "ai-agent"
+
+# Default agent for routing tasks
+target_agent: brain
+
+# Default command when no specific command is detected
+default_command: analyze
+
+# Security Configuration
+# ----------------------
+security:
+  requires_signature: true
+  signature_header: X-Jira-Signature
+  secret_env_var: JIRA_WEBHOOK_SECRET
+
+# Commands Configuration
+# ----------------------
+commands:
+  - name: analyze
+    aliases:
+      - analysis
+      - analyze-ticket
+    description: Analyze a Jira ticket
+    target_agent: planning
+    requires_approval: false
+    template_file: analyze
+
+  - name: plan
+    aliases:
+      - plan-fix
+      - create-plan
+    description: Create a plan to resolve a Jira ticket
+    target_agent: planning
+    requires_approval: false
+    template_file: plan
+
+  - name: fix
+    aliases:
+      - implement
+      - execute
+    description: Implement a fix for a Jira ticket
+    target_agent: executor
+    requires_approval: true
+    template_file: fix
+
+  - name: approve
+    aliases:
+      - lgtm
+      - approved
+      - ship-it
+    description: Approve a plan or implementation
+    target_agent: executor
+    requires_approval: false
+    template_file: approve
+
+  - name: reject
+    aliases:
+      - changes-requested
+      - request-changes
+      - revise
+    description: Request changes or reject a plan
+    target_agent: planning
+    requires_approval: false
+    template_file: reject
+
+  - name: improve
+    aliases:
+      - enhance
+      - refactor
+      - optimize
+    description: Improve or refactor code
+    target_agent: executor
+    requires_approval: true
+    template_file: improve
+
+  - name: discover
+    aliases:
+      - code
+      - explore
+      - find-code
+      - code-insights
+    description: Discover code and provide insights from GitHub/Confluence
+    target_agent: jira-code-plan
+    requires_approval: false
+    template_file: discover
+
+  - name: help
+    aliases:
+      - commands
+      - what-can-you-do
+    description: Show available commands
+    target_agent: brain
+    requires_approval: false
+    template_file: help

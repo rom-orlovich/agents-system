@@ -104,17 +104,19 @@ Interact with your agent directly from Slack channels or via mentions.
 
 ## 🔔 5. Sentry Integration
 
+> **Note**: Sentry webhook integration is currently not implemented. This section is kept for future reference.
+
 Automate error analysis when a new production error is captured.
 
-### Setup Steps
+### Setup Steps (Not Yet Available)
 1. In Sentry, go to **Settings** → **Projects** → [Your Project] → **Legacy Integrations** → **Webhooks**.
-2. **Callback URL**: `https://<YOUR_PUBLIC_DOMAIN>/webhooks/sentry`
+2. **Callback URL**: `https://<YOUR_PUBLIC_DOMAIN>/webhooks/sentry` (endpoint not yet implemented)
 3. **Alert Rules**: Create an Alert Rule that triggers the webhook on:
    - [x] **A new issue is created** (Required)
    - [x] **Issue assigned** (Optional)
 4. Update `SENTRY_WEBHOOK_SECRET` in your `.env` with the secret provided by Sentry.
 
-### Automated Flow
+### Planned Automated Flow
 - When a new error occurs, the **Planning Agent** will automatically:
   1. Analyze the stack trace.
   2. Locate the failing file in the codebase.

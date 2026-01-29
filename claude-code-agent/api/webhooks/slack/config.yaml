@@ -1,0 +1,111 @@
+# Slack Webhook Configuration
+# ===========================
+# This file configures how the agent responds to Slack events.
+# Edit this file to customize commands, triggers, and behavior.
+
+name: slack
+description: Slack webhook for commands and mentions
+endpoint: /webhooks/slack
+source: slack
+
+# Agent Trigger Configuration
+# ---------------------------
+# These are the prefixes that trigger the agent to respond.
+agent_trigger:
+  prefix: "@agent"
+  aliases:
+    - "@claude"
+    - "@bot"
+    - "@ai-agent"
+
+# Default agent for routing tasks
+target_agent: brain
+
+# Default command when no specific command is detected
+default_command: analyze
+
+# Security Configuration
+# ----------------------
+security:
+  requires_signature: true
+  signature_header: X-Slack-Signature
+  secret_env_var: SLACK_WEBHOOK_SECRET
+
+# Commands Configuration
+# ----------------------
+commands:
+  - name: help
+    aliases:
+      - commands
+      - what-can-you-do
+    description: Show available commands
+    target_agent: brain
+    requires_approval: false
+    template_file: help
+
+  - name: analyze
+    aliases:
+      - analysis
+    description: Analyze a request from Slack
+    target_agent: brain
+    requires_approval: false
+    template_file: analyze
+
+  - name: execute
+    aliases:
+      - do
+      - run
+    description: Execute a command from Slack
+    target_agent: executor
+    requires_approval: true
+    template_file: execute
+
+  - name: jira
+    aliases:
+      - ticket
+      - jira-ticket
+      - query-jira
+    description: Query Jira ticket context, status, and details
+    target_agent: slack-inquiry
+    requires_approval: false
+    template_file: jira
+
+  - name: discover
+    aliases:
+      - code
+      - explore
+      - find-code
+      - code-insights
+    description: Discover GitHub code, get insights about codebase
+    target_agent: slack-inquiry
+    requires_approval: false
+    template_file: discover
+
+  - name: status
+    aliases:
+      - check
+      - task-status
+    description: Check status of ongoing tasks
+    target_agent: brain
+    requires_approval: false
+    template_file: status
+
+  - name: approve
+    aliases:
+      - lgtm
+      - approved
+      - "yes"
+    description: Approve a pending action
+    target_agent: executor
+    requires_approval: false
+    template_file: approve
+
+  - name: reject
+    aliases:
+      - "no"
+      - cancel
+      - stop
+    description: Reject or cancel a pending action
+    target_agent: brain
+    requires_approval: false
+    template_file: reject

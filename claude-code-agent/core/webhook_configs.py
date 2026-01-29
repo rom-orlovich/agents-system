@@ -1,234 +1,79 @@
-"""Hard-coded webhook configurations aligned with OLD Claude Code CLI structure."""
+"""
+Webhook configurations loaded from YAML config files.
 
-from typing import List
-from shared.machine_models import WebhookConfig, WebhookCommand
+Each webhook has its own config.yaml file in: api/webhooks/{name}/config.yaml
 
-# =============================================================================
-# GITHUB WEBHOOK CONFIGURATION
-# =============================================================================
+This module provides easy access to the loaded configurations and maintains
+backward compatibility with code that expects the old hardcoded configs.
 
-GITHUB_WEBHOOK: WebhookConfig = WebhookConfig(
-    name="github",
-    endpoint="/webhooks/github",
-    source="github",
-    description="GitHub webhook for issues, PRs, and comments",
-    target_agent="brain",
-    command_prefix="@agent",
-    commands=[
-        WebhookCommand(
-            name="analyze",
-            aliases=["analysis", "analyze-issue"],
-            description="Analyze an issue or PR",
-            target_agent="planning",
-            prompt_template="Analyze this GitHub {{event_type}}:\n\nTitle: {{issue.title}}\nBody: {{issue.body}}\n\nRepository: {{repository.full_name}}\nIssue/PR: #{{issue.number}}",
-            requires_approval=False,
-        ),
-        WebhookCommand(
-            name="plan",
-            aliases=["plan-fix", "create-plan"],
-            description="Create a plan to fix an issue",
-            target_agent="planning",
-            prompt_template="Create a detailed plan to fix this issue:\n\n{{issue.title}}\n\n{{issue.body}}\n\nRepository: {{repository.full_name}}\nIssue: #{{issue.number}}",
-            requires_approval=False,
-        ),
-        WebhookCommand(
-            name="fix",
-            aliases=["implement", "execute"],
-            description="Implement a fix for an issue",
-            target_agent="executor",
-            prompt_template="Implement a fix for this issue:\n\n{{issue.title}}\n\n{{issue.body}}\n\nRepository: {{repository.full_name}}\nIssue: #{{issue.number}}",
-            requires_approval=True,
-        ),
-        WebhookCommand(
-            name="review",
-            aliases=["code-review", "review-pr"],
-            description="Review a pull request",
-            target_agent="planning",
-            prompt_template="Review this pull request:\n\nTitle: {{pull_request.title}}\nBody: {{pull_request.body}}\n\nRepository: {{repository.full_name}}\nPR: #{{pull_request.number}}",
-            requires_approval=False,
-        ),
-    ],
-    default_command="analyze",
-    requires_signature=True,
-    signature_header="X-Hub-Signature-256",
-    secret_env_var="GITHUB_WEBHOOK_SECRET",
-    is_builtin=True,
+Configuration files support:
+- Agent trigger settings (prefix, aliases, Jira assignee trigger)
+- Multiple commands with aliases and descriptions
+- Prompt templates with {{placeholders}}
+- Security settings (signature verification)
+
+To modify webhook behavior, edit the config.yaml file in the webhook's folder.
+"""
+
+from typing import List, Optional
+import structlog
+
+from shared.machine_models import WebhookConfig
+from core.webhook_config_loader import (
+    load_all_webhook_configs,
+    load_webhook_config,
+    validate_all_configs,
+    get_agent_trigger_info,
 )
 
+logger = structlog.get_logger()
+
 # =============================================================================
-# JIRA WEBHOOK CONFIGURATION
+# LOAD WEBHOOK CONFIGS FROM YAML FILES
 # =============================================================================
 
-JIRA_WEBHOOK: WebhookConfig = WebhookConfig(
-    name="jira",
-    endpoint="/webhooks/jira",
-    source="jira",
-    description="Jira webhook for issue updates and comments",
-    target_agent="brain",
-    command_prefix="@agent",
-    commands=[
-        WebhookCommand(
-            name="analyze",
-            aliases=["analysis", "analyze-ticket"],
-            description="Analyze a Jira ticket",
-            target_agent="planning",
-            prompt_template="Analyze this Jira ticket:\n\nKey: {{issue.key}}\nSummary: {{issue.fields.summary}}\nDescription: {{issue.fields.description}}\n\nProject: {{issue.fields.project.name}}",
-            requires_approval=False,
-        ),
-        WebhookCommand(
-            name="plan",
-            aliases=["plan-fix", "create-plan"],
-            description="Create a plan to resolve a Jira ticket",
-            target_agent="planning",
-            prompt_template="Create a detailed plan to resolve this Jira ticket:\n\n{{issue.key}}: {{issue.fields.summary}}\n\n{{issue.fields.description}}\n\nProject: {{issue.fields.project.name}}",
-            requires_approval=False,
-        ),
-        WebhookCommand(
-            name="fix",
-            aliases=["implement", "execute"],
-            description="Implement a fix for a Jira ticket",
-            target_agent="executor",
-            prompt_template="Implement a fix for this Jira ticket:\n\n{{issue.key}}: {{issue.fields.summary}}\n\n{{issue.fields.description}}\n\nProject: {{issue.fields.project.name}}",
-            requires_approval=True,
-        ),
-    ],
-    default_command="analyze",
-    requires_signature=True,
-    signature_header="X-Jira-Signature",
-    secret_env_var="JIRA_WEBHOOK_SECRET",
-    is_builtin=True,
+# Load all configs at module initialization
+_loaded_configs: List[WebhookConfig] = load_all_webhook_configs()
+
+# Create individual webhook references for backward compatibility
+GITHUB_WEBHOOK: Optional[WebhookConfig] = next(
+    (c for c in _loaded_configs if c.name == "github"), None
+)
+JIRA_WEBHOOK: Optional[WebhookConfig] = next(
+    (c for c in _loaded_configs if c.name == "jira"), None
+)
+SLACK_WEBHOOK: Optional[WebhookConfig] = next(
+    (c for c in _loaded_configs if c.name == "slack"), None
 )
 
-# =============================================================================
-# SLACK WEBHOOK CONFIGURATION
-# =============================================================================
-
-SLACK_WEBHOOK: WebhookConfig = WebhookConfig(
-    name="slack",
-    endpoint="/webhooks/slack",
-    source="slack",
-    description="Slack webhook for commands and mentions",
-    target_agent="brain",
-    command_prefix="@agent",
-    commands=[
-        WebhookCommand(
-            name="help",
-            aliases=["commands", "what-can-you-do"],
-            description="Show available commands",
-            target_agent="brain",
-            prompt_template="User asked for help in Slack. Show available commands and how to use them.",
-            requires_approval=False,
-        ),
-        WebhookCommand(
-            name="analyze",
-            aliases=["analysis"],
-            description="Analyze a request from Slack",
-            target_agent="brain",
-            prompt_template="Analyze this Slack message:\n\n{{event.text}}\n\nUser: {{event.user}}\nChannel: {{event.channel}}",
-            requires_approval=False,
-        ),
-        WebhookCommand(
-            name="execute",
-            aliases=["do", "run"],
-            description="Execute a command from Slack",
-            target_agent="executor",
-            prompt_template="Execute this request from Slack:\n\n{{event.text}}\n\nUser: {{event.user}}\nChannel: {{event.channel}}",
-            requires_approval=True,
-        ),
-    ],
-    default_command="analyze",
-    requires_signature=True,
-    signature_header="X-Slack-Signature",
-    secret_env_var="SLACK_WEBHOOK_SECRET",
-    is_builtin=True,
-)
-
-# =============================================================================
-# SENTRY WEBHOOK CONFIGURATION
-# =============================================================================
-
-SENTRY_WEBHOOK: WebhookConfig = WebhookConfig(
-    name="sentry",
-    endpoint="/webhooks/sentry",
-    source="sentry",
-    description="Sentry webhook for error alerts",
-    target_agent="planning",
-    command_prefix="",  # Sentry doesn't use command prefix
-    commands=[
-        WebhookCommand(
-            name="analyze-error",
-            aliases=["analyze", "investigate"],
-            description="Analyze a Sentry error",
-            target_agent="planning",
-            prompt_template="Analyze this Sentry error:\n\nTitle: {{event.title}}\nMessage: {{event.message}}\n\nLevel: {{event.level}}\nEnvironment: {{event.environment}}\n\nURL: {{event.url}}\n\nStack Trace:\n{{event.stacktrace}}",
-            requires_approval=False,
-        ),
-        WebhookCommand(
-            name="fix-error",
-            aliases=["fix", "resolve"],
-            description="Create a plan to fix a Sentry error",
-            target_agent="planning",
-            prompt_template="Create a plan to fix this Sentry error:\n\nTitle: {{event.title}}\nMessage: {{event.message}}\n\nLevel: {{event.level}}\nEnvironment: {{event.environment}}\n\nURL: {{event.url}}\n\nStack Trace:\n{{event.stacktrace}}",
-            requires_approval=False,
-        ),
-    ],
-    default_command="analyze-error",
-    requires_signature=True,
-    signature_header="Sentry-Hook-Signature",
-    secret_env_var="SENTRY_WEBHOOK_SECRET",
-    is_builtin=True,
-)
-
-# =============================================================================
-# COLLECT ALL CONFIGS
-# =============================================================================
-
-WEBHOOK_CONFIGS: List[WebhookConfig] = [
-    GITHUB_WEBHOOK,
-    JIRA_WEBHOOK,
-    SLACK_WEBHOOK,
-    SENTRY_WEBHOOK,
-]
+# Collect all configs
+WEBHOOK_CONFIGS: List[WebhookConfig] = _loaded_configs
 
 
 # =============================================================================
-# VALIDATION
+# HELPER FUNCTIONS
 # =============================================================================
+
 
 def validate_webhook_configs() -> None:
     """Validate all webhook configurations at startup."""
-    import structlog
-    
-    logger = structlog.get_logger()
-    
-    # Check for duplicate endpoints
-    endpoints = [config.endpoint for config in WEBHOOK_CONFIGS]
-    if len(endpoints) != len(set(endpoints)):
-        duplicates = [ep for ep in endpoints if endpoints.count(ep) > 1]
-        raise ValueError(f"Duplicate endpoints found: {duplicates}")
-    
-    # Check for duplicate names
-    names = [config.name for config in WEBHOOK_CONFIGS]
-    if len(names) != len(set(names)):
-        duplicates = [n for n in names if names.count(n) > 1]
-        raise ValueError(f"Duplicate names found: {duplicates}")
-    
-    # Validate each config (Pydantic will raise if invalid)
-    for config in WEBHOOK_CONFIGS:
-        # Validate endpoint pattern
-        import re
-        if not re.match(r"^/webhooks/[a-z0-9-]+$", config.endpoint):
-            raise ValueError(f"Invalid endpoint pattern: {config.endpoint}")
-        
-        # Validate commands
-        for cmd in config.commands:
-            if not cmd.name:
-                raise ValueError(f"Command in {config.name} has empty name")
-            if not cmd.target_agent:
-                raise ValueError(f"Command {cmd.name} in {config.name} has no target_agent")
-            if not cmd.prompt_template:
-                raise ValueError(f"Command {cmd.name} in {config.name} has no prompt_template")
-    
+    # Check critical webhooks are loaded
+    critical_webhooks = [
+        ("github", GITHUB_WEBHOOK),
+        ("jira", JIRA_WEBHOOK),
+        ("slack", SLACK_WEBHOOK)
+    ]
+    missing = [name for name, cfg in critical_webhooks if cfg is None]
+
+    if missing:
+        raise ValueError(
+            f"Critical webhook configurations missing: {', '.join(missing)}. "
+            f"Check YAML files in api/webhooks/{{name}}/config.yaml"
+        )
+
+    # Validate existing configs
+    if not validate_all_configs():
+        raise ValueError("Webhook configuration validation failed. Check logs for details.")
     logger.info("webhook_configs_validated", count=len(WEBHOOK_CONFIGS))
 
 
@@ -238,3 +83,106 @@ def get_webhook_by_endpoint(endpoint: str) -> WebhookConfig:
         if config.endpoint == endpoint:
             return config
     raise ValueError(f"Webhook not found for endpoint: {endpoint}")
+
+
+def get_webhook_by_name(name: str) -> Optional[WebhookConfig]:
+    """Get webhook config by name."""
+    for config in WEBHOOK_CONFIGS:
+        if config.name == name:
+            return config
+    return None
+
+
+def reload_webhook(name: str) -> Optional[WebhookConfig]:
+    """
+    Reload a specific webhook configuration from its YAML file.
+
+    Useful for hot-reloading configuration changes without restarting.
+
+    Args:
+        name: Webhook name (e.g., 'github', 'jira')
+
+    Returns:
+        Updated WebhookConfig if successful, None otherwise
+    """
+    global _loaded_configs, WEBHOOK_CONFIGS
+    global GITHUB_WEBHOOK, JIRA_WEBHOOK, SLACK_WEBHOOK
+
+    new_config = load_webhook_config(name)
+    if not new_config:
+        return None
+
+    # Update the loaded configs list
+    _loaded_configs = [c for c in _loaded_configs if c.name != name]
+    _loaded_configs.append(new_config)
+    WEBHOOK_CONFIGS = _loaded_configs
+
+    # Update individual references
+    if name == "github":
+        GITHUB_WEBHOOK = new_config
+    elif name == "jira":
+        JIRA_WEBHOOK = new_config
+    elif name == "slack":
+        SLACK_WEBHOOK = new_config
+
+    logger.info("webhook_reloaded", name=name)
+    return new_config
+
+
+def reload_all_webhooks() -> List[WebhookConfig]:
+    """
+    Reload all webhook configurations from YAML files.
+
+    Returns:
+        List of reloaded WebhookConfig objects
+    """
+    global _loaded_configs, WEBHOOK_CONFIGS
+    global GITHUB_WEBHOOK, JIRA_WEBHOOK, SLACK_WEBHOOK
+
+    _loaded_configs = load_all_webhook_configs()
+    WEBHOOK_CONFIGS = _loaded_configs
+
+    # Update individual references
+    GITHUB_WEBHOOK = next((c for c in _loaded_configs if c.name == "github"), None)
+    JIRA_WEBHOOK = next((c for c in _loaded_configs if c.name == "jira"), None)
+    SLACK_WEBHOOK = next((c for c in _loaded_configs if c.name == "slack"), None)
+
+    logger.info("all_webhooks_reloaded", count=len(_loaded_configs))
+    return _loaded_configs
+
+
+def get_trigger_prefixes(webhook_name: str) -> List[str]:
+    """
+    Get all valid trigger prefixes for a webhook (prefix + aliases).
+
+    Args:
+        webhook_name: Name of the webhook
+
+    Returns:
+        List of trigger prefixes (e.g., ['@agent', '@claude', '@bot'])
+    """
+    trigger_info = get_agent_trigger_info(webhook_name)
+    if not trigger_info:
+        return ["@agent"]  # Default fallback
+
+    prefixes = [trigger_info["prefix"]] if trigger_info["prefix"] else []
+    prefixes.extend(trigger_info.get("aliases", []))
+    return prefixes
+
+
+def get_assignee_trigger(webhook_name: str) -> Optional[str]:
+    """
+    Get the assignee trigger for a webhook (Jira-specific).
+
+    When a ticket is assigned to this user, the agent is triggered.
+
+    Args:
+        webhook_name: Name of the webhook
+
+    Returns:
+        Assignee name that triggers the agent, or None
+    """
+    trigger_info = get_agent_trigger_info(webhook_name)
+    if not trigger_info:
+        return None
+    return trigger_info.get("assignee_trigger")

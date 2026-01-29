@@ -78,6 +78,8 @@ start:
 	@# Environment
 	@test -f .env || { echo "📄 Creating .env..."; cp .env.example .env; }
 	@# OAuth (optional - will use API key if this fails)
+	@echo "🔑 Extracting Claude CLI credentials..."
+	@./scripts/extract_oauth_creds.sh || echo "⚠️  OAuth extraction failed (will use API key if set in .env)"
 	@echo "🔑 Checking Claude CLI credentials..."
 	@test -d ~/.claude && echo "✅ Claude CLI configured" || echo "⚠️  Claude CLI not configured (will use API key if set in .env)"
 	@echo ""
@@ -86,9 +88,10 @@ start:
 	@docker-compose build
 	@echo "🚀 Starting services..."
 	@docker-compose up -d
-	@sleep 5
+	@echo "⏳ Waiting for services to be ready..."
+	@sleep 10
 	@echo "🧪 Verifying Claude CLI status..."
-	@docker-compose exec -T app uv run python scripts/test_cli_after_build.py || echo "⚠️  CLI check failed or credentials not configured"
+	@docker-compose exec app uv run python scripts/test_cli_after_build.py || echo "⚠️  CLI check failed or credentials not configured"
 	@echo ""
 	@echo "╔══════════════════════════════════════════════════════════════╗"
 	@echo "║        ✅ System Ready!                                      ║"

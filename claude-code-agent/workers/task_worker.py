@@ -13,14 +13,14 @@ from core.database import async_session_factory
 from core.database.models import TaskDB, SessionDB, ConversationDB, ConversationMessageDB
 from core.database.redis_client import redis_client
 from core.websocket_hub import WebSocketHub
+from core.task_logger import TaskLogger
 from core.webhook_engine import (
     generate_external_id,
     generate_webhook_conversation_id,
-    generate_webhook_conversation_title,
-    action_comment
+    generate_webhook_conversation_title
 )
 from shared import TaskStatus, TaskOutputMessage, TaskCompletedMessage, TaskFailedMessage
-from sqlalchemy import select, update
+from sqlalchemy import select
 from datetime import datetime, timezone
 import uuid
 
@@ -144,15 +144,36 @@ class TaskWorker:
             # Then update database (slow ~10-100ms)
             task_db.status = TaskStatus.RUNNING
             task_db.started_at = datetime.now(timezone.utc)
-            
+
             # Check if conversation already exists (created when task was created)
             source_metadata = json.loads(task_db.source_metadata or "{}")
             conversation_id = source_metadata.get("conversation_id")
             if not conversation_id and task_db.source == "webhook":
                 # Fallback: create conversation if it wasn't created earlier
                 await self._create_webhook_conversation(task_db, session)
-            
+
             await session.commit()
+
+            # Initialize TaskLogger if enabled
+            task_logger = None
+            if settings.task_logs_enabled:
+                try:
+                    task_logger = TaskLogger(task_id, settings.task_logs_dir)
+
+                    # Write metadata
+                    task_logger.write_metadata({
+                        "task_id": task_id,
+                        "source": task_db.source,
+                        "provider": source_metadata.get("webhook_source") or source_metadata.get("provider"),
+                        "created_at": task_db.created_at.isoformat() if task_db.created_at else None,
+                        "started_at": task_db.started_at.isoformat() if task_db.started_at else None,
+                        "status": "running",
+                        "assigned_agent": task_db.assigned_agent,
+                        "agent_type": str(task_db.agent_type) if task_db.agent_type else None,
+                        "model": None  # Will be set later when we know the model
+                    })
+                except Exception as e:
+                    logger.warning("task_logger_init_failed", task_id=task_id, error=str(e))
 
             # Determine agent directory
             agent_dir = self._get_agent_dir(task_db.assigned_agent)
@@ -162,17 +183,34 @@ class TaskWorker:
 
             # Get appropriate model for agent type
             model = settings.get_model_for_agent(task_db.assigned_agent)
-            
+
+            # Update metadata with model
+            if task_logger:
+                try:
+                    task_logger.write_metadata({
+                        "task_id": task_id,
+                        "source": task_db.source,
+                        "provider": source_metadata.get("webhook_source") or source_metadata.get("provider"),
+                        "created_at": task_db.created_at.isoformat() if task_db.created_at else None,
+                        "started_at": task_db.started_at.isoformat() if task_db.started_at else None,
+                        "status": "running",
+                        "assigned_agent": task_db.assigned_agent,
+                        "agent_type": str(task_db.agent_type) if task_db.agent_type else None,
+                        "model": model
+                    })
+                except Exception as e:
+                    logger.warning("task_logger_metadata_update_failed", task_id=task_id, error=str(e))
+
             logger.info(
                 "selected_model_for_task",
                 task_id=task_id,
                 agent=task_db.assigned_agent,
                 model=model
             )
-            
+
             # Stream output to WebSocket and accumulate
             output_chunks = []
-            
+
             async def stream_output():
                 """Read from queue and stream to WebSocket/Redis."""
                 while True:
@@ -181,6 +219,17 @@ class TaskWorker:
                         break
 
                     output_chunks.append(chunk)
+
+                    # Log agent output to TaskLogger
+                    if task_logger:
+                        try:
+                            task_logger.append_agent_output({
+                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                                "type": "output",
+                                "content": chunk
+                            })
+                        except Exception as e:
+                            logger.warning("task_logger_output_append_failed", task_id=task_id, error=str(e))
 
                     # Stream to WebSocket
                     await self.ws_hub.send_to_session(
@@ -230,6 +279,14 @@ class TaskWorker:
                     # Then update database
                     task_db.status = TaskStatus.COMPLETED
                     task_db.result = result.output
+                    clean_result_output = result.clean_output if hasattr(result, 'clean_output') and result.clean_output else result.output
+
+                    if not isinstance(clean_result_output, str):
+                        if isinstance(clean_result_output, list):
+                            clean_result_output = "\n".join(str(item) for item in clean_result_output)
+                        else:
+                            clean_result_output = str(clean_result_output) if clean_result_output else ""
+
                     task_db.completed_at = datetime.now(timezone.utc)
                     task_db.duration_seconds = (
                         (task_db.completed_at - task_db.started_at).total_seconds()
@@ -246,35 +303,57 @@ class TaskWorker:
                     # Add response to conversation if task has one
                     await self._add_task_response_to_conversation(
                         task_db=task_db,
-                        result=result.output,
+                        result=clean_result_output,
                         cost_usd=result.cost_usd,
                         session=session
                     )
+
+                    # Write final result to TaskLogger
+                    if task_logger:
+                        try:
+                            task_logger.write_final_result({
+                                "success": True,
+                                "result": clean_result_output,
+                                "error": None,
+                                "metrics": {
+                                    "cost_usd": result.cost_usd,
+                                    "input_tokens": result.input_tokens,
+                                    "output_tokens": result.output_tokens,
+                                    "duration_seconds": task_db.duration_seconds
+                                },
+                                "completed_at": task_db.completed_at.isoformat() if task_db.completed_at else None
+                            })
+                        except Exception as e:
+                            logger.warning("task_logger_final_result_failed", task_id=task_id, error=str(e))
 
                     # Send completion message
                     await self.ws_hub.send_to_session(
                         task_db.session_id,
                         TaskCompletedMessage(
                             task_id=task_id,
-                            result=result.output,
+                            result=clean_result_output,
                             cost_usd=result.cost_usd
                         )
                     )
-                    
-                    # Send Slack notification if task came from webhook
+
                     if task_db.source == "webhook":
-                        await self._send_slack_notification(
+                        if not isinstance(clean_result_output, str):
+                            logger.warning(
+                                "clean_result_output_not_string",
+                                task_id=task_id,
+                                type=type(clean_result_output).__name__
+                            )
+                            if isinstance(clean_result_output, list):
+                                clean_result_output = "\n".join(str(item) for item in clean_result_output)
+                            else:
+                                clean_result_output = str(clean_result_output) if clean_result_output else ""
+
+                        await self._invoke_completion_handler(
                             task_db=task_db,
+                            message=clean_result_output,
                             success=True,
-                            result=result.output,
+                            result=clean_result_output,
                             error=None
-                        )
-                        
-                        # Post comment back to webhook source (Jira, GitHub, Slack)
-                        await self._post_webhook_comment(
-                            task_db=task_db,
-                            message=result.output,
-                            success=True
                         )
                 else:
                     # ✅ Update Redis first (fast)
@@ -303,6 +382,8 @@ class TaskWorker:
                     await self._update_claude_task_status(task_db)
 
                     if error_text:
+                        if not isinstance(error_text, str):
+                            error_text = str(error_text) if error_text else ""
                         error_lower = error_text.lower()
                         error_type = "unknown"
                         should_mark_inactive = False
@@ -382,32 +463,38 @@ class TaskWorker:
                         session=session
                     )
 
+                    # Write final result to TaskLogger (failure case)
+                    if task_logger:
+                        try:
+                            task_logger.write_final_result({
+                                "success": False,
+                                "result": None,
+                                "error": error_text,
+                                "metrics": {
+                                    "cost_usd": result.cost_usd,
+                                    "input_tokens": result.input_tokens,
+                                    "output_tokens": result.output_tokens,
+                                    "duration_seconds": task_db.duration_seconds
+                                },
+                                "completed_at": task_db.completed_at.isoformat() if task_db.completed_at else None
+                            })
+                        except Exception as e:
+                            logger.warning("task_logger_final_result_failed", task_id=task_id, error=str(e))
+
                     # Send failure message
                     await self.ws_hub.send_to_session(
                         task_db.session_id,
                         TaskFailedMessage(task_id=task_id, error=result.error or "Unknown error")
                     )
                     
-                    # Send Slack notification if task came from webhook
                     if task_db.source == "webhook":
-                        await self._send_slack_notification(
+                        error_message = f"Task failed: {result.error}" if result.error else "Task failed"
+                        await self._invoke_completion_handler(
                             task_db=task_db,
+                            message=error_message,
                             success=False,
                             result=None,
                             error=result.error
-                        )
-                        
-                        # Post comment back to webhook source (Jira, GitHub, Slack)
-                        error_message = f"❌ Task failed: {result.error}" if result.error else "❌ Task failed"
-                        logger.info(
-                            "Posting webhook comment for failed task",
-                            task_id=task_id,
-                            error_message=error_message[:100]
-                        )
-                        await self._post_webhook_comment(
-                            task_db=task_db,
-                            message=error_message,
-                            success=False
                         )
 
                 await session.commit()
@@ -422,25 +509,18 @@ class TaskWorker:
             except Exception as e:
                 logger.error("Task processing error", task_id=task_id, error=str(e))
                 
-                # Send Slack notification for errors if task came from webhook
                 try:
                     if task_db.source == "webhook":
-                        await self._send_slack_notification(
+                        error_message = f"Task error: {str(e)}"
+                        await self._invoke_completion_handler(
                             task_db=task_db,
+                            message=error_message,
                             success=False,
                             result=None,
                             error=str(e)
                         )
-                        
-                        # Post comment back to webhook source (Jira, GitHub, Slack)
-                        error_message = f"❌ Task error: {str(e)}"
-                        await self._post_webhook_comment(
-                            task_db=task_db,
-                            message=error_message,
-                            success=False
-                        )
-                except Exception as notify_error:
-                    logger.error("Slack notification error", error=str(notify_error))
+                except Exception as handler_error:
+                    logger.error("completion_handler_error", error=str(handler_error))
 
                 # ✅ Update Redis first (fast)
                 await redis_client.set_task_status(task_id, TaskStatus.FAILED)
@@ -568,20 +648,40 @@ class TaskWorker:
                         webhook_source=webhook_source
                     )
             
-            # Always add a new message to the conversation (even if reusing conversation)
-            user_message_id = f"msg-{uuid.uuid4().hex[:12]}"
-            user_message = ConversationMessageDB(
-                message_id=user_message_id,
-                conversation_id=conversation_id,
-                role="user",
-                content=task_db.input_message,
-                task_id=task_db.task_id,
-                metadata_json=json.dumps({
-                    "webhook_source": webhook_source,
-                    "command": command
-                }),
+            # Only add message if not already added by webhook handler
+            # Check if a message with this task_id already exists
+            existing_message_result = await session.execute(
+                select(ConversationMessageDB)
+                .where(ConversationMessageDB.task_id == task_db.task_id)
+                .where(ConversationMessageDB.conversation_id == conversation_id)
             )
-            session.add(user_message)
+            existing_message = existing_message_result.scalar_one_or_none()
+
+            if not existing_message:
+                user_message_id = f"msg-{uuid.uuid4().hex[:12]}"
+                user_message = ConversationMessageDB(
+                    message_id=user_message_id,
+                    conversation_id=conversation_id,
+                    role="user",
+                    content=task_db.input_message,
+                    task_id=task_db.task_id,
+                    metadata_json=json.dumps({
+                        "webhook_source": webhook_source,
+                        "command": command
+                    }),
+                )
+                session.add(user_message)
+                logger.info(
+                    "webhook_conversation_message_added",
+                    task_id=task_db.task_id,
+                    conversation_id=conversation_id
+                )
+            else:
+                logger.info(
+                    "webhook_conversation_message_already_exists",
+                    task_id=task_db.task_id,
+                    conversation_id=conversation_id
+                )
             
             # Update task metadata with conversation_id
             source_metadata["conversation_id"] = conversation_id
@@ -725,98 +825,63 @@ class TaskWorker:
             return "\n".join(cleaned_lines)
         return error
     
-    def _format_error_for_platform(self, error: str, platform: str) -> str:
-        """Format error message based on platform."""
-        cleaned_error = self._clean_error_message(error)
-        
-        if platform == "github":
-            # GitHub: Error emoji + clean message
-            return f"❌ {cleaned_error}"
-        elif platform == "jira":
-            # Jira: Clean error message
-            return cleaned_error
-        elif platform == "slack":
-            # Slack: Clean error message
-            return cleaned_error
-        else:
-            # Default: Include status prefix
-            return f"❌ {cleaned_error}"
 
-    async def _post_webhook_comment(
+    async def _invoke_completion_handler(
         self,
         task_db: TaskDB,
         message: str,
-        success: bool
+        success: bool,
+        result: Optional[str] = None,
+        error: Optional[str] = None
     ) -> bool:
-        """Post comment back to webhook source (Jira, GitHub, Slack) after task completion."""
+        """
+        Invoke completion handler callback registered by route.
+
+        Generic callback invocation - task worker doesn't know about webhook sources.
+
+        IMPORTANT: This is a SYSTEM BOUNDARY. We use WebhookCompletionParams to
+        coerce all parameters to proper string types before passing to handlers.
+        This prevents TypeError ("expected string or bytes-like object, got 'list'")
+        in downstream functions that use regex operations.
+        """
         try:
-            # Parse source_metadata to get payload
+            # Coerce types at system boundary using Pydantic validation
+            from core.type_coercion import WebhookCompletionParams
+            params = WebhookCompletionParams(message=message, result=result, error=error)
+
             source_metadata = json.loads(task_db.source_metadata or "{}")
             payload = source_metadata.get("payload", {})
-            webhook_source = source_metadata.get("webhook_source", "unknown")
-            
+            completion_handler_path = source_metadata.get("completion_handler")
+
+            if not completion_handler_path:
+                logger.debug("no_completion_handler", task_id=task_db.task_id)
+                return False
+
             if not payload:
-                logger.debug("no_payload_for_webhook_comment", task_id=task_db.task_id)
+                logger.debug("no_payload_for_completion_handler", task_id=task_db.task_id)
                 return False
-            
-            # Ensure payload has provider field
-            if "provider" not in payload:
-                payload["provider"] = webhook_source
-            
-            # Get platform for formatting
-            platform = payload.get("provider", webhook_source).lower()
-            
-            # Format message based on success/failure and platform
-            if success:
-                status_prefix = "✅"
-                formatted_message = f"{status_prefix} {message}"
-            else:
-                # Format error message for platform
-                formatted_message = self._format_error_for_platform(message, platform)
-            
-            # Truncate message if too long (most APIs have limits)
-            # Use higher limit for error messages to preserve important details
-            max_length = 8000 if not success else 4000
-            truncated_message = formatted_message[:max_length] if len(formatted_message) > max_length else formatted_message
-            if len(formatted_message) > max_length:
-                # Try to truncate at sentence boundary
-                last_period = truncated_message.rfind(".")
-                last_newline = truncated_message.rfind("\n")
-                truncate_at = max(last_period, last_newline)
-                if truncate_at > max_length * 0.8:  # Only truncate at boundary if it's reasonable
-                    truncated_message = truncated_message[:truncate_at + 1]
-                truncated_message += "\n\n... (message truncated)"
-            
-            formatted_message = truncated_message
-            
-            # Add cost info if available and successful
-            if success and task_db.cost_usd > 0:
-                formatted_message += f"\n\n💰 Cost: ${task_db.cost_usd:.4f}"
-            
-            # Post comment using webhook_engine action_comment
-            result = await action_comment(payload, formatted_message)
-            
-            if result.get("status") == "sent":
-                logger.info(
-                    "webhook_comment_posted",
-                    task_id=task_db.task_id,
-                    provider=payload.get("provider"),
-                    success=success
-                )
-                return True
-            else:
-                logger.warning(
-                    "webhook_comment_failed",
-                    task_id=task_db.task_id,
-                    provider=payload.get("provider"),
-                    error=result.get("error")
-                )
-                return False
-                
+
+            module_path, function_name = completion_handler_path.rsplit(".", 1)
+            module = __import__(module_path, fromlist=[function_name])
+            handler = getattr(module, function_name)
+
+            # Pass coerced params - guaranteed to be str or None
+            return await handler(
+                payload=payload,
+                message=params.message,
+                success=success,
+                cost_usd=task_db.cost_usd or 0.0,
+                task_id=task_db.task_id,
+                command=source_metadata.get("command"),
+                result=params.result,
+                error=params.error
+            )
+
         except Exception as e:
             logger.error(
-                "webhook_comment_error",
+                "completion_handler_error",
                 task_id=task_db.task_id,
+                completion_handler=completion_handler_path if 'completion_handler_path' in dir() else None,
                 error=str(e)
             )
             return False
@@ -840,7 +905,7 @@ class TaskWorker:
 
         # Build notification message
         message = {
-            "channel": os.getenv("SLACK_NOTIFICATION_CHANNEL", "#ai-agent-activity"),
+            "channel": os.getenv("SLACK_CHANNEL_AGENTS", "#ai-agent-activity"),
             "blocks": [
                 {
                     "type": "section",

@@ -153,48 +153,12 @@ class TestSlackIntegrationAgent:
         assert response.status_code == 200
 
 
-class TestSentryIntegrationAgent:
-    """Test Sentry integration agent capabilities."""
-    async def test_sentry_agent_can_list_errors(self, client, redis_mock):
-        """
-        REQUIREMENT: Sentry agent should be able to list recent errors.
-        """
-        redis_mock.get_active_subagent_count = AsyncMock(return_value=0)
-        redis_mock.add_active_subagent = AsyncMock()
-        
-        response = await client.post("/api/v2/subagents/spawn", json={
-            "agent_type": "sentry-integrator",
-            "mode": "background",
-            "task_id": f"sentry-list-{uuid.uuid4().hex[:8]}",
-            "prompt": "List errors from the last 24 hours"
-        })
-        
-        assert response.status_code == 200
-        data = response.json()["data"]
-        assert data["agent_type"] == "sentry-integrator"
-    async def test_sentry_agent_can_analyze_error_patterns(self, client, redis_mock):
-        """
-        REQUIREMENT: Sentry agent should be able to analyze error patterns.
-        """
-        redis_mock.get_active_subagent_count = AsyncMock(return_value=0)
-        redis_mock.add_active_subagent = AsyncMock()
-        
-        response = await client.post("/api/v2/subagents/spawn", json={
-            "agent_type": "sentry-integrator",
-            "mode": "background",
-            "task_id": f"sentry-analyze-{uuid.uuid4().hex[:8]}",
-            "prompt": "Analyze error patterns for the authentication module"
-        })
-        
-        assert response.status_code == 200
-
-
 class TestMultiServiceOrchestration:
     """Test cross-service orchestration workflows."""
     async def test_incident_response_workflow(self, client, redis_mock):
         """
         REQUIREMENT: Should orchestrate incident response across services.
-        Sentry error → Jira ticket → Slack alert → GitHub issue
+        Error → Jira ticket → Slack alert → GitHub issue
         """
         redis_mock.get_active_subagent_count = AsyncMock(return_value=0)
         redis_mock.add_active_subagent = AsyncMock()
@@ -205,14 +169,14 @@ class TestMultiServiceOrchestration:
             "agent_type": "service-orchestrator",
             "mode": "background",
             "task_id": f"incident-{uuid.uuid4().hex[:8]}",
-            "prompt": "Handle Sentry error spike: AuthenticationError increased 500%"
+            "prompt": "Handle error spike: AuthenticationError increased 500%"
         })
         
         assert response.status_code == 200
     async def test_release_coordination_workflow(self, client, redis_mock):
         """
         REQUIREMENT: Should coordinate release across services.
-        GitHub release → Sentry release → Jira version → Slack announcement
+        GitHub release → Jira version → Slack announcement
         """
         redis_mock.get_active_subagent_count = AsyncMock(return_value=0)
         redis_mock.add_active_subagent = AsyncMock()
@@ -237,11 +201,10 @@ class TestMultiServiceOrchestration:
             "agents": [
                 {"type": "github-integrator", "task": "Check GitHub status"},
                 {"type": "jira-integrator", "task": "Check Jira status"},
-                {"type": "sentry-integrator", "task": "Check Sentry status"},
                 {"type": "slack-integrator", "task": "Check Slack status"},
             ]
         })
         
         assert response.status_code == 200
         data = response.json()["data"]
-        assert data["agent_count"] == 4
+        assert data["agent_count"] == 3

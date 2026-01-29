@@ -71,11 +71,12 @@ def should_start_new_conversation(prompt: str, metadata: dict) -> bool:
     Returns:
         True if new conversation should be started, False otherwise
     """
-    # Check metadata flag first (takes precedence)
     if "new_conversation" in metadata:
         return bool(metadata["new_conversation"])
     
-    # Check for keywords in prompt (case-insensitive)
+    if not isinstance(prompt, str):
+        prompt = str(prompt) if prompt else ""
+    
     prompt_lower = prompt.lower()
     keywords = [
         "new conversation",
@@ -399,6 +400,48 @@ async def create_webhook_conversation(
         return None
 
 
+def truncate_content_intelligently(content: Optional[str], max_size: int) -> str:
+    """
+    Truncate content intelligently, preserving structure when possible.
+    
+    Args:
+        content: Content to truncate (can be None)
+        max_size: Maximum size in characters
+        
+    Returns:
+        Truncated content with "... (truncated)" indicator if truncated
+    """
+    if not content:
+        return ""
+    
+    if len(content) <= max_size:
+        return content
+    
+    truncated = content[:max_size]
+    
+    # Try to truncate at sentence boundary
+    last_period = truncated.rfind(".")
+    last_newline = truncated.rfind("\n")
+    last_exclamation = truncated.rfind("!")
+    last_question = truncated.rfind("?")
+    
+    sentence_end = max(last_period, last_newline, last_exclamation, last_question)
+    
+    # If we found a good boundary (within 80% of max_size), use it
+    if sentence_end > max_size * 0.8:
+        truncated = truncated[:sentence_end + 1]
+    
+    # Try to preserve markdown structure - don't truncate in middle of code block
+    if "```" in truncated:
+        code_blocks = truncated.count("```")
+        if code_blocks % 2 == 1:
+            # Unclosed code block - remove it
+            last_code_start = truncated.rfind("```")
+            truncated = truncated[:last_code_start]
+    
+    return truncated + "\n\n... (truncated)"
+
+
 def render_template(template: str, payload: dict, task_id: Optional[str] = None) -> str:
     """
     Render template with payload data using {{variable}} syntax.
@@ -443,9 +486,20 @@ def render_template(template: str, payload: dict, task_id: Optional[str] = None)
         value = get_nested_value(payload, var_path)
         
         if value is None:
-            return match.group(0)  # Keep original if not found
+            return match.group(0)
         
-        return str(value)
+        if var_path == "comment.body":
+            from api.webhooks.jira.utils import extract_jira_comment_text
+            value_str = extract_jira_comment_text(value)
+        else:
+            value_str = str(value)
+        
+        from core.config import settings
+        
+        if var_path in ["comment.body", "issue.body"] and len(value_str) > settings.max_comment_body_size:
+            value_str = truncate_content_intelligently(value_str, settings.max_comment_body_size)
+        
+        return value_str
     
     return re.sub(pattern, replace_var, template)
 

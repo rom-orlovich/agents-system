@@ -1,0 +1,118 @@
+# GitHub Webhook Configuration
+# ============================
+# This file configures how the agent responds to GitHub events.
+# Edit this file to customize commands, triggers, and behavior.
+
+name: github
+description: GitHub webhook for issues, PRs, and comments
+endpoint: /webhooks/github
+source: github
+
+# Agent Trigger Configuration
+# ---------------------------
+# These are the prefixes that trigger the agent to respond.
+# You can add aliases for alternative ways to trigger the agent.
+agent_trigger:
+  prefix: "@agent"
+  aliases:
+    - "@claude"
+    - "@bot"
+    - "@ai-agent"
+
+# Default agent for routing tasks
+target_agent: brain
+
+# Default command when no specific command is detected
+default_command: analyze
+
+# Security Configuration
+# ----------------------
+security:
+  requires_signature: true
+  signature_header: X-Hub-Signature-256
+  secret_env_var: GITHUB_WEBHOOK_SECRET
+
+# Commands Configuration
+# ----------------------
+# Each command has:
+#   - name: The primary command name
+#   - aliases: Alternative names that trigger the same command
+#   - description: Human-readable description
+#   - target_agent: Which agent handles this command
+#   - requires_approval: Whether human approval is needed
+#   - template_file: Template file name (prompts/{name}.md)
+commands:
+  - name: analyze
+    aliases:
+      - analysis
+      - analyze-issue
+    description: Analyze an issue or PR
+    target_agent: planning
+    requires_approval: false
+    template_file: analyze
+
+  - name: plan
+    aliases:
+      - plan-fix
+      - create-plan
+    description: Create a plan to fix an issue
+    target_agent: planning
+    requires_approval: false
+    template_file: plan
+
+  - name: fix
+    aliases:
+      - implement
+      - execute
+    description: Implement a fix for an issue
+    target_agent: executor
+    requires_approval: true
+    template_file: fix
+
+  - name: review
+    aliases:
+      - code-review
+      - review-pr
+    description: Review a pull request
+    target_agent: planning
+    requires_approval: false
+    template_file: review
+
+  - name: approve
+    aliases:
+      - lgtm
+      - approved
+      - ship-it
+    description: Approve a pull request or plan
+    target_agent: executor
+    requires_approval: false
+    template_file: approve
+
+  - name: reject
+    aliases:
+      - changes-requested
+      - request-changes
+      - revise
+    description: Request changes or reject a plan
+    target_agent: planning
+    requires_approval: false
+    template_file: reject
+
+  - name: improve
+    aliases:
+      - enhance
+      - refactor
+      - optimize
+    description: Improve or refactor code
+    target_agent: executor
+    requires_approval: true
+    template_file: improve
+
+  - name: help
+    aliases:
+      - commands
+      - what-can-you-do
+    description: Show available commands
+    target_agent: brain
+    requires_approval: false
+    template_file: help

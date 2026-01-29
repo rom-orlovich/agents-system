@@ -4,7 +4,7 @@ description: Create, edit, test, and manage webhooks for GitHub, Jira, Slack, Se
 user-invocable: true
 ---
 
-Manages webhook lifecycle operations for GitHub, Jira, Slack, and Sentry providers.
+Manages webhook lifecycle operations for GitHub, Jira, and Slack providers.
 
 ## Quick Start
 
@@ -24,7 +24,8 @@ This skill requires explicit user invocation for safety.
 - **GitHub** - Issue events, PR events, mention triggers
 - **Jira** - Issue updates, comment mentions, sprint changes
 - **Slack** - Task notifications, error alerts, slash commands
-- **Sentry** - Error detection, error rate spikes, new error types
+
+> **Note:** Sentry is not directly supported. Configure Sentry to create Jira tickets, which then trigger the jira-code-fix workflow.
 
 ## Helper Scripts
 
@@ -36,8 +37,8 @@ Scripts available in `scripts/` directory:
 
 - **GitHub → Planning Agent** - Auto-create analysis task when @agent mentioned
 - **Jira → Executor Agent** - Start implementation when issue assigned
-- **Sentry → Investigation** - Create task when error threshold exceeded
 - **Task → Slack** - Notify team when tasks start/complete/fail
+- **Sentry → Jira → Agent** - Sentry creates Jira ticket, agent handles it
 
 ## Additional Resources
 
