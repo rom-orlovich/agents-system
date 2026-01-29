@@ -1,5 +1,6 @@
 """Webhook observability - comprehensive logging and error tracking."""
 import traceback
+import asyncio
 import sys
 from functools import wraps
 from typing import Any, Callable
@@ -123,6 +124,3 @@ def log_handler_call(handler_name: str, method: str, params: dict = None):
         method=method,
         params=params or {}
     )
-
-
-import asyncio

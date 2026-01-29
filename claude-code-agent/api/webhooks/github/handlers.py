@@ -340,4 +340,3 @@ class GitHubWebhookHandler:
 
 
 github_response_handler = GitHubResponseHandler()
-github_webhook_handler = GitHubWebhookHandler

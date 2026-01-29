@@ -4,9 +4,8 @@ Loads prompt templates from separate files instead of embedding them in YAML con
 Supports variable substitution using {{placeholder}} syntax.
 """
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 import structlog
-import re
 
 logger = structlog.get_logger()
 
@@ -69,7 +68,7 @@ class TemplateLoader:
             )
             return None
 
-    def render_template(self, template_content: str, variables: Dict[str, any]) -> str:
+    def render_template(self, template_content: str, variables: Dict[str, Any]) -> str:
         """
         Render template by replacing {{variables}} with actual values.
 
@@ -88,7 +87,7 @@ class TemplateLoader:
 
         return result
 
-    def load_and_render(self, template_name: str, variables: Dict[str, any]) -> Optional[str]:
+    def load_and_render(self, template_name: str, variables: Dict[str, Any]) -> Optional[str]:
         """
         Load template from file and render with variables.
 
@@ -160,13 +159,13 @@ class BrainOrchestrator:
 
         return agents
 
-    def select_agent(self, command: str, context: Dict[str, any]) -> Optional[str]:
+    def select_agent(self, command: str, _context: Dict[str, Any]) -> Optional[str]:
         """
         Select appropriate sub-agent based on command and context.
 
         Args:
             command: Command name (e.g., 'analyze', 'plan', 'fix')
-            context: Context dictionary with task details
+            _context: Context dictionary with task details (unused currently)
 
         Returns:
             Agent name or None if no suitable agent found

@@ -12,7 +12,7 @@ from core.config import settings
 from api.webhooks.github.utils import (
     send_slack_notification,
 )
-from api.webhooks.github.handlers import handle_github_task_completion, github_webhook_handler
+from api.webhooks.github.handlers import handle_github_task_completion, GitHubWebhookHandler
 from pathlib import Path
 from api.webhooks.github.constants import (
     PROVIDER_NAME,
@@ -35,7 +35,7 @@ router = APIRouter()
 
 GITHUB_CONFIG = load_webhook_config_from_yaml(Path(__file__).parent / "config.yaml")
 COMPLETION_HANDLER = "api.webhooks.github.handlers.handle_github_task_completion"
-webhook_handler = github_webhook_handler(GITHUB_CONFIG)
+webhook_handler = GitHubWebhookHandler(GITHUB_CONFIG)
 
 
 @router.post("/github")
