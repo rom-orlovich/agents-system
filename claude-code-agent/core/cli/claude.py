@@ -159,6 +159,7 @@ class ClaudeCLIRunner:
                         if msg_type == "init":
                             init_content = data.get("content", "")
                             if init_content:
+                                logger.debug("cli_output_append", task_id=task_id, source="init", length=len(init_content))
                                 accumulated_output.append(init_content)
                                 await output_queue.put(init_content)
 
@@ -186,6 +187,7 @@ class ClaudeCLIRunner:
                                                     task_id=task_id,
                                                     text=sanitized_text,
                                                 )
+                                                logger.debug("cli_output_append", task_id=task_id, source="content_block_text", length=len(text_content))
                                                 accumulated_output.append(text_content)
                                                 clean_output.append(text_content)
                                                 await output_queue.put(text_content)
@@ -260,6 +262,7 @@ class ClaudeCLIRunner:
                                 if delta.get("type") == "text_delta":
                                     text = delta.get("text", "")
                                     if text:
+                                        logger.debug("cli_output_append", task_id=task_id, source="content_block_delta", length=len(text))
                                         accumulated_output.append(text)
                                         clean_output.append(text)
                                         await output_queue.put(text)
@@ -277,9 +280,7 @@ class ClaudeCLIRunner:
                         elif msg_type == "content":
                             chunk = data.get("content", "")
                             if chunk:
-                                logger.debug(
-                                    "chunk_received", task_id=task_id, chunk_len=len(chunk)
-                                )
+                                logger.debug("cli_output_append", task_id=task_id, source="content_chunk", length=len(chunk))
                                 accumulated_output.append(chunk)
                                 await output_queue.put(chunk)
 
