@@ -185,7 +185,8 @@ def validate_all_configs() -> bool:
             if not cmd.target_agent:
                 logger.error("missing_target_agent", webhook=config.name, command=cmd.name)
                 return False
-            if not cmd.prompt_template:
+            # Accept either inline prompt_template OR template_file
+            if not cmd.prompt_template and not cmd.template_file:
                 logger.error("missing_prompt_template", webhook=config.name, command=cmd.name)
                 return False
 
