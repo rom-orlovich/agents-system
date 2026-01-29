@@ -568,8 +568,19 @@ def extract_task_summary(result: str, task_metadata: dict):
     from api.webhooks.jira.models import TaskSummary
     import re
 
+    if result is None:
+        result = ""
+    elif isinstance(result, list):
+        result = "\n".join(str(item) for item in result)
+    elif not isinstance(result, str):
+        try:
+            result = str(result)
+        except Exception as e:
+            logger.warning(f"Failed to convert result to string: {e}")
+            result = ""
+
     if not isinstance(result, str):
-        result = str(result) if result else ""
+        result = ""
 
     summary_text = ""
     what_was_done_text = ""
@@ -704,6 +715,12 @@ async def send_slack_notification(
     ]
     
     if success and result:
+        if not isinstance(result, str):
+            if isinstance(result, list):
+                result = "\n".join(str(item) for item in result)
+            else:
+                result = str(result) if result else ""
+
         result_preview = result[:500] + "..." if len(result) > 500 else result
         blocks.append({
             "type": "section",

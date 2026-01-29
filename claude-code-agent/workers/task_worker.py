@@ -280,6 +280,13 @@ class TaskWorker:
                     task_db.status = TaskStatus.COMPLETED
                     task_db.result = result.output
                     clean_result_output = result.clean_output if hasattr(result, 'clean_output') and result.clean_output else result.output
+
+                    if not isinstance(clean_result_output, str):
+                        if isinstance(clean_result_output, list):
+                            clean_result_output = "\n".join(str(item) for item in clean_result_output)
+                        else:
+                            clean_result_output = str(clean_result_output) if clean_result_output else ""
+
                     task_db.completed_at = datetime.now(timezone.utc)
                     task_db.duration_seconds = (
                         (task_db.completed_at - task_db.started_at).total_seconds()
@@ -330,6 +337,17 @@ class TaskWorker:
                     )
 
                     if task_db.source == "webhook":
+                        if not isinstance(clean_result_output, str):
+                            logger.warning(
+                                "clean_result_output_not_string",
+                                task_id=task_id,
+                                type=type(clean_result_output).__name__
+                            )
+                            if isinstance(clean_result_output, list):
+                                clean_result_output = "\n".join(str(item) for item in clean_result_output)
+                            else:
+                                clean_result_output = str(clean_result_output) if clean_result_output else ""
+
                         await self._invoke_completion_handler(
                             task_db=task_db,
                             message=clean_result_output,

@@ -75,15 +75,21 @@ async def handle_slack_task_completion(
     """
     from core.webhook_configs import SLACK_WEBHOOK
 
-    if isinstance(result, list):
-        result = "\n".join(str(item) for item in result)
-    elif result and not isinstance(result, str):
-        result = str(result)
+    if result is not None:
+        if isinstance(result, list):
+            result = "\n".join(str(item) for item in result)
+        elif not isinstance(result, str):
+            result = str(result)
+        if not isinstance(result, str):
+            result = ""
 
-    if isinstance(message, list):
-        message = "\n".join(str(item) for item in message)
-    elif message and not isinstance(message, str):
-        message = str(message)
+    if message is not None:
+        if isinstance(message, list):
+            message = "\n".join(str(item) for item in message)
+        elif not isinstance(message, str):
+            message = str(message)
+        if not isinstance(message, str):
+            message = ""
 
     routing = extract_slack_routing(payload)
 
@@ -97,7 +103,11 @@ async def handle_slack_task_completion(
     }
 
     task_metadata = {"classification": payload.get("classification", "SIMPLE")}
-    summary = extract_task_summary(result or message, task_metadata)
+    summary_input = result or message
+    if not isinstance(summary_input, str):
+        summary_input = str(summary_input) if summary_input else ""
+
+    summary = extract_task_summary(summary_input, task_metadata)
 
     requires_approval = False
     if command:
