@@ -20,7 +20,7 @@ from core.config import settings
 from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB, SessionDB, TaskDB
 from core.database.redis_client import redis_client
-from core.webhook_configs import SLACK_WEBHOOK
+from core.webhook_configs import SLACK_WEBHOOK, get_trigger_prefixes
 from core.webhook_engine import render_template, create_webhook_conversation
 from shared.machine_models import WebhookCommand
 from shared import TaskStatus, AgentType
@@ -119,12 +119,15 @@ def match_slack_command(payload: dict, event_type: str) -> Optional[WebhookComma
             if cmd.name == SLACK_WEBHOOK.default_command:
                 return cmd
         return SLACK_WEBHOOK.commands[0] if SLACK_WEBHOOK.commands else None
-    
-    # Check prefix
-    prefix = SLACK_WEBHOOK.command_prefix.lower()
+
+    # Check all trigger prefixes (including aliases like @agent, @claude, @bot)
+    trigger_prefixes = get_trigger_prefixes("slack")
     text_lower = text.lower()
-    
-    if prefix not in text_lower:
+
+    # Check if any prefix matches
+    prefix_found = any(prefix.lower() in text_lower for prefix in trigger_prefixes if prefix)
+
+    if not prefix_found:
         # Use default command
         for cmd in SLACK_WEBHOOK.commands:
             if cmd.name == SLACK_WEBHOOK.default_command:
