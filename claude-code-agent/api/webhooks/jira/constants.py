@@ -1,4 +1,5 @@
-from typing import Final
+from typing import Final, List, Dict, Any
+from pathlib import Path
 
 EVENT_ISSUE_CREATED: Final[str] = "jira:issue_created"
 EVENT_ISSUE_UPDATED: Final[str] = "jira:issue_updated"
@@ -55,3 +56,36 @@ MESSAGE_NO_COMMAND_MATCHED: Final[str] = "No command matched - requires assignee
 
 DEFAULT_EVENT_TYPE: Final[str] = "unknown"
 DEFAULT_ISSUE_KEY: Final[str] = "unknown"
+
+
+def _load_commands_from_config():
+    """Load commands from static webhook config for export to tests."""
+    try:
+        from shared.machine_models import WebhookYamlConfig
+        config_path = Path(__file__).parent / "config.yaml"
+
+        if config_path.exists():
+            yaml_config = WebhookYamlConfig.from_yaml_file(config_path)
+            webhook_config = yaml_config.to_webhook_config()
+
+            commands = [
+                {
+                    "name": cmd.name,
+                    "aliases": cmd.aliases,
+                    "description": cmd.description,
+                    "target_agent": cmd.target_agent,
+                    "prompt_template": cmd.prompt_template,
+                    "requires_approval": cmd.requires_approval,
+                }
+                for cmd in webhook_config.commands
+            ]
+            return commands, webhook_config.command_prefix
+    except Exception:
+        pass
+
+    return [], "@agent"
+
+
+COMMANDS: List[Dict[str, Any]]
+AGENT_TRIGGER_PREFIX: str
+COMMANDS, AGENT_TRIGGER_PREFIX = _load_commands_from_config()

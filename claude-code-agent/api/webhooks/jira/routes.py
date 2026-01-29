@@ -4,20 +4,16 @@ import json
 import uuid
 from datetime import datetime, timezone
 import structlog
+from pathlib import Path
 
 from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB
 from core.webhook_configs import JIRA_WEBHOOK
-from api.webhooks.jira.validation import validate_jira_webhook
 from api.webhooks.jira.utils import (
-    verify_jira_signature,
-    send_jira_immediate_response,
-    match_jira_command,
-    create_jira_task,
     send_slack_notification,
     extract_pr_url,
 )
-from api.webhooks.jira.handlers import JiraResponseHandler
+from api.webhooks.jira.handlers import JiraResponseHandler, JiraWebhookHandler
 from api.webhooks.jira.metadata import extract_jira_routing
 from api.webhooks.jira.models import JiraTaskCompletionPayload
 from core.database.redis_client import redis_client
@@ -36,10 +32,14 @@ from api.webhooks.jira.constants import (
     DEFAULT_ISSUE_KEY,
 )
 
+from api.webhooks.common.utils import load_webhook_config_from_yaml
+
 logger = structlog.get_logger()
 router = APIRouter()
 
+JIRA_CONFIG = load_webhook_config_from_yaml(Path(__file__).parent / "config.yaml")
 COMPLETION_HANDLER = "api.webhooks.jira.routes.handle_jira_task_completion"
+webhook_handler = JiraWebhookHandler(JIRA_CONFIG)
 
 
 async def handle_jira_task_completion(
@@ -177,17 +177,26 @@ async def jira_webhook(
             logger.error("jira_webhook_body_read_failed", error=str(e))
             raise HTTPException(status_code=400, detail=f"Failed to read request body: {str(e)}")
         
+        # Step 1: Verify signature
         try:
-            await verify_jira_signature(request, body)
+            await webhook_handler.verify_signature(request, body)
         except HTTPException:
             raise
         except Exception as e:
             logger.error("jira_signature_verification_error", error=str(e))
             raise HTTPException(status_code=401, detail=f"Signature verification failed: {str(e)}")
-        
+
+        # Step 2: Check config loaded
+        if JIRA_CONFIG is None:
+            logger.error("jira_webhook_config_not_loaded")
+            raise HTTPException(
+                status_code=503,
+                detail="Jira webhook configuration not loaded"
+            )
+
+        # Step 3: Parse payload
         try:
-            payload = json.loads(body.decode())
-            payload["provider"] = PROVIDER_NAME
+            payload = webhook_handler.parse_payload(body, PROVIDER_NAME)
         except json.JSONDecodeError as e:
             logger.error("jira_payload_parse_error", error=str(e))
             raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {str(e)}")
@@ -200,8 +209,9 @@ async def jira_webhook(
         
         logger.info("jira_webhook_received", event_type=event_type, issue_key=issue_key, payload_keys=list(payload.keys()))
         
+        # Step 4: Validate webhook
         try:
-            validation_result = validate_jira_webhook(payload)
+            validation_result = await webhook_handler.validate_webhook(payload)
             
             if not validation_result.is_valid:
                 logger.info(
@@ -215,7 +225,8 @@ async def jira_webhook(
             logger.error("jira_webhook_validation_error", error=str(e), event_type=event_type)
         
         try:
-            command = await match_jira_command(payload, event_type)
+            # Step 5: Match command
+            command = await webhook_handler.match_command(payload, event_type)
             if not command:
                 logger.warning("jira_no_command_matched", event_type=event_type, issue_key=issue_key, payload_sample=str(payload)[:500])
                 return {"status": STATUS_RECEIVED, "actions": 0, "message": MESSAGE_NO_COMMAND_MATCHED}
@@ -225,9 +236,11 @@ async def jira_webhook(
         
         logger.info("jira_command_matched", command=command.name, event_type=event_type, issue_key=issue_key)
         
-        immediate_response_sent = await send_jira_immediate_response(payload, command, event_type)
+        # Step 6: Send immediate response
+        immediate_response_sent = await webhook_handler.send_immediate_response(payload, command, event_type)
         
-        task_id = await create_jira_task(command, payload, db, completion_handler=COMPLETION_HANDLER)
+        # Step 7: Create task
+        task_id = await webhook_handler.create_task(command, payload, db, COMPLETION_HANDLER)
         logger.info("jira_task_created_success", task_id=task_id, issue_key=issue_key)
         
         try:

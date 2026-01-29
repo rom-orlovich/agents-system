@@ -352,7 +352,11 @@ async def match_github_command(payload: dict, event_type: str) -> Optional[Webho
         return None
     
     command_name_lower = command_name.lower()
-    
+
+    if GITHUB_WEBHOOK is None:
+        logger.error("github_webhook_config_missing")
+        return None
+
     for cmd in GITHUB_WEBHOOK.commands:
         if cmd.name.lower() == command_name_lower:
             payload["_user_content"] = user_content
@@ -370,12 +374,20 @@ async def create_github_task(
     command: WebhookCommand,
     payload: dict,
     db: AsyncSession,
-    completion_handler: str
+    completion_handler: str,
+    task_id: str = None
 ) -> str:
     """Create a task from GitHub webhook."""
-    task_id = f"task-{uuid.uuid4().hex[:12]}"
-    
-    base_message = render_template(command.prompt_template, payload, task_id=task_id)
+    if not task_id:
+        task_id = f"task-{uuid.uuid4().hex[:12]}"
+
+    from api.webhooks.common.utils import get_template_content
+    template_content = get_template_content(command, "github")
+
+    if not template_content:
+        raise ValueError(f"No template found for command: {command.name}")
+
+    base_message = render_template(template_content, payload, task_id=task_id)
     
     from core.webhook_engine import wrap_prompt_with_brain_instructions
     message = wrap_prompt_with_brain_instructions(base_message, task_id=task_id)

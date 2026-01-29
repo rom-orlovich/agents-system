@@ -13,14 +13,14 @@ from core.database import async_session_factory
 from core.database.models import TaskDB, SessionDB, ConversationDB, ConversationMessageDB
 from core.database.redis_client import redis_client
 from core.websocket_hub import WebSocketHub
+from core.task_logger import TaskLogger
 from core.webhook_engine import (
     generate_external_id,
     generate_webhook_conversation_id,
-    generate_webhook_conversation_title,
-    action_comment
+    generate_webhook_conversation_title
 )
 from shared import TaskStatus, TaskOutputMessage, TaskCompletedMessage, TaskFailedMessage
-from sqlalchemy import select, update
+from sqlalchemy import select
 from datetime import datetime, timezone
 import uuid
 
@@ -144,15 +144,36 @@ class TaskWorker:
             # Then update database (slow ~10-100ms)
             task_db.status = TaskStatus.RUNNING
             task_db.started_at = datetime.now(timezone.utc)
-            
+
             # Check if conversation already exists (created when task was created)
             source_metadata = json.loads(task_db.source_metadata or "{}")
             conversation_id = source_metadata.get("conversation_id")
             if not conversation_id and task_db.source == "webhook":
                 # Fallback: create conversation if it wasn't created earlier
                 await self._create_webhook_conversation(task_db, session)
-            
+
             await session.commit()
+
+            # Initialize TaskLogger if enabled
+            task_logger = None
+            if settings.task_logs_enabled:
+                try:
+                    task_logger = TaskLogger(task_id, settings.task_logs_dir)
+
+                    # Write metadata
+                    task_logger.write_metadata({
+                        "task_id": task_id,
+                        "source": task_db.source,
+                        "provider": source_metadata.get("webhook_source") or source_metadata.get("provider"),
+                        "created_at": task_db.created_at.isoformat() if task_db.created_at else None,
+                        "started_at": task_db.started_at.isoformat() if task_db.started_at else None,
+                        "status": "running",
+                        "assigned_agent": task_db.assigned_agent,
+                        "agent_type": str(task_db.agent_type) if task_db.agent_type else None,
+                        "model": None  # Will be set later when we know the model
+                    })
+                except Exception as e:
+                    logger.warning("task_logger_init_failed", task_id=task_id, error=str(e))
 
             # Determine agent directory
             agent_dir = self._get_agent_dir(task_db.assigned_agent)
@@ -162,17 +183,34 @@ class TaskWorker:
 
             # Get appropriate model for agent type
             model = settings.get_model_for_agent(task_db.assigned_agent)
-            
+
+            # Update metadata with model
+            if task_logger:
+                try:
+                    task_logger.write_metadata({
+                        "task_id": task_id,
+                        "source": task_db.source,
+                        "provider": source_metadata.get("webhook_source") or source_metadata.get("provider"),
+                        "created_at": task_db.created_at.isoformat() if task_db.created_at else None,
+                        "started_at": task_db.started_at.isoformat() if task_db.started_at else None,
+                        "status": "running",
+                        "assigned_agent": task_db.assigned_agent,
+                        "agent_type": str(task_db.agent_type) if task_db.agent_type else None,
+                        "model": model
+                    })
+                except Exception as e:
+                    logger.warning("task_logger_metadata_update_failed", task_id=task_id, error=str(e))
+
             logger.info(
                 "selected_model_for_task",
                 task_id=task_id,
                 agent=task_db.assigned_agent,
                 model=model
             )
-            
+
             # Stream output to WebSocket and accumulate
             output_chunks = []
-            
+
             async def stream_output():
                 """Read from queue and stream to WebSocket/Redis."""
                 while True:
@@ -181,6 +219,17 @@ class TaskWorker:
                         break
 
                     output_chunks.append(chunk)
+
+                    # Log agent output to TaskLogger
+                    if task_logger:
+                        try:
+                            task_logger.append_agent_output({
+                                "timestamp": datetime.now(timezone.utc).isoformat(),
+                                "type": "output",
+                                "content": chunk
+                            })
+                        except Exception as e:
+                            logger.warning("task_logger_output_append_failed", task_id=task_id, error=str(e))
 
                     # Stream to WebSocket
                     await self.ws_hub.send_to_session(
@@ -252,6 +301,24 @@ class TaskWorker:
                         session=session
                     )
 
+                    # Write final result to TaskLogger
+                    if task_logger:
+                        try:
+                            task_logger.write_final_result({
+                                "success": True,
+                                "result": clean_result_output,
+                                "error": None,
+                                "metrics": {
+                                    "cost_usd": result.cost_usd,
+                                    "input_tokens": result.input_tokens,
+                                    "output_tokens": result.output_tokens,
+                                    "duration_seconds": task_db.duration_seconds
+                                },
+                                "completed_at": task_db.completed_at.isoformat() if task_db.completed_at else None
+                            })
+                        except Exception as e:
+                            logger.warning("task_logger_final_result_failed", task_id=task_id, error=str(e))
+
                     # Send completion message
                     await self.ws_hub.send_to_session(
                         task_db.session_id,
@@ -261,7 +328,7 @@ class TaskWorker:
                             cost_usd=result.cost_usd
                         )
                     )
-                    
+
                     if task_db.source == "webhook":
                         await self._invoke_completion_handler(
                             task_db=task_db,
@@ -377,6 +444,24 @@ class TaskWorker:
                         cost_usd=result.cost_usd,
                         session=session
                     )
+
+                    # Write final result to TaskLogger (failure case)
+                    if task_logger:
+                        try:
+                            task_logger.write_final_result({
+                                "success": False,
+                                "result": None,
+                                "error": error_text,
+                                "metrics": {
+                                    "cost_usd": result.cost_usd,
+                                    "input_tokens": result.input_tokens,
+                                    "output_tokens": result.output_tokens,
+                                    "duration_seconds": task_db.duration_seconds
+                                },
+                                "completed_at": task_db.completed_at.isoformat() if task_db.completed_at else None
+                            })
+                        except Exception as e:
+                            logger.warning("task_logger_final_result_failed", task_id=task_id, error=str(e))
 
                     # Send failure message
                     await self.ws_hub.send_to_session(

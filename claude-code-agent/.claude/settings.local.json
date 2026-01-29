@@ -27,10 +27,18 @@
       "mcp__filesystem__read_multiple_files",
       "Bash(xargs ls:*)",
       "Bash(find:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(python:*)",
+      "Bash(grep:*)",
+      "Bash(chmod:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run python:*)",
+      "Bash(tree:*)"
     ]
   },
-  "enabledMcpjsonServers": [
+  "enabledMcpjsonServers": [],
+  "disabledMcpjsonServers": [
     "filesystem",
     "reddit",
     "gitmcp",

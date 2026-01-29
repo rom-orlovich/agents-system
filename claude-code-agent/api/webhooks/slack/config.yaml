@@ -41,21 +41,7 @@ commands:
     description: Show available commands
     target_agent: brain
     requires_approval: false
-    prompt_template: |
-      User asked for help in Slack.
-
-      **User Request:** {{_user_content}}
-
-      **Full Message:**
-      {{event.text}}
-
-      User: {{event.user}}
-      Channel: {{event.channel}}
-
-      1. Generate help message with available commands.
-      2. Save to file.
-      3. Post response back to Slack:
-         python .claude/skills/slack-operations/scripts/post_message.py {{event.channel}} help.md {{event.ts}}
+    template_file: help
 
   - name: analyze
     aliases:
@@ -63,21 +49,7 @@ commands:
     description: Analyze a request from Slack
     target_agent: brain
     requires_approval: false
-    prompt_template: |
-      Analyze this Slack message:
-
-      **User Request:** {{_user_content}}
-
-      **Full Message:**
-      {{event.text}}
-
-      User: {{event.user}}
-      Channel: {{event.channel}}
-
-      1. Perform analysis.
-      2. Save to file.
-      3. Post response back to Slack:
-         python .claude/skills/slack-operations/scripts/post_message.py {{event.channel}} analysis.md {{event.ts}}
+    template_file: analyze
 
   - name: execute
     aliases:
@@ -86,21 +58,7 @@ commands:
     description: Execute a command from Slack
     target_agent: executor
     requires_approval: true
-    prompt_template: |
-      Execute this request from Slack:
-
-      **User Request:** {{_user_content}}
-
-      **Full Message:**
-      {{event.text}}
-
-      User: {{event.user}}
-      Channel: {{event.channel}}
-
-      1. Execute request.
-      2. Save result/summary to file.
-      3. Post response back to Slack:
-         python .claude/skills/slack-operations/scripts/post_message.py {{event.channel}} result.md {{event.ts}}
+    template_file: execute
 
   - name: jira
     aliases:
@@ -110,25 +68,7 @@ commands:
     description: Query Jira ticket context, status, and details
     target_agent: slack-inquiry
     requires_approval: false
-    prompt_template: |
-      Query Jira ticket information from Slack.
-
-      **User Request:** {{_user_content}}
-
-      **Full Message:**
-      {{event.text}}
-
-      User: {{event.user}}
-      Channel: {{event.channel}}
-
-      1. Extract ticket key(s) from the user's message (e.g., PROJ-123, TASK-456).
-      2. Use jira-operations skill to fetch ticket details:
-         - Status, assignee, summary, description
-         - Comments, attachments, linked issues
-         - Sprint/board information if available
-      3. Format response with ticket information.
-      4. Post response back to Slack:
-         python .claude/skills/slack-operations/scripts/post_message.py {{event.channel}} jira_query.md {{event.ts}}
+    template_file: jira
 
   - name: discover
     aliases:
@@ -139,30 +79,7 @@ commands:
     description: Discover GitHub code, get insights about codebase
     target_agent: slack-inquiry
     requires_approval: false
-    prompt_template: |
-      Discover code and provide insights from Slack.
-
-      **User Request:** {{_user_content}}
-
-      **Full Message:**
-      {{event.text}}
-
-      User: {{event.user}}
-      Channel: {{event.channel}}
-
-      1. Parse the user's query to understand what code they want to discover:
-         - Function/class names
-         - File paths or patterns
-         - Feature/functionality descriptions
-         - Code relationships or dependencies
-      2. Use discovery skill to search and analyze codebase:
-         - Find relevant files and functions
-         - Understand code flow and relationships
-         - Extract code snippets and examples
-         - Identify dependencies and usage patterns
-      3. Format insights with code snippets, file paths, and explanations.
-      4. Post response back to Slack:
-         python .claude/skills/slack-operations/scripts/post_message.py {{event.channel}} code_discovery.md {{event.ts}}
+    template_file: discover
 
   - name: status
     aliases:
@@ -171,66 +88,24 @@ commands:
     description: Check status of ongoing tasks
     target_agent: brain
     requires_approval: false
-    prompt_template: |
-      User is checking task status from Slack.
-
-      **User Request:** {{_user_content}}
-
-      **Full Message:**
-      {{event.text}}
-
-      User: {{event.user}}
-      Channel: {{event.channel}}
-
-      1. Check for any running or recent tasks.
-      2. Provide status update.
-      3. Post response back to Slack:
-         python .claude/skills/slack-operations/scripts/post_message.py {{event.channel}} status.md {{event.ts}}
+    template_file: status
 
   - name: approve
     aliases:
       - lgtm
       - approved
-      - yes
+      - "yes"
     description: Approve a pending action
     target_agent: executor
     requires_approval: false
-    prompt_template: |
-      Approval received from Slack.
-
-      **User Comment:** {{_user_content}}
-
-      **Full Message:**
-      {{event.text}}
-
-      User: {{event.user}}
-      Channel: {{event.channel}}
-
-      1. Process the approval.
-      2. Proceed with the pending action if applicable.
-      3. Post confirmation back to Slack:
-         python .claude/skills/slack-operations/scripts/post_message.py {{event.channel}} confirmation.md {{event.ts}}
+    template_file: approve
 
   - name: reject
     aliases:
-      - no
+      - "no"
       - cancel
       - stop
     description: Reject or cancel a pending action
     target_agent: brain
     requires_approval: false
-    prompt_template: |
-      Rejection/cancellation received from Slack.
-
-      **User Comment:** {{_user_content}}
-
-      **Full Message:**
-      {{event.text}}
-
-      User: {{event.user}}
-      Channel: {{event.channel}}
-
-      1. Process the rejection.
-      2. Cancel any pending actions.
-      3. Post confirmation back to Slack:
-         python .claude/skills/slack-operations/scripts/post_message.py {{event.channel}} cancelled.md {{event.ts}}
+    template_file: reject

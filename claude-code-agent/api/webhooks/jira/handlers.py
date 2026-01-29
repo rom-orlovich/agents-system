@@ -14,6 +14,45 @@ from api.webhooks.jira.validation import validate_response_format
 logger = structlog.get_logger()
 
 
+class JiraWebhookHandler:
+    """Main webhook handler - coordinates the webhook processing flow."""
+
+    def __init__(self, webhook_config):
+        self.config = webhook_config
+        self.response_handler = JiraResponseHandler()
+
+    async def verify_signature(self, request, body):
+        """Verify Jira webhook signature."""
+        from api.webhooks.jira.utils import verify_jira_signature
+        await verify_jira_signature(request, body)
+
+    def parse_payload(self, body: bytes, provider_name: str) -> dict:
+        """Parse webhook payload."""
+        payload = json.loads(body.decode())
+        payload["provider"] = provider_name
+        return payload
+
+    async def validate_webhook(self, payload: dict):
+        """Validate webhook using validation handler."""
+        from api.webhooks.jira.validation import validate_jira_webhook
+        return validate_jira_webhook(payload)
+
+    async def match_command(self, payload: dict, event_type: str):
+        """Match command from webhook payload."""
+        from api.webhooks.jira.utils import match_jira_command
+        return await match_jira_command(payload, event_type)
+
+    async def send_immediate_response(self, payload: dict, command, task_id: str):
+        """Send immediate response to Jira."""
+        from api.webhooks.jira.utils import send_jira_immediate_response
+        return await send_jira_immediate_response(payload, command, task_id)
+
+    async def create_task(self, command, payload: dict, db, completion_handler: str):
+        """Create task for processing."""
+        from api.webhooks.jira.utils import create_jira_task
+        return await create_jira_task(command, payload, db, completion_handler)
+
+
 class JiraResponseHandler:
     async def post_response(self, routing: JiraRoutingMetadata, result: str) -> tuple[bool, Optional[dict]]:
         if not routing.issue_key:

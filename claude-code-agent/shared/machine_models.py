@@ -227,7 +227,8 @@ class WebhookCommand(BaseModel):
     aliases: List[str] = Field(default_factory=list, description="Alternative names")
     description: str = Field(default="")
     target_agent: str = Field(..., description="Which agent handles this command")
-    prompt_template: str = Field(..., description="Prompt template with {placeholders}")
+    prompt_template: Optional[str] = Field(None, description="Inline prompt template with {placeholders}")
+    template_file: Optional[str] = Field(None, description="Template file name (without .md extension)")
     requires_approval: bool = Field(default=False)
 
     @field_validator("name")
@@ -237,6 +238,13 @@ class WebhookCommand(BaseModel):
         if not re.match(r"^[a-z0-9_-]+$", v):
             raise ValueError("name must be lowercase alphanumeric with hyphens/underscores")
         return v
+
+    @model_validator(mode="after")
+    def validate_template_source(self) -> "WebhookCommand":
+        """Ensure either prompt_template or template_file is provided."""
+        if not self.prompt_template and not self.template_file:
+            raise ValueError("Either prompt_template or template_file must be provided")
+        return self
 
 
 class WebhookConfig(BaseModel):
@@ -292,8 +300,16 @@ class CommandYamlConfig(BaseModel):
     aliases: List[str] = Field(default_factory=list, description="Alternative trigger names")
     description: str = Field(default="", description="Human-readable description")
     target_agent: str = Field(default="planning", description="Which agent handles this command")
-    prompt_template: str = Field(..., description="Prompt template with {{placeholders}}")
+    prompt_template: Optional[str] = Field(None, description="Inline prompt template with {{placeholders}}")
+    template_file: Optional[str] = Field(None, description="Template file name (without .md extension)")
     requires_approval: bool = Field(default=False, description="Whether approval is needed")
+
+    @model_validator(mode="after")
+    def validate_template_source(self) -> "CommandYamlConfig":
+        """Ensure either prompt_template or template_file is provided."""
+        if not self.prompt_template and not self.template_file:
+            raise ValueError("Either prompt_template or template_file must be provided")
+        return self
 
     def to_webhook_command(self) -> "WebhookCommand":
         """Convert to WebhookCommand model."""
@@ -303,6 +319,7 @@ class CommandYamlConfig(BaseModel):
             description=self.description,
             target_agent=self.target_agent,
             prompt_template=self.prompt_template,
+            template_file=self.template_file,
             requires_approval=self.requires_approval,
         )
 

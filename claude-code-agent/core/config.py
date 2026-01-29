@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     log_json: bool = True
     debug_save_task_logs: bool = False  # Save task logs to .log/ folder for debugging
 
+    # Task Logging (Structured logs for each task)
+    task_logs_enabled: bool = True  # Enable structured task logging
+    task_logs_dir: Path = Path("/data/logs/tasks")  # Directory for task logs
+    task_logs_retention_days: int = 30  # Retention period for automatic cleanup (future feature)
+
     # API
     api_host: str = "0.0.0.0"
     api_port: int = 8000

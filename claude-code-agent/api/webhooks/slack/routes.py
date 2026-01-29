@@ -4,16 +4,12 @@ import json
 import uuid
 from datetime import datetime, timezone
 import structlog
+from pathlib import Path
 
 from core.database import get_session as get_db_session
 from core.database.models import WebhookEventDB
 from core.webhook_configs import SLACK_WEBHOOK
-from api.webhooks.slack.validation import validate_slack_webhook
 from api.webhooks.slack.utils import (
-    verify_slack_signature,
-    send_slack_immediate_response,
-    match_slack_command,
-    create_slack_task,
     post_github_comment,
     update_slack_message,
     send_slack_notification,
@@ -21,7 +17,7 @@ from api.webhooks.slack.utils import (
     extract_task_summary,
     build_task_completion_blocks,
 )
-from api.webhooks.slack.handlers import SlackResponseHandler
+from api.webhooks.slack.handlers import SlackResponseHandler, SlackWebhookHandler
 from api.webhooks.slack.metadata import extract_slack_routing
 from core.database.redis_client import redis_client
 from api.webhooks.slack.constants import (
@@ -40,10 +36,14 @@ from api.webhooks.slack.constants import (
     DEFAULT_CHANNEL,
 )
 
+from api.webhooks.common.utils import load_webhook_config_from_yaml
+
 logger = structlog.get_logger()
 router = APIRouter()
 
+SLACK_CONFIG = load_webhook_config_from_yaml(Path(__file__).parent / "config.yaml")
 COMPLETION_HANDLER = "api.webhooks.slack.routes.handle_slack_task_completion"
+webhook_handler = SlackWebhookHandler(SLACK_CONFIG)
 
 
 async def handle_slack_task_completion(
@@ -89,7 +89,9 @@ async def handle_slack_task_completion(
 
     requires_approval = False
     if command:
-        for cmd in SLACK_WEBHOOK.commands:
+        from core.webhook_utils import get_webhook_commands
+        commands = get_webhook_commands(SLACK_WEBHOOK, "slack")
+        for cmd in commands:
             if cmd.name == command:
                 requires_approval = cmd.requires_approval
                 break
@@ -189,14 +191,23 @@ async def slack_webhook(
             logger.info("slack_url_verification_challenge", challenge=challenge)
             return {FIELD_CHALLENGE: challenge}
         
+        # Step 1: Verify signature
         try:
-            await verify_slack_signature(request, body)
+            await webhook_handler.verify_signature(request, body)
         except HTTPException:
             raise
         except Exception as e:
             logger.error("slack_signature_verification_error", error=str(e))
             raise HTTPException(status_code=401, detail=f"Signature verification failed: {str(e)}")
-        
+
+        # Step 2: Check config loaded
+        if SLACK_CONFIG is None:
+            logger.error("slack_webhook_config_not_loaded")
+            raise HTTPException(
+                status_code=503,
+                detail="Slack webhook configuration not loaded"
+            )
+
         event = payload.get(FIELD_EVENT, {})
         channel = event.get(FIELD_CHANNEL, DEFAULT_CHANNEL)
 
@@ -204,8 +215,9 @@ async def slack_webhook(
         
         logger.info("slack_webhook_received", event_type=event_type, channel=channel)
         
+        # Step 3: Validate webhook
         try:
-            validation_result = validate_slack_webhook(payload)
+            validation_result = await webhook_handler.validate_webhook(payload)
             
             if not validation_result.is_valid:
                 logger.info(
@@ -218,8 +230,9 @@ async def slack_webhook(
         except Exception as e:
             logger.error("slack_webhook_validation_error", error=str(e), event_type=event_type)
         
+        # Step 4: Match command
         try:
-            command = await match_slack_command(payload, event_type)
+            command = await webhook_handler.match_command(payload)
             if not command:
                 logger.warning("slack_no_command_matched", event_type=event_type, channel=channel)
                 return {"status": STATUS_RECEIVED, "actions": 0, "message": MESSAGE_NO_COMMAND_MATCHED}
@@ -227,9 +240,11 @@ async def slack_webhook(
             logger.error("slack_command_matching_error", error=str(e), channel=channel)
             raise HTTPException(status_code=500, detail=f"Command matching failed: {str(e)}")
         
-        immediate_response_sent = await send_slack_immediate_response(payload, command, event_type)
-        
-        task_id = await create_slack_task(command, payload, db, completion_handler=COMPLETION_HANDLER)
+        # Step 5: Send immediate response
+        immediate_response_sent = await webhook_handler.send_immediate_response(payload, command, event_type)
+
+        # Step 6: Create task
+        task_id = await webhook_handler.create_task(command, payload, db, COMPLETION_HANDLER)
         logger.info("slack_task_created_success", task_id=task_id, channel=channel)
         
         try:
@@ -298,7 +313,7 @@ async def slack_interactivity(request: Request, db: AsyncSession = Depends(get_d
         payload = json.loads(payload_str)
 
         body = await request.body()
-        await verify_slack_signature(request, body)
+        await webhook_handler.verify_signature(request, body)
 
         actions = payload.get("actions", [])
         if not actions:

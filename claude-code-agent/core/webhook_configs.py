@@ -57,6 +57,21 @@ WEBHOOK_CONFIGS: List[WebhookConfig] = _loaded_configs
 
 def validate_webhook_configs() -> None:
     """Validate all webhook configurations at startup."""
+    # Check critical webhooks are loaded
+    critical_webhooks = [
+        ("github", GITHUB_WEBHOOK),
+        ("jira", JIRA_WEBHOOK),
+        ("slack", SLACK_WEBHOOK)
+    ]
+    missing = [name for name, cfg in critical_webhooks if cfg is None]
+
+    if missing:
+        raise ValueError(
+            f"Critical webhook configurations missing: {', '.join(missing)}. "
+            f"Check YAML files in api/webhooks/{{name}}/config.yaml"
+        )
+
+    # Validate existing configs
     if not validate_all_configs():
         raise ValueError("Webhook configuration validation failed. Check logs for details.")
     logger.info("webhook_configs_validated", count=len(WEBHOOK_CONFIGS))
