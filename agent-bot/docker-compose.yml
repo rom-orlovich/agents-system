@@ -1,0 +1,205 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    networks:
+      - agent-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: agent_system
+      POSTGRES_USER: agent
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-agent_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - agent-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://agent:${DB_PASSWORD:-agent_password}@postgres:5432/agent_system
+      - TASK_LOGS_DIR=/data/logs/tasks
+      - GITHUB_SERVICE_URL=http://github-service:8081
+      - JIRA_SERVICE_URL=http://jira-service:8082
+      - SLACK_SERVICE_URL=http://slack-service:8083
+      - SENTRY_SERVICE_URL=http://sentry-service:8084
+    volumes:
+      - task_logs:/data/logs/tasks
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  github-service:
+    build: ./github-service
+    ports:
+      - "8081:8081"
+    environment:
+      - DATABASE_URL=postgresql://agent:${DB_PASSWORD:-agent_password}@postgres:5432/agent_system
+      - REDIS_URL=redis://redis:6379/2
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - agent-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  jira-service:
+    build: ./jira-service
+    ports:
+      - "8082:8082"
+    environment:
+      - DATABASE_URL=postgresql://agent:${DB_PASSWORD:-agent_password}@postgres:5432/agent_system
+      - REDIS_URL=redis://redis:6379/3
+      - JIRA_URL=${JIRA_URL}
+      - JIRA_TOKEN=${JIRA_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - agent-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  slack-service:
+    build: ./slack-service
+    ports:
+      - "8083:8083"
+    environment:
+      - DATABASE_URL=postgresql://agent:${DB_PASSWORD:-agent_password}@postgres:5432/agent_system
+      - REDIS_URL=redis://redis:6379/4
+      - SLACK_TOKEN=${SLACK_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - agent-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  sentry-service:
+    build: ./sentry-service
+    ports:
+      - "8084:8084"
+    environment:
+      - DATABASE_URL=postgresql://agent:${DB_PASSWORD:-agent_password}@postgres:5432/agent_system
+      - REDIS_URL=redis://redis:6379/5
+      - SENTRY_DSN=${SENTRY_DSN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - agent-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  dashboard-api-container:
+    build: ./dashboard-api-container
+    ports:
+      - "8090:8090"
+    environment:
+      - DATABASE_URL=postgresql://agent:${DB_PASSWORD:-agent_password}@postgres:5432/agent_system
+      - GITHUB_SERVICE_URL=http://github-service:8081
+      - JIRA_SERVICE_URL=http://jira-service:8082
+      - SLACK_SERVICE_URL=http://slack-service:8083
+      - SENTRY_SERVICE_URL=http://sentry-service:8084
+      - TASK_LOGS_DIR=/data/logs/tasks
+    volumes:
+      - task_logs:/data/logs/tasks
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  agent-container:
+    build: ./agent-container
+    environment:
+      - GITHUB_SERVICE_URL=http://github-service:8081
+      - JIRA_SERVICE_URL=http://jira-service:8082
+      - SLACK_SERVICE_URL=http://slack-service:8083
+      - SENTRY_SERVICE_URL=http://sentry-service:8084
+      - DATABASE_URL=postgresql://agent:${DB_PASSWORD:-agent_password}@postgres:5432/agent_system
+      - REDIS_URL=redis://redis:6379/0
+      - TASK_LOGS_DIR=/data/logs/tasks
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - agent_data:/data
+      - task_logs:/data/logs/tasks
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      github-service:
+        condition: service_healthy
+      jira-service:
+        condition: service_healthy
+      slack-service:
+        condition: service_healthy
+      sentry-service:
+        condition: service_healthy
+    networks:
+      - agent-network
+    deploy:
+      replicas: 2
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:
+  agent_data:
+  task_logs:
+
+networks:
+  agent-network:
+    driver: bridge
