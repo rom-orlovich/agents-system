@@ -1,0 +1,26 @@
+[project]
+name = "sentry-mcp-server"
+version = "0.1.0"
+description = "Sentry MCP server using shared sentry-client"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=0.1.0",
+    "sentry-client",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+sentry-client = { path = "../sentry_client", editable = true }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
