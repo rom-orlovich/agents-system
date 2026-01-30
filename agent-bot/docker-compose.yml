@@ -65,7 +65,7 @@ services:
   jira-mcp-server:
     build:
       context: .
-      dockerfile: integrations/jira_mcp_server/Dockerfile
+      dockerfile: integrations/mcp-servers/jira/Dockerfile
     environment:
       - JIRA_EMAIL=${JIRA_EMAIL}
       - JIRA_API_TOKEN=${JIRA_API_TOKEN}
@@ -81,7 +81,7 @@ services:
   slack-mcp-server:
     build:
       context: .
-      dockerfile: integrations/slack_mcp_server/Dockerfile
+      dockerfile: integrations/mcp-servers/slack/Dockerfile
     environment:
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
     stdin_open: true
@@ -95,7 +95,7 @@ services:
   sentry-mcp-server:
     build:
       context: .
-      dockerfile: integrations/sentry_mcp_server/Dockerfile
+      dockerfile: integrations/mcp-servers/sentry/Dockerfile
     environment:
       - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
       - SENTRY_ORG_SLUG=${SENTRY_ORG_SLUG}
@@ -111,7 +111,7 @@ services:
   jira-rest-api:
     build:
       context: .
-      dockerfile: integrations/jira_rest_api/Dockerfile
+      dockerfile: integrations/api/jira/Dockerfile
     ports:
       - "8082:8082"
     environment:
@@ -130,7 +130,7 @@ services:
   slack-rest-api:
     build:
       context: .
-      dockerfile: integrations/slack_rest_api/Dockerfile
+      dockerfile: integrations/api/slack/Dockerfile
     ports:
       - "8083:8083"
     environment:
@@ -147,7 +147,7 @@ services:
   sentry-rest-api:
     build:
       context: .
-      dockerfile: integrations/sentry_rest_api/Dockerfile
+      dockerfile: integrations/api/sentry/Dockerfile
     ports:
       - "8084:8084"
     environment:
