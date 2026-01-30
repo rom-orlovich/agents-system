@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  agent-container:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - CLI_PROVIDER=${CLI_PROVIDER:-claude-code-cli}
+      - REDIS_URL=${REDIS_URL}
+      - QUEUE_NAME=planning_tasks
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - JIRA_URL=${JIRA_URL}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_KEY=${JIRA_API_KEY}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
+    depends_on:
+      - redis
+      - github-mcp
+      - jira-mcp
+      - slack-mcp
+      - sentry-mcp
+    volumes:
+      - ./workspace:/workspace
+    networks:
+      - agent-network
+    restart: unless-stopped
+    deploy:
+      replicas: 3
+
+networks:
+  agent-network:
+    external: true

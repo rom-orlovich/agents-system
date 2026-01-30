@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  github-mcp:
+    build:
+      context: ./github-mcp
+      dockerfile: Dockerfile
+    container_name: github-mcp
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - PORT=9001
+    ports:
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  jira-mcp:
+    build:
+      context: ./jira-mcp
+      dockerfile: Dockerfile
+    container_name: jira-mcp
+    environment:
+      - JIRA_URL=${JIRA_URL}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_TOKEN=${JIRA_API_KEY}
+      - PORT=9002
+    ports:
+      - "9002:9002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  slack-mcp:
+    build:
+      context: ./slack-mcp
+      dockerfile: Dockerfile
+    container_name: slack-mcp
+    environment:
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - PORT=9003
+    ports:
+      - "9003:9003"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  sentry-mcp:
+    build:
+      context: ./sentry-mcp
+      dockerfile: Dockerfile
+    container_name: sentry-mcp
+    environment:
+      - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
+      - PORT=9004
+    ports:
+      - "9004:9004"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+networks:
+  agent-network:
+    external: true

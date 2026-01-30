@@ -1,0 +1,16 @@
+[project]
+name = "agent-container"
+version = "0.1.0"
+description = "Agent engine with CLI executor"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "redis>=5.0.0",
+    "structlog>=24.1.0",
+    "prometheus-client>=0.19.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"

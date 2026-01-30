@@ -1,0 +1,245 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: agent-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: agent-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-agents_system}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agent}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  knowledge-graph:
+    build:
+      context: ./knowledge-graph
+      dockerfile: Dockerfile
+    container_name: knowledge-graph
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: agent-api-gateway
+    environment:
+      - REDIS_URL=${REDIS_URL}
+      - POSTGRES_URL=${POSTGRES_URL}
+      - API_GATEWAY_PORT=8000
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  github-api:
+    build:
+      context: ./integrations/api/github-api
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - REDIS_URL=${REDIS_URL}
+    ports:
+      - "3001:3001"
+    depends_on:
+      - redis
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  jira-api:
+    build:
+      context: ./integrations/api/jira-api
+    environment:
+      - JIRA_URL=${JIRA_URL}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_KEY=${JIRA_API_KEY}
+      - REDIS_URL=${REDIS_URL}
+    ports:
+      - "3002:3002"
+    depends_on:
+      - redis
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  slack-api:
+    build:
+      context: ./integrations/api/slack-api
+    environment:
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - REDIS_URL=${REDIS_URL}
+    ports:
+      - "3003:3003"
+    depends_on:
+      - redis
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  sentry-api:
+    build:
+      context: ./integrations/api/sentry-api
+    environment:
+      - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
+      - REDIS_URL=${REDIS_URL}
+    ports:
+      - "3004:3004"
+    depends_on:
+      - redis
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  github-mcp:
+    build:
+      context: ./integrations/mcp-servers/github-mcp
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+    ports:
+      - "9001:9001"
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  jira-mcp:
+    build:
+      context: ./integrations/mcp-servers/jira-mcp
+    environment:
+      - JIRA_URL=${JIRA_URL}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_TOKEN=${JIRA_API_KEY}
+    ports:
+      - "9002:9002"
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  slack-mcp:
+    build:
+      context: ./integrations/mcp-servers/slack-mcp
+    environment:
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+    ports:
+      - "9003:9003"
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  sentry-mcp:
+    build:
+      context: ./integrations/mcp-servers/sentry-mcp
+    environment:
+      - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
+    ports:
+      - "9004:9004"
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  dashboard-api:
+    build:
+      context: ./dashboard-api-container
+    ports:
+      - "8090:8090"
+    environment:
+      - REDIS_URL=${REDIS_URL}
+      - POSTGRES_URL=${POSTGRES_URL}
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  external-dashboard:
+    build:
+      context: ./external-dashboard
+    ports:
+      - "3005:3005"
+    depends_on:
+      - dashboard-api
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  agent-container:
+    build:
+      context: ./agent-container
+    environment:
+      - CLI_PROVIDER=${CLI_PROVIDER:-claude-code-cli}
+      - REDIS_URL=${REDIS_URL}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - JIRA_URL=${JIRA_URL}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_KEY=${JIRA_API_KEY}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
+    depends_on:
+      - redis
+      - github-mcp
+      - jira-mcp
+      - slack-mcp
+      - sentry-mcp
+    volumes:
+      - ./workspace:/workspace
+    networks:
+      - agent-network
+    restart: unless-stopped
+    deploy:
+      replicas: 3
+
+volumes:
+  redis-data:
+  postgres-data:
+
+networks:
+  agent-network:
+    driver: bridge

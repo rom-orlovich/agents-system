@@ -1,4 +1,4 @@
-.PHONY: help init build up down restart logs logs-follow test test-unit test-integration coverage format lint db-migrate db-upgrade db-downgrade db-shell redis-cli clean health oauth-setup build-services up-services down-services health-services
+.PHONY: help init build up down restart logs logs-follow test test-unit test-integration coverage format lint db-migrate db-upgrade db-downgrade db-shell redis-cli clean health oauth-setup build-services up-services down-services health-services build-all up-all down-all health-all
 
 help:
 	@echo "Agent Bot - Makefile Commands"
@@ -43,6 +43,12 @@ help:
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean             - Remove containers, volumes, and cache"
+	@echo ""
+	@echo "Complete System:"
+	@echo "  make build-all         - Build all containers"
+	@echo "  make up-all            - Start complete system"
+	@echo "  make down-all          - Stop complete system"
+	@echo "  make health-all        - Check all services"
 
 init:
 	@echo "Initializing Agent Bot..."
@@ -138,9 +144,36 @@ health-services:
 	@curl -s http://localhost:3003/health || echo "Slack API: DOWN"
 	@curl -s http://localhost:3004/health || echo "Sentry API: DOWN"
 
+build-all:
+	@echo "Building complete system..."
+	docker-compose -f docker-compose.complete.yml build
+
+up-all:
+	@echo "Starting complete system..."
+	docker-compose -f docker-compose.complete.yml up -d
+	@echo "Complete system started:"
+	@echo "  API Gateway: http://localhost:8000"
+	@echo "  Dashboard API: http://localhost:8090"
+	@echo "  External Dashboard: http://localhost:3005"
+	@echo "  Knowledge Graph: http://localhost:4000"
+
+down-all:
+	docker-compose -f docker-compose.complete.yml down
+
+health-all:
+	@echo "Checking all services..."
+	@curl -s http://localhost:8000/health || echo "API Gateway: DOWN"
+	@curl -s http://localhost:3001/health || echo "GitHub API: DOWN"
+	@curl -s http://localhost:3002/health || echo "Jira API: DOWN"
+	@curl -s http://localhost:3003/health || echo "Slack API: DOWN"
+	@curl -s http://localhost:3004/health || echo "Sentry API: DOWN"
+	@curl -s http://localhost:8090/health || echo "Dashboard API: DOWN"
+	@curl -s http://localhost:4000/health || echo "Knowledge Graph: DOWN"
+
 clean:
 	@echo "Cleaning up..."
 	docker-compose down -v
+	docker-compose -f docker-compose.complete.yml down -v
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
