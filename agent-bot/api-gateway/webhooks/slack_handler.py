@@ -6,18 +6,18 @@ from typing import Dict, Any, Callable
 from core.models import (
     WebhookResponse,
     TaskQueueMessage,
-    GitHubWebhookPayload,
+    SlackWebhookPayload,
     WebhookProvider,
 )
 from core.task_logger import TaskLogger
 from queue.redis_queue import TaskQueue
-from webhooks.signature_validator import GitHubSignatureValidator
-from webhooks.config import WebhookConfig, create_default_github_config
+from webhooks.signature_validator import SlackSignatureValidator
+from webhooks.config import WebhookConfig, create_default_slack_config
 
 logger = structlog.get_logger()
 
 
-class GitHubWebhookHandler:
+class SlackWebhookHandler:
     def __init__(
         self,
         task_queue: TaskQueue,
@@ -27,11 +27,11 @@ class GitHubWebhookHandler:
     ):
         self.task_queue = task_queue
         self.logs_base_dir = logs_base_dir or Path("/data/logs/tasks")
-        self.webhook_config = webhook_config or create_default_github_config()
-        self.signature_validator: Callable[[bytes, str], bool] | None = None
+        self.webhook_config = webhook_config or create_default_slack_config()
+        self.signature_validator: Callable[[bytes, str, str], bool] | None = None
 
         if signature_secret:
-            validator = GitHubSignatureValidator(signature_secret)
+            validator = SlackSignatureValidator(signature_secret)
             self.signature_validator = validator.validate
 
     async def handle(
@@ -44,23 +44,24 @@ class GitHubWebhookHandler:
             {
                 "task_id": task_id,
                 "source": "webhook",
-                "provider": WebhookProvider.GITHUB.value,
+                "provider": WebhookProvider.SLACK.value,
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "status": "initializing",
             }
         )
 
         task_logger.log_webhook_event(
-            stage="received", provider=WebhookProvider.GITHUB.value, headers=headers
+            stage="received", provider=WebhookProvider.SLACK.value, headers=headers
         )
 
-        if self.signature_validator and "X-Hub-Signature-256" in headers:
+        if self.signature_validator and "X-Slack-Signature" in headers:
             import json
 
             payload_bytes = json.dumps(payload, separators=(",", ":")).encode()
-            signature = headers["X-Hub-Signature-256"]
+            signature = headers["X-Slack-Signature"]
+            timestamp = headers.get("X-Slack-Request-Timestamp", "")
 
-            if not self.signature_validator(payload_bytes, signature):
+            if not self.signature_validator(payload_bytes, signature, timestamp):
                 task_logger.log_webhook_event(
                     stage="validation", status="failed", error="Invalid signature"
                 )
@@ -74,7 +75,7 @@ class GitHubWebhookHandler:
         task_logger.log_webhook_event(stage="parsing", status="started")
 
         try:
-            validated_payload = GitHubWebhookPayload.model_validate(payload)
+            validated_payload = SlackWebhookPayload.model_validate(payload)
         except Exception as e:
             task_logger.log_webhook_event(
                 stage="parsing", status="failed", error=str(e)
@@ -83,7 +84,15 @@ class GitHubWebhookHandler:
                 success=False,
                 task_id=None,
                 message="Payload validation failed",
-                error=f"Invalid payload for GitHub: {str(e)}",
+                error=f"Invalid payload for Slack: {str(e)}",
+            )
+
+        if validated_payload.challenge:
+            return WebhookResponse(
+                success=True,
+                task_id=None,
+                message=validated_payload.challenge,
+                error=None,
             )
 
         task_logger.log_webhook_event(stage="parsing", status="completed")
@@ -109,15 +118,17 @@ class GitHubWebhookHandler:
                 error=None,
             )
 
+        event = validated_payload.event or {}
+        user_id = str(event.get("user", "unknown"))
+        channel_id = str(event.get("channel", "unknown"))
+
         task_logger.write_input(
             {
                 "message": input_message,
                 "source_metadata": {
-                    "provider": WebhookProvider.GITHUB.value,
-                    "action": validated_payload.action,
-                    "repository": str(
-                        validated_payload.repository.get("full_name", "")
-                    ),
+                    "provider": WebhookProvider.SLACK.value,
+                    "type": validated_payload.type,
+                    "channel": channel_id,
                 },
             }
         )
@@ -127,14 +138,14 @@ class GitHubWebhookHandler:
         task = TaskQueueMessage(
             task_id=task_id,
             session_id=f"session-{uuid.uuid4().hex[:12]}",
-            user_id=str(validated_payload.sender.get("login", "unknown")),
+            user_id=user_id,
             input_message=input_message,
             agent_type=command_config.agent_name,
             model=command_config.model.value,
             source_metadata={
-                "provider": WebhookProvider.GITHUB.value,
-                "action": validated_payload.action,
-                "repository": str(validated_payload.repository.get("full_name", "")),
+                "provider": WebhookProvider.SLACK.value,
+                "type": validated_payload.type,
+                "channel": channel_id,
             },
         )
 
@@ -149,7 +160,7 @@ class GitHubWebhookHandler:
             {
                 "task_id": task_id,
                 "source": "webhook",
-                "provider": WebhookProvider.GITHUB.value,
+                "provider": WebhookProvider.SLACK.value,
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "status": "queued",
                 "assigned_agent": task.agent_type,
@@ -170,11 +181,7 @@ class GitHubWebhookHandler:
             error=None,
         )
 
-    def _extract_message(self, payload: GitHubWebhookPayload) -> str:
-        if payload.comment and isinstance(payload.comment, dict):
-            return str(payload.comment.get("body", ""))
-        if payload.issue and isinstance(payload.issue, dict):
-            return str(payload.issue.get("body", ""))
-        if payload.pull_request and isinstance(payload.pull_request, dict):
-            return str(payload.pull_request.get("body", ""))
-        return ""
+    def _extract_message(self, payload: SlackWebhookPayload) -> str:
+        if not payload.event or not isinstance(payload.event, dict):
+            return ""
+        return str(payload.event.get("text", ""))

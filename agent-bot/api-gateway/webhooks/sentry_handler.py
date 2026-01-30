@@ -6,18 +6,18 @@ from typing import Dict, Any, Callable
 from core.models import (
     WebhookResponse,
     TaskQueueMessage,
-    GitHubWebhookPayload,
+    SentryWebhookPayload,
     WebhookProvider,
 )
 from core.task_logger import TaskLogger
 from queue.redis_queue import TaskQueue
-from webhooks.signature_validator import GitHubSignatureValidator
-from webhooks.config import WebhookConfig, create_default_github_config
+from webhooks.signature_validator import SentrySignatureValidator
+from webhooks.config import WebhookConfig, create_default_sentry_config
 
 logger = structlog.get_logger()
 
 
-class GitHubWebhookHandler:
+class SentryWebhookHandler:
     def __init__(
         self,
         task_queue: TaskQueue,
@@ -27,11 +27,11 @@ class GitHubWebhookHandler:
     ):
         self.task_queue = task_queue
         self.logs_base_dir = logs_base_dir or Path("/data/logs/tasks")
-        self.webhook_config = webhook_config or create_default_github_config()
+        self.webhook_config = webhook_config or create_default_sentry_config()
         self.signature_validator: Callable[[bytes, str], bool] | None = None
 
         if signature_secret:
-            validator = GitHubSignatureValidator(signature_secret)
+            validator = SentrySignatureValidator(signature_secret)
             self.signature_validator = validator.validate
 
     async def handle(
@@ -44,21 +44,21 @@ class GitHubWebhookHandler:
             {
                 "task_id": task_id,
                 "source": "webhook",
-                "provider": WebhookProvider.GITHUB.value,
+                "provider": WebhookProvider.SENTRY.value,
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "status": "initializing",
             }
         )
 
         task_logger.log_webhook_event(
-            stage="received", provider=WebhookProvider.GITHUB.value, headers=headers
+            stage="received", provider=WebhookProvider.SENTRY.value, headers=headers
         )
 
-        if self.signature_validator and "X-Hub-Signature-256" in headers:
+        if self.signature_validator and "Sentry-Hook-Signature" in headers:
             import json
 
             payload_bytes = json.dumps(payload, separators=(",", ":")).encode()
-            signature = headers["X-Hub-Signature-256"]
+            signature = headers["Sentry-Hook-Signature"]
 
             if not self.signature_validator(payload_bytes, signature):
                 task_logger.log_webhook_event(
@@ -74,7 +74,7 @@ class GitHubWebhookHandler:
         task_logger.log_webhook_event(stage="parsing", status="started")
 
         try:
-            validated_payload = GitHubWebhookPayload.model_validate(payload)
+            validated_payload = SentryWebhookPayload.model_validate(payload)
         except Exception as e:
             task_logger.log_webhook_event(
                 stage="parsing", status="failed", error=str(e)
@@ -83,7 +83,7 @@ class GitHubWebhookHandler:
                 success=False,
                 task_id=None,
                 message="Payload validation failed",
-                error=f"Invalid payload for GitHub: {str(e)}",
+                error=f"Invalid payload for Sentry: {str(e)}",
             )
 
         task_logger.log_webhook_event(stage="parsing", status="completed")
@@ -109,15 +109,25 @@ class GitHubWebhookHandler:
                 error=None,
             )
 
+        data = validated_payload.data
+        issue_id = str(data.get("id", "unknown"))
+        project = data.get("project", {})
+        if isinstance(project, dict):
+            project_name = str(project.get("name", "unknown"))
+        else:
+            project_name = "unknown"
+
+        actor = validated_payload.actor or {}
+        user_id = str(actor.get("name", "sentry-system"))
+
         task_logger.write_input(
             {
                 "message": input_message,
                 "source_metadata": {
-                    "provider": WebhookProvider.GITHUB.value,
+                    "provider": WebhookProvider.SENTRY.value,
                     "action": validated_payload.action,
-                    "repository": str(
-                        validated_payload.repository.get("full_name", "")
-                    ),
+                    "issue_id": issue_id,
+                    "project": project_name,
                 },
             }
         )
@@ -127,14 +137,15 @@ class GitHubWebhookHandler:
         task = TaskQueueMessage(
             task_id=task_id,
             session_id=f"session-{uuid.uuid4().hex[:12]}",
-            user_id=str(validated_payload.sender.get("login", "unknown")),
+            user_id=user_id,
             input_message=input_message,
             agent_type=command_config.agent_name,
             model=command_config.model.value,
             source_metadata={
-                "provider": WebhookProvider.GITHUB.value,
+                "provider": WebhookProvider.SENTRY.value,
                 "action": validated_payload.action,
-                "repository": str(validated_payload.repository.get("full_name", "")),
+                "issue_id": issue_id,
+                "project": project_name,
             },
         )
 
@@ -149,7 +160,7 @@ class GitHubWebhookHandler:
             {
                 "task_id": task_id,
                 "source": "webhook",
-                "provider": WebhookProvider.GITHUB.value,
+                "provider": WebhookProvider.SENTRY.value,
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "status": "queued",
                 "assigned_agent": task.agent_type,
@@ -170,11 +181,30 @@ class GitHubWebhookHandler:
             error=None,
         )
 
-    def _extract_message(self, payload: GitHubWebhookPayload) -> str:
-        if payload.comment and isinstance(payload.comment, dict):
-            return str(payload.comment.get("body", ""))
-        if payload.issue and isinstance(payload.issue, dict):
-            return str(payload.issue.get("body", ""))
-        if payload.pull_request and isinstance(payload.pull_request, dict):
-            return str(payload.pull_request.get("body", ""))
+    def _extract_message(self, payload: SentryWebhookPayload) -> str:
+        data = payload.data
+
+        issue = data.get("issue", {})
+        if isinstance(issue, dict):
+            title = issue.get("title", "")
+            if title:
+                culprit = issue.get("culprit", "")
+                metadata = issue.get("metadata", {})
+
+                if isinstance(metadata, dict):
+                    error_type = metadata.get("type", "")
+                    error_value = metadata.get("value", "")
+
+                    message_parts = [f"Sentry Error: {title}"]
+                    if error_type:
+                        message_parts.append(f"Type: {error_type}")
+                    if error_value:
+                        message_parts.append(f"Value: {error_value}")
+                    if culprit:
+                        message_parts.append(f"Location: {culprit}")
+
+                    return " | ".join(message_parts)
+
+                return f"Sentry Error: {title}"
+
         return ""
