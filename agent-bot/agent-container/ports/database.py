@@ -1,21 +1,24 @@
-from typing import Protocol, TypeVar, Generic
+from typing import Protocol
 from abc import abstractmethod
 
-T = TypeVar("T")
 
-
-class RepositoryPort(Protocol, Generic[T]):
+class DatabasePort(Protocol):
     @abstractmethod
-    async def get(self, id: str) -> T | None: ...
-
-    @abstractmethod
-    async def save(self, entity: T) -> T: ...
+    async def connect(self) -> None:
+        ...
 
     @abstractmethod
-    async def delete(self, id: str) -> bool: ...
+    async def disconnect(self) -> None:
+        ...
 
     @abstractmethod
-    async def find_by(self, **criteria: str | int | bool) -> list[T]: ...
+    async def execute(
+        self, query: str, params: dict[str, str | int | bool] | None = None
+    ) -> list[dict[str, str | int | bool]]:
+        ...
 
     @abstractmethod
-    async def list_all(self, limit: int = 100, offset: int = 0) -> list[T]: ...
+    async def fetch_one(
+        self, query: str, params: dict[str, str | int | bool] | None = None
+    ) -> dict[str, str | int | bool] | None:
+        ...

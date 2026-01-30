@@ -1,15 +1,4 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Literal
-
-
-Platform = Literal["github", "jira", "slack"]
-
-
-class OAuthCallbackRequest(BaseModel):
-    model_config = ConfigDict(strict=True)
-
-    code: str
-    state: str
 
 
 class GitHubOAuthResponse(BaseModel):
@@ -23,19 +12,23 @@ class GitHubOAuthResponse(BaseModel):
 class GitHubInstallation(BaseModel):
     model_config = ConfigDict(strict=True)
 
-    id: int
-    account: dict[str, str | int]
+    installation_id: int
+    account_login: str
+    account_id: int
+    repository_selection: str
+    permissions: dict[str, str]
 
 
 class SlackOAuthResponse(BaseModel):
     model_config = ConfigDict(strict=True)
 
-    ok: bool
     access_token: str
+    token_type: str
     scope: str
     bot_user_id: str
     app_id: str
     team: dict[str, str]
+    authed_user: dict[str, str]
 
 
 class JiraOAuthResponse(BaseModel):
@@ -45,11 +38,4 @@ class JiraOAuthResponse(BaseModel):
     refresh_token: str
     expires_in: int
     scope: str
-
-
-class OAuthState(BaseModel):
-    model_config = ConfigDict(strict=True)
-
-    nonce: str
-    redirect_uri: str
-    platform: Platform
+    cloud_id: str

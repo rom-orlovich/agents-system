@@ -6,10 +6,6 @@ class InstallationNotFoundError(TokenServiceError):
     pass
 
 
-class InstallationInactiveError(TokenServiceError):
-    pass
-
-
 class TokenExpiredError(TokenServiceError):
     pass
 

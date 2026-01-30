@@ -1,15 +1,16 @@
 import httpx
 import structlog
-from fastapi import HTTPException
-from .models import OAuthCallbackRequest, GitHubOAuthResponse
-from datetime import datetime, timezone, timedelta
+from oauth.models import GitHubOAuthResponse, GitHubInstallation
 
 logger = structlog.get_logger()
 
 
 class GitHubOAuthHandler:
     def __init__(
-        self, client_id: str, client_secret: str, redirect_uri: str
+        self,
+        client_id: str,
+        client_secret: str,
+        redirect_uri: str,
     ):
         self.client_id = client_id
         self.client_secret = client_secret
@@ -31,19 +32,16 @@ class GitHubOAuthHandler:
                 },
                 headers={"Accept": "application/json"},
             )
-
-            if response.status_code != 200:
-                logger.error(
-                    "github_token_exchange_failed", status=response.status_code
-                )
-                raise HTTPException(
-                    status_code=400, detail="Failed to exchange code"
-                )
-
+            response.raise_for_status()
             data = response.json()
-            return GitHubOAuthResponse(**data)
 
-    async def get_installation(self, access_token: str) -> dict:
+        if "error" in data:
+            logger.error("github_oauth_error", error=data.get("error"))
+            raise ValueError(f"GitHub OAuth error: {data.get('error')}")
+
+        return GitHubOAuthResponse(**data)
+
+    async def get_installation(self, access_token: str) -> GitHubInstallation:
         logger.info("fetching_github_installation")
 
         async with httpx.AsyncClient() as client:
@@ -51,35 +49,21 @@ class GitHubOAuthHandler:
                 f"{self.api_base}/user/installations",
                 headers={
                     "Authorization": f"Bearer {access_token}",
-                    "Accept": "application/vnd.github.v3+json",
+                    "Accept": "application/vnd.github+json",
                 },
             )
-
-            if response.status_code != 200:
-                logger.error(
-                    "github_installation_fetch_failed",
-                    status=response.status_code,
-                )
-                raise HTTPException(
-                    status_code=400, detail="Failed to fetch installation"
-                )
-
+            response.raise_for_status()
             data = response.json()
-            installations = data.get("installations", [])
 
-            if not installations:
-                raise HTTPException(
-                    status_code=404, detail="No installation found"
-                )
+        if not data.get("installations"):
+            raise ValueError("No GitHub installations found")
 
-            installation = installations[0]
+        installation = data["installations"][0]
 
-            return {
-                "installation_id": str(installation["id"]),
-                "account_id": str(installation["account"]["id"]),
-                "account_login": installation["account"]["login"],
-                "target_type": installation["target_type"],
-            }
-
-    def calculate_token_expiry(self) -> datetime:
-        return datetime.now(timezone.utc) + timedelta(hours=8)
+        return GitHubInstallation(
+            installation_id=installation["id"],
+            account_login=installation["account"]["login"],
+            account_id=installation["account"]["id"],
+            repository_selection=installation.get("repository_selection", "all"),
+            permissions=installation.get("permissions", {}),
+        )

@@ -1,11 +1,17 @@
-from .routes import router
-from .models import OAuthCallbackRequest, OAuthState, Platform
-from .github_oauth import GitHubOAuthHandler
+from oauth.models import (
+    GitHubOAuthResponse,
+    GitHubInstallation,
+    SlackOAuthResponse,
+    JiraOAuthResponse,
+)
+from oauth.github_oauth import GitHubOAuthHandler
+from oauth.routes import router
 
 __all__ = [
-    "router",
-    "OAuthCallbackRequest",
-    "OAuthState",
-    "Platform",
+    "GitHubOAuthResponse",
+    "GitHubInstallation",
+    "SlackOAuthResponse",
+    "JiraOAuthResponse",
     "GitHubOAuthHandler",
+    "router",
 ]

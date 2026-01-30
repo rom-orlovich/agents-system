@@ -1,33 +1,18 @@
-from typing import Protocol, AsyncIterator
+from typing import Protocol
 from abc import abstractmethod
-from pydantic import BaseModel, ConfigDict
-
-
-class CLIOutput(BaseModel):
-    model_config = ConfigDict(strict=True)
-
-    output: str
-    error: str | None
-    success: bool
-    cost_usd: float
-    input_tokens: int
-    output_tokens: int
+from pathlib import Path
 
 
 class CLIRunnerPort(Protocol):
     @abstractmethod
-    async def execute(
+    async def run_task(
         self,
-        prompt: str,
-        model: str,
-        working_dir: str,
-        agents: list[str] = [],
-    ) -> CLIOutput: ...
+        task_description: str,
+        repo_path: Path,
+        context: dict[str, str | int | bool],
+    ) -> dict[str, str | bool]:
+        ...
 
     @abstractmethod
-    async def cancel(self, execution_id: str) -> None: ...
-
-    @abstractmethod
-    async def stream_output(
-        self, prompt: str, model: str, working_dir: str
-    ) -> AsyncIterator[str]: ...
+    async def health_check(self) -> bool:
+        ...
