@@ -65,14 +65,13 @@ services:
     restart: unless-stopped
 
   jira-mcp-server:
-    build: ./jira-mcp-server
-    ports:
-      - "8082:8082"
+    build:
+      context: .
+      dockerfile: packages/jira_mcp_server/Dockerfile
     environment:
       - JIRA_EMAIL=${JIRA_EMAIL}
       - JIRA_API_TOKEN=${JIRA_API_TOKEN}
       - JIRA_DOMAIN=${JIRA_DOMAIN}
-      - SERVER_MODE=both
     stdin_open: true
     tty: true
     networks:
@@ -80,14 +79,11 @@ services:
     volumes:
       - mcp_data:/data
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   slack-mcp-server:
-    build: ./slack-mcp-server
+    build:
+      context: .
+      dockerfile: packages/slack_mcp_server/Dockerfile
     environment:
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
     stdin_open: true
@@ -99,10 +95,13 @@ services:
     restart: unless-stopped
 
   sentry-mcp-server:
-    build: ./sentry-mcp-server
+    build:
+      context: .
+      dockerfile: packages/sentry_mcp_server/Dockerfile
     environment:
       - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
-      - SENTRY_ORG=${SENTRY_ORG}
+      - SENTRY_ORG_SLUG=${SENTRY_ORG_SLUG}
+      - SENTRY_PROJECT_SLUG=${SENTRY_PROJECT_SLUG}
     stdin_open: true
     tty: true
     networks:
@@ -111,22 +110,82 @@ services:
       - mcp_data:/data
     restart: unless-stopped
 
+  jira-rest-api:
+    build:
+      context: .
+      dockerfile: packages/jira_rest_api/Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_TOKEN=${JIRA_API_TOKEN}
+      - JIRA_DOMAIN=${JIRA_DOMAIN}
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  slack-rest-api:
+    build:
+      context: .
+      dockerfile: packages/slack_rest_api/Dockerfile
+    ports:
+      - "8083:8083"
+    environment:
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  sentry-rest-api:
+    build:
+      context: .
+      dockerfile: packages/sentry_rest_api/Dockerfile
+    ports:
+      - "8084:8084"
+    environment:
+      - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
+      - SENTRY_ORG_SLUG=${SENTRY_ORG_SLUG}
+      - SENTRY_PROJECT_SLUG=${SENTRY_PROJECT_SLUG}
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   dashboard-api-container:
     build: ./dashboard-api-container
     ports:
       - "8090:8090"
     environment:
       - DATABASE_URL=postgresql://agent:${DB_PASSWORD:-agent_password}@postgres:5432/agent_system
-      - GITHUB_SERVICE_URL=http://github-service:8081
-      - JIRA_SERVICE_URL=http://jira-service:8082
-      - SLACK_SERVICE_URL=http://slack-service:8083
-      - SENTRY_SERVICE_URL=http://sentry-service:8084
+      - JIRA_REST_API_URL=http://jira-rest-api:8082
+      - SLACK_REST_API_URL=http://slack-rest-api:8083
+      - SENTRY_REST_API_URL=http://sentry-rest-api:8084
       - TASK_LOGS_DIR=/data/logs/tasks
     volumes:
       - task_logs:/data/logs/tasks
     depends_on:
       postgres:
         condition: service_healthy
+      jira-rest-api:
+        condition: service_started
+      slack-rest-api:
+        condition: service_started
+      sentry-rest-api:
+        condition: service_started
     networks:
       - agent-network
     restart: unless-stopped
