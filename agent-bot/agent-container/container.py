@@ -1,11 +1,17 @@
 from dataclasses import dataclass
 from typing import Literal
 
+import asyncpg
 from pydantic import BaseModel, ConfigDict
 
 from ports import QueuePort, CachePort, CLIRunnerPort
 from adapters.memory_queue import InMemoryQueueAdapter
 from adapters.memory_cache import InMemoryCacheAdapter
+from adapters.queue.redis_adapter import RedisQueueAdapter
+from adapters.cli.claude_adapter import ClaudeCLIAdapter
+from adapters.database.postgres_installation_repository import (
+    PostgresInstallationRepository,
+)
 from token_service import TokenService, InMemoryInstallationRepository
 
 
@@ -28,11 +34,13 @@ class Container:
     token_service: TokenService
 
 
-def create_container(config: ContainerConfig) -> Container:
+async def create_container(config: ContainerConfig) -> Container:
     if config.queue_type == "memory":
         queue: QueuePort = InMemoryQueueAdapter()
+    elif config.queue_type == "redis":
+        queue = RedisQueueAdapter(config.redis_url)
     else:
-        raise NotImplementedError("Redis queue not yet implemented")
+        raise ValueError(f"Unknown queue type: {config.queue_type}")
 
     if config.cache_type == "memory":
         cache: CachePort = InMemoryCacheAdapter()
@@ -41,16 +49,23 @@ def create_container(config: ContainerConfig) -> Container:
 
     if config.database_type == "memory":
         repository = InMemoryInstallationRepository()
+    elif config.database_type == "postgres":
+        pool = await asyncpg.create_pool(config.database_url)
+        if pool is None:
+            raise RuntimeError("Failed to create database pool")
+        repository = PostgresInstallationRepository(pool)
     else:
-        raise NotImplementedError("Postgres repository not yet implemented")
+        raise ValueError(f"Unknown database type: {config.database_type}")
 
     token_service = TokenService(repository=repository)
 
     if config.cli_type == "mock":
         from unittest.mock import AsyncMock
         cli_runner: CLIRunnerPort = AsyncMock()
+    elif config.cli_type == "real":
+        cli_runner = ClaudeCLIAdapter()
     else:
-        raise NotImplementedError("Real CLI runner not yet implemented")
+        raise ValueError(f"Unknown CLI type: {config.cli_type}")
 
     return Container(
         queue=queue,

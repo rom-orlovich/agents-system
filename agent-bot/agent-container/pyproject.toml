@@ -12,6 +12,7 @@ dependencies = [
     "structlog>=23.0",
     "httpx>=0.24",
     "asyncpg>=0.28",
+    "redis>=5.0",
 ]
 
 [project.optional-dependencies]

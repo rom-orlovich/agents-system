@@ -85,12 +85,11 @@ class RepoManager:
             path=str(repo_path),
         )
 
-        token_info = await self._token_service.get_token(
-            platform=Platform.GITHUB,
-            organization_id=installation_id,
+        installation = await self._token_service.get_installation(
+            installation_id
         )
 
-        await self._set_credentials(repo_path, token_info.access_token)
+        await self._set_credentials(repo_path, installation.access_token)
 
         try:
             await self._run_git(
@@ -141,16 +140,15 @@ class RepoManager:
         repo_full_name: str,
         ref: str,
     ) -> RepoInfo:
-        token_info = await self._token_service.get_token(
-            platform=Platform.GITHUB,
-            organization_id=installation_id,
+        installation = await self._token_service.get_installation(
+            installation_id
         )
 
         repo_path = self._get_repo_path(installation_id, repo_full_name)
         repo_path.parent.mkdir(parents=True, exist_ok=True)
 
         clone_url = (
-            f"https://x-access-token:{token_info.access_token}"
+            f"https://x-access-token:{installation.access_token}"
             f"@github.com/{repo_full_name}.git"
         )
 
@@ -183,12 +181,11 @@ class RepoManager:
         repo_full_name: str,
         ref: str,
     ) -> RepoInfo:
-        token_info = await self._token_service.get_token(
-            platform=Platform.GITHUB,
-            organization_id=installation_id,
+        installation = await self._token_service.get_installation(
+            installation_id
         )
 
-        await self._set_credentials(repo_path, token_info.access_token)
+        await self._set_credentials(repo_path, installation.access_token)
 
         try:
             await self._run_git(repo_path, ["fetch", "origin", ref])

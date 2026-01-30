@@ -4,17 +4,12 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from core.repo_manager import RepoManager, RepoConfig, RepoInfo
-from token_service import TokenService, Platform, TokenInfo
+from token_service import TokenService, Platform
 
 
 @pytest.fixture
 def mock_token_service() -> AsyncMock:
     service = AsyncMock(spec=TokenService)
-    service.get_token.return_value = TokenInfo(
-        access_token="gho_xxxx",
-        expires_at=datetime(2030, 1, 1, tzinfo=timezone.utc),
-        scopes=["repo"],
-    )
     return service
 
 
