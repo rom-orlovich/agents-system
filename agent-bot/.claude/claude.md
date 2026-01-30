@@ -3,6 +3,7 @@
 ## Project Overview
 
 Production-ready webhook-driven AI agent system with:
+
 - ⚡ Immediate webhook responses (< 100ms)
 - 📊 Streaming logs (like Claude Code)
 - 🎯 Direct result posting to external services
@@ -12,9 +13,11 @@ Production-ready webhook-driven AI agent system with:
 ## Critical Rules
 
 ### MUST READ FIRST
+
 📖 **[.claude/rules/project-best-practices.md](./.claude/rules/project-best-practices.md)**
 
 ### Key Requirements
+
 - ❌ **NO file > 300 lines** - Split into modules (constants, utils, models, etc.)
 - ❌ **NO `any` types** - Always explicit types with Pydantic `strict=True`
 - ❌ **NO comments in code** - Self-explanatory code only
@@ -47,6 +50,7 @@ agent-bot/
 ## Architecture Principles
 
 ### 1. Immediate Webhook Response
+
 ```
 Webhook → API Gateway → Redis Queue → RETURN 200 OK ⚡
                             ↓
@@ -54,6 +58,7 @@ Webhook → API Gateway → Redis Queue → RETURN 200 OK ⚡
 ```
 
 ### 2. Streaming Logs
+
 ```
 stream.jsonl:
 {"event_type":"progress","stage":"initialization","message":"Task received"}
@@ -63,6 +68,7 @@ stream.jsonl:
 ```
 
 ### 3. Direct Result Posting
+
 ```
 Agent → MCP Client → github_post_pr_comment(pr=42, comment="✅ Done!")
                  ↘ github_add_pr_reaction(pr=42, reaction="rocket")
@@ -71,11 +77,13 @@ Agent → MCP Client → github_post_pr_comment(pr=42, comment="✅ Done!")
 ## Development Workflow
 
 ### Before Writing Code
+
 1. Read `.claude/rules/project-best-practices.md`
 2. Check file size limits (300 lines max)
 3. Plan module structure if needed
 
 ### During Development
+
 1. Use explicit types (NO `any`)
 2. Keep functions focused and small
 3. Write self-explanatory code
@@ -83,6 +91,7 @@ Agent → MCP Client → github_post_pr_comment(pr=42, comment="✅ Done!")
 5. Split files before hitting 300 lines
 
 ### Before Committing
+
 - [ ] All files < 300 lines
 - [ ] NO `any` types
 - [ ] NO comments in code
@@ -94,18 +103,21 @@ Agent → MCP Client → github_post_pr_comment(pr=42, comment="✅ Done!")
 ## Testing Requirements
 
 ### Speed
+
 - ✅ < 5 seconds per test file
 - ✅ Use mocks for external dependencies
 - ❌ NO real network calls
 - ❌ NO time.sleep()
 
 ### Quality
+
 - ✅ Tests MUST pass gracefully
 - ✅ NO flaky tests
 - ✅ 100% type coverage
 - ✅ Use `pytest-asyncio` for async
 
 ### Example
+
 ```python
 @pytest.mark.asyncio
 async def test_success_case(mock_client):
@@ -116,25 +128,35 @@ async def test_success_case(mock_client):
 ## Available Skills
 
 Located in `.claude/skills/`:
+
 - `mcp-integration.md` - Using MCP servers
 - `skill-creator.md` - Creating new skills
 - `agent-creator.md` - Creating sub-agents
 
-## Component Documentation
+## Documentation
 
-Each component has its own `claude.md`:
+Main documentation is in the `docs/` folder:
+
+- **[docs/ARCHITECTURE_FINAL.md](../docs/ARCHITECTURE_FINAL.md)** - Complete architecture documentation
+- **[docs/SETUP.md](../docs/SETUP.md)** - Setup guide with OAuth, database, CLI configuration
+- **[docs/TESTING.md](../docs/TESTING.md)** - Testing guide and requirements
+
+Component-specific documentation:
+
 - `api-gateway/claude.md` - Webhook handling
 - `agent-container/.claude/claude.md` - Task processing
 
 ## Quick Reference
 
 ### File Size Limit
+
 ```bash
 # Check file sizes
 wc -l **/*.py | awk '$1 > 300 {print $1, $2}'
 ```
 
 ### Run Tests
+
 ```bash
 # All tests
 pytest -v
@@ -144,6 +166,7 @@ pytest -v --durations=10
 ```
 
 ### Type Checking
+
 ```bash
 mypy . --strict
 ```
@@ -151,6 +174,7 @@ mypy . --strict
 ## Common Patterns
 
 ### Splitting Large Files
+
 ```python
 # Before (400 lines) ❌
 # client.py
@@ -179,6 +203,7 @@ class Client:
 ```
 
 ### Type Safety
+
 ```python
 # Bad ❌
 def process(data: Any) -> dict:
@@ -190,6 +215,7 @@ def process(data: ProcessInput) -> ProcessOutput:
 ```
 
 ### Structured Logging
+
 ```python
 # Bad ❌
 logger.info(f"Task {task_id} started")

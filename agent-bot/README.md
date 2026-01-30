@@ -20,15 +20,15 @@ A comprehensive system for orchestrating AI agents through webhooks from GitHub,
 
 ### Core Components
 
-| Component | Port | Purpose |
-|-----------|------|---------|
-| **API Gateway** | 8080 | Webhook receiver, queue management, metrics |
-| **GitHub Service** | 8081 | GitHub API integration |
-| **Jira Service** | 8082 | Jira API integration |
-| **Slack Service** | 8083 | Slack API integration |
-| **Sentry Service** | 8084 | Sentry API integration |
-| **Agent Container** | - | Task execution with CLI runners |
-| **Dashboard API** | 8090 | Analytics, logs, monitoring |
+| Component           | Port | Purpose                                     |
+| ------------------- | ---- | ------------------------------------------- |
+| **API Gateway**     | 8080 | Webhook receiver, queue management, metrics |
+| **GitHub Service**  | 8081 | GitHub API integration                      |
+| **Jira Service**    | 8082 | Jira API integration                        |
+| **Slack Service**   | 8083 | Slack API integration                       |
+| **Sentry Service**  | 8084 | Sentry API integration                      |
+| **Agent Container** | -    | Task execution with CLI runners             |
+| **Dashboard API**   | 8090 | Analytics, logs, monitoring                 |
 
 ### Infrastructure
 
@@ -39,6 +39,7 @@ A comprehensive system for orchestrating AI agents through webhooks from GitHub,
 ### Agent System
 
 The agent container includes:
+
 - **Agents**: Planning, Coding (see `.claude/agents/`)
 - **Skills**: Analysis, Coding, Testing (see `.claude/skills/`)
 - **Rules**: Type safety, No comments, TDD (see `.claude/rules/`)
@@ -85,9 +86,9 @@ curl -X POST http://localhost:8080/webhooks/github \
 
 ## 📚 Documentation
 
-- **[SETUP.md](./SETUP.md)** - Complete setup guide with OAuth, database, CLI configuration
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Detailed architecture documentation
-- **[PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md)** - Project overview and design decisions
+- **[docs/ARCHITECTURE_FINAL.md](./docs/ARCHITECTURE_FINAL.md)** - Complete architecture documentation
+- **[docs/SETUP.md](./docs/SETUP.md)** - Complete setup guide with OAuth, database, CLI configuration
+- **[docs/TESTING.md](./docs/TESTING.md)** - Testing guide and requirements
 
 ## 🧪 Testing
 
@@ -126,6 +127,7 @@ make setup-dev
 ```
 
 This installs:
+
 - pytest, pytest-asyncio, pytest-cov
 - black, ruff, mypy, autoflake
 - pre-commit hooks
@@ -165,6 +167,7 @@ mypy api-gateway/
 Access at: http://localhost:8080/metrics
 
 Key metrics:
+
 - `webhook_requests_total` - Webhook requests by provider
 - `task_processing_duration_seconds` - Processing time
 - `tasks_in_queue` - Current queue size
@@ -213,6 +216,7 @@ The system automatically uses the CLI specified in `CLI_RUNNER_TYPE`. Switch bet
 ### Retry Logic
 
 All external API calls use exponential backoff:
+
 ```python
 @with_retry(config=RetryConfig(max_attempts=3, base_delay_seconds=1.0))
 async def api_call():
@@ -222,6 +226,7 @@ async def api_call():
 ### Circuit Breakers
 
 Protect against cascading failures:
+
 ```python
 @with_circuit_breaker(name="github_api", config=CircuitBreakerConfig())
 async def call_github():
@@ -266,9 +271,10 @@ MIT
 
 ## 🆘 Troubleshooting
 
-See **[SETUP.md](./SETUP.md#troubleshooting)** for common issues and solutions.
+See **[docs/SETUP.md](./docs/SETUP.md#troubleshooting)** for common issues and solutions.
 
 Quick checks:
+
 ```bash
 # Health check all services
 ./scripts/test-cli.sh health
