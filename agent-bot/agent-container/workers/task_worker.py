@@ -3,12 +3,12 @@ import redis.asyncio as redis
 import structlog
 import os
 from pathlib import Path
-from typing import Any
 from core.task_logger import TaskLogger
 from core.streaming_logger import StreamingLogger
 from core.result_poster import ResultPoster, WebhookProvider
 from core.mcp_client import MCPClient
 from core.cli_runner.claude_cli_runner import ClaudeCLIRunner
+from core.types import MCPClientProtocol
 import json
 
 structlog.configure(
@@ -25,7 +25,7 @@ redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 worker_id = f"worker-{os.getpid()}"
 
 
-async def process_task(task_data: dict, mcp_client: Any) -> None:
+async def process_task(task_data: dict, mcp_client: MCPClientProtocol) -> None:
     task_id = task_data.get("task_id", "unknown")
     task_logger = TaskLogger.get_or_create(task_id)
     streaming_logger = StreamingLogger(task_id)

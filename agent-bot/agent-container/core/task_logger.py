@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Any
+from .types import JsonDict, JsonValue
 from datetime import datetime, timezone
 import structlog
 import json
@@ -10,7 +10,7 @@ logger = structlog.get_logger()
 
 
 class TaskLogger:
-    _instances: Dict[str, "TaskLogger"] = {}
+    _instances: dict[str, "TaskLogger"] = {}
 
     def __init__(self, task_id: str, logs_base_dir: Path | None = None):
         self.task_id = task_id
@@ -29,7 +29,7 @@ class TaskLogger:
             cls._instances[task_id] = cls(task_id, logs_base_dir)
         return cls._instances[task_id]
 
-    def log_agent_output(self, output_type: str, **data: Any) -> None:
+    def log_agent_output(self, output_type: str, **data: JsonValue | JsonDict | list) -> None:
         event = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "type": output_type,
@@ -39,7 +39,7 @@ class TaskLogger:
         self._append_jsonl("04-agent-output.jsonl", event)
         self.logger.info("agent_output", output_type=output_type, **data)
 
-    def log_microservice_call(self, service: str, stage: str, **data: Any) -> None:
+    def log_microservice_call(self, service: str, stage: str, **data: JsonValue | JsonDict | list) -> None:
         event = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "service": service,
@@ -50,11 +50,11 @@ class TaskLogger:
         self._append_jsonl("05-microservices-flow.jsonl", event)
         self.logger.info("microservice_call", service=service, stage=stage, **data)
 
-    def write_final_result(self, data: Dict[str, Any]) -> None:
+    def write_final_result(self, data: JsonDict) -> None:
         result_file = self._log_dir / "06-final-result.json"
         self._safe_write_json(result_file, data)
 
-    def _safe_write_json(self, file_path: Path, data: Dict[str, Any]) -> None:
+    def _safe_write_json(self, file_path: Path, data: JsonDict) -> None:
         try:
             fd, temp_path = tempfile.mkstemp(
                 dir=file_path.parent, prefix=f".{file_path.name}.", suffix=".tmp"
@@ -76,7 +76,7 @@ class TaskLogger:
                 "task_logger_write_failed", file=str(file_path), error=str(e)
             )
 
-    def _append_jsonl(self, filename: str, data: Dict[str, Any]) -> None:
+    def _append_jsonl(self, filename: str, data: JsonDict) -> None:
         try:
             file_path = self._log_dir / filename
             json_line = json.dumps(data) + "\n"

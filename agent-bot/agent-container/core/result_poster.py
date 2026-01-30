@@ -1,6 +1,6 @@
 import structlog
-from typing import Dict, Any
 from enum import Enum
+from .types import MCPClientProtocol, JsonDict
 
 
 logger = structlog.get_logger()
@@ -14,11 +14,11 @@ class WebhookProvider(str, Enum):
 
 
 class ResultPoster:
-    def __init__(self, mcp_client: Any):
+    def __init__(self, mcp_client: MCPClientProtocol):
         self.mcp_client = mcp_client
 
     async def post_result(
-        self, provider: WebhookProvider, metadata: Dict[str, Any], result: str
+        self, provider: WebhookProvider, metadata: JsonDict, result: str
     ) -> bool:
         try:
             if provider == WebhookProvider.GITHUB:
@@ -37,7 +37,7 @@ class ResultPoster:
             return False
 
     async def _post_github_result(
-        self, metadata: Dict[str, Any], result: str
+        self, metadata: JsonDict, result: str
     ) -> bool:
         repo_full_name = metadata.get("repository", "")
         if not repo_full_name or "/" not in repo_full_name:
@@ -95,7 +95,7 @@ class ResultPoster:
         logger.warning("unsupported_github_action", action=action)
         return False
 
-    async def _post_jira_result(self, metadata: Dict[str, Any], result: str) -> bool:
+    async def _post_jira_result(self, metadata: JsonDict, result: str) -> bool:
         issue_key = metadata.get("issue_key")
         if not issue_key:
             logger.error("missing_jira_issue_key", metadata=metadata)
@@ -106,7 +106,7 @@ class ResultPoster:
             arguments={"issue_key": issue_key, "comment": result},
         )
 
-    async def _post_slack_result(self, metadata: Dict[str, Any], result: str) -> bool:
+    async def _post_slack_result(self, metadata: JsonDict, result: str) -> bool:
         channel = metadata.get("channel")
         thread_ts = metadata.get("thread_ts")
 
@@ -120,7 +120,7 @@ class ResultPoster:
         )
 
     async def _post_sentry_result(
-        self, metadata: Dict[str, Any], result: str
+        self, metadata: JsonDict, result: str
     ) -> bool:
         issue_id = metadata.get("issue_id")
         if not issue_id:

@@ -2,8 +2,9 @@ import asyncio
 import structlog
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import AsyncIterator, Dict, Any
+from typing import AsyncIterator
 import json
+from .types import JsonDict, JsonValue
 
 
 logger = structlog.get_logger()
@@ -16,10 +17,10 @@ class StreamingLogger:
         self.task_dir = self.logs_base_dir / task_id
         self.task_dir.mkdir(parents=True, exist_ok=True)
         self.stream_file = self.task_dir / "stream.jsonl"
-        self._queue: asyncio.Queue = asyncio.Queue()
+        self._queue: asyncio.Queue[JsonDict] = asyncio.Queue()
         self._closed = False
 
-    async def log(self, event_type: str, **data: Any) -> None:
+    async def log(self, event_type: str, **data: JsonValue | JsonDict | list) -> None:
         if self._closed:
             return
 
@@ -34,7 +35,7 @@ class StreamingLogger:
 
         await self._queue.put(log_entry)
 
-    async def stream(self) -> AsyncIterator[Dict[str, Any]]:
+    async def stream(self) -> AsyncIterator[JsonDict]:
         while not self._closed or not self._queue.empty():
             try:
                 entry = await asyncio.wait_for(self._queue.get(), timeout=0.1)
@@ -42,7 +43,9 @@ class StreamingLogger:
             except asyncio.TimeoutError:
                 continue
 
-    async def log_progress(self, stage: str, message: str, **extra: Any) -> None:
+    async def log_progress(
+        self, stage: str, message: str, **extra: JsonValue | JsonDict | list
+    ) -> None:
         await self.log(
             event_type="progress", stage=stage, message=message, **extra
         )
@@ -50,13 +53,13 @@ class StreamingLogger:
     async def log_cli_output(self, line: str, stream: str = "stdout") -> None:
         await self.log(event_type="cli_output", line=line, stream=stream)
 
-    async def log_mcp_call(self, tool_name: str, arguments: Dict[str, Any]) -> None:
+    async def log_mcp_call(self, tool_name: str, arguments: JsonDict) -> None:
         await self.log(
             event_type="mcp_call", tool_name=tool_name, arguments=arguments
         )
 
     async def log_mcp_result(
-        self, tool_name: str, success: bool, result: Any = None
+        self, tool_name: str, success: bool, result: JsonValue | JsonDict | None = None
     ) -> None:
         await self.log(
             event_type="mcp_result",
@@ -65,7 +68,9 @@ class StreamingLogger:
             result=result,
         )
 
-    async def log_error(self, error: str, **context: Any) -> None:
+    async def log_error(
+        self, error: str, **context: JsonValue | JsonDict | list
+    ) -> None:
         await self.log(event_type="error", error=error, **context)
 
     async def log_completion(

@@ -1,7 +1,6 @@
 import httpx
 import structlog
 from base64 import b64encode
-from typing import Any
 
 from .models import (
     AddCommentInput,

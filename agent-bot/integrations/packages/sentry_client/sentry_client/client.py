@@ -1,6 +1,5 @@
 import httpx
 import structlog
-from typing import Any
 
 from .models import (
     AddCommentInput,

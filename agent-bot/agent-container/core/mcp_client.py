@@ -1,5 +1,5 @@
 import structlog
-from typing import Dict, Any
+from .types import JsonDict, JsonValue
 
 
 logger = structlog.get_logger()
@@ -14,7 +14,7 @@ class MCPClient:
             "sentry": "sentry-mcp-server",
         }
 
-    async def call_tool(self, name: str, arguments: Dict[str, Any]) -> bool:
+    async def call_tool(self, name: str, arguments: dict[str, JsonValue]) -> bool:
         logger.info("mcp_tool_call", tool_name=name, arguments=arguments)
 
         try:
@@ -43,8 +43,8 @@ class MCPClient:
         return None
 
     async def _invoke_mcp_server(
-        self, server: str, tool_name: str, arguments: Dict[str, Any]
-    ) -> Any:
+        self, server: str, tool_name: str, arguments: dict[str, JsonValue]
+    ) -> dict[str, bool]:
         logger.info(
             "invoking_mcp_server", server=server, tool=tool_name, args=arguments
         )
