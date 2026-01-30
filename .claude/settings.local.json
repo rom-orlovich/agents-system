@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C agent-bot status)",
+      "Bash(git restore:*)"
+    ]
+  }
+}
