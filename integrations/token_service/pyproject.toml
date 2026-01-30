@@ -1,14 +1,11 @@
 [project]
-name = "api-gateway"
+name = "token-service"
 version = "0.1.0"
-description = "API Gateway for agent-bot with OAuth and webhooks"
+description = "Multi-organization token management service"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.104",
-    "uvicorn[standard]>=0.24",
     "pydantic>=2.0",
     "structlog>=23.0",
-    "httpx>=0.24",
 ]
 
 [project.optional-dependencies]
@@ -16,8 +13,6 @@ dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
     "pytest-cov>=4.0",
-    "mypy>=1.0",
-    "ruff>=0.1",
 ]
 
 [tool.pytest.ini_options]

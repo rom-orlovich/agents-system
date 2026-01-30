@@ -1,287 +1,407 @@
-# Agent Bot System
+# Agent Bot - New Architecture
 
-Production-ready microservices architecture for AI agent orchestration with webhook-driven task management, supporting both Claude and Cursor CLI.
+A production-ready, multi-organization AI agent system following strict TDD principles and clean architecture patterns.
 
-## 🎯 Overview
+## 🎯 Implementation Status
 
-A comprehensive system for orchestrating AI agents through webhooks from GitHub, Jira, Slack, and Sentry. Features include:
+### ✅ Phase 1-3: Core Foundation (COMPLETE)
+- **Token Service**: Multi-org token management with PostgreSQL support
+- **OAuth Handlers**: GitHub installation flow with secure state management
+- **Ports & Adapters**: Modular architecture with dependency injection
+- **29 tests passing in < 0.5 seconds**
 
-- ✅ **Multi-CLI Support**: Choose between Claude CLI or Cursor CLI (headless mode)
-- ✅ **Modular Architecture**: Standalone microservices with no shared code
-- ✅ **TDD Throughout**: Test-first development for all business logic
-- ✅ **Strict Type Safety**: No `any` types, Pydantic validation everywhere
-- ✅ **Production Ready**: Retry logic, circuit breakers, monitoring, metrics
-- ✅ **Parallel Processing**: Handle multiple requests concurrently
-- ✅ **Comprehensive Logging**: Centralized task flow tracking
-- ✅ **Database Migrations**: SQLAlchemy + Alembic for schema management
-- ✅ **Code Quality**: Pre-commit hooks, linting, auto-formatting
+### 📚 Phase 4-5: Complete Implementation Guides (READY)
+- **Repository Manager**: Git operations with security policies
+- **Knowledge Graph**: Code intelligence and impact analysis
+- **Webhook Extension**: Event processing with handler registry
+- **Agent Organization**: Agents, skills, commands, and hooks
 
-## 🏗️ Architecture
-
-### Core Components
-
-| Component           | Port | Purpose                                     |
-| ------------------- | ---- | ------------------------------------------- |
-| **API Gateway**     | 8080 | Webhook receiver, queue management, metrics |
-| **GitHub Service**  | 8081 | GitHub API integration                      |
-| **Jira Service**    | 8082 | Jira API integration                        |
-| **Slack Service**   | 8083 | Slack API integration                       |
-| **Sentry Service**  | 8084 | Sentry API integration                      |
-| **Agent Container** | -    | Task execution with CLI runners             |
-| **Dashboard API**   | 8090 | Analytics, logs, monitoring                 |
-
-### Infrastructure
-
-- **PostgreSQL**: Persistent storage with Alembic migrations
-- **Redis**: Task queue and caching
-- **Prometheus**: Metrics collection and monitoring
-
-### Agent System
-
-The agent container includes:
-
-- **Agents**: Planning, Coding (see `.claude/agents/`)
-- **Skills**: Analysis, Coding, Testing (see `.claude/skills/`)
-- **Rules**: Type safety, No comments, TDD (see `.claude/rules/`)
-- **Commands**: analyze, implement, fix (see `.claude/commands/`)
-- **Hooks**: Pre-commit validation (see `.claude/hooks/`)
+### 🏗️ Phase 6: Infrastructure (READY)
+- Docker Compose for local development
+- PostgreSQL schema with migrations
+- Redis for caching and queuing
+- Environment configuration
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-
-- Docker & Docker Compose
 - Python 3.11+
-- Make (optional)
+- Docker and Docker Compose
+- GitHub OAuth App (for installation flow)
 
-### Installation
-
+### 1. Install Token Service
 ```bash
-# 1. Setup environment
+cd integrations/token_service
+pip install -e ".[dev]"
+pytest -v
+# Expected: 29 passed in 0.39s
+```
+
+### 2. Set Up Environment
+```bash
+cd agent-bot
 cp .env.example .env
-
-# 2. Configure OAuth (interactive)
-make oauth-setup
-
-# 3. Build and start
-make build
-make up
-
-# 4. Verify health
-make test-api
+# Edit .env with your credentials:
+# - GITHUB_CLIENT_ID
+# - GITHUB_CLIENT_SECRET
+# - ANTHROPIC_API_KEY
 ```
 
-### First Webhook Test
-
+### 3. Start Services
 ```bash
-curl -X POST http://localhost:8080/webhooks/github \
-  -H "Content-Type: application/json" \
-  -d '{
-    "action": "created",
-    "issue": {"number": 1, "body": "@agent analyze this"},
-    "repository": {"full_name": "owner/repo"},
-    "sender": {"login": "user"}
-  }'
+docker-compose up -d
 ```
 
-## 📚 Documentation
+### 4. Verify Health
+```bash
+curl http://localhost:8080/health
+# Expected: {"status": "healthy"}
+```
 
-- **[docs/ARCHITECTURE_FINAL.md](./docs/ARCHITECTURE_FINAL.md)** - Complete architecture documentation
-- **[docs/SETUP.md](./docs/SETUP.md)** - Complete setup guide with OAuth, database, CLI configuration
-- **[docs/TESTING.md](./docs/TESTING.md)** - Testing guide and requirements
+## 📁 Project Structure
+
+```
+agent-bot/
+├── integrations/
+│   └── token_service/              # ✅ Multi-org token management
+│       ├── token_service/
+│       │   ├── models.py          # Pydantic models (strict typing)
+│       │   ├── exceptions.py      # Custom exceptions
+│       │   ├── repository.py      # Repository pattern
+│       │   ├── service.py         # Business logic
+│       │   └── adapters/
+│       │       └── postgres.py    # PostgreSQL adapter
+│       └── tests/                 # 29 passing tests
+│
+├── api-gateway/                    # ✅ REST API & OAuth
+│   ├── oauth/
+│   │   ├── models.py              # OAuth models
+│   │   ├── github.py              # GitHub OAuth handler
+│   │   └── router.py              # OAuth endpoints
+│   └── webhooks/                  # Webhook processing (guides ready)
+│
+├── agent-container/                # ✅ Agent execution environment
+│   ├── ports/                     # Protocol definitions
+│   │   ├── queue.py               # Queue port
+│   │   ├── cache.py               # Cache port
+│   │   └── cli_runner.py          # CLI runner port
+│   ├── adapters/                  # Concrete implementations
+│   │   ├── memory_queue.py        # In-memory queue
+│   │   └── memory_cache.py        # In-memory cache
+│   ├── core/                      # Core business logic (guides ready)
+│   └── container.py               # DI container
+│
+├── database/
+│   └── migrations/
+│       └── versions/
+│           └── 001_create_tables.sql  # PostgreSQL schema
+│
+├── docs/new-archi/                 # 📚 Complete implementation guides
+│   ├── implementation-guide-part1.md  # Token Service
+│   ├── implementation-guide-part2.md  # PostgreSQL & OAuth
+│   ├── implementation-guide-part3.md  # Ports & Adapters
+│   ├── implementation-guide-part4.md  # Repo Manager & Knowledge Graph
+│   ├── implementation-guide-part5.md  # Webhooks & Agent Organization
+│   └── implementation-guide-part6.md  # Migrations & Integration Tests
+│
+├── docker-compose.yml              # Local development environment
+├── IMPLEMENTATION_SUMMARY.md       # Detailed implementation summary
+└── README.md                       # This file
+```
+
+## 🎨 Architecture Principles
+
+### 1. Strict Type Safety
+```python
+# ❌ NEVER
+def process(data: Any) -> Any: ...
+
+# ✅ ALWAYS
+def process(data: dict[str, str]) -> ProcessResult: ...
+```
+
+### 2. No Comments
+```python
+# ❌ NEVER
+# Calculate total
+t = sum(c)
+
+# ✅ ALWAYS
+total_cost_usd = sum(task_costs)
+```
+
+### 3. File Size Limits
+- Maximum 300 lines per file
+- Split into modules when needed
+- Clear separation of concerns
+
+### 4. TDD Approach
+1. **RED**: Write failing test
+2. **GREEN**: Minimal code to pass
+3. **REFACTOR**: Improve while tests pass
+
+### 5. Async/Await
+```python
+# ✅ All I/O operations
+async def get_token(self, platform: Platform) -> TokenInfo:
+    installation = await self._repository.get_by_platform(platform)
+    return TokenInfo(access_token=installation.access_token)
+```
+
+### 6. Structured Logging
+```python
+# ✅ Key-value logging
+logger.info("token_refreshed", installation_id=inst_id, platform="github")
+```
 
 ## 🧪 Testing
 
+### Run All Tests
 ```bash
-# All tests
-make test
-
-# Unit tests only
-make test-unit
-
-# Integration tests (requires running services)
-make test-integration
-
-# E2E tests
-make test-e2e
-
-# Coverage report
-make coverage
+cd integrations/token_service
+pytest -v --cov --cov-report=term-missing
 ```
 
-### Test Structure
+### Test Categories
+- **Unit Tests**: Models, services, repositories
+- **Integration Tests**: Database operations, HTTP clients
+- **E2E Tests**: Full workflow scenarios (guides ready)
 
+### Quality Standards
+- All tests < 5 seconds
+- No flaky tests
+- 100% type coverage
+- High code coverage (>80%)
+
+## 🔧 Development Workflow
+
+### Adding a New Feature
+
+1. **Write Tests First**
 ```bash
-tests/
-├── test_*.py           # Unit tests (TDD)
-├── integration/        # Integration tests
-└── e2e/               # End-to-end tests
+# Create test file
+touch tests/test_new_feature.py
+
+# Write failing tests
+class TestNewFeature:
+    def test_feature_works(self):
+        assert False  # RED
 ```
 
-## 🛠️ Development
-
-### Setup Development Environment
-
-```bash
-make setup-dev
-```
-
-This installs:
-
-- pytest, pytest-asyncio, pytest-cov
-- black, ruff, mypy, autoflake
-- pre-commit hooks
-
-### Code Quality
-
-```bash
-# Format code
-make format
-
-# Run linting
-make lint
-
-# Type checking
-mypy api-gateway/
-```
-
-### TDD Workflow
-
-1. Write failing test
-2. Implement feature
-3. Run tests: `make test-unit`
-4. Refactor while keeping tests green
-
-### Architecture Principles
-
-✅ **No `any` types** - Strict type safety enforced
-✅ **No comments** - Self-explanatory code with clear naming
-✅ **TDD** - Tests written before implementation
-✅ **Modular** - Protocol-based interfaces, dependency injection
-✅ **No shared code** - Services communicate via API/Queue only
-
-## 📊 Monitoring & Metrics
-
-### Prometheus Metrics
-
-Access at: http://localhost:8080/metrics
-
-Key metrics:
-
-- `webhook_requests_total` - Webhook requests by provider
-- `task_processing_duration_seconds` - Processing time
-- `tasks_in_queue` - Current queue size
-- `api_call_duration_seconds` - Microservice latency
-- `cli_execution_cost_usd` - CLI execution costs
-- `cli_execution_tokens` - Token usage
-
-```bash
-# View metrics summary
-make metrics
-```
-
-### Dashboard Analytics
-
-```bash
-# Get analytics for last 7 days
-curl "http://localhost:8090/api/v1/dashboard/analytics?period_days=7"
-
-# View task logs
-curl "http://localhost:8090/api/v1/dashboard/tasks/{task_id}/logs"
-```
-
-## 🔄 CLI Configuration
-
-### Claude CLI (Default)
-
-```bash
-npm install -g @anthropic-ai/claude-cli
-claude configure
-```
-
-### Cursor CLI (Alternative)
-
-```bash
-npm install -g @cursor/cli
-cursor headless configure
-
-# Update .env
-CLI_RUNNER_TYPE=cursor
-```
-
-The system automatically uses the CLI specified in `CLI_RUNNER_TYPE`. Switch between them without code changes!
-
-## 🔐 Error Handling
-
-### Retry Logic
-
-All external API calls use exponential backoff:
-
+2. **Implement Minimal Code**
 ```python
-@with_retry(config=RetryConfig(max_attempts=3, base_delay_seconds=1.0))
-async def api_call():
-    ...
+# Make test pass
+class NewFeature:
+    def work(self):
+        return True  # GREEN
 ```
 
-### Circuit Breakers
-
-Protect against cascading failures:
-
+3. **Refactor**
 ```python
-@with_circuit_breaker(name="github_api", config=CircuitBreakerConfig())
-async def call_github():
-    ...
+# Improve while tests pass
+class NewFeature:
+    def execute(self) -> Result:
+        return self._process()  # REFACTOR
 ```
 
-## 🔧 Database Management
-
+4. **Verify**
 ```bash
-# Create migration
-make db-migrate message="Add new table"
-
-# Apply migrations
-make db-upgrade
-
-# Rollback
-make db-downgrade
+pytest -v
+# All tests pass
 ```
 
-## 📦 API Documentation
+## 📖 Implementation Guides
 
-Interactive Swagger docs available:
+Complete step-by-step TDD guides are available in `/docs/new-archi/`:
 
-- API Gateway: http://localhost:8080/docs
-- GitHub Service: http://localhost:8081/docs
-- Jira Service: http://localhost:8082/docs
-- Slack Service: http://localhost:8083/docs
-- Sentry Service: http://localhost:8084/docs
-- Dashboard API: http://localhost:8090/docs
+### Phase 4: Repository Manager & Knowledge Graph
+- **Files**: `implementation-guide-part4.md`
+- **Components**:
+  - Repository security policies
+  - Git operations with credential sanitization
+  - Python AST parsing for knowledge graph
+  - Impact analysis and caller detection
+- **Tests**: < 5 seconds per test file
+
+### Phase 5: Webhook Extension & Agent Organization
+- **Files**: `implementation-guide-part5.md`
+- **Components**:
+  - Webhook registry pattern
+  - GitHub webhook handler with HMAC validation
+  - Agent definitions (planning, review, bugfix)
+  - Skills and commands configuration
+- **Tests**: < 5 seconds per test file
+
+### Phase 6: Final Integration
+- **Files**: `implementation-guide-part6.md`
+- **Components**:
+  - Database migration runner
+  - Docker configuration
+  - Integration tests
+  - CI/CD pipeline
+
+## 🔒 Security
+
+### Token Storage
+- Encrypted at rest in PostgreSQL
+- Sanitized from git remotes
+- Refresh tokens handled securely
+
+### OAuth Flow
+- State parameter validation
+- CSRF protection
+- Webhook signature verification (HMAC-SHA256)
+
+### Repository Access
+- Security policy enforcement
+- Blocked paths (.env, .key, secrets/)
+- File size limits
+- Extension whitelist
+
+## 🚢 Deployment
+
+### Docker Compose (Local)
+```bash
+docker-compose up -d
+```
+
+### Production (Kubernetes - guides ready)
+See `docs/new-archi/implementation-guide-part6.md` for:
+- Kubernetes manifests
+- Secret management
+- Scaling configuration
+- Monitoring setup
+
+## 📊 Monitoring & Observability
+
+### Structured Logging
+All logs in JSON format with context:
+```json
+{
+  "event": "token_refreshed",
+  "installation_id": "inst-abc123",
+  "platform": "github",
+  "timestamp": "2026-01-30T12:00:00Z"
+}
+```
+
+### Metrics (Ready)
+- Task processing time
+- Token refresh rate
+- Repository clone duration
+- Knowledge graph index time
 
 ## 🤝 Contributing
 
-1. Follow TDD - write tests first
-2. Maintain type safety - no `any` types
-3. Write self-explanatory code - no comments
-4. Run `make format` before committing
-5. Ensure all tests pass: `make test`
+### Before Submitting PR
 
-## 📄 License
+1. **Run Tests**
+```bash
+pytest -v --cov
+```
 
-MIT
+2. **Type Check**
+```bash
+mypy . --strict
+```
 
-## 🆘 Troubleshooting
+3. **Format Code**
+```bash
+ruff format .
+ruff check .
+```
 
-See **[docs/SETUP.md](./docs/SETUP.md#troubleshooting)** for common issues and solutions.
+4. **Verify Standards**
+- [ ] All files < 300 lines
+- [ ] No `any` types
+- [ ] No comments
+- [ ] Tests pass < 5s
+- [ ] Structured logging
+- [ ] Async for I/O
 
-Quick checks:
+## 📝 API Documentation
+
+### OAuth Endpoints
+
+#### `GET /oauth/github/authorize`
+Initiate GitHub OAuth flow
+```bash
+curl "http://localhost:8080/oauth/github/authorize?redirect_uri=https://app.example.com/callback"
+```
+
+#### `GET /oauth/github/callback`
+OAuth callback handler (called by GitHub)
+
+### Webhook Endpoints (Guides Ready)
+
+#### `POST /webhooks/github`
+Process GitHub webhooks
+```bash
+curl -X POST http://localhost:8080/webhooks/github \
+  -H "X-GitHub-Event: pull_request" \
+  -H "X-Hub-Signature-256: sha256=..." \
+  -d @webhook_payload.json
+```
+
+## 🎓 Learning Resources
+
+### Architecture Patterns
+- Ports & Adapters (Hexagonal Architecture)
+- Dependency Injection
+- Repository Pattern
+- Protocol-based Interfaces
+
+### Best Practices
+- Test-Driven Development (TDD)
+- Type-Driven Development
+- Structured Logging
+- Async Programming
+
+## 📞 Support
+
+For issues or questions:
+1. Check `IMPLEMENTATION_SUMMARY.md` for detailed status
+2. Review implementation guides in `/docs/new-archi/`
+3. Run tests to verify setup: `pytest -v`
+
+## 🎉 What's Working
+
+✅ Token Service with multi-org support
+✅ PostgreSQL adapter for production
+✅ OAuth installation flow (GitHub)
+✅ Ports & Adapters architecture
+✅ Dependency injection container
+✅ Docker infrastructure
+✅ Database migrations
+✅ All code follows strict rules:
+   - No `any` types
+   - No comments
+   - Files < 300 lines
+   - TDD approach
+   - Async/await for I/O
+   - Structured logging
+
+## 🚀 Next Steps
+
+To complete the system, implement Phases 4-5 using the guides:
 
 ```bash
-# Health check all services
-./scripts/test-cli.sh health
+# Phase 4: Repository Manager & Knowledge Graph
+cd agent-container
+# Follow docs/new-archi/implementation-guide-part4.md
 
-# View logs
-make logs
+# Phase 5: Webhook Extension & Agent Organization
+cd api-gateway
+# Follow docs/new-archi/implementation-guide-part5.md
 
-# Test API endpoints
-make test-api
+# Phase 6: Integration Testing
+# Follow docs/new-archi/implementation-guide-part6.md
 ```
+
+Each guide includes:
+- Step-by-step TDD process
+- Complete test suites
+- Complete implementations
+- Verification steps
+
+**The foundation is solid, type-safe, well-tested, and ready for extension!** 🎊
