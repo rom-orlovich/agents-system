@@ -1,4 +1,4 @@
-.PHONY: help init build up down restart logs logs-follow test test-unit test-integration coverage format lint db-migrate db-upgrade db-downgrade db-shell redis-cli clean health oauth-setup
+.PHONY: help init build up down restart logs logs-follow test test-unit test-integration coverage format lint db-migrate db-upgrade db-downgrade db-shell redis-cli clean health oauth-setup build-services up-services down-services health-services
 
 help:
 	@echo "Agent Bot - Makefile Commands"
@@ -7,13 +7,19 @@ help:
 	@echo "  make init              - Initialize project (create .env, install deps)"
 	@echo "  make oauth-setup       - Setup OAuth for integrations"
 	@echo ""
-	@echo "Docker:"
-	@echo "  make build             - Build all containers"
-	@echo "  make up                - Start all services"
+	@echo "Docker (Infrastructure):"
+	@echo "  make build             - Build infrastructure containers"
+	@echo "  make up                - Start infrastructure services"
 	@echo "  make down              - Stop all services"
 	@echo "  make restart           - Restart all services"
 	@echo "  make logs              - View all logs"
 	@echo "  make logs-follow       - Follow logs in real-time"
+	@echo ""
+	@echo "Docker (API Services):"
+	@echo "  make build-services    - Build API service containers"
+	@echo "  make up-services       - Start API services"
+	@echo "  make down-services     - Stop API services"
+	@echo "  make health-services   - Check API service health"
 	@echo ""
 	@echo "Database:"
 	@echo "  make db-migrate        - Create new migration"
@@ -105,9 +111,32 @@ db-shell:
 redis-cli:
 	docker-compose exec redis redis-cli
 
+build-services:
+	@echo "Building API services..."
+	cd integrations/api && docker-compose -f docker-compose.services.yml build
+
+up-services:
+	@echo "Starting API services..."
+	cd integrations/api && docker-compose -f docker-compose.services.yml up -d
+	@echo "API Services started:"
+	@echo "  GitHub API: http://localhost:3001"
+	@echo "  Jira API: http://localhost:3002"
+	@echo "  Slack API: http://localhost:3003"
+	@echo "  Sentry API: http://localhost:3004"
+
+down-services:
+	cd integrations/api && docker-compose -f docker-compose.services.yml down
+
 health:
-	@echo "Checking service health..."
+	@echo "Checking infrastructure health..."
 	@curl -s http://localhost:8000/health || echo "API Gateway: DOWN"
+
+health-services:
+	@echo "Checking API service health..."
+	@curl -s http://localhost:3001/health || echo "GitHub API: DOWN"
+	@curl -s http://localhost:3002/health || echo "Jira API: DOWN"
+	@curl -s http://localhost:3003/health || echo "Slack API: DOWN"
+	@curl -s http://localhost:3004/health || echo "Sentry API: DOWN"
 
 clean:
 	@echo "Cleaning up..."
