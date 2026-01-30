@@ -4,13 +4,13 @@ Production-ready microservices architecture using monorepo with shared client pa
 
 ## Architecture
 
-This is a **monorepo** where shared API client logic lives in `packages/` and is used by both:
+This is a **monorepo** where shared API client logic lives in `integrations/` and is used by both:
 - **MCP Servers**: Provide tools for agents via stdio
 - **REST APIs**: Provide HTTP endpoints for services
 
 ```
 agent-bot/
-├── packages/
+├── integrations/
 │   ├── jira_client/           # Shared Jira API client
 │   ├── slack_client/          # Shared Slack API client
 │   ├── sentry_client/         # Shared Sentry API client
@@ -30,7 +30,7 @@ agent-bot/
 ### DRY with Shared Clients
 **ONE implementation of API client logic**:
 ```
-packages/jira_client/          ← Single source of truth
+integrations/jira_client/          ← Single source of truth
         ↗              ↖
 jira_mcp_server    jira_rest_api
 (for agents)       (for HTTP)
@@ -47,7 +47,7 @@ jira_mcp_server    jira_rest_api
 
 ### Shared Client Package
 ```
-packages/jira_client/
+integrations/jira_client/
 ├── jira_client/
 │   ├── __init__.py
 │   ├── client.py              # Core API client
@@ -61,7 +61,7 @@ packages/jira_client/
 
 ### MCP Server Package
 ```
-packages/jira_mcp_server/
+integrations/jira_mcp_server/
 ├── jira_mcp_server/
 │   ├── __init__.py
 │   ├── server.py              # MCP tools
@@ -74,7 +74,7 @@ packages/jira_mcp_server/
 
 ### REST API Package
 ```
-packages/jira_rest_api/
+integrations/jira_rest_api/
 ├── jira_rest_api/
 │   ├── __init__.py
 │   ├── routes.py              # FastAPI routes
@@ -95,15 +95,15 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ### Local Development
 ```bash
 # Install all packages in development mode
-cd packages/jira_client && uv sync
-cd packages/jira_mcp_server && uv sync
-cd packages/jira_rest_api && uv sync
+cd integrations/jira_client && uv sync
+cd integrations/jira_mcp_server && uv sync
+cd integrations/jira_rest_api && uv sync
 
 # Run MCP server
-cd packages/jira_mcp_server && uv run python -m jira_mcp_server
+cd integrations/jira_mcp_server && uv run python -m jira_mcp_server
 
 # Run REST API
-cd packages/jira_rest_api && uv run python -m jira_rest_api
+cd integrations/jira_rest_api && uv run python -m jira_rest_api
 ```
 
 ### Docker Compose (Hot Reload)
@@ -112,9 +112,9 @@ docker-compose up -d
 ```
 
 Volume mounts enable hot reload in development:
-- Changes to `packages/jira_client/` reload both MCP and REST
-- Changes to `packages/jira_mcp_server/` reload only MCP
-- Changes to `packages/jira_rest_api/` reload only REST
+- Changes to `integrations/jira_client/` reload both MCP and REST
+- Changes to `integrations/jira_mcp_server/` reload only MCP
+- Changes to `integrations/jira_rest_api/` reload only REST
 
 ## Usage
 
@@ -140,19 +140,19 @@ curl -X POST http://jira-rest-api:8082/api/v1/jira/issue/PROJ-123/comment \
 
 ### Test Shared Client
 ```bash
-cd packages/jira_client
+cd integrations/jira_client
 uv run pytest tests/ -v
 ```
 
 ### Test MCP Server
 ```bash
-cd packages/jira_mcp_server
+cd integrations/jira_mcp_server
 uv run pytest tests/ -v
 ```
 
 ### Test REST API
 ```bash
-cd packages/jira_rest_api
+cd integrations/jira_rest_api
 uv run pytest tests/ -v
 ```
 
@@ -160,20 +160,20 @@ uv run pytest tests/ -v
 
 ### Build MCP Server
 ```bash
-docker build -f packages/jira_mcp_server/Dockerfile -t jira-mcp-server .
+docker build -f integrations/jira_mcp_server/Dockerfile -t jira-mcp-server .
 ```
 
 ### Build REST API
 ```bash
-docker build -f packages/jira_rest_api/Dockerfile -t jira-rest-api .
+docker build -f integrations/jira_rest_api/Dockerfile -t jira-rest-api .
 ```
 
 ## Documentation
 
 - **[ARCHITECTURE_MONOREPO.md](./ARCHITECTURE_MONOREPO.md)** - Complete monorepo architecture
-- **[packages/jira_client/README.md](./packages/jira_client/README.md)** - Jira client docs
-- **[packages/slack_client/README.md](./packages/slack_client/README.md)** - Slack client docs
-- **[packages/sentry_client/README.md](./packages/sentry_client/README.md)** - Sentry client docs
+- **[integrations/jira_client/README.md](./integrations/jira_client/README.md)** - Jira client docs
+- **[integrations/slack_client/README.md](./integrations/slack_client/README.md)** - Slack client docs
+- **[integrations/sentry_client/README.md](./integrations/sentry_client/README.md)** - Sentry client docs
 
 ## Why This Architecture?
 
