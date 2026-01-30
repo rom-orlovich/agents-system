@@ -1,6 +1,7 @@
 import asyncio
 import os
 from pathlib import Path
+from datetime import datetime, timezone
 
 import structlog
 
@@ -9,6 +10,7 @@ from core.repo_manager import RepoManager
 from core.streaming_logger import StreamingLogger
 from core.result_poster import ResultPoster, WebhookProvider
 from core.mcp_client import MCPClient
+from core.agents.models import AgentTask, AgentContext
 
 structlog.configure(
     processors=[
@@ -30,6 +32,7 @@ worker_id = f"worker-{os.getpid()}"
 async def process_task(task, container):
     task_id = task.task_id
     streaming_logger = StreamingLogger(task_id)
+    start_time = datetime.now(timezone.utc)
 
     await streaming_logger.log_progress(
         stage="initialization", message="Task received by worker"
@@ -40,11 +43,38 @@ async def process_task(task, container):
             task.installation_id
         )
 
+        if hasattr(container, "conversation_manager"):
+            await streaming_logger.log_progress(
+                stage="context", message="Loading conversation context"
+            )
+
+            conversation = await container.conversation_manager.get_or_create_conversation(
+                installation_id=task.installation_id,
+                provider=task.provider,
+                external_id=task.source_metadata.get("pr_number")
+                    or task.source_metadata.get("issue_key")
+                    or task.source_metadata.get("thread_ts")
+                    or task_id,
+            )
+
+            context_data = await container.conversation_manager.get_context(
+                conversation.id, limit=20
+            )
+
+            await container.conversation_manager.add_message(
+                conversation_id=conversation.id,
+                role="user",
+                content=task.input_message,
+            )
+        else:
+            context_data = None
+
         await streaming_logger.log_progress(
-            stage="repository", message="Cloning or updating repository"
+            stage="repository", message="Preparing repository"
         )
 
         repo_manager = RepoManager(base_path=Path("/tmp/repos"))
+        repo_path = None
 
         if "repo" in task.source_metadata:
             repo_name = task.source_metadata["repo"]
@@ -63,22 +93,69 @@ async def process_task(task, container):
             repo_path.mkdir(parents=True, exist_ok=True)
 
         await streaming_logger.log_progress(
-            stage="execution", message="Executing Claude CLI"
+            stage="execution", message="Executing agent workflow"
         )
 
-        result = await container.cli_runner.execute_and_wait(
-            command=["claude", "chat"],
-            input_text=task.input_message,
-            timeout_seconds=300,
+        agent_task = AgentTask(
+            task_id=task_id,
+            provider=task.provider,
+            event_type=task.source_metadata.get("event_type", "unknown"),
+            installation_id=task.installation_id,
+            organization_id=task.source_metadata.get("organization_id", ""),
+            input_message=task.input_message,
+            source_metadata=task.source_metadata,
+            priority=task.priority.value,
+            created_at=task.created_at,
         )
+
+        agent_context = AgentContext(
+            task=agent_task,
+            conversation_history=context_data.messages if context_data else [],
+            repository_path=str(repo_path) if repo_path else None,
+        )
+
+        if hasattr(container, "brain_agent"):
+            result = await container.brain_agent.process(agent_task, agent_context)
+        else:
+            cli_result = await container.cli_runner.execute_and_wait(
+                command=["claude", "chat"],
+                input_text=task.input_message,
+                timeout_seconds=300,
+            )
+            result = type("Result", (), {
+                "success": cli_result.success,
+                "output": cli_result.output,
+                "model_used": "claude-3-5-sonnet-20241022",
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cost_usd": 0.0,
+                "duration_seconds": 0.0,
+                "error": cli_result.error,
+            })()
 
         await streaming_logger.log_progress(
             stage="execution",
-            message="CLI execution completed",
+            message="Agent workflow completed",
             success=result.success,
         )
 
-        if result.success and task.source_metadata.get("provider"):
+        if hasattr(container, "analytics") and result.success:
+            await streaming_logger.log_progress(
+                stage="analytics", message="Recording usage metrics"
+            )
+
+            await container.analytics.record_usage(
+                task_id=task_id,
+                installation_id=task.installation_id,
+                provider=task.provider,
+                model=result.model_used,
+                input_tokens=result.input_tokens,
+                output_tokens=result.output_tokens,
+                cost_usd=result.cost_usd,
+                duration_seconds=result.duration_seconds,
+            )
+
+        if result.success:
             await streaming_logger.log_progress(
                 stage="posting_result",
                 message=f"Posting result to {task.provider}",
@@ -94,6 +171,13 @@ async def process_task(task, container):
                     metadata=task.source_metadata,
                     result=result.output,
                 )
+
+                if posted and hasattr(container, "conversation_manager"):
+                    await container.conversation_manager.add_message(
+                        conversation_id=conversation.id,
+                        role="assistant",
+                        content=result.output,
+                    )
 
                 if posted:
                     await streaming_logger.log_progress(
@@ -112,7 +196,7 @@ async def process_task(task, container):
         await streaming_logger.log_completion(
             success=result.success,
             result=result.output if result.success else None,
-            error=result.error,
+            error=result.error if hasattr(result, "error") else None,
         )
 
         await container.queue.ack(task_id)

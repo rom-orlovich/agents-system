@@ -18,6 +18,9 @@ from oauth.github import GitHubOAuthHandler
 from webhooks.router import create_webhook_router
 from webhooks.registry.registry import WebhookRegistry
 from webhooks.handlers.github import GitHubWebhookHandler
+from webhooks.handlers.jira import JiraWebhookHandler
+from webhooks.handlers.slack import SlackWebhookHandler
+from webhooks.handlers.sentry import SentryWebhookHandler
 
 structlog.configure(
     processors=[
@@ -253,6 +256,9 @@ async def setup_routers():
 
     registry = WebhookRegistry()
     registry.register("github", GitHubWebhookHandler())
+    registry.register("jira", JiraWebhookHandler())
+    registry.register("slack", SlackWebhookHandler())
+    registry.register("sentry", SentryWebhookHandler())
 
     webhook_router = create_webhook_router(
         registry=registry,

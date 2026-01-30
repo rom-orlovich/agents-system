@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Any
 
 import asyncpg
 from pydantic import BaseModel, ConfigDict
@@ -32,6 +32,13 @@ class Container:
     cache: CachePort
     cli_runner: CLIRunnerPort
     token_service: TokenService
+    brain_agent: Any | None = None
+    conversation_manager: Any | None = None
+    analytics: Any | None = None
+    result_poster: Any | None = None
+    github_mcp: Any | None = None
+    jira_mcp: Any | None = None
+    slack_mcp: Any | None = None
 
 
 async def create_container(config: ContainerConfig) -> Container:
@@ -67,9 +74,63 @@ async def create_container(config: ContainerConfig) -> Container:
     else:
         raise ValueError(f"Unknown CLI type: {config.cli_type}")
 
+    brain_agent_instance = None
+    conversation_manager_instance = None
+    analytics_instance = None
+    result_poster_instance = None
+    github_mcp_instance = None
+    jira_mcp_instance = None
+    slack_mcp_instance = None
+
+    if config.database_type == "postgres":
+        try:
+            from core.agents import BrainAgent, ExecutorAgent
+
+            executor = ExecutorAgent(cli_runner)
+            brain_agent_instance = BrainAgent(
+                planning_agent=None,
+                executor_agent=executor,
+            )
+        except ImportError:
+            pass
+
+        try:
+            import sys
+            from pathlib import Path
+            sys.path.insert(0, str(Path(__file__).parent.parent / "api-gateway"))
+
+            from api.conversations import ConversationManager
+            from api.analytics import CostTracker
+
+            if pool:
+                conversation_manager_instance = ConversationManager(pool)
+                analytics_instance = CostTracker(pool)
+        except ImportError:
+            pass
+
+        try:
+            from core.mcp_client import MCPClient
+            from core.mcp_clients import GitHubMCPClient, JiraMCPClient, SlackMCPClient
+            from core.result_poster import ResultPoster
+
+            mcp_client = MCPClient()
+            github_mcp_instance = GitHubMCPClient(mcp_client)
+            jira_mcp_instance = JiraMCPClient(mcp_client)
+            slack_mcp_instance = SlackMCPClient(mcp_client)
+            result_poster_instance = ResultPoster(mcp_client)
+        except ImportError:
+            pass
+
     return Container(
         queue=queue,
         cache=cache,
         cli_runner=cli_runner,
         token_service=token_service,
+        brain_agent=brain_agent_instance,
+        conversation_manager=conversation_manager_instance,
+        analytics=analytics_instance,
+        result_poster=result_poster_instance,
+        github_mcp=github_mcp_instance,
+        jira_mcp=jira_mcp_instance,
+        slack_mcp=slack_mcp_instance,
     )
