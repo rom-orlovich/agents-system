@@ -14,16 +14,19 @@ help:
 	@echo "  up                Start all services"
 	@echo "  up-infra          Start infrastructure only (Redis, PostgreSQL)"
 	@echo "  up-dashboard      Start dashboard services only"
-	@echo "  up-engine         Start agent-engine only (PROVIDER=claude SCALE=1)"
-	@echo "  up-scale N=3      Start with N agent-engine replicas"
 	@echo "  down              Stop all services"
 	@echo "  restart           Restart all services"
 	@echo "  restart-dashboard Restart dashboard services"
 	@echo "  logs              View logs (all services)"
-	@echo "  logs-engine       View agent-engine logs"
 	@echo "  logs-gateway      View api-gateway logs"
 	@echo "  logs-dashboard    View dashboard-api logs"
 	@echo "  logs-ui           View external-dashboard logs"
+	@echo ""
+	@echo "CLI Agent:"
+	@echo "  cli-up            Start CLI (PROVIDER=claude|cursor SCALE=1)"
+	@echo "  cli-down          Stop CLI (PROVIDER=claude|cursor)"
+	@echo "  cli-logs          View CLI logs (PROVIDER=claude|cursor)"
+	@echo "  cli-status        Check CLI status (PROVIDER=claude|cursor)"
 	@echo ""
 	@echo "Testing:"
 	@echo "  test              Run all tests"
@@ -90,8 +93,20 @@ up-engine:
 	@echo ""
 	@docker-compose -p $(or $(PROVIDER),claude) ps cli
 	@echo ""
-	@echo "View logs: docker-compose -p $(or $(PROVIDER),claude) logs -f cli"
-	@echo "Stop: docker-compose -p $(or $(PROVIDER),claude) down"
+	@echo "View logs: make cli-logs PROVIDER=$(or $(PROVIDER),claude)"
+	@echo "Stop: make cli-down PROVIDER=$(or $(PROVIDER),claude)"
+
+cli-up: up-engine
+
+cli-down:
+	@echo "Stopping $(or $(PROVIDER),claude) CLI..."
+	@docker-compose -p $(or $(PROVIDER),claude) down
+
+cli-logs:
+	@docker-compose -p $(or $(PROVIDER),claude) logs -f cli
+
+cli-status:
+	@docker-compose -p $(or $(PROVIDER),claude) ps cli
 
 down:
 	docker-compose down

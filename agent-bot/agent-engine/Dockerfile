@@ -18,6 +18,10 @@ RUN npm install -g @anthropic-ai/claude-code
 
 RUN useradd -m -u 1000 agent && chown -R agent:agent /app
 
+# Set PATH for agent user in .bashrc
+RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/agent/.bashrc && \
+    chown agent:agent /home/agent/.bashrc
+
 ENV PATH="/home/agent/.local/bin:${PATH}"
 
 RUN claude --version
@@ -29,7 +33,6 @@ COPY --chown=agent:agent . .
 
 RUN mkdir -p /app/repos && chown -R agent:agent /app/repos
 
-USER agent
 ENV PORT=8080
 ENV CLI_PROVIDER=claude
 ENV REDIS_HOST=redis
