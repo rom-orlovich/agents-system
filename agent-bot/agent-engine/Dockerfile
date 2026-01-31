@@ -12,24 +12,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN npm install -g @anthropic-ai/claude-code
 
+RUN useradd -m -u 1000 agent && chown -R agent:agent /app
+
+USER agent
+
 RUN curl https://cursor.com/install -fsS | bash
 
-ENV PATH="/root/.local/bin:${PATH}"
+ENV PATH="/home/agent/.local/bin:${PATH}"
 
 RUN claude --version && agent --version
+
+USER root
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+RUN chown -R agent:agent /app
 
-RUN mkdir -p /app/repos
-
-RUN useradd -m -u 1000 agent && chown -R agent:agent /app
+RUN mkdir -p /app/repos && chown -R agent:agent /app/repos
 
 USER agent
-
-ENV PATH="/home/agent/.local/bin:${PATH}"
 ENV PORT=8080
 ENV CLI_PROVIDER=claude
 ENV REDIS_HOST=redis

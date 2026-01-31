@@ -14,6 +14,7 @@ help:
 	@echo "  up                Start all services"
 	@echo "  up-infra          Start infrastructure only (Redis, PostgreSQL)"
 	@echo "  up-dashboard      Start dashboard services only"
+	@echo "  up-engine         Start agent-engine only (PROVIDER=claude SCALE=1)"
 	@echo "  up-scale N=3      Start with N agent-engine replicas"
 	@echo "  down              Stop all services"
 	@echo "  restart           Restart all services"
@@ -75,6 +76,23 @@ up-dashboard:
 up-scale:
 	docker-compose up -d --scale agent-engine=$(N)
 
+up-engine:
+	@echo "Starting $(or $(PROVIDER),claude) CLI..."
+	@echo "   Provider: $(or $(PROVIDER),claude)"
+	@echo "   Replicas: $(or $(SCALE),1)"
+	@echo ""
+	@docker-compose -p $(or $(PROVIDER),claude) up -d redis postgres
+	@echo "Waiting for infrastructure to be healthy..."
+	@sleep 5
+	@CLI_PROVIDER=$(or $(PROVIDER),claude) docker-compose -p $(or $(PROVIDER),claude) up -d --scale cli=$(or $(SCALE),1) cli
+	@echo ""
+	@echo "✅ $(or $(PROVIDER),claude) CLI started"
+	@echo ""
+	@docker-compose -p $(or $(PROVIDER),claude) ps cli
+	@echo ""
+	@echo "View logs: docker-compose -p $(or $(PROVIDER),claude) logs -f cli"
+	@echo "Stop: docker-compose -p $(or $(PROVIDER),claude) down"
+
 down:
 	docker-compose down
 
@@ -88,7 +106,7 @@ logs:
 	docker-compose logs -f
 
 logs-engine:
-	docker-compose logs -f agent-engine
+	docker-compose logs -f cli
 
 logs-gateway:
 	docker-compose logs -f api-gateway

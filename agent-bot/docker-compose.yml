@@ -3,7 +3,6 @@ version: '3.8'
 services:
   redis:
     image: redis:7-alpine
-    container_name: redis
     ports:
       - "6379:6379"
     networks:
@@ -17,7 +16,6 @@ services:
 
   postgres:
     image: postgres:15-alpine
-    container_name: postgres
     ports:
       - "5432:5432"
     environment:
@@ -37,7 +35,6 @@ services:
 
   api-gateway:
     build: ./api-gateway
-    container_name: api-gateway
     ports:
       - "8000:8000"
     environment:
@@ -56,7 +53,7 @@ services:
       - agent-network
     restart: unless-stopped
 
-  agent-engine:
+  cli:
     build: ./agent-engine
     ports:
       - "8080-8089:8080"
@@ -73,15 +70,14 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     networks:
       - agent-network
     restart: unless-stopped
-    deploy:
-      replicas: 1
 
   github-mcp:
     build: ./mcp-servers/github-mcp
-    container_name: github-mcp
     ports:
       - "9001:9001"
     environment:
@@ -93,7 +89,6 @@ services:
 
   jira-mcp:
     build: ./mcp-servers/jira-mcp
-    container_name: jira-mcp
     ports:
       - "9002:9002"
     environment:
@@ -105,7 +100,6 @@ services:
 
   slack-mcp:
     build: ./mcp-servers/slack-mcp
-    container_name: slack-mcp
     ports:
       - "9003:9003"
     environment:
@@ -117,7 +111,6 @@ services:
 
   sentry-mcp:
     build: ./mcp-servers/sentry-mcp
-    container_name: sentry-mcp
     ports:
       - "9004:9004"
     environment:
@@ -129,7 +122,6 @@ services:
 
   github-api:
     build: ./api-services/github-api
-    container_name: github-api
     ports:
       - "3001:3001"
     environment:
@@ -141,7 +133,6 @@ services:
 
   jira-api:
     build: ./api-services/jira-api
-    container_name: jira-api
     ports:
       - "3002:3002"
     environment:
@@ -155,7 +146,6 @@ services:
 
   slack-api:
     build: ./api-services/slack-api
-    container_name: slack-api
     ports:
       - "3003:3003"
     environment:
@@ -167,7 +157,6 @@ services:
 
   sentry-api:
     build: ./api-services/sentry-api
-    container_name: sentry-api
     ports:
       - "3004:3004"
     environment:
@@ -180,7 +169,6 @@ services:
 
   dashboard-api:
     build: ./dashboard-api
-    container_name: dashboard-api
     ports:
       - "5000:5000"
     environment:
@@ -199,7 +187,6 @@ services:
 
   external-dashboard:
     build: ./external-dashboard
-    container_name: external-dashboard
     ports:
       - "3005:80"
     depends_on:
@@ -210,7 +197,6 @@ services:
 
   knowledge-graph:
     build: ./knowledge-graph
-    container_name: knowledge-graph
     ports:
       - "4000:4000"
     environment:
@@ -228,7 +214,6 @@ services:
 
   knowledge-graph-mcp:
     build: ./mcp-servers/knowledge-graph-mcp
-    container_name: knowledge-graph-mcp
     ports:
       - "9005:9005"
     environment:
