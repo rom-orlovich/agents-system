@@ -177,6 +177,30 @@ Tokens are stored in the shared `installations` table (managed by `agent-engine`
 3. All services lookup tokens by `org_id` - no user accounts needed
 4. If organization reinstalls, existing installation is updated (not duplicated)
 
+## Webhook Secrets vs OAuth Installations
+
+**Important distinction:**
+
+- **OAuth Installations**: Per-organization (each org installs → gets their own tokens)
+- **Webhook Secrets**: App-level (one secret for all webhooks from that app)
+
+**Webhook secrets come from OAuth app configuration:**
+
+- **GitHub**: Webhook secret set when creating GitHub App (same secret for all installations)
+- **Slack**: Signing secret from Slack app Basic Information (same secret for all workspaces)
+- **Jira**: Webhook secret configured in Jira app settings
+
+**You still need to configure webhook secrets in environment variables**, but they come from the OAuth app settings (not from individual installations):
+
+```bash
+# These are app-level secrets (one per app, not per installation)
+GITHUB_WEBHOOK_SECRET=xxx  # From GitHub App settings
+SLACK_SIGNING_SECRET=xxx    # From Slack app Basic Information
+JIRA_WEBHOOK_SECRET=xxx     # From Jira app settings
+```
+
+**Result**: Once you configure the OAuth app and set webhook secrets, you don't need to configure webhooks separately for each organization installation - the same webhook secret validates webhooks from all installations.
+
 ## Token Refresh
 
 Service automatically refreshes expired tokens:

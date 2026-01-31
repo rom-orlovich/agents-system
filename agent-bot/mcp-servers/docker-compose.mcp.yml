@@ -1,22 +1,18 @@
-version: '3.8'
+version: "3.8"
 
 services:
   github-mcp:
-    build: ./github-mcp
+    image: ghcr.io/github/github-mcp-server:latest
     container_name: github-mcp
-    ports:
-      - "9001:9001"
     environment:
-      - PORT=9001
       - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_TOOLSETS=${GITHUB_TOOLSETS:-repos,issues,pull_requests}
+      - GITHUB_HOST=${GITHUB_HOST:-}
+    stdin_open: true
+    tty: true
     networks:
       - agent-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   jira-mcp:
     build: ./jira-mcp

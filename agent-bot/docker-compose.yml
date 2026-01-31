@@ -78,12 +78,13 @@ services:
     restart: unless-stopped
 
   github-mcp:
-    build: ./mcp-servers/github-mcp
-    ports:
-      - "9001:9001"
+    image: ghcr.io/github/github-mcp-server:latest
     environment:
-      - PORT=9001
-      - GITHUB_API_URL=http://github-api:3001
+      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_TOKEN:-}
+      - GITHUB_TOOLSETS=${GITHUB_TOOLSETS:-repos,issues,pull_requests}
+      - GITHUB_HOST=${GITHUB_HOST:-}
+    stdin_open: true
+    tty: true
     networks:
       - agent-network
     restart: unless-stopped
