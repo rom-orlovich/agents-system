@@ -30,6 +30,9 @@ anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
+# Process execution for gkg CLI
+async-process = "2"
+
 # Configuration
 config = "0.14"
 dotenvy = "0.15"

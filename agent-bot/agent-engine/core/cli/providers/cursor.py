@@ -4,17 +4,13 @@ import os
 from pathlib import Path
 import structlog
 
-from agent_engine.core.cli.base import CLIResult
-from agent_engine.core.cli.sanitization import sanitize_sensitive_content
-from agent_engine.core.cli.providers.cursor.config import CURSOR_CONFIG
+from core.cli.base import CLIResult
+from core.cli.sanitization import sanitize_sensitive_content
 
 logger = structlog.get_logger()
 
 
 class CursorCLIRunner:
-    def __init__(self) -> None:
-        self.config = CURSOR_CONFIG
-
     async def run(
         self,
         prompt: str,
@@ -26,9 +22,8 @@ class CursorCLIRunner:
         allowed_tools: str | None = None,
         agents: str | None = None,
         debug_mode: str | None = None,
-        mcp_servers: list[str] | None = None,
     ) -> CLIResult:
-        cmd = self._build_command(prompt, model, mcp_servers)
+        cmd = self._build_command(prompt, model)
 
         logger.info("starting_cursor_cli", task_id=task_id, working_dir=str(working_dir))
 
@@ -61,7 +56,6 @@ class CursorCLIRunner:
 
                 async for line in process.stdout:
                     line_str = line.decode(errors="replace").rstrip("\n\r")
-
                     if not line_str:
                         continue
 
@@ -98,7 +92,6 @@ class CursorCLIRunner:
                 asyncio.gather(read_stdout(), read_stderr()), timeout=timeout_seconds
             )
             await process.wait()
-
             await output_queue.put(None)
 
             error_msg = self._determine_error_message(
@@ -158,28 +151,17 @@ class CursorCLIRunner:
                 error=f"Unexpected error: {str(e)}",
             )
 
-    def _build_command(
-        self,
-        prompt: str,
-        model: str | None,
-        mcp_servers: list[str] | None = None,
-    ) -> list[str]:
+    def _build_command(self, prompt: str, model: str | None) -> list[str]:
         cmd = [
-            self.config.command,
-            self.config.subcommand,
+            "agent",
+            "chat",
+            "--print",
+            "--output-format",
+            "json-stream",
         ]
-
-        if self.config.print_mode:
-            cmd.append("--print")
-
-        cmd.extend(["--output-format", self.config.output_format])
 
         if model:
             cmd.extend(["--model", model])
-
-        if mcp_servers:
-            for server in mcp_servers:
-                cmd.extend(["--mcp", server])
 
         cmd.append(prompt)
 
@@ -187,7 +169,7 @@ class CursorCLIRunner:
 
     def _handle_json_event(
         self,
-        data: dict[str, object],
+        data: dict,
         accumulated_output: list[str],
         clean_output: list[str],
         output_queue: asyncio.Queue[str | None],
