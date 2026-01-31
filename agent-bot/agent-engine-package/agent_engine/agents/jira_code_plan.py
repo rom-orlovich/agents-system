@@ -35,7 +35,7 @@ class JiraCodePlanAgent(BaseAgent):
         if context.source != TaskSource.JIRA:
             return False
         issue = context.payload.get("issue", {})
-        labels = [l.lower() for l in issue.get("fields", {}).get("labels", [])]
+        labels = [lbl.lower() for lbl in issue.get("fields", {}).get("labels", [])]
         return "ai-fix" in labels or "code-change" in labels
 
     async def process(self, context: AgentContext) -> AgentResult:
@@ -71,7 +71,7 @@ class JiraCodePlanAgent(BaseAgent):
             response_channel=f"jira:{issue.get('key')}",
         )
 
-    def _get_working_dir(self, context: AgentContext, fields: dict) -> str:
+    def _get_working_dir(self, context: AgentContext, fields: dict[str, object]) -> str:
         repo_field = fields.get("customfield_repository", "")
         if repo_field:
             repo_name = repo_field.split("/")[-1]

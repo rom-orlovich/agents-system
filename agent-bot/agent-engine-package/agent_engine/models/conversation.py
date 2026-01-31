@@ -1,11 +1,11 @@
+import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Any, TYPE_CHECKING
-import uuid
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import String, Text, JSON
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import JSON, String, Text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 

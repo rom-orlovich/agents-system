@@ -1,9 +1,10 @@
+import uuid
 from datetime import datetime
 from typing import Any
+
 from sqlalchemy import MetaData
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
-import uuid
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 convention = {
     "ix": "ix_%(column_0_label)s",

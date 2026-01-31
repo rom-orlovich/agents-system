@@ -1,6 +1,6 @@
-from typing import Any
-import subprocess
 import asyncio
+import subprocess
+from typing import Any
 
 from .base import BaseSkill, SkillInput, SkillOutput, SkillType
 

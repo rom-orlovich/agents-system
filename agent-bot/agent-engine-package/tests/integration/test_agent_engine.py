@@ -1,8 +1,9 @@
-import pytest
-import json
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+import json
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 @pytest.fixture
@@ -246,7 +247,6 @@ class TestConcurrencyControl:
         self,
         mock_redis: AsyncMock,
     ) -> None:
-        from agent_engine.core.queue_manager import QueueManager
 
         processed_tasks: list[str] = []
         max_concurrent = 2

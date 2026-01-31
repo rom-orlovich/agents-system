@@ -2,10 +2,10 @@ import asyncio
 import json
 import os
 from pathlib import Path
+
 import structlog
 
 from agent_engine.core.cli.base import CLIResult
-from agent_engine.core.cli.sanitization import sanitize_sensitive_content
 from agent_engine.core.cli.providers.cursor.config import CURSOR_CONFIG
 
 logger = structlog.get_logger()
@@ -122,7 +122,7 @@ class CursorCLIRunner:
                 error=error_msg,
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             if process:
                 process.kill()
                 await process.wait()
@@ -168,6 +168,9 @@ class CursorCLIRunner:
             self.config.command,
             self.config.subcommand,
         ]
+
+        if self.config.headless:
+            cmd.append("--headless")
 
         if self.config.print_mode:
             cmd.append("--print")

@@ -63,8 +63,6 @@ def contains_sensitive_data(content: str | None) -> bool:
 
     content_str = str(content) if not isinstance(content, str) else content
 
-    for pattern in SENSITIVE_INDICATORS:
-        if re.search(pattern, content_str, re.IGNORECASE):
-            return True
-
-    return False
+    return any(
+        re.search(pattern, content_str, re.IGNORECASE) for pattern in SENSITIVE_INDICATORS
+    )

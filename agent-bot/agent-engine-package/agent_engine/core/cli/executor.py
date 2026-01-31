@@ -2,8 +2,8 @@ import asyncio
 from pathlib import Path
 from typing import TypeVar
 
-from agent_engine.core.cli.base import CLIResult, CLIProvider
-from agent_engine.core.config import settings, CLIProviderType
+from agent_engine.core.cli.base import CLIProvider, CLIResult
+from agent_engine.core.config import CLIProviderType, settings
 
 T = TypeVar("T", bound=CLIProvider)
 

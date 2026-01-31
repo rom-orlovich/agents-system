@@ -1,6 +1,6 @@
-from typing import Any
-import subprocess
 import asyncio
+import subprocess
+from typing import Any
 
 from .base import BaseSkill, SkillInput, SkillOutput, SkillType
 
@@ -20,7 +20,6 @@ class VerificationSkill(BaseSkill):
 
     async def execute(self, skill_input: SkillInput) -> SkillOutput:
         action = skill_input.action
-        params = skill_input.parameters
         context = skill_input.context
 
         try:

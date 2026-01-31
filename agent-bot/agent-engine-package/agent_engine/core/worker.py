@@ -1,12 +1,13 @@
 import asyncio
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Callable, Awaitable, Any
 import json
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from pathlib import Path
+
 import structlog
 
-from agent_engine.core.config import settings
 from agent_engine.core.cli.executor import CLIExecutor
+from agent_engine.core.config import settings
 from agent_engine.core.queue_manager import QueueManager, TaskStatus
 
 logger = structlog.get_logger()
@@ -80,7 +81,7 @@ class TaskWorker:
                 timeout=timeout,
             )
             logger.info("all_active_tasks_completed")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "active_tasks_timeout",
                 remaining=len(self.active_tasks),
@@ -167,7 +168,7 @@ class TaskWorker:
                 await self.on_task_complete(task_id, str(e), False, 0.0)
 
     def _build_init_log(self, task_id: str, agent_type: str, model: str) -> str:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         return (
             f"[SYSTEM] Task {task_id} started at {now}\n"
             f"[SYSTEM] Agent: {agent_type} | Model: {model}\n"

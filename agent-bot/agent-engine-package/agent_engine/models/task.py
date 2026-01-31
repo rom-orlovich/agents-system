@@ -1,13 +1,18 @@
+from __future__ import annotations
+
+import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Any
-import uuid
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import ForeignKey, String, Text, JSON
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import JSON, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from .conversation import Conversation
 
 
 class TaskStatus(str, Enum):
@@ -46,10 +51,10 @@ class Task(Base):
         nullable=True,
     )
 
-    conversation: Mapped["Conversation | None"] = relationship(
+    conversation: Mapped[Conversation | None] = relationship(
         "Conversation", back_populates="tasks"
     )
-    agent_executions: Mapped[list["AgentExecution"]] = relationship(
+    agent_executions: Mapped[list[AgentExecution]] = relationship(
         "AgentExecution", back_populates="task"
     )
 
@@ -70,7 +75,4 @@ class AgentExecution(Base):
     completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(nullable=True)
 
-    task: Mapped["Task"] = relationship("Task", back_populates="agent_executions")
-
-
-from .conversation import Conversation
+    task: Mapped[Task] = relationship("Task", back_populates="agent_executions")

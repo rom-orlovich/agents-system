@@ -1,9 +1,10 @@
-import pytest
-import json
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Any
+import json
 from dataclasses import dataclass
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 @dataclass
@@ -117,7 +118,7 @@ class TestEndToEndGitHubWorkflow:
             "issue": {
                 "number": full_github_issue_webhook["issue"]["number"],
                 "title": full_github_issue_webhook["issue"]["title"],
-                "labels": [l["name"] for l in full_github_issue_webhook["issue"]["labels"]],
+                "labels": [lbl["name"] for lbl in full_github_issue_webhook["issue"]["labels"]],
             },
             "repository": full_github_issue_webhook["repository"],
         }

@@ -1,6 +1,6 @@
-from agent_engine.core.config import settings
-from agent_engine.core.cli.base import CLIResult, CLIProvider
+from agent_engine.core.cli.base import CLIProvider, CLIResult
 from agent_engine.core.cli.executor import CLIExecutor
+from agent_engine.core.config import settings
 from agent_engine.core.queue_manager import QueueManager, TaskStatus
 from agent_engine.core.worker import TaskWorker
 

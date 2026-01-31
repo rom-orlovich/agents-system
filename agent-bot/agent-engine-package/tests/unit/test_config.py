@@ -1,5 +1,4 @@
-import pytest
-from agent_engine.core.config import Settings, CLIProviderType
+from agent_engine.core.config import CLIProviderType, Settings
 
 
 class TestCLIProviderType:

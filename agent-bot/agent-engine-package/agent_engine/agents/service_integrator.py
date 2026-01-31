@@ -43,7 +43,7 @@ class ServiceIntegratorAgent(BaseAgent):
             output=previous_result.get("output", ""),
         )
 
-        result = await self._execute_cli(prompt, "/app/repos/default")
+        await self._execute_cli(prompt, "/app/repos/default")
 
         formatted_response = self._format_for_platform(
             response_channel,

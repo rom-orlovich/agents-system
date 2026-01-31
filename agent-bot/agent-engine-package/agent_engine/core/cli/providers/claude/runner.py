@@ -1,14 +1,26 @@
 import asyncio
 import json
 import os
+from dataclasses import dataclass, field
 from pathlib import Path
+
 import structlog
 
 from agent_engine.core.cli.base import CLIResult
-from agent_engine.core.cli.sanitization import sanitize_sensitive_content, contains_sensitive_data
 from agent_engine.core.cli.providers.claude.config import CLAUDE_CONFIG
+from agent_engine.core.cli.sanitization import sanitize_sensitive_content
 
 logger = structlog.get_logger()
+
+
+@dataclass
+class StreamProcessingResult:
+    cost_usd: float = 0.0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cli_error_message: str | None = None
+    has_streaming_output: bool = False
+    stderr_lines: list[str] = field(default_factory=list)
 
 
 class ClaudeCLIRunner:
@@ -51,7 +63,6 @@ class ClaudeCLIRunner:
         input_tokens = 0
         output_tokens = 0
         cli_error_message: str | None = None
-        has_streaming_output = False
 
         try:
             result = await self._process_streams(
@@ -63,16 +74,15 @@ class ClaudeCLIRunner:
                 clean_output=clean_output,
             )
 
-            cost_usd = result["cost_usd"]
-            input_tokens = result["input_tokens"]
-            output_tokens = result["output_tokens"]
-            cli_error_message = result["cli_error_message"]
-            has_streaming_output = result["has_streaming_output"]
+            cost_usd = result.cost_usd
+            input_tokens = result.input_tokens
+            output_tokens = result.output_tokens
+            cli_error_message = result.cli_error_message
 
             await output_queue.put(None)
 
             error_msg = self._determine_error_message(
-                process.returncode or 0, cli_error_message, result.get("stderr_lines", [])
+                process.returncode or 0, cli_error_message, result.stderr_lines
             )
 
             logger.info(
@@ -92,7 +102,7 @@ class ClaudeCLIRunner:
                 error=error_msg,
             )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             if process:
                 process.kill()
                 await process.wait()
@@ -173,17 +183,10 @@ class ClaudeCLIRunner:
         timeout_seconds: int,
         accumulated_output: list[str],
         clean_output: list[str],
-    ) -> dict[str, float | int | str | list[str] | bool | None]:
-        cost_usd = 0.0
-        input_tokens = 0
-        output_tokens = 0
-        cli_error_message: str | None = None
-        has_streaming_output = False
-        stderr_lines: list[str] = []
+    ) -> StreamProcessingResult:
+        stream_result = StreamProcessingResult()
 
         async def read_stdout() -> None:
-            nonlocal cost_usd, input_tokens, output_tokens, cli_error_message, has_streaming_output
-
             if not process.stdout:
                 return
 
@@ -193,21 +196,29 @@ class ClaudeCLIRunner:
                 if not line_str:
                     continue
 
-                result = self._parse_json_line(
+                parse_result = self._parse_json_line(
                     line_str, task_id, accumulated_output, clean_output, output_queue
                 )
 
-                if result:
-                    if "cost_usd" in result:
-                        cost_usd = result["cost_usd"]
-                    if "input_tokens" in result:
-                        input_tokens = result["input_tokens"]
-                    if "output_tokens" in result:
-                        output_tokens = result["output_tokens"]
-                    if "cli_error_message" in result:
-                        cli_error_message = result["cli_error_message"]
-                    if result.get("has_streaming_output"):
-                        has_streaming_output = True
+                if parse_result:
+                    if "cost_usd" in parse_result:
+                        val = parse_result["cost_usd"]
+                        if isinstance(val, (int, float)):
+                            stream_result.cost_usd = float(val)
+                    if "input_tokens" in parse_result:
+                        val = parse_result["input_tokens"]
+                        if isinstance(val, int):
+                            stream_result.input_tokens = val
+                    if "output_tokens" in parse_result:
+                        val = parse_result["output_tokens"]
+                        if isinstance(val, int):
+                            stream_result.output_tokens = val
+                    if "cli_error_message" in parse_result:
+                        val = parse_result["cli_error_message"]
+                        if isinstance(val, str):
+                            stream_result.cli_error_message = val
+                    if parse_result.get("has_streaming_output"):
+                        stream_result.has_streaming_output = True
 
         async def read_stderr() -> None:
             if not process.stderr:
@@ -218,7 +229,7 @@ class ClaudeCLIRunner:
                 if not line_str:
                     continue
 
-                stderr_lines.append(line_str)
+                stream_result.stderr_lines.append(line_str)
                 log_line = f"[LOG] {line_str}"
                 accumulated_output.append(log_line + "\n")
                 await output_queue.put(log_line + "\n")
@@ -228,14 +239,7 @@ class ClaudeCLIRunner:
         )
         await process.wait()
 
-        return {
-            "cost_usd": cost_usd,
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-            "cli_error_message": cli_error_message,
-            "has_streaming_output": has_streaming_output,
-            "stderr_lines": stderr_lines,
-        }
+        return stream_result
 
     def _parse_json_line(
         self,

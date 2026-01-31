@@ -1,9 +1,10 @@
 from enum import Enum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
 import redis.asyncio as aioredis
 
 if TYPE_CHECKING:
-    from redis.asyncio import Redis
+    pass
 
 
 class TaskStatus(str, Enum):

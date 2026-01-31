@@ -1,7 +1,6 @@
-import pytest
 from agent_engine.core.cli.sanitization import (
-    sanitize_sensitive_content,
     contains_sensitive_data,
+    sanitize_sensitive_content,
 )
 
 

@@ -48,7 +48,7 @@ class GitHubIssueHandlerAgent(BaseAgent):
             issue_number=issue.get("number", "unknown"),
             title=issue.get("title", "No title"),
             body=issue.get("body", "No description"),
-            labels=", ".join(l.get("name", "") for l in issue.get("labels", [])),
+            labels=", ".join(lbl.get("name", "") for lbl in issue.get("labels", [])),
             author=issue.get("user", {}).get("login", "unknown"),
         )
 
@@ -75,7 +75,7 @@ class GitHubIssueHandlerAgent(BaseAgent):
             return f"/app/repos/{repo_name}"
         return "/app/repos/default"
 
-    def _check_needs_implementation(self, issue: dict) -> bool:
-        labels = [l.get("name", "").lower() for l in issue.get("labels", [])]
+    def _check_needs_implementation(self, issue: dict[str, object]) -> bool:
+        labels = [lbl.get("name", "").lower() for lbl in issue.get("labels", [])]
         implementation_labels = ["ai-fix", "enhancement", "bug", "feature"]
         return any(label in labels for label in implementation_labels)

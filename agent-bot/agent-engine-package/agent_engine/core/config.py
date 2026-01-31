@@ -1,5 +1,6 @@
 from enum import Enum
 from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -88,14 +89,12 @@ class Settings(BaseSettings):
         return [c.strip().lower() for c in self.webhook_valid_commands.split(",") if c.strip()]
 
     def get_model_for_agent(self, agent_type: str) -> str:
-        agent_lower = agent_type.lower()
-        if agent_lower == "planning":
-            return self.claude_model_planning
-        elif agent_lower == "executor":
-            return self.claude_model_executor
-        elif agent_lower == "brain":
-            return self.claude_model_brain
-        return self.claude_default_model
+        agent_models = {
+            "planning": self.claude_model_planning,
+            "executor": self.claude_model_executor,
+            "brain": self.claude_model_brain,
+        }
+        return agent_models.get(agent_type.lower(), self.claude_default_model)
 
 
 settings = Settings()
