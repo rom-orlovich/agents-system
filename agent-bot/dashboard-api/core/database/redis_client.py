@@ -383,6 +383,25 @@ class RedisClient:
             raise RuntimeError("Redis not connected")
         return await self._client.exists(key) > 0
 
+    # ==================== Task Event Publishing ====================
+
+    async def publish_task_event(
+        self, event_type: str, data: Dict[str, Any], task_id: Optional[str] = None, webhook_event_id: Optional[str] = None
+    ) -> None:
+        if not self._client:
+            raise RuntimeError("Redis not connected")
+        event = {
+            "type": event_type,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "data": json.dumps(data),
+        }
+        if task_id:
+            event["task_id"] = task_id
+        if webhook_event_id:
+            event["webhook_event_id"] = webhook_event_id
+        await self._client.xadd("task_events", event)
+        logger.debug("Task event published", event_type=event_type, task_id=task_id)
+
 
 # Global Redis client instance
 redis_client = RedisClient()

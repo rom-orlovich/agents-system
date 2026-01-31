@@ -1,30 +1,35 @@
-# Complete Containerized Agent Architecture
+# Agent Bot Architecture
 
 ## Overview
 
-A fully containerized, scalable multi-agent system where **each service runs in its own Docker container** for maximum isolation, scalability, and maintainability.
+A fully containerized, scalable multi-agent system where **each service runs in its own Docker container** for maximum isolation, scalability, and maintainability. The system processes webhooks from GitHub, Jira, Slack, and Sentry to autonomously handle development tasks.
 
 ---
 
 ## Container Architecture
 
-### Total Containers: 14
+### Total Services: 18
 
-1. **Agent Engine** (Scalable) - Ports 8080-8089
-2. **GitHub MCP Server** - Port 9001
-3. **Jira MCP Server** - Port 9002
-4. **Slack MCP Server** - Port 9003
-5. **Sentry MCP Server** - Port 9004
-6. **GitHub API Service** - Port 3001
-7. **Jira API Service** - Port 3002
-8. **Slack API Service** - Port 3003
-9. **Sentry API Service** - Port 3004
-10. **API Gateway** - Port 8000
-11. **Internal Dashboard API** - Port 5000
-12. **External Dashboard** - Port 3002
-13. **Knowledge Graph** (GitLab Rust) - Port 4000
-14. **Redis** - Port 6379
-15. **PostgreSQL** - Port 5432
+| # | Service | Port | Purpose |
+|---|---------|------|---------|
+| 1 | **CLI (Agent Engine)** | 8080-8089 | Task execution (scalable) |
+| 2 | **API Gateway** | 8000 | Webhook reception |
+| 3 | **Dashboard API** | 5000 | Analytics & WebSocket hub |
+| 4 | **External Dashboard** | 3005 | React monitoring UI |
+| 5 | **OAuth Service** | 8010 | Multi-provider OAuth flows |
+| 6 | **Task Logger** | 8090 | Task output logging |
+| 7 | **Knowledge Graph** | 4000 | Code entity indexing (Rust) |
+| 8 | **GitHub MCP** | 9001 | GitHub tool interface |
+| 9 | **Jira MCP** | 9002 | Jira tool interface |
+| 10 | **Slack MCP** | 9003 | Slack tool interface |
+| 11 | **Sentry MCP** | 9004 | Sentry tool interface |
+| 12 | **Knowledge Graph MCP** | 9005 | Code search tool interface |
+| 13 | **GitHub API** | 3001 | GitHub API wrapper |
+| 14 | **Jira API** | 3002 | Jira API wrapper |
+| 15 | **Slack API** | 3003 | Slack API wrapper |
+| 16 | **Sentry API** | 3004 | Sentry API wrapper |
+| 17 | **Redis** | 6379 | Task queue & cache |
+| 18 | **PostgreSQL** | 5432 | Persistent storage |
 
 ---
 
@@ -46,37 +51,45 @@ External Services (GitHub, Jira, Slack, Sentry)
           │                    │
           ▼                    ▼
     ┌──────────┐      ┌────────────────┐
-    │  Redis   │      │ Knowledge      │
-    │  :6379   │      │ Graph :4000    │
+    │  Redis   │      │ PostgreSQL     │
+    │  :6379   │      │   :5432        │
     └──────────┘      └────────────────┘
-          │
-          ▼
+          │                    │
+          ▼                    │
 ┌──────────────────────────────────────┐
-│    Agent Engine :8080-8089           │
-│  (Scalable - Multiple Instances)     │
+│        CLI (Agent Engine)            │
+│        :8080-8089 (Scalable)         │
 │  ┌────────────────────────────────┐ │
-│  │ mcp.json                       │ │
-│  │ - github-mcp:9001/sse          │ │
-│  │ - jira-mcp:9002/sse            │ │
-│  │ - slack-mcp:9003/sse           │ │
-│  │ - sentry-mcp:9004/sse          │ │
+│  │ .claude/agents/                │ │
+│  │ - brain, planning, executor    │ │
+│  │ - github-issue-handler         │ │
+│  │ - github-pr-review             │ │
+│  │ - jira-code-plan               │ │
+│  │ - slack-inquiry, verifier      │ │
+│  └────────────────────────────────┘ │
+│  ┌────────────────────────────────┐ │
+│  │ MCP Connections (SSE)          │ │
+│  │ - github-mcp:9001              │ │
+│  │ - jira-mcp:9002                │ │
+│  │ - slack-mcp:9003               │ │
+│  │ - sentry-mcp:9004              │ │
+│  │ - knowledge-graph-mcp:9005     │ │
 │  └────────────────────────────────┘ │
 └──────────────────────────────────────┘
           │ (SSE Connections)
           ▼
-┌─────────────────────────────────────────────────┐
-│     MCP Servers (Each in Own Container)         │
-│  ┌──────────┬──────────┬──────────┬──────────┐ │
-│  │ GitHub   │  Jira    │  Slack   │ Sentry   │ │
-│  │  MCP     │  MCP     │  MCP     │  MCP     │ │
-│  │ :9001    │ :9002    │ :9003    │ :9004    │ │
-│  │(Official)│(FastMCP) │(FastMCP) │(FastMCP) │ │
-│  └──────────┴──────────┴──────────┴──────────┘ │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│         MCP Servers (Each in Own Container)             │
+│  ┌────────┬────────┬────────┬────────┬────────────────┐│
+│  │ GitHub │  Jira  │ Slack  │ Sentry │ Knowledge-Graph ││
+│  │  MCP   │  MCP   │  MCP   │  MCP   │      MCP        ││
+│  │ :9001  │ :9002  │ :9003  │ :9004  │     :9005       ││
+│  └────────┴────────┴────────┴────────┴────────────────┘│
+└─────────────────────────────────────────────────────────┘
           │ (HTTP API Calls)
           ▼
 ┌─────────────────────────────────────────────────┐
-│   API Services (Each in Own Container)          │
+│     API Services (Each in Own Container)        │
 │  ┌──────────┬──────────┬──────────┬──────────┐ │
 │  │ GitHub   │  Jira    │  Slack   │ Sentry   │ │
 │  │  API     │  API     │  API     │  API     │ │
@@ -87,842 +100,519 @@ External Services (GitHub, Jira, Slack, Sentry)
           │
           ▼
 External Services (GitHub, Jira, Slack, Sentry)
+
+
+┌─────────────────────────────────────────────────┐
+│          Monitoring & Management                 │
+│  ┌───────────────┐  ┌───────────────────────┐  │
+│  │ Dashboard API │  │ External Dashboard    │  │
+│  │    :5000      │  │   :3005 (React)       │  │
+│  │  - WebSocket  │──│  - Real-time updates  │  │
+│  │  - Analytics  │  │  - Task monitoring    │  │
+│  │  - Webhooks   │  │  - Agent registry     │  │
+│  └───────────────┘  └───────────────────────┘  │
+│                                                  │
+│  ┌───────────────┐  ┌───────────────────────┐  │
+│  │ OAuth Service │  │ Task Logger           │  │
+│  │    :8010      │  │    :8090              │  │
+│  │  - GitHub     │  │  - Redis Pub/Sub      │  │
+│  │  - Slack      │  │  - File logging       │  │
+│  │  - Jira OAuth │  │  - Output streaming   │  │
+│  └───────────────┘  └───────────────────────┘  │
+└─────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Complete Project Structure
+## Data Flow
+
+### Task Lifecycle
 
 ```
-agents-system/
-├── claude.md                        # Global configuration
-├── docker-compose.yml               # Main orchestration
-├── .env
+1. External Event (GitHub, Jira, Slack, Sentry)
+   ↓
+2. Webhook → api-gateway:8000
+   ↓
+3. Validate signature + extract metadata
+   ↓
+4. Create task in PostgreSQL
+   ↓
+5. Enqueue to Redis (agent:tasks queue)
+   ↓
+6. CLI (agent-engine):8080 picks up task (BRPOP)
+   ↓
+7. Update status: QUEUED → RUNNING
+   ↓
+8. Execute CLI provider (claude or cursor)
+   ↓
+9. Stream output to Redis Pub/Sub
+   ↓
+10. task-logger:8090 captures output to files
+   ↓
+11. dashboard-api:5000 broadcasts via WebSocket
+   ↓
+12. Agent calls MCP tools as needed
+   ↓
+13. Post response back to source system
+   ↓
+14. Update status: RUNNING → COMPLETED/FAILED
+```
+
+### Task Status State Machine
+
+```
+QUEUED ──────────────────┬─────────────────────────────> CANCELLED
+   │                     │
+   v                     │
+RUNNING ─────────────────┼─────────────────────────────> CANCELLED
+   │                     │                      │
+   ├───> WAITING_INPUT ──┼──────────────────────┤
+   │          │          │                      │
+   │          └──────────┤                      │
+   │                     │                      │
+   ├─────────────────────┼──────────────────────┼─────> COMPLETED
+   │                     │                      │
+   └─────────────────────┴──────────────────────┴─────> FAILED
+```
+
+**Valid Transitions:**
+- `QUEUED` → `RUNNING`, `CANCELLED`
+- `RUNNING` → `WAITING_INPUT`, `COMPLETED`, `FAILED`, `CANCELLED`
+- `WAITING_INPUT` → `RUNNING`, `CANCELLED`
+- Terminal states (`COMPLETED`, `FAILED`, `CANCELLED`) cannot transition
+
+---
+
+## Project Structure
+
+```
+agent-bot/
+├── CLAUDE.md                           # Project-level rules
+├── docker-compose.yml                  # Main orchestration
+├── Makefile                            # Development commands
 ├── .env.example
-├── Makefile
-├── README.md
 │
-├── agent-engine/                    # Agent Engine (Scalable)
+├── agent-engine/                       # CLI Task Execution (Scalable)
 │   ├── Dockerfile
-│   ├── mcp.json                     # Points to MCP containers
-│   ├── claude.md
+│   ├── main.py                         # FastAPI + Redis worker
 │   ├── .claude/
-│   │   ├── rules/
-│   │   ├── skills/
-│   │   ├── agents/
-│   │   ├── commands/
-│   │   └── hooks/
+│   │   ├── agents/                     # 13 specialized agents
+│   │   │   ├── brain.md                # Main orchestrator
+│   │   │   ├── planning.md             # Discovery & planning
+│   │   │   ├── executor.md             # TDD implementation
+│   │   │   ├── verifier.md             # Quality assurance
+│   │   │   ├── github-issue-handler.md # Issue processing
+│   │   │   ├── github-pr-review.md     # PR review
+│   │   │   ├── jira-code-plan.md       # Jira ticket handling
+│   │   │   ├── slack-inquiry.md        # Slack Q&A
+│   │   │   └── service-integrator.md   # External coordination
+│   │   └── skills/                     # 9 reusable skills
+│   │       ├── discovery/              # Repo identification
+│   │       ├── testing/                # Test generation
+│   │       ├── code-refactoring/       # Code improvements
+│   │       ├── github-operations/      # Git/GitHub actions
+│   │       ├── jira-operations/        # Jira actions
+│   │       ├── slack-operations/       # Slack messaging
+│   │       ├── human-approval/         # Approval workflows
+│   │       ├── verification/           # Quality checks
+│   │       └── knowledge-graph/        # Code search
 │   ├── core/
-│   │   ├── engine.py
-│   │   ├── worker.py
-│   │   ├── queue_manager.py
-│   │   └── cli/                     # CLI Executors
-│   │       ├── executor.py          # Main executor (provider-agnostic)
-│   │       ├── providers/
-│   │       │   ├── claude/          # Claude Code CLI provider
-│   │       │   │   ├── __init__.py
-│   │       │   │   ├── executor.py
-│   │       │   │   └── config.py
-│   │       │   └── cursor/          # Cursor CLI provider
-│   │       │       ├── __init__.py
-│   │       │       ├── executor.py
-│   │       │       └── config.py
-│   │       └── base.py              # Base provider interface
-│   ├── dashboard/
-│   ├── config/
-│   │   └── settings.py
-│   ├── scripts/
-│   │   └── setup_repos.sh
-│   └── repos/                       # Pre-cloned repositories
+│   │   ├── worker.py                   # Task consumption
+│   │   └── cli/
+│   │       ├── base.py                 # Provider interface
+│   │       ├── factory.py              # Provider factory
+│   │       └── providers/
+│   │           ├── claude.py           # Claude Code CLI
+│   │           └── cursor.py           # Cursor CLI
+│   └── config/
+│       └── settings.py
 │
-├── mcp-servers/                     # MCP Servers (Separate Containers)
-│   ├── docker-compose.mcp.yml
-│   ├── github-mcp/                  # Official GitHub MCP :9001
-│   │   ├── Dockerfile
-│   │   └── config.json
-│   ├── jira-mcp/                    # Custom Jira MCP :9002
-│   │   ├── Dockerfile
-│   │   ├── main.py
-│   │   ├── jira_mcp.py
-│   │   └── requirements.txt
-│   ├── slack-mcp/                   # Custom Slack MCP :9003
-│   │   ├── Dockerfile
-│   │   ├── main.py
-│   │   ├── slack_mcp.py
-│   │   └── requirements.txt
-│   └── sentry-mcp/                  # Custom Sentry MCP :9004
-│       ├── Dockerfile
-│       ├── main.py
-│       ├── sentry_mcp.py
-│       └── requirements.txt
-│
-├── api-services/                    # API Services (Separate Containers)
-│   ├── docker-compose.services.yml
-│   ├── github-api/                  # GitHub API Service :3001
-│   │   ├── Dockerfile
-│   │   ├── main.py
-│   │   ├── requirements.txt
-│   │   ├── api/
-│   │   │   ├── __init__.py
-│   │   │   ├── routes.py
-│   │   │   └── server.py
-│   │   ├── client/
-│   │   │   ├── __init__.py
-│   │   │   └── github_client.py
-│   │   ├── config/
-│   │   │   ├── __init__.py
-│   │   │   └── settings.py
-│   │   └── middleware/
-│   │       ├── __init__.py
-│   │       ├── auth.py
-│   │       └── error_handler.py
-│   ├── jira-api/                    # Jira API Service :3002
-│   │   ├── Dockerfile
-│   │   ├── main.py
-│   │   ├── requirements.txt
-│   │   ├── api/
-│   │   │   ├── __init__.py
-│   │   │   ├── routes.py
-│   │   │   └── server.py
-│   │   ├── client/
-│   │   │   ├── __init__.py
-│   │   │   └── jira_client.py
-│   │   ├── config/
-│   │   │   ├── __init__.py
-│   │   │   └── settings.py
-│   │   └── middleware/
-│   │       ├── __init__.py
-│   │       ├── auth.py
-│   │       └── error_handler.py
-│   ├── slack-api/                   # Slack API Service :3003
-│   │   ├── Dockerfile
-│   │   ├── main.py
-│   │   ├── requirements.txt
-│   │   ├── api/
-│   │   │   ├── __init__.py
-│   │   │   ├── routes.py
-│   │   │   └── server.py
-│   │   ├── client/
-│   │   │   ├── __init__.py
-│   │   │   └── slack_client.py
-│   │   ├── config/
-│   │   │   ├── __init__.py
-│   │   │   └── settings.py
-│   │   └── middleware/
-│   │       ├── __init__.py
-│   │       ├── auth.py
-│   │       └── error_handler.py
-│   └── sentry-api/                  # Sentry API Service :3004
-│       ├── Dockerfile
-│       ├── main.py
-│       ├── requirements.txt
-│       ├── api/
-│       │   ├── __init__.py
-│       │   ├── routes.py
-│       │   └── server.py
-│       ├── client/
-│       │   ├── __init__.py
-│       │   └── sentry_client.py
-│       ├── config/
-│       │   ├── __init__.py
-│       │   └── settings.py
-│       └── middleware/
-│           ├── __init__.py
-│           ├── auth.py
-│           └── error_handler.py
-│
-├── api-gateway/                     # API Gateway :8000
+├── api-gateway/                        # Webhook Reception :8000
 │   ├── Dockerfile
 │   ├── main.py
-│   ├── requirements.txt
 │   ├── routes/
-│   │   ├── __init__.py
 │   │   └── webhooks.py
-│   ├── webhooks/
-│   │   ├── __init__.py
-│   │   ├── github/
-│   │   │   ├── __init__.py
-│   │   │   ├── handler.py
-│   │   │   ├── validator.py
-│   │   │   └── events.py
-│   │   ├── jira/
-│   │   │   ├── __init__.py
-│   │   │   ├── handler.py
-│   │   │   ├── validator.py
-│   │   │   └── events.py
-│   │   ├── slack/
-│   │   │   ├── __init__.py
-│   │   │   ├── handler.py
-│   │   │   ├── validator.py
-│   │   │   └── events.py
-│   │   └── sentry/
-│   │       ├── __init__.py
-│   │       ├── handler.py
-│   │       ├── validator.py
-│   │       └── events.py
-│   └── middleware/
-│       ├── __init__.py
-│       ├── auth.py
-│       └── error_handler.py
+│   └── webhooks/
+│       ├── github/
+│       │   ├── handler.py
+│       │   ├── validator.py
+│       │   └── events.py
+│       ├── jira/
+│       ├── slack/
+│       └── sentry/
 │
-├── internal-dashboard-api/          # Internal Dashboard API :5000
+├── dashboard-api/                      # Analytics & WebSocket :5000
 │   ├── Dockerfile
 │   ├── main.py
-│   ├── requirements.txt
 │   ├── api/
-│   │   ├── __init__.py
-│   │   ├── routes/
-│   │   │   ├── __init__.py
-│   │   │   ├── agents.py
-│   │   │   ├── tasks.py
-│   │   │   ├── monitoring.py
-│   │   │   └── metrics.py
-│   │   └── server.py
-│   ├── services/
-│   │   ├── __init__.py
-│   │   ├── agent_manager.py
-│   │   ├── task_manager.py
-│   │   └── metrics_collector.py
-│   ├── config/
-│   │   ├── __init__.py
-│   │   └── settings.py
-│   └── middleware/
-│       ├── __init__.py
-│       ├── auth.py
-│       └── error_handler.py
+│   │   ├── analytics.py
+│   │   ├── conversations.py
+│   │   ├── dashboard.py
+│   │   ├── webhook_status.py
+│   │   └── websocket.py
+│   └── core/
+│       ├── database/
+│       │   ├── models.py
+│       │   └── redis_client.py
+│       └── websocket_hub.py
 │
-├── external-dashboard/              # External Dashboard :3001
+├── external-dashboard/                 # React UI :3005
+│   ├── Dockerfile
+│   ├── package.json
+│   └── src/
+│       ├── features/
+│       │   ├── overview/
+│       │   ├── analytics/
+│       │   ├── ledger/
+│       │   ├── webhooks/
+│       │   ├── chat/
+│       │   └── registry/
+│       └── hooks/
+│           ├── useWebSocket.ts
+│           └── useCLIStatus.ts
+│
+├── oauth-service/                      # OAuth Flows :8010
 │   ├── Dockerfile
 │   ├── main.py
-│   ├── requirements.txt
-│   ├── dashboard/
-│   │   ├── __init__.py
-│   │   ├── static/
-│   │   │   ├── css/
-│   │   │   ├── js/
-│   │   │   └── assets/
-│   │   ├── templates/
-│   │   │   ├── index.html
-│   │   │   ├── agents.html
-│   │   │   ├── tasks.html
-│   │   │   └── monitoring.html
-│   │   └── routes.py
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── client.py
-│   ├── config/
-│   │   ├── __init__.py
-│   │   └── settings.py
-│   └── storage/
-│       ├── __init__.py
-│       └── session.py
+│   ├── providers/
+│   │   ├── base.py
+│   │   ├── github.py
+│   │   ├── jira.py
+│   │   └── slack.py
+│   └── services/
+│       ├── installation_service.py
+│       └── token_service.py
 │
-├── knowledge-graph/                 # Knowledge Graph :4000
+├── task-logger/                        # Task Output Logging :8090
 │   ├── Dockerfile
-│   ├── config/
-│   ├── api/
-│   └── engine/
+│   ├── main.py
+│   └── core/
+│       └── log_writer.py
+│
+├── mcp-servers/                        # MCP Protocol Servers
+│   ├── github-mcp/       :9001         # Official GitHub MCP
+│   ├── jira-mcp/         :9002         # FastMCP - Jira
+│   ├── slack-mcp/        :9003         # FastMCP - Slack
+│   ├── sentry-mcp/       :9004         # FastMCP - Sentry
+│   └── knowledge-graph-mcp/ :9005      # FastMCP - Code Search
+│
+├── api-services/                       # API Wrappers (Credentials Here)
+│   ├── github-api/       :3001
+│   ├── jira-api/         :3002
+│   ├── slack-api/        :3003
+│   └── sentry-api/       :3004
+│
+├── knowledge-graph/                    # Code Graph Database :4000
+│   ├── Dockerfile                      # Rust-based
+│   ├── Cargo.toml
+│   └── src/
 │
 └── docs/
-    └── CONTAINERIZED-AGENT-ARCHITECTURE.md
+    ├── ARCHITECTURE.md                 # This file
+    └── BUSINESS-LOGIC-TESTING.md       # Testing guide
 ```
 
 ---
 
-## Port Mapping
+## Port Reference
 
 | Service | Port(s) | Container Name | Purpose |
 |---------|---------|----------------|---------|
-| Agent Engine | 8080-8089 | agent-engine-{1,2,3} | Task execution |
-| GitHub MCP | 9001 | github-mcp | Official GitHub MCP server |
-| Jira MCP | 9002 | jira-mcp | Custom Jira MCP server |
-| Slack MCP | 9003 | slack-mcp | Custom Slack MCP server |
-| Sentry MCP | 9004 | sentry-mcp | Custom Sentry MCP server |
-| GitHub API | 3001 | github-api | GitHub API client |
-| Jira API | 3002 | jira-api | Jira API client |
-| Slack API | 3003 | slack-api | Slack API client |
-| Sentry API | 3004 | sentry-api | Sentry API client |
+| CLI (Agent Engine) | 8080-8089 | cli | Task execution (scalable) |
 | API Gateway | 8000 | api-gateway | Webhook reception |
-| Internal Dashboard API | 5000 | internal-dashboard-api | Agent management API |
-| External Dashboard | 3002 | external-dashboard | Public monitoring dashboard |
-| Knowledge Graph | 4000 | knowledge-graph | Graph API |
-| Redis | 6379 | redis | Task queue |
-| PostgreSQL | 5432 | postgres | Database |
+| Dashboard API | 5000 | dashboard-api | Analytics & WebSocket |
+| External Dashboard | 3005 | external-dashboard | React monitoring UI |
+| OAuth Service | 8010 | oauth-service | Multi-provider OAuth |
+| Task Logger | 8090 | task-logger | Output logging |
+| Knowledge Graph | 4000 | knowledge-graph | Code entity indexing |
+| GitHub MCP | 9001 | github-mcp | GitHub tool interface |
+| Jira MCP | 9002 | jira-mcp | Jira tool interface |
+| Slack MCP | 9003 | slack-mcp | Slack tool interface |
+| Sentry MCP | 9004 | sentry-mcp | Sentry tool interface |
+| Knowledge Graph MCP | 9005 | knowledge-graph-mcp | Code search interface |
+| GitHub API | 3001 | github-api | GitHub API wrapper |
+| Jira API | 3002 | jira-api | Jira API wrapper |
+| Slack API | 3003 | slack-api | Slack API wrapper |
+| Sentry API | 3004 | sentry-api | Sentry API wrapper |
+| Redis | 6379 | redis | Task queue & cache |
+| PostgreSQL | 5432 | postgres | Persistent storage |
 
 ---
 
-## MCP Configuration (agent-engine/mcp.json)
+## Agent Architecture
+
+### Specialized Agents
+
+| Agent | Trigger Source | Purpose |
+|-------|----------------|---------|
+| **brain** | Internal routing | Main orchestrator, task decomposition |
+| **planning** | Discovery tasks | Code discovery, implementation planning |
+| **executor** | Implementation | TDD-based code implementation |
+| **verifier** | Quality checks | Code review, test verification |
+| **github-issue-handler** | GitHub issues | Issue analysis and response |
+| **github-pr-review** | GitHub PRs | PR review and feedback |
+| **jira-code-plan** | Jira tickets | AI-Fix ticket processing |
+| **slack-inquiry** | Slack mentions | Q&A and command handling |
+| **service-integrator** | Cross-service | External service coordination |
+
+### Agent Routing
+
+| Source | Event Type | Target Agent |
+|--------|------------|--------------|
+| GitHub | Issue opened/commented | github-issue-handler |
+| GitHub | PR opened/reviewed | github-pr-review |
+| Jira | Issue with AI-Fix label | jira-code-plan |
+| Slack | @agent mention | slack-inquiry |
+| Sentry | Error alert | planning → executor |
+| Dashboard | Discovery request | planning |
+| Dashboard | Implementation | executor |
+
+### CLI Provider Selection
+
+```python
+COMPLEX_AGENTS = ["planning", "consultation", "question_asking", "brain"]
+# → Uses Opus (Claude) or Pro model (Cursor)
+
+EXECUTION_AGENTS = ["executor", "github-issue-handler", "jira-code-plan"]
+# → Uses Sonnet (Claude) or Standard model (Cursor)
+```
+
+---
+
+## MCP Configuration
+
+**agent-engine/.claude/mcp.json:**
 
 ```json
 {
   "mcpServers": {
     "github": {
       "url": "http://github-mcp:9001/sse",
-      "transport": "sse",
-      "note": "Official GitHub MCP (github/github-mcp-server)"
+      "transport": "sse"
     },
     "jira": {
       "url": "http://jira-mcp:9002/sse",
-      "transport": "sse",
-      "note": "Custom Jira MCP (FastMCP)"
+      "transport": "sse"
     },
     "slack": {
       "url": "http://slack-mcp:9003/sse",
-      "transport": "sse",
-      "note": "Custom Slack MCP (FastMCP)"
+      "transport": "sse"
     },
     "sentry": {
       "url": "http://sentry-mcp:9004/sse",
-      "transport": "sse",
-      "note": "Custom Sentry MCP (FastMCP)"
+      "transport": "sse"
+    },
+    "knowledge-graph": {
+      "url": "http://knowledge-graph-mcp:9005/sse",
+      "transport": "sse"
     }
   }
 }
 ```
 
+### MCP Tools by Server
+
+| Server | Tools |
+|--------|-------|
+| github-mcp | create_pull_request, get_file_contents, create_branch, add_comment, search_code |
+| jira-mcp | get_issue, create_issue, update_issue, add_comment, search_issues, transition_issue |
+| slack-mcp | post_message, get_conversations, list_channels, reply_in_thread |
+| sentry-mcp | get_issue, add_comment, update_status, get_events |
+| knowledge-graph-mcp | search_code, find_references, get_call_graph, get_dependencies |
+
 ---
 
-## Docker Compose Files
+## Security Model
 
-### Main docker-compose.yml
+### Credential Isolation
 
-```yaml
-version: '3.8'
-
-services:
-  # Infrastructure
-  redis:
-    image: redis:7-alpine
-    container_name: redis
-    ports:
-      - "6379:6379"
-    networks:
-      - agent-network
-    restart: unless-stopped
-
-  postgres:
-    image: postgres:15-alpine
-    container_name: postgres
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_DB=agents_system
-      - POSTGRES_USER=agent
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    networks:
-      - agent-network
-    restart: unless-stopped
-
-  # API Gateway
-  api-gateway:
-    build: ./api-gateway
-    container_name: api-gateway
-    ports:
-      - "8000:8000"
-    environment:
-      - REDIS_HOST=redis
-      - KNOWLEDGE_GRAPH_URL=http://knowledge-graph:4000
-      - GITHUB_API_URL=http://github-api:3001
-      - JIRA_API_URL=http://jira-api:3002
-      - SLACK_API_URL=http://slack-api:3003
-      - SENTRY_API_URL=http://sentry-api:3004
-    depends_on:
-      - redis
-    networks:
-      - agent-network
-    restart: unless-stopped
-
-  # Knowledge Graph
-  knowledge-graph:
-    build: ./knowledge-graph
-    container_name: knowledge-graph
-    ports:
-      - "4000:4000"
-    networks:
-      - agent-network
-    restart: unless-stopped
-
-  # Internal Dashboard API
-  internal-dashboard-api:
-    build: ./internal-dashboard-api
-    container_name: internal-dashboard-api
-    ports:
-      - "5000:5000"
-    environment:
-      - REDIS_HOST=redis
-      - POSTGRES_HOST=postgres
-      - AGENT_ENGINE_URL=http://agent-engine:8080
-    depends_on:
-      - redis
-      - postgres
-    networks:
-      - agent-network
-    restart: unless-stopped
-
-  # External Dashboard
-  external-dashboard:
-    build: ./external-dashboard
-    container_name: external-dashboard
-    ports:
-      - "3002:3002"
-    environment:
-      - INTERNAL_API_URL=http://internal-dashboard-api:5000
-    depends_on:
-      - internal-dashboard-api
-    networks:
-      - agent-network
-    restart: unless-stopped
-
-  # Agent Engine (Scalable)
-  agent-engine:
-    build: ./agent-engine
-    ports:
-      - "8080-8089:8080"
-    environment:
-      - CLI_PROVIDER=claude-code-cli
-      - REDIS_HOST=redis
-      - KNOWLEDGE_GRAPH_URL=http://knowledge-graph:4000
-    depends_on:
-      - redis
-    networks:
-      - agent-network
-    restart: unless-stopped
-    deploy:
-      replicas: 3
-
-networks:
-  agent-network:
-    driver: bridge
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    CREDENTIAL-FREE ZONE                      │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │ API Gateway │  │ MCP Servers │  │ CLI (Agent Engine)  │  │
+│  │   :8000     │  │ :9001-9005  │  │    :8080-8089       │  │
+│  │ No API keys │  │ No API keys │  │   No API keys       │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼ (HTTP only)
+┌─────────────────────────────────────────────────────────────┐
+│                   API SERVICES (Keys Here)                   │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
+│  │ GitHub   │  │ Jira     │  │ Slack    │  │ Sentry   │    │
+│  │ API      │  │ API      │  │ API      │  │ API      │    │
+│  │ :3001    │  │ :3002    │  │ :3003    │  │ :3004    │    │
+│  │ GITHUB_  │  │ JIRA_    │  │ SLACK_   │  │ SENTRY_  │    │
+│  │ TOKEN    │  │ API_KEY  │  │ BOT_     │  │ DSN      │    │
+│  └──────────┘  └──────────┘  │ TOKEN    │  └──────────┘    │
+│                              └──────────┘                    │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### mcp-servers/docker-compose.mcp.yml
+### Webhook Signature Validation
 
-```yaml
-version: '3.8'
+- GitHub: HMAC-SHA256 (`X-Hub-Signature-256`)
+- Jira: HMAC-SHA256 (`X-Atlassian-Webhook-Signature`)
+- Slack: HMAC-SHA256 (`X-Slack-Signature`)
+- Sentry: Token-based (`Sentry-Hook-Signature`)
 
-services:
-  github-mcp:
-    build: ./github-mcp
-    container_name: github-mcp
-    ports:
-      - "9001:9001"
-    environment:
-      - PORT=9001
-      - GITHUB_API_URL=http://github-api:3001
-    networks:
-      - agent-network
-    restart: unless-stopped
+### Loop Prevention
 
-  jira-mcp:
-    build: ./jira-mcp
-    container_name: jira-mcp
-    ports:
-      - "9002:9002"
-    environment:
-      - PORT=9002
-      - JIRA_API_URL=http://jira-api:3002
-    networks:
-      - agent-network
-    restart: unless-stopped
+Agent-posted comments are tracked in Redis to prevent infinite webhook loops:
 
-  slack-mcp:
-    build: ./slack-mcp
-    container_name: slack-mcp
-    ports:
-      - "9003:9003"
-    environment:
-      - PORT=9003
-      - SLACK_API_URL=http://slack-api:3003
-    networks:
-      - agent-network
-    restart: unless-stopped
-
-  sentry-mcp:
-    build: ./sentry-mcp
-    container_name: sentry-mcp
-    ports:
-      - "9004:9004"
-    environment:
-      - PORT=9004
-      - SENTRY_API_URL=http://sentry-api:3004
-    networks:
-      - agent-network
-    restart: unless-stopped
-
-networks:
-  agent-network:
-    external: true
+```
+Key: posted_comments:{comment_id}
+TTL: 1 hour
+Check: Before processing webhook, verify comment_id not in Redis
 ```
 
-### api-services/docker-compose.services.yml
+---
 
-```yaml
-version: '3.8'
+## Environment Variables
 
-services:
-  github-api:
-    build: ./github-api
-    container_name: github-api
-    ports:
-      - "3001:3001"
-    environment:
-      - PORT=3001
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-    networks:
-      - agent-network
-    restart: unless-stopped
+### Infrastructure
 
-  jira-api:
-    build: ./jira-api
-    container_name: jira-api
-    ports:
-      - "3002:3002"
-    environment:
-      - PORT=3002
-      - JIRA_API_KEY=${JIRA_API_KEY}
-      - JIRA_URL=${JIRA_URL}
-      - JIRA_EMAIL=${JIRA_EMAIL}
-    networks:
-      - agent-network
-    restart: unless-stopped
+```bash
+POSTGRES_PASSWORD=agent
+REDIS_URL=redis://redis:6379/0
+DATABASE_URL=postgresql+asyncpg://agent:agent@postgres:5432/agent_system
+```
 
-  slack-api:
-    build: ./slack-api
-    container_name: slack-api
-    ports:
-      - "3003:3003"
-    environment:
-      - PORT=3003
-      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
-    networks:
-      - agent-network
-    restart: unless-stopped
+### CLI Provider
 
-  sentry-api:
-    build: ./sentry-api
-    container_name: sentry-api
-    ports:
-      - "3004:3004"
-    environment:
-      - PORT=3004
-      - SENTRY_DSN=${SENTRY_DSN}
-    networks:
-      - agent-network
-    restart: unless-stopped
+```bash
+CLI_PROVIDER=claude                    # or 'cursor'
+MAX_CONCURRENT_TASKS=5
+TASK_TIMEOUT_SECONDS=3600
+ANTHROPIC_API_KEY=sk-ant-xxx
+CURSOR_API_KEY=xxx
+```
 
-networks:
-  agent-network:
-    external: true
+### External Services
+
+```bash
+GITHUB_TOKEN=ghp_xxx
+JIRA_URL=https://yourcompany.atlassian.net
+JIRA_EMAIL=your-email@company.com
+JIRA_API_TOKEN=xxx
+SLACK_BOT_TOKEN=xoxb-xxx
+SENTRY_DSN=https://xxx@sentry.io/xxx
+SENTRY_AUTH_TOKEN=xxx
+```
+
+### Webhook Secrets
+
+```bash
+GITHUB_WEBHOOK_SECRET=xxx
+JIRA_WEBHOOK_SECRET=xxx
+SLACK_WEBHOOK_SECRET=xxx
+```
+
+### OAuth (Optional)
+
+```bash
+OAUTH_BASE_URL=http://localhost:8010
+GITHUB_APP_ID=xxx
+GITHUB_CLIENT_ID=xxx
+GITHUB_CLIENT_SECRET=xxx
+SLACK_CLIENT_ID=xxx
+SLACK_CLIENT_SECRET=xxx
+JIRA_CLIENT_ID=xxx
+JIRA_CLIENT_SECRET=xxx
+TOKEN_ENCRYPTION_KEY=xxx
 ```
 
 ---
 
 ## Deployment
 
-### 1. Create Network
+### Quick Start
+
 ```bash
-docker network create agent-network
+# 1. Configure environment
+cp .env.example .env
+# Edit .env with your credentials
+
+# 2. Start all services
+make init
+make cli-up PROVIDER=claude SCALE=1
+
+# 3. Verify health
+make cli-status PROVIDER=claude
+curl http://localhost:8000/health
 ```
 
-### 2. Start Infrastructure
+### Scaling
+
 ```bash
-docker-compose up -d redis postgres
+# Scale CLI workers
+make cli-up PROVIDER=claude SCALE=3
+
+# Scale specific service
+docker-compose up -d --scale cli=5 cli
 ```
 
-### 3. Start API Services
-```bash
-cd api-services
-docker-compose -f docker-compose.services.yml up -d
-cd ..
-```
+### Viewing Logs
 
-### 4. Start MCP Servers
-```bash
-cd mcp-servers
-docker-compose -f docker-compose.mcp.yml up -d
-cd ..
-```
-
-### 5. Start Remaining Services
-```bash
-docker-compose up -d api-gateway knowledge-graph internal-dashboard-api external-dashboard
-```
-
-### 6. Start Agent Engine (3 replicas)
-```bash
-docker-compose up -d --scale agent-engine=3 agent-engine
-```
-
-### Scale Agent Engine
-```bash
-docker-compose up -d --scale agent-engine=5
-```
-
-### View All Containers
-```bash
-docker ps
-```
-
-### View Logs
 ```bash
 # All services
 docker-compose logs -f
 
 # Specific service
-docker-compose logs -f agent-engine
+docker-compose logs -f cli
+docker-compose logs -f api-gateway
+docker-compose logs -f dashboard-api
 
-# MCP servers
-cd mcp-servers && docker-compose -f docker-compose.mcp.yml logs -f github-mcp
+# Task execution logs
+docker-compose logs -f task-logger
+```
 
-# API services
-cd api-services && docker-compose -f docker-compose.services.yml logs -f github-api
+### Health Checks
+
+```bash
+curl http://localhost:8000/health      # API Gateway
+curl http://localhost:8080/health      # CLI (Agent Engine)
+curl http://localhost:5000/health      # Dashboard API
+curl http://localhost:8010/health      # OAuth Service
+curl http://localhost:8090/health      # Task Logger
+curl http://localhost:4000/health      # Knowledge Graph
 ```
 
 ---
 
 ## Key Benefits
 
-### 1. **Maximum Isolation**
+### 1. Maximum Isolation
 - Each service in own container
 - Failure in one doesn't affect others
 - Easy to debug and monitor
 
-### 2. **Independent Scaling**
-- Scale agent-engine horizontally (1-N)
+### 2. Independent Scaling
+- Scale CLI workers horizontally (1-N instances)
 - Scale each MCP server independently
 - Scale each API service independently
 
-### 3. **Security**
+### 3. Security
 - API keys only in API service containers
-- No keys in MCP servers
-- No keys in webhooks
-- Centralized key management per service
+- No keys in MCP servers, webhooks, or agents
+- Webhook signature validation
+- Loop prevention for agent-posted content
 
-### 4. **Maintainability**
+### 4. Maintainability
 - Update one service without affecting others
 - Clear boundaries and responsibilities
-- Easy to add new services
+- Easy to add new services or agents
 
-### 5. **Flexibility**
-- Use official GitHub MCP
-- Custom MCP servers for other services
-- Easy to switch CLI providers
-- Easy to add new services
-
----
-
-## CLI Provider Architecture
-
-The Agent Engine supports multiple CLI providers through a modular, plugin-based architecture. Each provider is isolated in its own folder with a standardized interface.
-
-### Provider Structure
-
-```
-core/cli/
-├── executor.py                      # Main executor (provider-agnostic)
-├── base.py                          # Base provider interface
-└── providers/
-    ├── claude/                      # Claude Code CLI provider
-    │   ├── __init__.py
-    │   ├── executor.py              # Claude-specific implementation
-    │   └── config.py                # Claude configuration
-    └── cursor/                      # Cursor CLI provider
-        ├── __init__.py
-        ├── executor.py              # Cursor-specific implementation
-        └── config.py                # Cursor configuration
-```
-
-### Base Provider Interface (base.py)
-
-```python
-from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
-
-class BaseCLIProvider(ABC):
-    """Base interface for all CLI providers"""
-    
-    @abstractmethod
-    def execute_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a task using the CLI provider"""
-        pass
-    
-    @abstractmethod
-    def supports_mcp(self) -> bool:
-        """Check if provider supports MCP"""
-        pass
-    
-    @abstractmethod
-    def get_config_path(self) -> str:
-        """Get configuration directory path"""
-        pass
-    
-    @abstractmethod
-    def initialize(self) -> bool:
-        """Initialize the CLI provider"""
-        pass
-```
-
-### Main Executor (executor.py)
-
-```python
-import os
-from typing import Dict, Any
-from .providers.claude.executor import ClaudeExecutor
-from .providers.cursor.executor import CursorExecutor
-
-class CLIExecutor:
-    """Main CLI executor that delegates to specific providers"""
-    
-    def __init__(self):
-        self.provider_name = os.getenv('CLI_PROVIDER', 'claude-code-cli')
-        self.provider = self._load_provider()
-    
-    def _load_provider(self):
-        """Load the appropriate CLI provider"""
-        if self.provider_name == 'claude-code-cli':
-            return ClaudeExecutor()
-        elif self.provider_name == 'cursor-cli':
-            return CursorExecutor()
-        else:
-            raise ValueError(f"Unknown CLI provider: {self.provider_name}")
-    
-    def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute task using the configured provider"""
-        return self.provider.execute_task(task)
-```
-
-### Claude Provider (providers/claude/executor.py)
-
-```python
-from ..base import BaseCLIProvider
-from typing import Dict, Any
-
-class ClaudeExecutor(BaseCLIProvider):
-    """Claude Code CLI provider implementation"""
-    
-    def __init__(self):
-        self.command = "claude"
-        self.config_path = ".claude/"
-    
-    def execute_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute task using Claude Code CLI"""
-        # Implementation for Claude CLI execution
-        pass
-    
-    def supports_mcp(self) -> bool:
-        return True
-    
-    def get_config_path(self) -> str:
-        return self.config_path
-    
-    def initialize(self) -> bool:
-        """Initialize Claude CLI"""
-        # Run: claude init
-        pass
-```
-
-### Cursor Provider (providers/cursor/executor.py)
-
-```python
-from ..base import BaseCLIProvider
-from typing import Dict, Any
-
-class CursorExecutor(BaseCLIProvider):
-    """Cursor CLI provider implementation"""
-    
-    def __init__(self):
-        self.command = "cursor"
-        self.config_path = ".cursor/"
-    
-    def execute_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute task using Cursor CLI"""
-        # Implementation for Cursor CLI execution
-        pass
-    
-    def supports_mcp(self) -> bool:
-        return True
-    
-    def get_config_path(self) -> str:
-        return self.config_path
-    
-    def initialize(self) -> bool:
-        """Initialize Cursor CLI"""
-        # Run: cursor init
-        pass
-```
-
-### Provider Configuration
-
-**Claude Provider (providers/claude/config.py)**
-```python
-CLAUDE_CONFIG = {
-    "command": "claude",
-    "supports_mcp": True,
-    "supports_git": True,
-    "config_path": ".claude/",
-    "init_command": "claude init",
-    "mcp_config_file": "mcp.json"
-}
-```
-
-**Cursor Provider (providers/cursor/config.py)**
-```python
-CURSOR_CONFIG = {
-    "command": "cursor",
-    "supports_mcp": True,
-    "supports_git": True,
-    "config_path": ".cursor/",
-    "init_command": "cursor init",
-    "mcp_config_file": "mcp.json"
-}
-```
-
-### Environment Configuration
-
-```bash
-# Set CLI provider (default: claude-code-cli)
-CLI_PROVIDER=claude-code-cli  # or cursor-cli
-
-# Provider-specific settings
-CLAUDE_API_KEY=${CLAUDE_API_KEY}
-CURSOR_API_KEY=${CURSOR_API_KEY}
-```
-
-### Usage in Worker
-
-```python
-from core.cli.executor import CLIExecutor
-
-class TaskWorker:
-    def __init__(self):
-        self.cli_executor = CLIExecutor()  # Auto-loads from CLI_PROVIDER env
-    
-    def process_task(self, task):
-        result = self.cli_executor.execute(task)
-        return result
-```
-
-### Adding New Providers
-
-To add a new CLI provider:
-
-1. Create provider folder: `core/cli/providers/new-provider/`
-2. Implement `executor.py` extending `BaseCLIProvider`
-3. Add `config.py` with provider configuration
-4. Update main `executor.py` to load new provider
-5. Set `CLI_PROVIDER=new-provider` in environment
+### 5. Observability
+- Real-time WebSocket updates
+- Task output logging
+- Analytics and metrics dashboard
+- Structured logging throughout
 
 ---
 
-## Summary
+## Related Documentation
 
-**Total Containers**: 14 separate Docker containers  
-**Scalable**: Agent Engine (1-N instances)  
-**MCP Servers**: 4 separate containers (GitHub official, Jira/Slack/Sentry custom)  
-**API Services**: 4 separate containers (one per external service)  
-**Dashboards**: 2 separate containers (Internal API + External Dashboard)  
-**CLI Providers**: Modular architecture supporting Claude Code CLI and Cursor CLI  
-**Architecture**: Fully containerized, microservices-based  
-**Communication**: HTTP/SSE between containers  
-**Security**: API keys isolated in API service containers, no rate limiting  
-**Deployment**: Docker Compose orchestration  
+- [BUSINESS-LOGIC-TESTING.md](./BUSINESS-LOGIC-TESTING.md) - Testing strategy for business logic
+- [CLAUDE.md](../CLAUDE.md) - Development rules and conventions

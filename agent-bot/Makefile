@@ -21,6 +21,7 @@ help:
 	@echo "  logs-gateway      View api-gateway logs"
 	@echo "  logs-dashboard    View dashboard-api logs"
 	@echo "  logs-ui           View external-dashboard logs"
+	@echo "  logs-task-logger  View task-logger logs"
 	@echo ""
 	@echo "CLI Agent:"
 	@echo "  cli-up            Start CLI (PROVIDER=claude|cursor SCALE=1)"
@@ -34,6 +35,7 @@ help:
 	@echo "  test-unit         Run unit tests"
 	@echo "  test-integration  Run integration tests"
 	@echo "  test-cli          Run CLI test (Claude/Cursor)"
+	@echo "  test-task-logger  Run task-logger tests"
 	@echo "  coverage          Run tests with coverage"
 	@echo ""
 	@echo "Code Quality:"
@@ -143,6 +145,9 @@ logs-dashboard:
 logs-ui:
 	docker-compose logs -f external-dashboard
 
+logs-task-logger:
+	docker-compose logs -f task-logger
+
 # Testing
 test:
 	cd agent-engine-package && pytest
@@ -157,6 +162,11 @@ test-cli:
 	@echo "🧪 Running CLI test in agent-engine container..."
 	@docker-compose exec -T agent-engine python scripts/test_cli_after_build.py || true
 	@echo "✅ CLI test completed"
+
+test-task-logger:
+	@echo "🧪 Running task-logger tests..."
+	@docker-compose exec -T task-logger pytest -v tests/
+	@echo "✅ Task-logger tests completed"
 
 coverage:
 	cd agent-engine-package && pytest --cov=agent_engine --cov-report=html
@@ -213,6 +223,8 @@ health:
 	@curl -sf http://localhost:5000/api/health > /dev/null && echo "✅ UP" || echo "❌ DOWN"
 	@echo -n "External Dashboard (3005): "
 	@curl -sf http://localhost:3005/ > /dev/null && echo "✅ UP" || echo "❌ DOWN"
+	@echo -n "Task Logger (8090):      "
+	@curl -sf http://localhost:8090/health > /dev/null && echo "✅ UP" || echo "❌ DOWN"
 	@echo -n "Redis:                   "
 	@docker-compose exec -T redis redis-cli ping > /dev/null 2>&1 && echo "✅ UP" || echo "❌ DOWN"
 	@echo -n "PostgreSQL:              "
