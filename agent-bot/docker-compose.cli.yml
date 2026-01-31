@@ -40,11 +40,12 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql+asyncpg://agent:${POSTGRES_PASSWORD:-agent}@postgres:5432/agent_system
       - KNOWLEDGE_GRAPH_URL=http://knowledge-graph:4000
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # Only set if you have a real API key (OAuth credentials work without this)
+      # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - CURSOR_API_KEY=${CURSOR_API_KEY:-}
     volumes:
       - agent_data:/data
-      - ~/.claude:/root/.claude:ro
+      - ~/.claude:/home/agent/.claude
     depends_on:
       redis:
         condition: service_healthy

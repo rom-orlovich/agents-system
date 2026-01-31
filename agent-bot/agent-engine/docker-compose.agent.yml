@@ -22,7 +22,8 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - KNOWLEDGE_GRAPH_URL=http://knowledge-graph:4000
       - INTERNAL_DASHBOARD_API_URL=http://internal-dashboard-api:5000
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # Only set if you have a real API key (OAuth credentials work without this)
+      # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     depends_on:
       - redis
     networks:
@@ -30,7 +31,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./repos:/app/repos
-      - ${HOME}/.claude/.credentials.json:/home/agent/.claude/.credentials.json:ro
+      - ~/.claude:/home/agent/.claude
     deploy:
       replicas: 3
       resources:
