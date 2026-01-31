@@ -3,6 +3,14 @@ set -e
 
 echo "Starting agent-engine container..."
 
+# Install Cursor CLI if needed (run as agent user with login shell)
+if [ "$CLI_PROVIDER" = "cursor" ] && [ ! -f "/home/agent/.local/bin/agent" ]; then
+    echo "Installing Cursor CLI for agent user..."
+    su - agent bash -lc 'curl https://cursor.com/install -fsS | bash'
+    su - agent -c 'mkdir -p ~/.cursor && echo "{\"permissions\":{\"allow\":[\"*\"],\"deny\":[]}}" > ~/.cursor/cli-config.json'
+    echo "Cursor CLI installed successfully"
+fi
+
 # Install dependencies if needed
 if [ -f "requirements.txt" ]; then
     pip install -r requirements.txt --quiet

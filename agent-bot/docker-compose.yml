@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   redis:
     image: redis:7-alpine
@@ -53,7 +51,7 @@ services:
       - agent-network
     restart: unless-stopped
 
-  agent-engine:
+  cli:
     build: ./agent-engine
     ports:
       - "8080-8089:8080"
