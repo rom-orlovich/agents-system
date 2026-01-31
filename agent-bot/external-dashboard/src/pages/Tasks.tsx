@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { TasksTable } from '../components/TasksTable';
+import { TaskStatusModal } from '../components/TaskStatusModal';
 import { useTasks } from '../hooks/useTasks';
+import { useTaskModal } from '../hooks/useTaskModal';
 import type { TaskStatus, Task } from '../types';
 
 const statusFilters: { label: string; value: TaskStatus | undefined }[] = [
@@ -14,8 +16,12 @@ const statusFilters: { label: string; value: TaskStatus | undefined }[] = [
 
 export function Tasks() {
   const [statusFilter, setStatusFilter] = useState<TaskStatus | undefined>();
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const { data, isLoading } = useTasks(statusFilter, 50);
+  const { openTask } = useTaskModal();
+
+  const handleTaskClick = (task: Task) => {
+    openTask(task.task_id);
+  };
 
   return (
     <div className="space-y-6">
@@ -48,93 +54,11 @@ export function Tasks() {
       ) : (
         <TasksTable
           tasks={data?.tasks || []}
-          onTaskClick={(task) => setSelectedTask(task)}
+          onTaskClick={handleTaskClick}
         />
       )}
 
-      {selectedTask && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Task Details</h2>
-                <button
-                  onClick={() => setSelectedTask(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
-              <dl className="space-y-4">
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Task ID</dt>
-                  <dd className="mt-1 text-sm text-gray-900 font-mono">
-                    {selectedTask.task_id}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Source</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
-                    {selectedTask.source}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">
-                    Event Type
-                  </dt>
-                  <dd className="mt-1 text-sm text-gray-900">
-                    {selectedTask.event_type}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Status</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
-                    {selectedTask.status}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Created</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
-                    {new Date(selectedTask.created_at).toLocaleString()}
-                  </dd>
-                </div>
-                {selectedTask.output && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">
-                      Output
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900 bg-gray-50 p-4 rounded-lg font-mono whitespace-pre-wrap">
-                      {selectedTask.output}
-                    </dd>
-                  </div>
-                )}
-                {selectedTask.error && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Error</dt>
-                    <dd className="mt-1 text-sm text-red-600 bg-red-50 p-4 rounded-lg font-mono">
-                      {selectedTask.error}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-            </div>
-          </div>
-        </div>
-      )}
+      <TaskStatusModal />
     </div>
   );
 }

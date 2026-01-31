@@ -5,7 +5,7 @@ from pathlib import Path
 import structlog
 
 from core.cli.base import CLIResult
-from core.cli.sanitization import sanitize_sensitive_content
+from core.cli.sanitization import sanitize_sensitive_content, contains_sensitive_data
 
 logger = structlog.get_logger()
 
@@ -22,8 +22,10 @@ class CursorCLIRunner:
         allowed_tools: str | None = None,
         agents: str | None = None,
         debug_mode: str | None = None,
+        mode: str | None = None,
+        force: bool = True,
     ) -> CLIResult:
-        cmd = self._build_command(prompt, model)
+        cmd = self._build_command(prompt, model, mode, force)
 
         logger.info("starting_cursor_cli", task_id=task_id, working_dir=str(working_dir))
 
@@ -46,10 +48,11 @@ class CursorCLIRunner:
         input_tokens = 0
         output_tokens = 0
         stderr_lines: list[str] = []
+        session_id: str = ""
 
         try:
             async def read_stdout() -> None:
-                nonlocal cost_usd, input_tokens, output_tokens
+                nonlocal cost_usd, input_tokens, output_tokens, session_id
 
                 if not process.stdout:
                     return
@@ -61,16 +64,21 @@ class CursorCLIRunner:
 
                     try:
                         data = json.loads(line_str)
-                        self._handle_json_event(
-                            data, accumulated_output, clean_output, output_queue
+                        await self._handle_json_event(
+                            data, accumulated_output, clean_output, output_queue, task_id
                         )
 
-                        if "cost" in data:
-                            cost_usd = data.get("cost", 0.0)
-                        if "usage" in data:
-                            usage = data["usage"]
-                            input_tokens = usage.get("input_tokens", 0)
-                            output_tokens = usage.get("output_tokens", 0)
+                        if data.get("session_id"):
+                            session_id = data["session_id"]
+
+                        if data.get("type") == "result":
+                            duration_ms = data.get("duration_ms", 0)
+                            logger.info(
+                                "cursor_result",
+                                task_id=task_id,
+                                duration_ms=duration_ms,
+                                is_error=data.get("is_error", False),
+                            )
 
                     except json.JSONDecodeError:
                         accumulated_output.append(line_str + "\n")
@@ -102,7 +110,7 @@ class CursorCLIRunner:
                 "cursor_cli_completed",
                 task_id=task_id,
                 success=process.returncode == 0,
-                cost_usd=cost_usd,
+                session_id=session_id,
             )
 
             return CLIResult(
@@ -151,49 +159,110 @@ class CursorCLIRunner:
                 error=f"Unexpected error: {str(e)}",
             )
 
-    def _build_command(self, prompt: str, model: str | None) -> list[str]:
+    def _build_command(
+        self,
+        prompt: str,
+        model: str | None,
+        mode: str | None,
+        force: bool,
+    ) -> list[str]:
         cmd = [
             "agent",
-            "chat",
-            "--print",
+            "-p",
             "--output-format",
-            "json-stream",
+            "stream-json",
         ]
 
+        if force:
+            cmd.append("-f")
+
         if model:
-            cmd.extend(["--model", model])
+            cmd.extend(["-m", model])
+
+        if mode and mode in ("agent", "plan", "ask"):
+            cmd.extend(["--mode", mode])
 
         cmd.append(prompt)
 
         return cmd
 
-    def _handle_json_event(
+    async def _handle_json_event(
         self,
         data: dict,
         accumulated_output: list[str],
         clean_output: list[str],
         output_queue: asyncio.Queue[str | None],
+        task_id: str,
     ) -> None:
         event_type = data.get("type")
 
-        if event_type == "text":
-            text = data.get("content", "")
-            if text and isinstance(text, str):
-                accumulated_output.append(text)
-                clean_output.append(text)
-                asyncio.create_task(output_queue.put(text))
+        if event_type == "system":
+            subtype = data.get("subtype")
+            if subtype == "init":
+                model = data.get("model", "unknown")
+                init_log = f"[INIT] Session started with model: {model}\n"
+                accumulated_output.append(init_log)
+                await output_queue.put(init_log)
+
+        elif event_type == "user":
+            pass
+
+        elif event_type == "assistant":
+            message = data.get("message", {})
+            content_blocks = message.get("content", [])
+            for block in content_blocks:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    text = block.get("text", "")
+                    if text:
+                        accumulated_output.append(text)
+                        clean_output.append(text)
+                        await output_queue.put(text)
 
         elif event_type == "tool_call":
-            tool_name = data.get("name", "unknown")
-            tool_log = f"\n[TOOL] Using {tool_name}\n"
-            accumulated_output.append(tool_log)
-            asyncio.create_task(output_queue.put(tool_log))
+            subtype = data.get("subtype")
+            tool_call = data.get("tool_call", {})
+
+            if subtype == "started":
+                tool_name = self._extract_tool_name(tool_call)
+                tool_log = f"\n[TOOL] Starting: {tool_name}\n"
+                accumulated_output.append(tool_log)
+                await output_queue.put(tool_log)
+
+            elif subtype == "completed":
+                tool_name = self._extract_tool_name(tool_call)
+                result = self._extract_tool_result(tool_call)
+                if result:
+                    if contains_sensitive_data(result):
+                        result = sanitize_sensitive_content(result)
+                    result_log = f"[TOOL RESULT] {tool_name}: {result[:500]}\n"
+                    accumulated_output.append(result_log)
+                    await output_queue.put(result_log)
 
         elif event_type == "result":
             result_text = data.get("result", "")
-            if result_text and isinstance(result_text, str):
-                accumulated_output.append(result_text)
-                asyncio.create_task(output_queue.put(result_text))
+            if result_text and not data.get("is_error"):
+                clean_output.append(result_text)
+
+    def _extract_tool_name(self, tool_call: dict) -> str:
+        for key in tool_call:
+            if key.endswith("ToolCall"):
+                return key.replace("ToolCall", "")
+        return "unknown"
+
+    def _extract_tool_result(self, tool_call: dict) -> str:
+        for key, value in tool_call.items():
+            if key.endswith("ToolCall") and isinstance(value, dict):
+                result = value.get("result", {})
+                if isinstance(result, dict):
+                    if "success" in result:
+                        success = result["success"]
+                        if isinstance(success, dict):
+                            return success.get("content", str(success))
+                        return str(success)
+                    if "error" in result:
+                        return f"Error: {result['error']}"
+                return str(result)
+        return ""
 
     def _determine_error_message(
         self, returncode: int, stderr_lines: list[str]

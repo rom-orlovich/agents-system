@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { LayoutDashboard, ListTodo, Bot, Settings } from 'lucide-react';
+import { LayoutDashboard, ListTodo, Bot, Settings, BarChart3 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 interface LayoutProps {
@@ -11,6 +11,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Tasks', href: '/tasks', icon: ListTodo },
   { name: 'Agents', href: '/agents', icon: Bot },
+  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
