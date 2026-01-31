@@ -101,34 +101,77 @@
 
 ## Key Commands
 
-### Development Setup
+### Quick Start
 
 ```bash
 make init                    # Initialize project
 make build                   # Build all containers
 make up                      # Start all services
 make down                    # Stop all services
-make logs                    # View all logs
-make test                    # Run all tests
-make test-unit               # Run unit tests
-make test-integration        # Run integration tests
 ```
 
-### Docker Operations
+### CLI Agent Commands (Recommended)
 
 ```bash
-docker-compose up -d                          # Start all services
-docker-compose up -d --scale agent-engine=3   # Scale agent engines
-docker-compose logs -f agent-engine           # Follow agent logs
-docker-compose exec agent-engine bash         # Shell into container
+# Start Claude CLI
+make cli-up PROVIDER=claude SCALE=1
+
+# Start Cursor CLI
+make cli-up PROVIDER=cursor SCALE=1
+
+# Start with multiple replicas
+make cli-up PROVIDER=claude SCALE=3
+
+# View logs
+make cli-logs PROVIDER=claude
+make cli-logs PROVIDER=cursor
+
+# Check status
+make cli-status PROVIDER=claude
+
+# Stop CLI
+make cli-down PROVIDER=claude
+make cli-down PROVIDER=cursor
+```
+
+### All Services
+
+```bash
+make up                      # Start all services
+make down                    # Stop all services
+make logs                    # View all logs
+make restart                 # Restart all services
+make health                  # Check service health
 ```
 
 ### Testing
 
 ```bash
-cd agent-engine && pytest                    # Test agent engine
-cd api-gateway && pytest                     # Test API gateway
-cd mcp-servers/jira-mcp && pytest           # Test Jira MCP
+make test                    # Run all tests
+make test-unit               # Run unit tests
+make test-integration        # Run integration tests
+make test-cli                # Test CLI in container
+make coverage                # Generate coverage report
+```
+
+### Database
+
+```bash
+make db-migrate MSG="Add new table"  # Create migration
+make db-upgrade                      # Apply migrations
+make db-shell                        # Open database shell
+```
+
+### Monitoring
+
+```bash
+# View CLI health status
+make db-shell
+# Then run:
+SELECT provider, version, status, hostname, checked_at
+FROM cli_health
+ORDER BY checked_at DESC
+LIMIT 10;
 ```
 
 ---
@@ -438,16 +481,134 @@ SENTRY_API_URL=http://sentry-api:3004
 
 ---
 
+## CLI Health Monitoring
+
+### Automatic Health Checks
+
+Both Claude and Cursor CLIs are automatically tested at container startup:
+
+**Claude CLI:**
+```bash
+Testing Claude CLI access...
+✅ CLI version check passed
+```
+
+**Cursor CLI:**
+```bash
+Installing Cursor CLI for agent user...
+✅ Cursor CLI installed successfully
+Testing Cursor CLI access...
+✅ Cursor CLI available: 2026.01.28-fd13201
+```
+
+### Database Logging
+
+CLI health status is logged to PostgreSQL automatically:
+
+```bash
+# View CLI health history
+docker-compose exec postgres psql -U agent -d agent_system
+
+SELECT provider, version, status, hostname, checked_at
+FROM cli_health
+ORDER BY checked_at DESC
+LIMIT 10;
+```
+
+### Container Naming
+
+Containers are automatically named based on provider:
+- Claude: `claude-cli-1`, `claude-cli-2`, `claude-cli-3`, ...
+- Cursor: `cursor-cli-1`, `cursor-cli-2`, `cursor-cli-3`, ...
+
+This makes it easy to identify and manage different CLI instances.
+
+---
+
+## Scaling & Architecture
+
+### Current Setup: Single Machine ✅
+
+**Recommended for:**
+- Development and testing
+- Up to 20-30 concurrent tasks
+- Small to medium teams (1-50 users)
+- **Cost:** $50-150/month
+
+**Capacity:**
+- ~20-30 concurrent CLI tasks
+- ~100-200 tasks per hour
+- ~2,000-5,000 tasks per day
+
+### When to Scale
+
+Monitor these metrics and scale when you hit **80% consistently**:
+
+```bash
+# Check resource usage
+docker stats
+
+# Check queue depth
+docker-compose exec redis redis-cli LLEN agent:tasks:queue
+
+# View all running CLI containers
+make cli-status PROVIDER=claude
+```
+
+**Scale Triggers:**
+- ⚠️ CPU > 80% for > 1 hour
+- ⚠️ Memory > 80%
+- ⚠️ Queue depth > 50 tasks
+- ⚠️ Task wait time > 5 minutes
+
+### Scaling Options
+
+**1. Vertical Scaling (Simplest)**
+```bash
+# Upgrade to bigger machine
+8 cores → 16 cores
+16GB RAM → 32GB RAM
+~30 tasks → ~60 tasks
+```
+
+**2. Horizontal Scaling (Recommended)**
+```bash
+# Add worker machines
+make cli-up PROVIDER=claude SCALE=5  # Machine 1
+make cli-up PROVIDER=cursor SCALE=5  # Machine 2
+# Both connect to same Redis/PostgreSQL
+```
+
+**3. Multi-Provider Setup**
+```bash
+# Run both CLIs simultaneously
+make cli-up PROVIDER=claude SCALE=3  # 3 Claude instances
+make cli-up PROVIDER=cursor SCALE=2  # 2 Cursor instances
+# Total: 5 concurrent CLI agents
+```
+
+### Detailed Guidance
+
+See **`ARCHITECTURE-SCALING.md`** for:
+- Performance benchmarks
+- Cost comparisons
+- Step-by-step scaling instructions
+- When to migrate to Kubernetes
+
+---
+
 ## External Resources
 
 - **GitHub MCP**: https://github.com/github/github-mcp-server
 - **Knowledge Graph**: https://gitlab.com/gitlab-org/rust/knowledge-graph
 - **Cursor CLI**: https://cursor.com/docs/cli/headless
+- **Scaling Guide**: `ARCHITECTURE-SCALING.md`
 
 ---
 
 ## Implementation Documents
 
+- `ARCHITECTURE-SCALING.md` - Scaling and architecture recommendations
 - `docs/ARCHITECTURE.md` - Detailed architecture documentation
 - `docs/INTEGRATION-IMPLEMENTATION-PLAN.md` - Full TDD implementation plan
 - `docs/ARCHIVED-agent-engine-package.md` - Historical reference (archived)

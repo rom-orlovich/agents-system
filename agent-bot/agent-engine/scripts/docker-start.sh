@@ -30,11 +30,13 @@ if [ -f "requirements.txt" ]; then
     pip install -r requirements.txt --quiet
 fi
 
-# Test CLI access based on provider
+# Test CLI access based on provider and log to database
 if [ "$CLI_PROVIDER" = "claude" ]; then
     if [ -f "$HOME/.claude/.credentials.json" ] || [ -n "$ANTHROPIC_API_KEY" ]; then
         echo "Testing Claude CLI access..."
         python scripts/test_cli_after_build.py || echo "⚠️  Warning: Claude CLI test failed"
+        # Log status to database
+        python scripts/log_cli_status.py || echo "⚠️  Warning: Failed to log CLI status"
     else
         echo "⚠️  Warning: ANTHROPIC_API_KEY not set"
     fi
@@ -44,6 +46,8 @@ elif [ "$CLI_PROVIDER" = "cursor" ]; then
         if runuser -l agent -c 'agent --version' >/dev/null 2>&1; then
             CURSOR_VERSION=$(runuser -l agent -c 'agent --version')
             echo "✅ Cursor CLI available: $CURSOR_VERSION"
+            # Log status to database
+            python scripts/log_cli_status.py || echo "⚠️  Warning: Failed to log CLI status"
         else
             echo "⚠️  Warning: Cursor CLI not working"
         fi

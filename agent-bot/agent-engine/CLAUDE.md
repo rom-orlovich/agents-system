@@ -13,7 +13,23 @@ The Agent Engine container executes AI agent tasks using the configured CLI prov
 | Port Range | 8080-8089 |
 | Scalable | Yes (1-N replicas) |
 | Base Image | python:3.11-slim |
-| Package | agent-engine-package |
+| CLI Providers | Claude Code, Cursor |
+| Health Monitoring | Auto-logged to PostgreSQL |
+
+## Automatic CLI Installation
+
+### Claude Code CLI
+- Pre-installed during Docker build
+- Requires: `ANTHROPIC_API_KEY`
+- Test command: `claude --version`
+
+### Cursor CLI
+- Installed at runtime if `CLI_PROVIDER=cursor`
+- Requires: `CURSOR_API_KEY`
+- Installation: Automatic via `curl https://cursor.com/install -fsS | bash`
+- Test command: `agent --version`
+
+Both CLIs are automatically tested at startup and status is logged to the database.
 
 ## Architecture
 
@@ -117,12 +133,87 @@ Features:
 
 ## Scaling
 
+### Using Make Commands (Recommended)
+
 ```bash
+# Start with scaling
+make cli-up PROVIDER=claude SCALE=3   # 3 Claude instances
+make cli-up PROVIDER=cursor SCALE=2   # 2 Cursor instances
+
+# Check status
+make cli-status PROVIDER=claude
+
+# View logs
+make cli-logs PROVIDER=claude
+
+# Stop
+make cli-down PROVIDER=claude
+```
+
+### Using Docker Compose
+
+```bash
+# Scale with specific project name
+CLI_PROVIDER=claude docker-compose -p claude up -d --scale cli=5
+
+# Scale existing deployment
 docker-compose up -d --scale agent-engine=3
-docker-compose up -d --scale agent-engine=5
 ```
 
 Each replica independently consumes from the same Redis queue.
+
+## CLI Health Monitoring
+
+### Startup Health Checks
+
+Every container automatically checks CLI health on startup:
+
+**Claude:**
+```
+Testing Claude CLI access...
+✅ CLI version check passed
+Starting main application as agent user...
+```
+
+**Cursor:**
+```
+Installing Cursor CLI for agent user...
+✅ Cursor CLI installed successfully
+Testing Cursor CLI access...
+✅ Cursor CLI available: 2026.01.28-fd13201
+Starting main application as agent user...
+```
+
+### Database Logging
+
+Health status is automatically logged to `cli_health` table:
+
+```sql
+CREATE TABLE cli_health (
+    id SERIAL PRIMARY KEY,
+    provider VARCHAR(50) NOT NULL,
+    version VARCHAR(100),
+    status VARCHAR(50) NOT NULL,
+    hostname VARCHAR(255),
+    checked_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Query health history:**
+```bash
+docker-compose exec postgres psql -U agent -d agent_system -c "
+  SELECT provider, version, status, hostname, checked_at
+  FROM cli_health
+  ORDER BY checked_at DESC
+  LIMIT 10;
+"
+```
+
+### Scripts
+
+- `scripts/test_cli_after_build.py` - Claude CLI version and API test
+- `scripts/log_cli_status.py` - Log CLI status to database
+- `scripts/docker-start.sh` - Startup orchestration with health checks
 
 ## Health Check
 
@@ -133,6 +224,10 @@ curl http://localhost:8080/health
 ## Logs
 
 ```bash
+# Using make
+make cli-logs PROVIDER=claude
+
+# Using docker-compose
 docker-compose logs -f agent-engine
 ```
 

@@ -44,11 +44,36 @@ cd claude-code-cli
 cd infrastructure/docker
 docker-compose up -d
 
-# Agent Bot (Microservices)
+# Agent Bot (Microservices) - Multi-CLI Support
 cd agent-bot
 make init
-make oauth-setup
+
+# Start with Claude CLI (default)
+make cli-up PROVIDER=claude SCALE=1
+
+# Or start with Cursor CLI
+make cli-up PROVIDER=cursor SCALE=1
+
+# Or start all services
 make up
+```
+
+### Agent Bot CLI Commands
+
+```bash
+cd agent-bot
+
+# CLI Agent Management
+make cli-up PROVIDER=claude SCALE=3    # Start Claude CLI (3 instances)
+make cli-up PROVIDER=cursor SCALE=2    # Start Cursor CLI (2 instances)
+make cli-logs PROVIDER=claude          # View logs
+make cli-status PROVIDER=claude        # Check status
+make cli-down PROVIDER=claude          # Stop
+
+# All Services
+make up                                # Start all services
+make down                              # Stop all services
+make health                            # Check service health
 ```
 
 ### Testing
@@ -59,6 +84,7 @@ cd agent-bot
 make test              # All tests
 make test-unit         # Unit tests only
 make test-integration  # Integration tests
+make test-cli          # Test CLI in container
 make coverage          # Coverage report
 
 # Other Systems
