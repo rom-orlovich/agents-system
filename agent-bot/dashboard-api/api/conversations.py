@@ -174,7 +174,7 @@ async def list_conversations(
             query = query.where(ConversationDB.user_id == user_id)
         
         if not include_archived:
-            query = query.where(ConversationDB.is_archived == False)
+            query = query.where(ConversationDB.is_archived.is_(False))
         
         query = query.offset(offset).limit(limit)
         

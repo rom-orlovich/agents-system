@@ -38,7 +38,7 @@ async def get_webhooks_status(db: AsyncSession = Depends(get_db_session)):
             WebhookEventDB.provider,
             func.count(WebhookEventDB.event_id).label("count"),
             func.max(WebhookEventDB.created_at).label("last_event")
-        ).where(WebhookEventDB.response_sent == True).group_by(WebhookEventDB.provider)
+        ).where(WebhookEventDB.response_sent.is_(True)).group_by(WebhookEventDB.provider)
         events_by_provider_result = await db.execute(events_by_provider_query)
         events_by_provider = {
             row[0]: {"count": row[1], "last_event": row[2]} 
@@ -101,7 +101,7 @@ async def get_webhooks_status(db: AsyncSession = Depends(get_db_session)):
             event_count_result = await db.execute(
                 select(func.count(WebhookEventDB.event_id))
                 .where(WebhookEventDB.webhook_id == webhook.webhook_id)
-                .where(WebhookEventDB.response_sent == True)
+                .where(WebhookEventDB.response_sent.is_(True))
             )
             event_count = event_count_result.scalar() or 0
             

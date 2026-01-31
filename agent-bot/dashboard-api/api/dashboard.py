@@ -559,7 +559,7 @@ async def get_webhook_stats(db: AsyncSession = Depends(get_db_session)):
     db_total = (await db.execute(total_query)).scalar() or 0
     
     # Count active webhooks from database
-    active_query = select(func.count()).select_from(WebhookConfigDB).where(WebhookConfigDB.enabled == True)
+    active_query = select(func.count()).select_from(WebhookConfigDB).where(WebhookConfigDB.enabled.is_(True))
     db_active = (await db.execute(active_query)).scalar() or 0
     
     # Count events by webhook name (for matching with static webhooks)

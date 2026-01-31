@@ -44,11 +44,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 elif msg_type == "task.input":
                     # Handle user input to task
                     task_id = message.get("task_id")
-                    user_message = message.get("message")
+                    _user_message = message.get("message")
                     logger.info(
                         "User input received",
                         task_id=task_id,
-                        session_id=session_id
+                        session_id=session_id,
+                        has_message=bool(_user_message)
                     )
                     # TODO: Send input to running task
                     pass

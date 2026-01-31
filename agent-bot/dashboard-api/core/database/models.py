@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Float, DateTime, Text, ForeignKey, Boolean
-from sqlalchemy.ext.asyncio import AsyncAttrs
+from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, relationship
 
 
@@ -271,7 +271,7 @@ class AuditLogDB(Base):
 async def update_conversation_metrics(
     conversation_id: str,
     task: TaskDB,
-    db: "AsyncSession"
+    db: AsyncSession
 ) -> None:
     """
     Update conversation aggregated metrics when a task completes.
