@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_TOKEN}"
+      }
+    },
+    "jira": {
+      "url": "http://jira-mcp:9002/sse",
+      "transport": "sse"
+    },
+    "slack": {
+      "url": "http://slack-mcp:9003/sse",
+      "transport": "sse"
+    },
+    "sentry": {
+      "url": "http://sentry-mcp:9004/sse",
+      "transport": "sse"
+    },
+    "knowledge-graph": {
+      "url": "http://knowledge-graph-mcp:9005/sse",
+      "transport": "sse"
+    }
+  }
+}
