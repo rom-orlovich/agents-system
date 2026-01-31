@@ -27,6 +27,7 @@ help:
 	@echo "  cli-down          Stop CLI (PROVIDER=claude|cursor)"
 	@echo "  cli-logs          View CLI logs (PROVIDER=claude|cursor)"
 	@echo "  cli-status        Check CLI status (PROVIDER=claude|cursor)"
+	@echo "  cli-active        Show active CLI instances in database"
 	@echo ""
 	@echo "Testing:"
 	@echo "  test              Run all tests"
@@ -107,6 +108,16 @@ cli-logs:
 
 cli-status:
 	@docker-compose -p $(or $(PROVIDER),claude) ps cli
+
+cli-active:
+	@echo "Active CLI instances in database:"
+	@docker-compose exec -T postgres psql -U agent -d agent_system -c "\
+		SELECT provider, version, hostname, active, \
+		       started_at, last_heartbeat, \
+		       EXTRACT(EPOCH FROM (NOW() - last_heartbeat)) as seconds_since_heartbeat \
+		FROM cli_instances \
+		WHERE active = true \
+		ORDER BY provider, started_at DESC;" || echo "⚠️  Database not available"
 
 down:
 	docker-compose down

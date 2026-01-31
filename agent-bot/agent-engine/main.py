@@ -59,36 +59,44 @@ class TaskWorker:
                 await self._update_task_status(task_id, "failed", {"error": str(e)})
 
     async def _execute_task(self, task: dict[str, Any]) -> dict[str, Any]:
-        import subprocess
-        import json
+        from pathlib import Path
+        from core.cli.factory import run_cli
 
         prompt = task.get("prompt", "")
         repo_path = task.get("repo_path", "/app/repos/default")
-        cli_provider = self._settings.cli_provider
+        task_id = task.get("task_id", "unknown")
+        agent_type = task.get("agent_type", "")
 
-        if cli_provider == "claude":
-            cmd = ["claude", "--print", "--output-format", "json", prompt]
-        else:
-            cmd = ["cursor", "--print", prompt]
+        model = self._get_model_for_task(agent_type)
+        output_queue: asyncio.Queue[str | None] = asyncio.Queue()
 
         try:
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                cwd=repo_path,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            result = await run_cli(
+                prompt=prompt,
+                working_dir=Path(repo_path),
+                output_queue=output_queue,
+                task_id=task_id,
+                timeout_seconds=self._settings.task_timeout_seconds,
+                model=model,
             )
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=self._settings.task_timeout_seconds,
-            )
+
             return {
-                "stdout": stdout.decode(),
-                "stderr": stderr.decode(),
-                "return_code": process.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "return_code": result.return_code,
             }
         except asyncio.TimeoutError:
             return {"error": "Task timed out", "return_code": -1}
+
+    def _get_model_for_task(self, agent_type: str) -> str | None:
+        is_complex_task = agent_type.lower() in ("planning", "consultation", "question_asking")
+
+        if self._settings.cli_provider == "cursor":
+            return "claude-sonnet-4.5" if is_complex_task else "composer-1"
+        elif self._settings.cli_provider == "claude":
+            return "opus" if is_complex_task else "sonnet"
+
+        return None
 
     async def _update_task_status(
         self, task_id: str, status: str, result: dict[str, Any] | None = None

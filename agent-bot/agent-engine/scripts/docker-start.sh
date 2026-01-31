@@ -62,6 +62,20 @@ if [ -n "$GITHUB_REPOS" ]; then
     ./scripts/setup_repos.sh
 fi
 
+# Start heartbeat in background
+echo "Starting heartbeat monitor..."
+python scripts/heartbeat.py &
+HEARTBEAT_PID=$!
+
+# Trap signals to cleanup heartbeat on exit
+cleanup() {
+    echo "Shutting down..."
+    if [ ! -z "$HEARTBEAT_PID" ]; then
+        kill $HEARTBEAT_PID 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT TERM INT
+
 # Start the main application as agent user
 echo "Starting main application as agent user..."
 exec runuser -l agent -c 'cd /app && python main.py'

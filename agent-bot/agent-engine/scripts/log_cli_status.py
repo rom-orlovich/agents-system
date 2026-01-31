@@ -51,7 +51,7 @@ async def get_cli_version(provider: str) -> tuple[bool, str]:
 
 
 async def log_status_to_db(provider: str, version: str, status: str):
-    """Log CLI status to database."""
+    """Log CLI status to database and mark instance as active."""
     try:
         # Import here to avoid circular dependencies
         from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
@@ -67,7 +67,7 @@ async def log_status_to_db(provider: str, version: str, status: str):
         async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
         async with async_session() as session:
-            # Create table if not exists
+            # Create health log table if not exists
             await session.execute(text("""
                 CREATE TABLE IF NOT EXISTS cli_health (
                     id SERIAL PRIMARY KEY,
@@ -79,8 +79,25 @@ async def log_status_to_db(provider: str, version: str, status: str):
                 )
             """))
 
-            # Insert status
+            # Create active instances table if not exists
+            await session.execute(text("""
+                CREATE TABLE IF NOT EXISTS cli_instances (
+                    id SERIAL PRIMARY KEY,
+                    provider VARCHAR(50) NOT NULL,
+                    version VARCHAR(100),
+                    hostname VARCHAR(255) UNIQUE NOT NULL,
+                    container_id VARCHAR(255),
+                    active BOOLEAN DEFAULT true,
+                    started_at TIMESTAMP DEFAULT NOW(),
+                    last_heartbeat TIMESTAMP DEFAULT NOW(),
+                    UNIQUE(hostname)
+                )
+            """))
+
             hostname = os.environ.get("HOSTNAME", "unknown")
+            container_id = hostname  # Docker sets HOSTNAME to container ID
+
+            # Insert health check log
             await session.execute(
                 text("""
                     INSERT INTO cli_health (provider, version, status, hostname, checked_at)
@@ -94,14 +111,37 @@ async def log_status_to_db(provider: str, version: str, status: str):
                     "checked_at": datetime.utcnow()
                 }
             )
+
+            # Insert or update active instance
+            await session.execute(
+                text("""
+                    INSERT INTO cli_instances (provider, version, hostname, container_id, active, started_at, last_heartbeat)
+                    VALUES (:provider, :version, :hostname, :container_id, true, NOW(), NOW())
+                    ON CONFLICT (hostname)
+                    DO UPDATE SET
+                        provider = EXCLUDED.provider,
+                        version = EXCLUDED.version,
+                        active = true,
+                        started_at = NOW(),
+                        last_heartbeat = NOW()
+                """),
+                {
+                    "provider": provider,
+                    "version": version,
+                    "hostname": hostname,
+                    "container_id": container_id
+                }
+            )
+
             await session.commit()
 
         logger.info(
-            "cli_status_logged",
+            "cli_instance_activated",
             provider=provider,
             version=version,
             status=status,
-            hostname=hostname
+            hostname=hostname,
+            active=True
         )
 
     except Exception as e:
