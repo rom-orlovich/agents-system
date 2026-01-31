@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  agent-engine:
+    build: .
+    ports:
+      - "8080-8089:8080"
+    environment:
+      - PORT=8080
+      - CLI_PROVIDER=${CLI_PROVIDER:-claude}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-agent}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-agent}
+      - POSTGRES_DB=${POSTGRES_DB:-agent_system}
+      - MAX_CONCURRENT_TASKS=${MAX_CONCURRENT_TASKS:-5}
+      - TASK_TIMEOUT_SECONDS=${TASK_TIMEOUT_SECONDS:-3600}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - KNOWLEDGE_GRAPH_URL=http://knowledge-graph:4000
+      - INTERNAL_DASHBOARD_API_URL=http://internal-dashboard-api:5000
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    depends_on:
+      - redis
+    networks:
+      - agent-network
+    restart: unless-stopped
+    volumes:
+      - ./repos:/app/repos
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - agent-network
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  agent-network:
+    external: true
+
+volumes:
+  redis_data:
