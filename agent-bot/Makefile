@@ -18,13 +18,13 @@ help:
 	@echo "  make health   Check services"
 	@echo ""
 	@echo "Testing:"
-	@echo "  make test-all           Run all tests (265 tests)"
+	@echo "  make test-all           Run all tests"
 	@echo "  make test-unit          Run unit tests only"
-	@echo "  make test-api-gateway   Run API Gateway tests (92)"
-	@echo "  make test-agent-engine  Run Agent Engine tests (64)"
-	@echo "  make test-dashboard     Run Dashboard API tests (38)"
-	@echo "  make test-logger        Run Task Logger tests (27)"
-	@echo "  make test-services      Run API Services tests (33)"
+	@echo "  make test-api-gateway   Run API Gateway tests"
+	@echo "  make test-agent-engine  Run Agent Engine tests"
+	@echo "  make test-dashboard     Run Dashboard API tests"
+	@echo "  make test-logger        Run Task Logger tests"
+	@echo "  make test-services      Run API Services tests"
 	@echo "  make test-cov           Run tests with coverage"
 	@echo ""
 	@echo "Dev:"
@@ -96,7 +96,7 @@ test:
 	@cd agent-engine-package && pytest
 
 test-all:
-	@echo "Running all 265 tests..."
+	@echo "Running all tests..."
 	@PYTHONPATH=tests:$$PYTHONPATH uv run pytest tests/test_factories.py -v --tb=short
 	@PYTHONPATH=tests:api-gateway:$$PYTHONPATH uv run pytest api-gateway/tests/ -v --tb=short
 	@PYTHONPATH=tests:dashboard-api:$$PYTHONPATH uv run pytest dashboard-api/tests/ -v --tb=short
@@ -113,23 +113,23 @@ test-unit:
 	@PYTHONPATH=tests:$$PYTHONPATH uv run pytest tests/test_factories.py -v --tb=short
 
 test-api-gateway:
-	@echo "Running API Gateway tests (92)..."
+	@echo "Running API Gateway tests..."
 	@PYTHONPATH=tests:api-gateway:$$PYTHONPATH uv run pytest api-gateway/tests/ -v --tb=short
 
 test-agent-engine:
-	@echo "Running Agent Engine tests (64)..."
+	@echo "Running Agent Engine tests..."
 	@PYTHONPATH=tests:agent-engine:$$PYTHONPATH uv run pytest agent-engine/tests/ -v --tb=short
 
 test-dashboard:
-	@echo "Running Dashboard API tests (38)..."
+	@echo "Running Dashboard API tests..."
 	@PYTHONPATH=tests:dashboard-api:$$PYTHONPATH uv run pytest dashboard-api/tests/ -v --tb=short
 
 test-logger:
-	@echo "Running Task Logger tests (27)..."
+	@echo "Running Task Logger tests..."
 	@PYTHONPATH=tests:task-logger:$$PYTHONPATH uv run pytest task-logger/tests/ -v --tb=short
 
 test-services:
-	@echo "Running API Services tests (33)..."
+	@echo "Running API Services tests..."
 	@uv run pytest api-services/github-api/tests/ api-services/jira-api/tests/ api-services/slack-api/tests/ api-services/sentry-api/tests/ -v --tb=short
 
 test-cov:
