@@ -89,12 +89,20 @@ class TaskWorker:
             return {"error": "Task timed out", "return_code": -1}
 
     def _get_model_for_task(self, agent_type: str) -> str | None:
-        is_complex_task = agent_type.lower() in ("planning", "consultation", "question_asking")
+        is_complex_task = agent_type.lower() in ("planning", "consultation", "question_asking", "brain")
 
         if self._settings.cli_provider == "cursor":
-            return "claude-sonnet-4.5" if is_complex_task else "composer-1"
+            return (
+                self._settings.cursor_model_complex
+                if is_complex_task
+                else self._settings.cursor_model_execution
+            )
         elif self._settings.cli_provider == "claude":
-            return "opus" if is_complex_task else "sonnet"
+            return (
+                self._settings.claude_model_complex
+                if is_complex_task
+                else self._settings.claude_model_execution
+            )
 
         return None
 

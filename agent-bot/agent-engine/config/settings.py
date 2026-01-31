@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     knowledge_graph_url: str = "http://knowledge-graph:4000"
     internal_dashboard_api_url: str = "http://internal-dashboard-api:5000"
 
+    claude_model_complex: str = "opus"
+    claude_model_execution: str = "sonnet"
+    cursor_model_complex: str = "claude-sonnet-4.5"
+    cursor_model_execution: str = "composer-1"
+
     @property
     def redis_url(self) -> str:
         return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"
