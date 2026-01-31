@@ -1,1 +1,0 @@
-"""CLI executor module."""

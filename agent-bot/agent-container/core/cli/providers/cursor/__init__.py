@@ -1,1 +1,0 @@
-"""Cursor CLI provider."""
