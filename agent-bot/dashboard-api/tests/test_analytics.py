@@ -127,8 +127,7 @@ class TestDailyAggregation:
             tasks.append(task)
 
         day_1_tasks = [
-            t for t in tasks
-            if t.completed_at.strftime("%Y-%m-%d") == "2026-01-01"
+            t for t in tasks if t.completed_at.strftime("%Y-%m-%d") == "2026-01-01"
         ]
         assert len(day_1_tasks) == 5
 

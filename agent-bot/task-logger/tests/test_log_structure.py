@@ -114,8 +114,16 @@ class TestJsonlFileValidity:
         logger = TaskLogger("task-001", tmp_path)
 
         outputs = [
-            {"timestamp": "2026-01-31T12:00:00Z", "type": "output", "content": "Analyzing..."},
-            {"timestamp": "2026-01-31T12:00:01Z", "type": "output", "content": "Found issue"},
+            {
+                "timestamp": "2026-01-31T12:00:00Z",
+                "type": "output",
+                "content": "Analyzing...",
+            },
+            {
+                "timestamp": "2026-01-31T12:00:01Z",
+                "type": "output",
+                "content": "Found issue",
+            },
         ]
 
         for output in outputs:
@@ -162,38 +170,48 @@ class TestCompleteLogStructure:
         task_id = "task-001"
         logger = TaskLogger(task_id, tmp_path)
 
-        logger.write_metadata({
-            "task_id": task_id,
-            "source": "webhook",
-            "assigned_agent": "executor",
-        })
+        logger.write_metadata(
+            {
+                "task_id": task_id,
+                "source": "webhook",
+                "assigned_agent": "executor",
+            }
+        )
 
         logger.write_input({"message": "Fix bug"})
 
-        logger.append_webhook_event({
-            "timestamp": "2026-01-31T12:00:00Z",
-            "stage": "received",
-            "data": {},
-        })
+        logger.append_webhook_event(
+            {
+                "timestamp": "2026-01-31T12:00:00Z",
+                "stage": "received",
+                "data": {},
+            }
+        )
 
-        logger.append_agent_output({
-            "timestamp": "2026-01-31T12:00:01Z",
-            "type": "output",
-            "content": "Working...",
-        })
+        logger.append_agent_output(
+            {
+                "timestamp": "2026-01-31T12:00:01Z",
+                "type": "output",
+                "content": "Working...",
+            }
+        )
 
-        logger.append_user_input({
-            "timestamp": "2026-01-31T12:00:02Z",
-            "type": "user_response",
-            "question_type": "approval",
-            "content": "yes",
-        })
+        logger.append_user_input(
+            {
+                "timestamp": "2026-01-31T12:00:02Z",
+                "type": "user_response",
+                "question_type": "approval",
+                "content": "yes",
+            }
+        )
 
-        logger.write_final_result({
-            "success": True,
-            "result": "Done",
-            "completed_at": "2026-01-31T12:00:03Z",
-        })
+        logger.write_final_result(
+            {
+                "success": True,
+                "result": "Done",
+                "completed_at": "2026-01-31T12:00:03Z",
+            }
+        )
 
         task_dir = tmp_path / task_id
         assert (task_dir / "metadata.json").exists()

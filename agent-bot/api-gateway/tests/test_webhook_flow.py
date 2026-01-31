@@ -118,11 +118,14 @@ class WebhookHandler:
         self.bot_user_id = bot_user_id
 
     def _verify_github_signature(self, payload: str, signature: str) -> bool:
-        expected = "sha256=" + hmac.new(
-            self.github_secret.encode(),
-            payload.encode(),
-            hashlib.sha256,
-        ).hexdigest()
+        expected = (
+            "sha256="
+            + hmac.new(
+                self.github_secret.encode(),
+                payload.encode(),
+                hashlib.sha256,
+            ).hexdigest()
+        )
         return hmac.compare_digest(expected, signature)
 
     def _verify_jira_signature(self, payload: str, signature: str) -> bool:
@@ -224,7 +227,10 @@ class WebhookHandler:
         event = payload.get("webhookEvent", "")
         issue = payload.get("issue", {})
         fields = issue.get("fields", {})
-        labels = [lbl.get("name", lbl) if isinstance(lbl, dict) else lbl for lbl in fields.get("labels", [])]
+        labels = [
+            lbl.get("name", lbl) if isinstance(lbl, dict) else lbl
+            for lbl in fields.get("labels", [])
+        ]
 
         if "AI-Fix" not in labels:
             return WebhookResponse(
@@ -366,11 +372,14 @@ def webhook_handler(task_queue, loop_prevention):
 def generate_github_signature(payload: dict, secret: str = "test-secret") -> str:
     """Generate valid GitHub webhook signature."""
     payload_str = json.dumps(payload)
-    return "sha256=" + hmac.new(
-        secret.encode(),
-        payload_str.encode(),
-        hashlib.sha256,
-    ).hexdigest()
+    return (
+        "sha256="
+        + hmac.new(
+            secret.encode(),
+            payload_str.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+    )
 
 
 def generate_jira_signature(payload: dict, secret: str = "test-jira-secret") -> str:

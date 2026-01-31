@@ -11,12 +11,14 @@ ENDPOINT_PATTERN = re.compile(r"^/webhooks/[a-z0-9-]+$")
 
 class WebhookValidationError(Exception):
     """Raised when webhook configuration validation fails."""
+
     pass
 
 
 @dataclass
 class WebhookCommand:
     """Webhook command configuration."""
+
     name: str
     trigger: str
     action: str
@@ -29,6 +31,7 @@ class WebhookCommand:
 @dataclass
 class WebhookConfig:
     """Webhook configuration for testing."""
+
     webhook_id: str
     name: str
     provider: str

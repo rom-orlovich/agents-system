@@ -8,6 +8,7 @@ from typing import Any
 
 class TaskStatus(StrEnum):
     """Task status enum matching business logic."""
+
     QUEUED = "queued"
     RUNNING = "running"
     WAITING_INPUT = "waiting_input"
@@ -33,12 +34,14 @@ VALID_TRANSITIONS: dict[TaskStatus, set[TaskStatus]] = {
 
 class InvalidTransitionError(Exception):
     """Raised when an invalid state transition is attempted."""
+
     pass
 
 
 @dataclass
 class Task:
     """Task model for testing business logic."""
+
     task_id: str
     input_message: str
     status: TaskStatus = TaskStatus.QUEUED

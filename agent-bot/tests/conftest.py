@@ -59,40 +59,36 @@ def mock_settings() -> MagicMock:
 @pytest.fixture
 def github_webhook_signature():
     """GitHub webhook signature generator."""
+
     def _sign(payload: bytes, secret: str) -> str:
-        signature = hmac.new(
-            secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
         return f"sha256={signature}"
+
     return _sign
 
 
 @pytest.fixture
 def jira_webhook_signature():
     """Jira webhook signature generator."""
+
     def _sign(payload: bytes, secret: str) -> str:
-        signature = hmac.new(
-            secret.encode(),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
+        signature = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
         return f"sha256={signature}"
+
     return _sign
 
 
 @pytest.fixture
 def slack_webhook_signature():
     """Slack webhook signature generator."""
+
     def _sign(payload: bytes, secret: str, timestamp: str) -> str:
         sig_basestring = f"v0:{timestamp}:{payload.decode()}"
         signature = hmac.new(
-            secret.encode(),
-            sig_basestring.encode(),
-            hashlib.sha256
+            secret.encode(), sig_basestring.encode(), hashlib.sha256
         ).hexdigest()
         return f"v0={signature}"
+
     return _sign
 
 

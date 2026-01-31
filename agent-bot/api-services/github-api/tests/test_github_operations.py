@@ -20,23 +20,34 @@ class MockGitHubClient:
 
     async def get_repository(self, owner: str, repo: str) -> dict:
         """Get repository information."""
-        return self._responses.get(f"GET:/repos/{owner}/{repo}", {
-            "full_name": f"{owner}/{repo}",
-            "default_branch": "main",
-            "private": False,
-        })
+        return self._responses.get(
+            f"GET:/repos/{owner}/{repo}",
+            {
+                "full_name": f"{owner}/{repo}",
+                "default_branch": "main",
+                "private": False,
+            },
+        )
 
     async def get_issue(self, owner: str, repo: str, issue_number: int) -> dict:
         """Get issue information."""
-        return self._responses.get(f"GET:/repos/{owner}/{repo}/issues/{issue_number}", {
-            "number": issue_number,
-            "title": "Test Issue",
-            "body": "Test body",
-            "state": "open",
-        })
+        return self._responses.get(
+            f"GET:/repos/{owner}/{repo}/issues/{issue_number}",
+            {
+                "number": issue_number,
+                "title": "Test Issue",
+                "body": "Test body",
+                "state": "open",
+            },
+        )
 
     async def create_issue(
-        self, owner: str, repo: str, title: str, body: str | None = None, labels: list[str] | None = None
+        self,
+        owner: str,
+        repo: str,
+        title: str,
+        body: str | None = None,
+        labels: list[str] | None = None,
     ) -> dict:
         """Create a new issue."""
         return {
@@ -59,17 +70,27 @@ class MockGitHubClient:
 
     async def get_pull_request(self, owner: str, repo: str, pr_number: int) -> dict:
         """Get pull request information."""
-        return self._responses.get(f"GET:/repos/{owner}/{repo}/pulls/{pr_number}", {
-            "number": pr_number,
-            "title": "Test PR",
-            "body": "Test PR body",
-            "state": "open",
-            "head": {"ref": "feature-branch", "sha": "abc123"},
-            "base": {"ref": "main", "sha": "def456"},
-        })
+        return self._responses.get(
+            f"GET:/repos/{owner}/{repo}/pulls/{pr_number}",
+            {
+                "number": pr_number,
+                "title": "Test PR",
+                "body": "Test PR body",
+                "state": "open",
+                "head": {"ref": "feature-branch", "sha": "abc123"},
+                "base": {"ref": "main", "sha": "def456"},
+            },
+        )
 
     async def create_pr_review_comment(
-        self, owner: str, repo: str, pr_number: int, body: str, commit_id: str, path: str, line: int
+        self,
+        owner: str,
+        repo: str,
+        pr_number: int,
+        body: str,
+        commit_id: str,
+        path: str,
+        line: int,
     ) -> dict:
         """Add review comment to a PR."""
         return {
@@ -110,7 +131,9 @@ class MockGitHubClient:
             ],
         }
 
-    async def list_branches(self, owner: str, repo: str, per_page: int = 30, page: int = 1) -> list:
+    async def list_branches(
+        self, owner: str, repo: str, per_page: int = 30, page: int = 1
+    ) -> list:
         """List repository branches."""
         return [
             {"name": "main", "commit": {"sha": "abc123"}},

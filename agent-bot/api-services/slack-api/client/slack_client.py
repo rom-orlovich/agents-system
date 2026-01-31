@@ -97,7 +97,10 @@ class SlackClient:
         self, limit: int = 100, cursor: str | None = None
     ) -> dict[str, Any]:
         client = await self._get_client()
-        params: dict[str, Any] = {"limit": limit, "types": "public_channel,private_channel"}
+        params: dict[str, Any] = {
+            "limit": limit,
+            "types": "public_channel,private_channel",
+        }
         if cursor:
             params["cursor"] = cursor
         response = await client.get("/conversations.list", params=params)

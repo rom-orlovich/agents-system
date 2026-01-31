@@ -9,6 +9,7 @@ from .task_factory import Task
 @dataclass
 class Session:
     """Session model for testing business logic."""
+
     session_id: str
     user_id: str
     machine_id: str

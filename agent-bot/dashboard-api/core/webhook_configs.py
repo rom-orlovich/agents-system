@@ -61,7 +61,7 @@ def validate_webhook_configs() -> None:
     critical_webhooks = [
         ("github", GITHUB_WEBHOOK),
         ("jira", JIRA_WEBHOOK),
-        ("slack", SLACK_WEBHOOK)
+        ("slack", SLACK_WEBHOOK),
     ]
     missing = [name for name, cfg in critical_webhooks if cfg is None]
 
@@ -73,7 +73,9 @@ def validate_webhook_configs() -> None:
 
     # Validate existing configs
     if not validate_all_configs():
-        raise ValueError("Webhook configuration validation failed. Check logs for details.")
+        raise ValueError(
+            "Webhook configuration validation failed. Check logs for details."
+        )
     logger.info("webhook_configs_validated", count=len(WEBHOOK_CONFIGS))
 
 

@@ -9,7 +9,12 @@ import pytest
 class MockJiraClient:
     """Mock Jira client for testing without real API calls."""
 
-    def __init__(self, base_url: str = "https://jira.example.com", email: str = "test@example.com", token: str = "test-token"):
+    def __init__(
+        self,
+        base_url: str = "https://jira.example.com",
+        email: str = "test@example.com",
+        token: str = "test-token",
+    ):
         self._base_url = base_url
         self._email = email
         self._token = token
@@ -41,7 +46,12 @@ class MockJiraClient:
         }
 
     async def create_issue(
-        self, project: str, summary: str, description: str | None = None, issue_type: str = "Task", labels: list[str] | None = None
+        self,
+        project: str,
+        summary: str,
+        description: str | None = None,
+        issue_type: str = "Task",
+        labels: list[str] | None = None,
     ) -> dict:
         """Create a new issue."""
         issue_key = f"{project}-123"

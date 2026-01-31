@@ -10,6 +10,7 @@ from .task_factory import Task
 @dataclass
 class ConversationMessage:
     """Conversation message model."""
+
     message_id: str
     role: str
     content: str
@@ -21,6 +22,7 @@ class ConversationMessage:
 @dataclass
 class Conversation:
     """Conversation model for testing business logic."""
+
     conversation_id: str
     user_id: str
     title: str

@@ -15,7 +15,7 @@ def install_cursor_cli():
     print("Installing Cursor CLI...")
     result = subprocess.run(
         ["bash", "-c", "curl -fsSL https://cursor.com/install | bash"],
-        capture_output=True
+        capture_output=True,
     )
     if result.returncode == 0:
         print("✅ Cursor CLI installed")
@@ -27,10 +27,7 @@ def install_cursor_cli():
 def run_cli_test():
     """Run CLI test."""
     print("🧪 Testing CLI...")
-    result = subprocess.run(
-        [sys.executable, "scripts/test_cli.py"],
-        cwd="/app"
-    )
+    result = subprocess.run([sys.executable, "scripts/test_cli.py"], cwd="/app")
     return result.returncode == 0
 
 

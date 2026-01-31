@@ -44,7 +44,9 @@ webhook_buffer: dict[str, list[dict]] = {}
 loggers_cache: dict[str, MockTaskLogger] = {}
 
 
-def get_or_create_mock_logger(task_id: str, logs_dir: Path = Path("/tmp")) -> MockTaskLogger:
+def get_or_create_mock_logger(
+    task_id: str, logs_dir: Path = Path("/tmp")
+) -> MockTaskLogger:
     """Get or create a mock logger for testing."""
     if task_id not in loggers_cache:
         loggers_cache[task_id] = MockTaskLogger(task_id, logs_dir)
@@ -73,11 +75,13 @@ async def process_webhook_event_mock(event: dict):
     if not task_id:
         if webhook_event_id not in webhook_buffer:
             webhook_buffer[webhook_event_id] = []
-        webhook_buffer[webhook_event_id].append({
-            "timestamp": timestamp,
-            "stage": event_type.split(":")[1],
-            "data": data,
-        })
+        webhook_buffer[webhook_event_id].append(
+            {
+                "timestamp": timestamp,
+                "stage": event_type.split(":")[1],
+                "data": data,
+            }
+        )
         return
 
     task_logger = get_or_create_mock_logger(task_id)
@@ -85,11 +89,13 @@ async def process_webhook_event_mock(event: dict):
     for buffered in webhook_buffer.pop(webhook_event_id, []):
         task_logger.append_webhook_event(buffered)
 
-    task_logger.append_webhook_event({
-        "timestamp": timestamp,
-        "stage": event_type.split(":")[1],
-        "data": data,
-    })
+    task_logger.append_webhook_event(
+        {
+            "timestamp": timestamp,
+            "stage": event_type.split(":")[1],
+            "data": data,
+        }
+    )
 
 
 async def process_task_event_mock(event: dict):
@@ -112,37 +118,45 @@ async def process_task_event_mock(event: dict):
         task_logger.write_input({"message": data.get("input_message")})
 
     elif event_type == "task:output":
-        task_logger.append_agent_output({
-            "timestamp": timestamp,
-            "type": "output",
-            "content": data.get("content"),
-        })
+        task_logger.append_agent_output(
+            {
+                "timestamp": timestamp,
+                "type": "output",
+                "content": data.get("content"),
+            }
+        )
 
     elif event_type == "task:user_input":
-        task_logger.append_user_input({
-            "timestamp": timestamp,
-            "type": "user_response",
-            "question_type": data.get("question_type", "clarification"),
-            "content": data.get("content"),
-        })
+        task_logger.append_user_input(
+            {
+                "timestamp": timestamp,
+                "type": "user_response",
+                "question_type": data.get("question_type", "clarification"),
+                "content": data.get("content"),
+            }
+        )
 
     elif event_type == "task:completed":
-        task_logger.write_final_result({
-            "success": True,
-            "result": data.get("result"),
-            "metrics": {
-                "cost_usd": data.get("cost_usd"),
-                "duration_seconds": data.get("duration_seconds"),
-            },
-            "completed_at": timestamp,
-        })
+        task_logger.write_final_result(
+            {
+                "success": True,
+                "result": data.get("result"),
+                "metrics": {
+                    "cost_usd": data.get("cost_usd"),
+                    "duration_seconds": data.get("duration_seconds"),
+                },
+                "completed_at": timestamp,
+            }
+        )
 
     elif event_type == "task:failed":
-        task_logger.write_final_result({
-            "success": False,
-            "error": data.get("error"),
-            "completed_at": timestamp,
-        })
+        task_logger.write_final_result(
+            {
+                "success": False,
+                "error": data.get("error"),
+                "completed_at": timestamp,
+            }
+        )
 
 
 class TestWebhookEventBuffering:
@@ -156,19 +170,23 @@ class TestWebhookEventBuffering:
         """Business requirement: Early events buffered."""
         webhook_event_id = "webhook-001"
 
-        await process_webhook_event_mock({
-            "type": "webhook:received",
-            "webhook_event_id": webhook_event_id,
-            "timestamp": "2026-01-31T12:00:00Z",
-            "data": {"provider": "github"},
-        })
+        await process_webhook_event_mock(
+            {
+                "type": "webhook:received",
+                "webhook_event_id": webhook_event_id,
+                "timestamp": "2026-01-31T12:00:00Z",
+                "data": {"provider": "github"},
+            }
+        )
 
-        await process_webhook_event_mock({
-            "type": "webhook:validated",
-            "webhook_event_id": webhook_event_id,
-            "timestamp": "2026-01-31T12:00:01Z",
-            "data": {"valid": True},
-        })
+        await process_webhook_event_mock(
+            {
+                "type": "webhook:validated",
+                "webhook_event_id": webhook_event_id,
+                "timestamp": "2026-01-31T12:00:01Z",
+                "data": {"valid": True},
+            }
+        )
 
         assert webhook_event_id in webhook_buffer
         assert len(webhook_buffer[webhook_event_id]) == 2
@@ -178,26 +196,32 @@ class TestWebhookEventBuffering:
         webhook_event_id = "webhook-001"
         task_id = "task-001"
 
-        await process_webhook_event_mock({
-            "type": "webhook:received",
-            "webhook_event_id": webhook_event_id,
-            "timestamp": "2026-01-31T12:00:00Z",
-            "data": {},
-        })
+        await process_webhook_event_mock(
+            {
+                "type": "webhook:received",
+                "webhook_event_id": webhook_event_id,
+                "timestamp": "2026-01-31T12:00:00Z",
+                "data": {},
+            }
+        )
 
-        await process_webhook_event_mock({
-            "type": "webhook:validated",
-            "webhook_event_id": webhook_event_id,
-            "timestamp": "2026-01-31T12:00:01Z",
-            "data": {},
-        })
+        await process_webhook_event_mock(
+            {
+                "type": "webhook:validated",
+                "webhook_event_id": webhook_event_id,
+                "timestamp": "2026-01-31T12:00:01Z",
+                "data": {},
+            }
+        )
 
-        await process_webhook_event_mock({
-            "type": "webhook:task_created",
-            "webhook_event_id": webhook_event_id,
-            "timestamp": "2026-01-31T12:00:02Z",
-            "data": {"task_id": task_id},
-        })
+        await process_webhook_event_mock(
+            {
+                "type": "webhook:task_created",
+                "webhook_event_id": webhook_event_id,
+                "timestamp": "2026-01-31T12:00:02Z",
+                "data": {"task_id": task_id},
+            }
+        )
 
         task_logger = loggers_cache[task_id]
         assert len(task_logger.webhook_events) == 3
@@ -215,17 +239,19 @@ class TestTaskEventProcessing:
 
     async def test_task_created_writes_metadata(self):
         """Business requirement: Metadata captured."""
-        await process_task_event_mock({
-            "type": "task:created",
-            "task_id": "task-001",
-            "timestamp": "2026-01-31T12:00:00Z",
-            "data": {
+        await process_task_event_mock(
+            {
+                "type": "task:created",
                 "task_id": "task-001",
-                "source": "webhook",
-                "assigned_agent": "github-issue-handler",
-                "input_message": "Fix the bug",
-            },
-        })
+                "timestamp": "2026-01-31T12:00:00Z",
+                "data": {
+                    "task_id": "task-001",
+                    "source": "webhook",
+                    "assigned_agent": "github-issue-handler",
+                    "input_message": "Fix the bug",
+                },
+            }
+        )
 
         task_logger = loggers_cache["task-001"]
         assert task_logger.metadata_written is not None
@@ -233,12 +259,14 @@ class TestTaskEventProcessing:
 
     async def test_task_created_writes_input(self):
         """Business requirement: Initial input preserved."""
-        await process_task_event_mock({
-            "type": "task:created",
-            "task_id": "task-001",
-            "timestamp": "2026-01-31T12:00:00Z",
-            "data": {"input_message": "Fix the authentication bug"},
-        })
+        await process_task_event_mock(
+            {
+                "type": "task:created",
+                "task_id": "task-001",
+                "timestamp": "2026-01-31T12:00:00Z",
+                "data": {"input_message": "Fix the authentication bug"},
+            }
+        )
 
         task_logger = loggers_cache["task-001"]
         assert task_logger.input_written is not None
@@ -248,25 +276,31 @@ class TestTaskEventProcessing:
         """Business requirement: Streaming output captured."""
         task_id = "task-001"
 
-        await process_task_event_mock({
-            "type": "task:created",
-            "task_id": task_id,
-            "data": {"input_message": "test"},
-        })
+        await process_task_event_mock(
+            {
+                "type": "task:created",
+                "task_id": task_id,
+                "data": {"input_message": "test"},
+            }
+        )
 
-        await process_task_event_mock({
-            "type": "task:output",
-            "task_id": task_id,
-            "timestamp": "2026-01-31T12:00:00Z",
-            "data": {"content": "Analyzing the code..."},
-        })
+        await process_task_event_mock(
+            {
+                "type": "task:output",
+                "task_id": task_id,
+                "timestamp": "2026-01-31T12:00:00Z",
+                "data": {"content": "Analyzing the code..."},
+            }
+        )
 
-        await process_task_event_mock({
-            "type": "task:output",
-            "task_id": task_id,
-            "timestamp": "2026-01-31T12:00:01Z",
-            "data": {"content": "Found the bug!"},
-        })
+        await process_task_event_mock(
+            {
+                "type": "task:output",
+                "task_id": task_id,
+                "timestamp": "2026-01-31T12:00:01Z",
+                "data": {"content": "Found the bug!"},
+            }
+        )
 
         task_logger = loggers_cache[task_id]
         assert len(task_logger.agent_outputs) == 2
@@ -275,21 +309,25 @@ class TestTaskEventProcessing:
         """Business requirement: User responses tracked."""
         task_id = "task-001"
 
-        await process_task_event_mock({
-            "type": "task:created",
-            "task_id": task_id,
-            "data": {"input_message": "test"},
-        })
+        await process_task_event_mock(
+            {
+                "type": "task:created",
+                "task_id": task_id,
+                "data": {"input_message": "test"},
+            }
+        )
 
-        await process_task_event_mock({
-            "type": "task:user_input",
-            "task_id": task_id,
-            "timestamp": "2026-01-31T12:00:00Z",
-            "data": {
-                "question_type": "approval",
-                "content": "yes, proceed",
-            },
-        })
+        await process_task_event_mock(
+            {
+                "type": "task:user_input",
+                "task_id": task_id,
+                "timestamp": "2026-01-31T12:00:00Z",
+                "data": {
+                    "question_type": "approval",
+                    "content": "yes, proceed",
+                },
+            }
+        )
 
         task_logger = loggers_cache[task_id]
         assert len(task_logger.user_inputs) == 1
@@ -299,22 +337,26 @@ class TestTaskEventProcessing:
         """Business requirement: Success metrics captured."""
         task_id = "task-001"
 
-        await process_task_event_mock({
-            "type": "task:created",
-            "task_id": task_id,
-            "data": {"input_message": "test"},
-        })
+        await process_task_event_mock(
+            {
+                "type": "task:created",
+                "task_id": task_id,
+                "data": {"input_message": "test"},
+            }
+        )
 
-        await process_task_event_mock({
-            "type": "task:completed",
-            "task_id": task_id,
-            "timestamp": "2026-01-31T12:02:00Z",
-            "data": {
-                "result": "Bug fixed successfully",
-                "cost_usd": 0.05,
-                "duration_seconds": 120,
-            },
-        })
+        await process_task_event_mock(
+            {
+                "type": "task:completed",
+                "task_id": task_id,
+                "timestamp": "2026-01-31T12:02:00Z",
+                "data": {
+                    "result": "Bug fixed successfully",
+                    "cost_usd": 0.05,
+                    "duration_seconds": 120,
+                },
+            }
+        )
 
         task_logger = loggers_cache[task_id]
         assert task_logger.final_result is not None
@@ -325,18 +367,22 @@ class TestTaskEventProcessing:
         """Business requirement: Failure debugging."""
         task_id = "task-001"
 
-        await process_task_event_mock({
-            "type": "task:created",
-            "task_id": task_id,
-            "data": {"input_message": "test"},
-        })
+        await process_task_event_mock(
+            {
+                "type": "task:created",
+                "task_id": task_id,
+                "data": {"input_message": "test"},
+            }
+        )
 
-        await process_task_event_mock({
-            "type": "task:failed",
-            "task_id": task_id,
-            "timestamp": "2026-01-31T12:02:00Z",
-            "data": {"error": "Timeout exceeded"},
-        })
+        await process_task_event_mock(
+            {
+                "type": "task:failed",
+                "task_id": task_id,
+                "timestamp": "2026-01-31T12:02:00Z",
+                "data": {"error": "Timeout exceeded"},
+            }
+        )
 
         task_logger = loggers_cache[task_id]
         assert task_logger.final_result is not None
@@ -353,22 +399,26 @@ class TestEventResilience:
 
     async def test_missing_task_id_handled(self):
         """Business requirement: Resilience for missing task_id."""
-        await process_task_event_mock({
-            "type": "task:output",
-            "timestamp": "2026-01-31T12:00:00Z",
-            "data": {"content": "test"},
-        })
+        await process_task_event_mock(
+            {
+                "type": "task:output",
+                "timestamp": "2026-01-31T12:00:00Z",
+                "data": {"content": "test"},
+            }
+        )
 
         assert len(loggers_cache) == 0
 
     async def test_json_string_data_parsed(self):
         """JSON string data is properly parsed."""
-        await process_task_event_mock({
-            "type": "task:created",
-            "task_id": "task-001",
-            "timestamp": "2026-01-31T12:00:00Z",
-            "data": json.dumps({"input_message": "Fix bug"}),
-        })
+        await process_task_event_mock(
+            {
+                "type": "task:created",
+                "task_id": "task-001",
+                "timestamp": "2026-01-31T12:00:00Z",
+                "data": json.dumps({"input_message": "Fix bug"}),
+            }
+        )
 
         task_logger = loggers_cache["task-001"]
         assert task_logger.input_written["message"] == "Fix bug"

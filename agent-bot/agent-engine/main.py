@@ -25,7 +25,9 @@ class TaskWorker:
     async def start(self) -> None:
         self._redis = redis.from_url(self._settings.redis_url)
         self._running = True
-        logger.info("task_worker_started", max_concurrent=self._settings.max_concurrent_tasks)
+        logger.info(
+            "task_worker_started", max_concurrent=self._settings.max_concurrent_tasks
+        )
 
         semaphore = asyncio.Semaphore(self._settings.max_concurrent_tasks)
 
@@ -43,6 +45,7 @@ class TaskWorker:
 
     async def _process_task(self, task_data: bytes) -> None:
         import json
+
         try:
             task = json.loads(task_data)
             task_id = task.get("task_id", "unknown")
@@ -89,7 +92,12 @@ class TaskWorker:
             return {"error": "Task timed out", "return_code": -1}
 
     def _get_model_for_task(self, agent_type: str) -> str | None:
-        is_complex_task = agent_type.lower() in ("planning", "consultation", "question_asking", "brain")
+        is_complex_task = agent_type.lower() in (
+            "planning",
+            "consultation",
+            "question_asking",
+            "brain",
+        )
 
         if self._settings.cli_provider == "cursor":
             return (
@@ -110,11 +118,14 @@ class TaskWorker:
         self, task_id: str, status: str, result: dict[str, Any] | None = None
     ) -> None:
         import json
+
         if self._redis:
             update = {"status": status}
             if result:
                 update["result"] = result
-            await self._redis.hset(f"task:{task_id}", mapping={"data": json.dumps(update)})
+            await self._redis.hset(
+                f"task:{task_id}", mapping={"data": json.dumps(update)}
+            )
             await self._redis.publish(f"task:{task_id}:status", json.dumps(update))
 
     async def stop(self) -> None:
@@ -143,7 +154,9 @@ async def lifespan(app: FastAPI):
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, lambda s=sig: handle_shutdown(s))
 
-    logger.info("agent_engine_started", port=settings.port, cli_provider=settings.cli_provider)
+    logger.info(
+        "agent_engine_started", port=settings.port, cli_provider=settings.cli_provider
+    )
     yield
 
     await worker.stop()

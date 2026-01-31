@@ -10,7 +10,6 @@ from datetime import datetime, timezone, timedelta
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
 
 
-
 class TestConversationMetricsAggregation:
     """Tests for conversation metrics aggregation."""
 

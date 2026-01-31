@@ -3,8 +3,6 @@
 Tests routing of tasks to specialized agents based on source.
 """
 
-
-
 ROUTING_TABLE: dict[str, dict[str, str]] = {
     "github": {
         "issues": "github-issue-handler",

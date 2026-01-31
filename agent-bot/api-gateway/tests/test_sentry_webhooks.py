@@ -111,7 +111,9 @@ class TestSentryTaskExtraction:
 
         assert task_info["source"] == "sentry"
         assert task_info["issue_id"] == "12345"
-        assert task_info["title"] == "TypeError: Cannot read property 'foo' of undefined"
+        assert (
+            task_info["title"] == "TypeError: Cannot read property 'foo' of undefined"
+        )
         assert task_info["culprit"] == "src/utils/parser.js"
         assert task_info["project"] == "my-project"
         assert task_info["user_count"] == 5

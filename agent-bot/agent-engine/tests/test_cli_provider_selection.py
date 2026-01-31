@@ -68,7 +68,9 @@ class TestModelSelection:
 
         for agent in COMPLEX_AGENTS:
             model = get_model_for_agent(agent, settings=mock_engine_settings)
-            assert model == "claude-sonnet-4.5", f"{agent} should use Cursor complex model"
+            assert model == "claude-sonnet-4.5", (
+                f"{agent} should use Cursor complex model"
+            )
 
     def test_cursor_execution_agents_use_standard_model(self, mock_engine_settings):
         """Business requirement: Cursor uses appropriate execution model."""

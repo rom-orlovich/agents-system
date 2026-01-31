@@ -14,7 +14,9 @@ def mock_settings():
     settings.github_app_name = "test-app"
     settings.github_client_id = "test-client-id"
     settings.github_client_secret = "test-client-secret"
-    settings.github_private_key = "-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----"
+    settings.github_private_key = (
+        "-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----"
+    )
     settings.slack_client_id = "slack-client-id"
     settings.slack_client_secret = "slack-client-secret"
     settings.jira_client_id = "jira-client-id"

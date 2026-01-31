@@ -19,7 +19,11 @@ class MockSlackClient:
         self._channels[channel_id] = data
 
     async def post_message(
-        self, channel: str, text: str, blocks: list | None = None, thread_ts: str | None = None
+        self,
+        channel: str,
+        text: str,
+        blocks: list | None = None,
+        thread_ts: str | None = None,
     ) -> dict:
         """Post a message to a channel."""
         message = {

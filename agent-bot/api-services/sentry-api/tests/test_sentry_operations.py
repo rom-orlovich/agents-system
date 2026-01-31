@@ -116,15 +116,16 @@ class TestSentryIssueOperations:
 
     async def test_get_issue_with_stacktrace(self, sentry_client):
         """Business requirement: Stacktrace, metadata returned."""
-        sentry_client.set_issue("12345", {
-            "id": "12345",
-            "title": "Error",
-            "metadata": {
-                "stacktrace": {
-                    "frames": [{"filename": "test.js", "lineno": 10}]
-                }
+        sentry_client.set_issue(
+            "12345",
+            {
+                "id": "12345",
+                "title": "Error",
+                "metadata": {
+                    "stacktrace": {"frames": [{"filename": "test.js", "lineno": 10}]}
+                },
             },
-        })
+        )
 
         result = await sentry_client.get_issue("12345")
 

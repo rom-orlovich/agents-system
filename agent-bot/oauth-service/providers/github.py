@@ -21,7 +21,9 @@ class GitHubOAuthProvider(OAuthProvider):
         self.redirect_uri = f"{settings.base_url}/oauth/callback/github"
 
     def get_authorization_url(self, state: str) -> str:
-        return f"https://github.com/apps/{self.app_name}/installations/new?state={state}"
+        return (
+            f"https://github.com/apps/{self.app_name}/installations/new?state={state}"
+        )
 
     def _generate_jwt(self) -> str:
         now = int(datetime.now(timezone.utc).timestamp())

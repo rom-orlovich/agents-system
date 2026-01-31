@@ -57,8 +57,10 @@ class SlackAuthMiddleware(BaseHTTPMiddleware):
         try:
             data = json.loads(body)
             if data.get("type") == "url_verification":
+
                 async def receive():
                     return {"type": "http.request", "body": body}
+
                 request = Request(request.scope, receive)
                 return await call_next(request)
         except json.JSONDecodeError:
