@@ -4,7 +4,14 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import agents_router, tasks_router, monitoring_router, metrics_router
+from .routes import (
+    agents_router,
+    tasks_router,
+    monitoring_router,
+    metrics_router,
+    registry_router,
+    analytics_router,
+)
 from middleware import AuthMiddleware, error_handler
 
 logger = structlog.get_logger(__name__)
@@ -38,6 +45,8 @@ def create_app() -> FastAPI:
     app.include_router(tasks_router)
     app.include_router(monitoring_router)
     app.include_router(metrics_router)
+    app.include_router(registry_router)
+    app.include_router(analytics_router)
 
     @app.get("/health")
     async def health_check():
@@ -53,6 +62,8 @@ def create_app() -> FastAPI:
                 "tasks": "/api/v1/tasks",
                 "monitoring": "/api/v1/monitoring",
                 "metrics": "/api/v1/metrics",
+                "registry": "/api/v1/registry",
+                "analytics": "/api/v1/analytics",
             },
         }
 

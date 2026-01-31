@@ -214,6 +214,29 @@ services:
     container_name: knowledge-graph
     ports:
       - "4000:4000"
+    environment:
+      - PORT=4000
+      - GKG_DATA_DIR=/data/graphs
+      - REPOS_DIR=/data/repos
+      - REPOS_CONFIG=/app/config/repos.json
+      - REPO_URLS=${REPO_URLS:-}
+    volumes:
+      - knowledge_graph_data:/data
+      - ./knowledge-graph/config:/app/config:ro
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  knowledge-graph-mcp:
+    build: ./mcp-servers/knowledge-graph-mcp
+    container_name: knowledge-graph-mcp
+    ports:
+      - "9005:9005"
+    environment:
+      - KG_PORT=9005
+      - KG_KNOWLEDGE_GRAPH_URL=http://knowledge-graph:4000
+    depends_on:
+      - knowledge-graph
     networks:
       - agent-network
     restart: unless-stopped
@@ -225,3 +248,4 @@ networks:
 volumes:
   postgres_data:
   agent_data:
+  knowledge_graph_data:

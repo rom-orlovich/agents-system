@@ -4,6 +4,8 @@ import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Tasks } from './pages/Tasks';
 import { Agents } from './pages/Agents';
+import { Analytics } from './pages/Analytics';
+import { useWebSocket } from './hooks/useWebSocket';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -13,6 +15,11 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function WebSocketProvider({ children }: { children: React.ReactNode }) {
+  useWebSocket("dashboard");
+  return <>{children}</>;
+}
 
 function Settings() {
   return (
@@ -24,9 +31,22 @@ function Settings() {
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          API Configuration
+          CLI Provider Configuration
         </h2>
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Current Provider
+            </label>
+            <div className="mt-1 flex items-center gap-4">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                {import.meta.env.VITE_CLI_PROVIDER || 'claude'}
+              </span>
+              <span className="text-sm text-gray-500">
+                Set via CLI_PROVIDER environment variable
+              </span>
+            </div>
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
               API URL
@@ -34,18 +54,37 @@ function Settings() {
             <input
               type="text"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              defaultValue={import.meta.env.VITE_API_URL || 'http://localhost:8090'}
+              defaultValue={import.meta.env.VITE_API_URL || 'http://localhost:5000'}
+              readOnly
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          Knowledge Graph
+        </h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Knowledge Graph URL
+            </label>
+            <input
+              type="text"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              defaultValue={import.meta.env.VITE_KG_URL || 'http://localhost:4000'}
               readOnly
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              WebSocket URL
+              MCP Server
             </label>
             <input
               type="text"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              defaultValue={import.meta.env.VITE_WS_URL || 'ws://localhost:8090/ws'}
+              defaultValue="http://knowledge-graph-mcp:9005"
               readOnly
             />
           </div>
@@ -79,14 +118,17 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/agents" element={<Agents />} />
-            <Route path="/settings" element={<Settings />} />
-          </Routes>
-        </Layout>
+        <WebSocketProvider>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/tasks" element={<Tasks />} />
+              <Route path="/agents" element={<Agents />} />
+              <Route path="/analytics" element={<Analytics />} />
+              <Route path="/settings" element={<Settings />} />
+            </Routes>
+          </Layout>
+        </WebSocketProvider>
       </BrowserRouter>
     </QueryClientProvider>
   );
