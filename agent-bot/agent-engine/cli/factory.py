@@ -4,9 +4,9 @@ from enum import Enum
 from pathlib import Path
 from functools import lru_cache
 
-from core.cli.base import CLIResult, CLIRunner
-from core.cli.providers.claude import ClaudeCLIRunner
-from core.cli.providers.cursor import CursorCLIRunner
+from cli.base import CLIResult, CLIRunner
+from cli.providers.claude import ClaudeCLIRunner
+from cli.providers.cursor import CursorCLIRunner
 
 
 class CLIProviderType(str, Enum):

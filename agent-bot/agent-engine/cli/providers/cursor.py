@@ -4,8 +4,8 @@ import os
 from pathlib import Path
 import structlog
 
-from core.cli.base import CLIResult
-from core.cli.sanitization import sanitize_sensitive_content, contains_sensitive_data
+from cli.base import CLIResult
+from cli.sanitization import sanitize_sensitive_content, contains_sensitive_data
 
 logger = structlog.get_logger()
 

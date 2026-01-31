@@ -1,0 +1,64 @@
+services:
+  redis:
+    image: redis:7-alpine
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=agent_system
+      - POSTGRES_USER=agent
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-agent}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent -d agent_system"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  cli:
+    build: ./agent-engine
+    image: ${CLI_PROVIDER:-claude}-cli:latest
+    ports:
+      - "8080-8089:8080"
+    environment:
+      - CLI_PROVIDER=${CLI_PROVIDER:-claude}
+      - MAX_CONCURRENT_TASKS=${MAX_CONCURRENT_TASKS:-5}
+      - TASK_TIMEOUT_SECONDS=${TASK_TIMEOUT_SECONDS:-3600}
+      - CLAUDE_CODE_ENABLE_TASKS=${CLAUDE_CODE_ENABLE_TASKS:-true}
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://agent:${POSTGRES_PASSWORD:-agent}@postgres:5432/agent_system
+      - KNOWLEDGE_GRAPH_URL=http://knowledge-graph:4000
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CURSOR_API_KEY=${CURSOR_API_KEY:-}
+    volumes:
+      - agent_data:/data
+      - ~/.claude:/root/.claude:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+networks:
+  agent-network:
+    name: agent-network
+    external: true
+
+volumes:
+  agent_data:
+  postgres_data:

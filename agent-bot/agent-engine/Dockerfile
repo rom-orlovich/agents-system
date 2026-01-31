@@ -26,6 +26,9 @@ ENV PATH="/home/agent/.local/bin:${PATH}"
 
 RUN claude --version
 
+# Ensure claude is accessible system-wide
+RUN ln -sf /usr/bin/claude /usr/local/bin/claude 2>/dev/null || true
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

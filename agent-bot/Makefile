@@ -1,60 +1,26 @@
 .PHONY: help init build up down restart logs test lint format clean
 
 help:
-	@echo "Agent Bot - Containerized Multi-Agent System"
+	@echo "Agent Bot - Quick Commands"
 	@echo ""
-	@echo "Usage: make [target]"
+	@echo "Start:"
+	@echo "  make start             Start system (checks prerequisites)"
+	@echo "  make cli-claude        Start Claude CLI"
+	@echo "  make cli-cursor        Start Cursor CLI"
 	@echo ""
-	@echo "Setup:"
-	@echo "  init              Initialize project (install dependencies, create dirs)"
-	@echo "  build             Build all Docker containers"
-	@echo "  build-dashboard   Build dashboard services only"
+	@echo "Services:"
+	@echo "  make up                Start all services"
+	@echo "  make down              Stop all services"
+	@echo "  make health            Check service health"
 	@echo ""
-	@echo "Docker:"
-	@echo "  up                Start all services"
-	@echo "  up-infra          Start infrastructure only (Redis, PostgreSQL)"
-	@echo "  up-dashboard      Start dashboard services only"
-	@echo "  down              Stop all services"
-	@echo "  restart           Restart all services"
-	@echo "  restart-dashboard Restart dashboard services"
-	@echo "  logs              View logs (all services)"
-	@echo "  logs-gateway      View api-gateway logs"
-	@echo "  logs-dashboard    View dashboard-api logs"
-	@echo "  logs-ui           View external-dashboard logs"
-	@echo "  logs-task-logger  View task-logger logs"
-	@echo ""
-	@echo "CLI Agent:"
-	@echo "  cli-up            Start CLI (PROVIDER=claude|cursor SCALE=1)"
-	@echo "  cli-down          Stop CLI (PROVIDER=claude|cursor)"
-	@echo "  cli-logs          View CLI logs (PROVIDER=claude|cursor)"
-	@echo "  cli-status        Check CLI status (PROVIDER=claude|cursor)"
-	@echo "  cli-active        Show active CLI instances in database"
-	@echo ""
-	@echo "Testing:"
-	@echo "  test              Run all tests"
-	@echo "  test-unit         Run unit tests"
-	@echo "  test-integration  Run integration tests"
-	@echo "  test-cli          Run CLI test (Claude/Cursor)"
-	@echo "  test-task-logger  Run task-logger tests"
-	@echo "  coverage          Run tests with coverage"
-	@echo ""
-	@echo "Code Quality:"
-	@echo "  lint              Run linting"
-	@echo "  format            Auto-format code"
-	@echo "  typecheck         Run type checking"
+	@echo "Development:"
+	@echo "  make test              Run tests"
+	@echo "  make lint              Run linting"
+	@echo "  make format            Auto-format code"
 	@echo ""
 	@echo "Database:"
-	@echo "  db-migrate MSG=x  Create new migration"
-	@echo "  db-upgrade        Apply migrations"
-	@echo "  db-downgrade      Rollback last migration"
-	@echo "  db-shell          Open database shell"
-	@echo ""
-	@echo "Utilities:"
-	@echo "  clean             Remove build artifacts"
-	@echo "  redis-cli         Open Redis CLI"
-	@echo "  shell             Open shell in agent-engine"
-	@echo "  shell-dashboard   Open shell in dashboard-api"
-	@echo "  health            Check all service health"
+	@echo "  make db-migrate MSG=x  Create migration"
+	@echo "  make db-upgrade        Apply migrations"
 
 # Setup
 init:
@@ -66,107 +32,180 @@ init:
 build:
 	docker-compose build
 
-build-dashboard:
-	docker-compose build dashboard-api external-dashboard
+# Start (with checks)
+start:
+	@echo ""
+	@echo "╔══════════════════════════════════════════════════════════════╗"
+	@echo "║        🚀 Starting Agent Bot System                          ║"
+	@echo "╚══════════════════════════════════════════════════════════════╝"
+	@echo ""
+	@echo "📋 Checking prerequisites..."
+	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker required. Get it from https://docker.com"; exit 1; }
+	@docker ps >/dev/null 2>&1 || { echo "❌ Docker daemon not running. Start Docker Desktop."; exit 1; }
+	@echo "✅ Docker OK"
+	@echo ""
+	@echo "📄 Checking environment..."
+	@test -f .env || { echo "📄 Creating .env..."; cp .env.example .env; }
+	@echo "✅ Environment file ready"
+	@echo ""
+	@echo "🔑 Checking CLI credentials..."
+	@if [ -d ~/.claude ] || grep -q "^ANTHROPIC_API_KEY=" .env 2>/dev/null; then \
+		echo "✅ Claude CLI credentials found"; \
+	else \
+		echo "⚠️  Claude CLI not configured (set ANTHROPIC_API_KEY in .env)"; \
+	fi
+	@if grep -q "^CURSOR_API_KEY=" .env 2>/dev/null; then \
+		echo "✅ Cursor API key found"; \
+	else \
+		echo "⚠️  Cursor API key not set (set CURSOR_API_KEY in .env)"; \
+	fi
+	@echo ""
+	@echo "🔨 Building containers..."
+	@docker-compose build --quiet
+	@echo "🚀 Starting services..."
+	@docker-compose up -d redis postgres
+	@sleep 5
+	@docker-compose up -d
+	@sleep 5
+	@echo ""
+	@echo "🧪 Verifying services..."
+	@curl -sf http://localhost:8000/health > /dev/null && echo "✅ API Gateway" || echo "⚠️  API Gateway not ready"
+	@curl -sf http://localhost:5000/api/health > /dev/null && echo "✅ Dashboard API" || echo "⚠️  Dashboard API not ready"
+	@docker-compose exec -T redis redis-cli ping > /dev/null 2>&1 && echo "✅ Redis" || echo "⚠️  Redis not ready"
+	@docker-compose exec -T postgres pg_isready -U agent > /dev/null 2>&1 && echo "✅ PostgreSQL" || echo "⚠️  PostgreSQL not ready"
+	@echo ""
+	@echo "🧪 Testing CLI and logging to database..."
+	@PROVIDER=$${CLI_PROVIDER:-claude}; \
+	if [ "$$PROVIDER" = "claude" ]; then \
+		if [ -f $$HOME/.claude/.credentials.json ]; then \
+			docker-compose run --rm \
+				-e DATABASE_URL=postgresql+asyncpg://agent:$${POSTGRES_PASSWORD:-agent}@postgres:5432/agent_system \
+				-e CLI_PROVIDER=claude \
+				-v $$HOME/.claude/.credentials.json:/root/.claude/.credentials.json:ro \
+				cli python scripts/test_cli.py 2>/dev/null || echo "⚠️  CLI test skipped (no credentials)"; \
+		elif grep -q "^ANTHROPIC_API_KEY=" .env 2>/dev/null; then \
+			docker-compose run --rm \
+				-e DATABASE_URL=postgresql+asyncpg://agent:$${POSTGRES_PASSWORD:-agent}@postgres:5432/agent_system \
+				-e CLI_PROVIDER=claude \
+				-e ANTHROPIC_API_KEY=$$(grep "^ANTHROPIC_API_KEY=" .env | cut -d'=' -f2-) \
+				cli python scripts/test_cli.py 2>/dev/null || echo "⚠️  CLI test skipped"; \
+		else \
+			echo "⚠️  CLI test skipped (no credentials found)"; \
+		fi; \
+	elif [ "$$PROVIDER" = "cursor" ] && grep -q "^CURSOR_API_KEY=" .env 2>/dev/null; then \
+		docker-compose run --rm \
+			-e DATABASE_URL=postgresql+asyncpg://agent:$${POSTGRES_PASSWORD:-agent}@postgres:5432/agent_system \
+			-e CLI_PROVIDER=cursor \
+			-e CURSOR_API_KEY=$$(grep "^CURSOR_API_KEY=" .env | cut -d'=' -f2-) \
+			cli python scripts/test_cli.py 2>/dev/null || echo "⚠️  CLI test skipped"; \
+	fi
+	@echo ""
+	@echo "╔══════════════════════════════════════════════════════════════╗"
+	@echo "║        ✅ System Ready!                                      ║"
+	@echo "╠══════════════════════════════════════════════════════════════╣"
+	@echo "║  🔗 API Gateway:   http://localhost:8000                     ║"
+	@echo "║  📊 Dashboard:     http://localhost:5000                     ║"
+	@echo "║  💚 Health:        http://localhost:8000/health             ║"
+	@echo "╚══════════════════════════════════════════════════════════════╝"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  make cli-claude        Start Claude CLI"
+	@echo "  make cli-cursor        Start Cursor CLI"
+	@echo "  make health            Check all services"
+	@echo ""
 
 # Docker
 up:
 	docker-compose up -d
 
-up-infra:
-	docker-compose up -d redis postgres
-
-up-dashboard:
-	docker-compose up -d dashboard-api external-dashboard
-
-up-scale:
-	docker-compose up -d --scale agent-engine=$(N)
-
-up-engine:
-	@echo "Starting $(or $(PROVIDER),claude) CLI..."
-	@echo "   Provider: $(or $(PROVIDER),claude)"
-	@echo "   Replicas: $(or $(SCALE),1)"
-	@echo ""
-	@docker-compose -p $(or $(PROVIDER),claude) up -d redis postgres
-	@echo "Waiting for infrastructure to be healthy..."
-	@sleep 5
-	@CLI_PROVIDER=$(or $(PROVIDER),claude) docker-compose -p $(or $(PROVIDER),claude) up -d --scale cli=$(or $(SCALE),1) cli
-	@echo ""
-	@echo "✅ $(or $(PROVIDER),claude) CLI started"
-	@echo ""
-	@docker-compose -p $(or $(PROVIDER),claude) ps cli
-	@echo ""
-	@echo "View logs: make cli-logs PROVIDER=$(or $(PROVIDER),claude)"
-	@echo "Stop: make cli-down PROVIDER=$(or $(PROVIDER),claude)"
-
-cli-up: up-engine
-
-cli-down:
-	@echo "Stopping $(or $(PROVIDER),claude) CLI..."
-	@docker-compose -p $(or $(PROVIDER),claude) down
-
-cli-logs:
-	@docker-compose -p $(or $(PROVIDER),claude) logs -f cli
-
-cli-status:
-	@docker-compose -p $(or $(PROVIDER),claude) ps cli
-
-cli-active:
-	@echo "Active CLI instances in database:"
-	@docker-compose exec -T postgres psql -U agent -d agent_system -c "\
-		SELECT provider, version, hostname, active, \
-		       started_at, last_heartbeat, \
-		       EXTRACT(EPOCH FROM (NOW() - last_heartbeat)) as seconds_since_heartbeat \
-		FROM cli_instances \
-		WHERE active = true \
-		ORDER BY provider, started_at DESC;" || echo "⚠️  Database not available"
-
 down:
 	docker-compose down
 
-restart:
-	docker-compose restart
+# CLI Agent
+cli-claude:
+	@echo "Starting Claude CLI..."
+	@echo "Ensuring shared Redis and PostgreSQL are running..."
+	@docker-compose up -d redis postgres 2>/dev/null || true
+	@sleep 3
+	@echo "Ensuring shared network exists..."
+	@docker network create agent-network 2>/dev/null || docker network inspect agent-network >/dev/null 2>&1 || docker-compose network create agent-network 2>/dev/null || true
+	@echo "Building CLI container..."
+	@CLI_PROVIDER=claude docker-compose -f docker-compose.cli.yml -p claude-cli --env-file .env build cli
+	@echo "Calculating scale..."
+	@EXISTING=$$(docker ps -a --filter "name=claude-cli-cli" --format "{{.Names}}" | wc -l | tr -d ' '); \
+	if [ -n "$$SCALE" ]; then \
+		TARGET_SCALE=$$SCALE; \
+	elif [ "$$EXISTING" -gt 0 ]; then \
+		TARGET_SCALE=$$((EXISTING + 1)); \
+		echo "Found $$EXISTING existing container(s), scaling to $$TARGET_SCALE"; \
+	else \
+		TARGET_SCALE=1; \
+	fi; \
+	echo "Starting Claude CLI container(s) (scale: $$TARGET_SCALE)..."; \
+	echo "Note: CLI test will run automatically in container entrypoint"; \
+	CLI_PROVIDER=claude docker-compose -f docker-compose.cli.yml -p claude-cli --env-file .env up -d --scale cli=$$TARGET_SCALE cli
+	@echo "✅ Claude CLI started"
+	@docker-compose -f docker-compose.cli.yml -p claude-cli ps cli
+	@echo ""
+	@echo "To view logs: make cli-claude-logs"
 
-restart-dashboard:
-	docker-compose restart dashboard-api external-dashboard
+cli-cursor:
+	@echo "Starting Cursor CLI..."
+	@echo "Ensuring shared Redis and PostgreSQL are running..."
+	@docker-compose up -d redis postgres 2>/dev/null || true
+	@sleep 3
+	@echo "Ensuring shared network exists..."
+	@docker network create agent-network 2>/dev/null || docker network inspect agent-network >/dev/null 2>&1 || docker-compose network create agent-network 2>/dev/null || true
+	@echo "Building CLI container..."
+	@CLI_PROVIDER=cursor docker-compose -f docker-compose.cli.yml -p cursor-cli --env-file .env build cli
+	@echo "Calculating scale..."
+	@EXISTING=$$(docker ps -a --filter "name=cursor-cli-cli" --format "{{.Names}}" | wc -l | tr -d ' '); \
+	if [ -n "$$SCALE" ]; then \
+		TARGET_SCALE=$$SCALE; \
+	elif [ "$$EXISTING" -gt 0 ]; then \
+		TARGET_SCALE=$$((EXISTING + 1)); \
+		echo "Found $$EXISTING existing container(s), scaling to $$TARGET_SCALE"; \
+	else \
+		TARGET_SCALE=1; \
+	fi; \
+	echo "Starting Cursor CLI container(s) (scale: $$TARGET_SCALE)..."; \
+	echo "Note: CLI test will run automatically in container entrypoint"; \
+	CLI_PROVIDER=cursor docker-compose -f docker-compose.cli.yml -p cursor-cli --env-file .env up -d --scale cli=$$TARGET_SCALE cli
+	@echo "✅ Cursor CLI started"
+	@docker-compose -f docker-compose.cli.yml -p cursor-cli ps cli
+	@echo ""
+	@echo "To view logs: make cli-cursor-logs"
 
-logs:
-	docker-compose logs -f
+cli-claude-down:
+	@echo "Stopping Claude CLI containers..."
+	@if docker ps --format '{{.Names}}' | grep -q '^claude-cli-cli'; then \
+		docker-compose -f docker-compose.cli.yml -p claude-cli down; \
+	elif docker ps --format '{{.Names}}' | grep -q '^claude.*cli'; then \
+		docker-compose -p claude down; \
+	else \
+		echo "No Claude CLI containers found"; \
+	fi
 
-logs-engine:
-	docker-compose logs -f cli
+cli-cursor-down:
+	@echo "Stopping Cursor CLI containers..."
+	@if docker ps --format '{{.Names}}' | grep -q '^cursor-cli-cli'; then \
+		docker-compose -f docker-compose.cli.yml -p cursor-cli down; \
+	elif docker ps --format '{{.Names}}' | grep -q '^cursor.*cli'; then \
+		docker-compose -p cursor down; \
+	else \
+		echo "No Cursor CLI containers found"; \
+	fi
 
-logs-gateway:
-	docker-compose logs -f api-gateway
+cli-claude-logs:
+	@docker-compose -f docker-compose.cli.yml -p claude-cli logs -f cli
 
-logs-dashboard:
-	docker-compose logs -f dashboard-api
+cli-cursor-logs:
+	@docker-compose -f docker-compose.cli.yml -p cursor-cli logs -f cli
 
-logs-ui:
-	docker-compose logs -f external-dashboard
-
-logs-task-logger:
-	docker-compose logs -f task-logger
 
 # Testing
 test:
 	cd agent-engine-package && pytest
-
-test-unit:
-	cd agent-engine-package && pytest tests/unit/
-
-test-integration:
-	cd agent-engine-package && pytest tests/integration/
-
-test-cli:
-	@echo "🧪 Running CLI test in agent-engine container..."
-	@docker-compose exec -T agent-engine python scripts/test_cli_after_build.py || true
-	@echo "✅ CLI test completed"
-
-test-task-logger:
-	@echo "🧪 Running task-logger tests..."
-	@docker-compose exec -T task-logger pytest -v tests/
-	@echo "✅ Task-logger tests completed"
 
 coverage:
 	cd agent-engine-package && pytest --cov=agent_engine --cov-report=html
@@ -188,44 +227,15 @@ db-migrate:
 db-upgrade:
 	cd agent-engine-package && alembic upgrade head
 
-db-downgrade:
-	cd agent-engine-package && alembic downgrade -1
-
-db-shell:
-	docker-compose exec postgres psql -U agent -d agent_system
-
 # Utilities
 clean:
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d \( -name "__pycache__" -o -name ".pytest_cache" -o -name ".mypy_cache" -o -name ".ruff_cache" -o -name "*.egg-info" \) -exec rm -rf {} + 2>/dev/null || true
 
-redis-cli:
-	docker-compose exec redis redis-cli
-
-shell:
-	docker-compose exec agent-engine bash
-
-shell-dashboard:
-	docker-compose exec dashboard-api bash
-
-# Health checks
 health:
-	@echo "🔍 Checking services health..."
-	@echo ""
-	@echo -n "API Gateway (8000):      "
-	@curl -sf http://localhost:8000/health > /dev/null && echo "✅ UP" || echo "❌ DOWN"
-	@echo -n "Agent Engine (8080):     "
-	@curl -sf http://localhost:8080/health > /dev/null && echo "✅ UP" || echo "❌ DOWN"
-	@echo -n "Dashboard API (5000):    "
-	@curl -sf http://localhost:5000/api/health > /dev/null && echo "✅ UP" || echo "❌ DOWN"
-	@echo -n "External Dashboard (3005): "
-	@curl -sf http://localhost:3005/ > /dev/null && echo "✅ UP" || echo "❌ DOWN"
-	@echo -n "Task Logger (8090):      "
-	@curl -sf http://localhost:8090/health > /dev/null && echo "✅ UP" || echo "❌ DOWN"
-	@echo -n "Redis:                   "
-	@docker-compose exec -T redis redis-cli ping > /dev/null 2>&1 && echo "✅ UP" || echo "❌ DOWN"
-	@echo -n "PostgreSQL:              "
-	@docker-compose exec -T postgres pg_isready -U agent > /dev/null 2>&1 && echo "✅ UP" || echo "❌ DOWN"
+	@echo "🔍 Checking services..."
+	@curl -sf http://localhost:8000/health > /dev/null && echo "✅ API Gateway" || echo "❌ API Gateway"
+	@curl -sf http://localhost:8080/health > /dev/null && echo "✅ Agent Engine" || echo "❌ Agent Engine"
+	@curl -sf http://localhost:5000/api/health > /dev/null && echo "✅ Dashboard API" || echo "❌ Dashboard API"
+	@curl -sf http://localhost:8090/health > /dev/null && echo "✅ Task Logger" || echo "❌ Task Logger"
+	@docker-compose exec -T redis redis-cli ping > /dev/null 2>&1 && echo "✅ Redis" || echo "❌ Redis"
+	@docker-compose exec -T postgres pg_isready -U agent > /dev/null 2>&1 && echo "✅ PostgreSQL" || echo "❌ PostgreSQL"

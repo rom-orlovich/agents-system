@@ -60,7 +60,7 @@ class TaskWorker:
 
     async def _execute_task(self, task: dict[str, Any]) -> dict[str, Any]:
         from pathlib import Path
-        from core.cli.factory import run_cli
+        from cli.factory import run_cli
 
         prompt = task.get("prompt", "")
         repo_path = task.get("repo_path", "/app/repos/default")

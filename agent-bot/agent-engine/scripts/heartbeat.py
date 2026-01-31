@@ -28,6 +28,24 @@ def signal_handler(signum, frame):
     shutdown_flag = True
 
 
+async def ensure_table_exists(session):
+    """Ensure cli_instances table exists."""
+    await session.execute(text("""
+        CREATE TABLE IF NOT EXISTS cli_instances (
+            id SERIAL PRIMARY KEY,
+            provider VARCHAR(50) NOT NULL,
+            version VARCHAR(100),
+            hostname VARCHAR(255) UNIQUE NOT NULL,
+            container_id VARCHAR(255),
+            active BOOLEAN DEFAULT true,
+            started_at TIMESTAMP DEFAULT NOW(),
+            last_heartbeat TIMESTAMP DEFAULT NOW(),
+            UNIQUE(hostname)
+        )
+    """))
+    await session.commit()
+
+
 async def update_heartbeat():
     """Update heartbeat timestamp in database."""
     try:
@@ -39,9 +57,12 @@ async def update_heartbeat():
         async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
         hostname = os.environ.get("HOSTNAME", "unknown")
+        provider = os.environ.get("CLI_PROVIDER", "claude")
 
         async with async_session() as session:
-            await session.execute(
+            await ensure_table_exists(session)
+
+            result = await session.execute(
                 text("""
                     UPDATE cli_instances
                     SET last_heartbeat = :heartbeat
@@ -52,6 +73,23 @@ async def update_heartbeat():
                     "hostname": hostname
                 }
             )
+
+            if result.rowcount == 0:
+                await session.execute(
+                    text("""
+                        INSERT INTO cli_instances (provider, hostname, container_id, active, started_at, last_heartbeat)
+                        VALUES (:provider, :hostname, :hostname, true, NOW(), NOW())
+                        ON CONFLICT (hostname)
+                        DO UPDATE SET
+                            active = true,
+                            last_heartbeat = NOW()
+                    """),
+                    {
+                        "provider": provider,
+                        "hostname": hostname
+                    }
+                )
+
             await session.commit()
 
         logger.debug("heartbeat_updated", hostname=hostname)
@@ -73,6 +111,8 @@ async def mark_inactive():
         hostname = os.environ.get("HOSTNAME", "unknown")
 
         async with async_session() as session:
+            await ensure_table_exists(session)
+
             await session.execute(
                 text("""
                     UPDATE cli_instances

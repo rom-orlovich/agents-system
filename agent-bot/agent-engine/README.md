@@ -35,14 +35,13 @@ Redis Queue (agent:tasks)
 ```
 agent-engine/
 ├── main.py                    # FastAPI app + task worker
-├── core/
-│   ├── cli/
-│   │   ├── base.py            # CLIProvider protocol
-│   │   ├── factory.py         # Provider factory
-│   │   └── providers/
-│   │       ├── claude.py      # Claude CLI provider
-│   │       └── cursor.py      # Cursor CLI provider
-│   └── worker.py              # Task worker (consumes Redis)
+├── cli/
+│   ├── base.py                # CLIProvider protocol
+│   ├── factory.py             # Provider factory
+│   ├── sanitization.py        # Output sanitization
+│   └── providers/
+│       ├── claude.py          # Claude CLI provider
+│       └── cursor.py          # Cursor CLI provider
 ├── config/
 │   └── settings.py            # Configuration
 ├── .claude/
