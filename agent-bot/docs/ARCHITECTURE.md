@@ -10,26 +10,26 @@ A fully containerized, scalable multi-agent system where **each service runs in 
 
 ### Total Services: 18
 
-| # | Service | Port | Purpose |
-|---|---------|------|---------|
-| 1 | **CLI (Agent Engine)** | 8080-8089 | Task execution (scalable) |
-| 2 | **API Gateway** | 8000 | Webhook reception |
-| 3 | **Dashboard API** | 5000 | Analytics & WebSocket hub |
-| 4 | **External Dashboard** | 3005 | React monitoring UI |
-| 5 | **OAuth Service** | 8010 | Multi-provider OAuth flows |
-| 6 | **Task Logger** | 8090 | Task output logging |
-| 7 | **Knowledge Graph** | 4000 | Code entity indexing (Rust) |
-| 8 | **GitHub MCP** | 9001 | GitHub tool interface |
-| 9 | **Jira MCP** | 9002 | Jira tool interface |
-| 10 | **Slack MCP** | 9003 | Slack tool interface |
-| 11 | **Sentry MCP** | 9004 | Sentry tool interface |
-| 12 | **Knowledge Graph MCP** | 9005 | Code search tool interface |
-| 13 | **GitHub API** | 3001 | GitHub API wrapper |
-| 14 | **Jira API** | 3002 | Jira API wrapper |
-| 15 | **Slack API** | 3003 | Slack API wrapper |
-| 16 | **Sentry API** | 3004 | Sentry API wrapper |
-| 17 | **Redis** | 6379 | Task queue & cache |
-| 18 | **PostgreSQL** | 5432 | Persistent storage |
+| #   | Service                 | Port      | Purpose                     |
+| --- | ----------------------- | --------- | --------------------------- |
+| 1   | **CLI (Agent Engine)**  | 8080-8089 | Task execution (scalable)   |
+| 2   | **API Gateway**         | 8000      | Webhook reception           |
+| 3   | **Dashboard API**       | 5000      | Analytics & WebSocket hub   |
+| 4   | **External Dashboard**  | 3005      | React monitoring UI         |
+| 5   | **OAuth Service**       | 8010      | Multi-provider OAuth flows  |
+| 6   | **Task Logger**         | 8090      | Task output logging         |
+| 7   | **Knowledge Graph**     | 4000      | Code entity indexing (Rust) |
+| 8   | **GitHub MCP**          | 9001      | GitHub tool interface       |
+| 9   | **Jira MCP**            | 9002      | Jira tool interface         |
+| 10  | **Slack MCP**           | 9003      | Slack tool interface        |
+| 11  | **Sentry MCP**          | 9004      | Sentry tool interface       |
+| 12  | **Knowledge Graph MCP** | 9005      | Code search tool interface  |
+| 13  | **GitHub API**          | 3001      | GitHub API wrapper          |
+| 14  | **Jira API**            | 3002      | Jira API wrapper            |
+| 15  | **Slack API**           | 3003      | Slack API wrapper           |
+| 16  | **Sentry API**          | 3004      | Sentry API wrapper          |
+| 17  | **Redis**               | 6379      | Task queue & cache          |
+| 18  | **PostgreSQL**          | 5432      | Persistent storage          |
 
 ---
 
@@ -66,6 +66,7 @@ External Services (GitHub, Jira, Slack, Sentry)
 │  │ - github-pr-review             │ │
 │  │ - jira-code-plan               │ │
 │  │ - slack-inquiry, verifier      │ │
+│  │ (Supports Claude & Cursor)      │ │
 │  └────────────────────────────────┘ │
 │  ┌────────────────────────────────┐ │
 │  │ MCP Connections (SSE)          │ │
@@ -176,6 +177,7 @@ RUNNING ─────────────────┼──────
 ```
 
 **Valid Transitions:**
+
 - `QUEUED` → `RUNNING`, `CANCELLED`
 - `RUNNING` → `WAITING_INPUT`, `COMPLETED`, `FAILED`, `CANCELLED`
 - `WAITING_INPUT` → `RUNNING`, `CANCELLED`
@@ -316,26 +318,26 @@ agent-bot/
 
 ## Port Reference
 
-| Service | Port(s) | Container Name | Purpose |
-|---------|---------|----------------|---------|
-| CLI (Agent Engine) | 8080-8089 | cli | Task execution (scalable) |
-| API Gateway | 8000 | api-gateway | Webhook reception |
-| Dashboard API | 5000 | dashboard-api | Analytics & WebSocket |
-| External Dashboard | 3005 | external-dashboard | React monitoring UI |
-| OAuth Service | 8010 | oauth-service | Multi-provider OAuth |
-| Task Logger | 8090 | task-logger | Output logging |
-| Knowledge Graph | 4000 | knowledge-graph | Code entity indexing |
-| GitHub MCP | 9001 | github-mcp | GitHub tool interface |
-| Jira MCP | 9002 | jira-mcp | Jira tool interface |
-| Slack MCP | 9003 | slack-mcp | Slack tool interface |
-| Sentry MCP | 9004 | sentry-mcp | Sentry tool interface |
-| Knowledge Graph MCP | 9005 | knowledge-graph-mcp | Code search interface |
-| GitHub API | 3001 | github-api | GitHub API wrapper |
-| Jira API | 3002 | jira-api | Jira API wrapper |
-| Slack API | 3003 | slack-api | Slack API wrapper |
-| Sentry API | 3004 | sentry-api | Sentry API wrapper |
-| Redis | 6379 | redis | Task queue & cache |
-| PostgreSQL | 5432 | postgres | Persistent storage |
+| Service             | Port(s)   | Container Name      | Purpose                   |
+| ------------------- | --------- | ------------------- | ------------------------- |
+| CLI (Agent Engine)  | 8080-8089 | cli                 | Task execution (scalable) |
+| API Gateway         | 8000      | api-gateway         | Webhook reception         |
+| Dashboard API       | 5000      | dashboard-api       | Analytics & WebSocket     |
+| External Dashboard  | 3005      | external-dashboard  | React monitoring UI       |
+| OAuth Service       | 8010      | oauth-service       | Multi-provider OAuth      |
+| Task Logger         | 8090      | task-logger         | Output logging            |
+| Knowledge Graph     | 4000      | knowledge-graph     | Code entity indexing      |
+| GitHub MCP          | 9001      | github-mcp          | GitHub tool interface     |
+| Jira MCP            | 9002      | jira-mcp            | Jira tool interface       |
+| Slack MCP           | 9003      | slack-mcp           | Slack tool interface      |
+| Sentry MCP          | 9004      | sentry-mcp          | Sentry tool interface     |
+| Knowledge Graph MCP | 9005      | knowledge-graph-mcp | Code search interface     |
+| GitHub API          | 3001      | github-api          | GitHub API wrapper        |
+| Jira API            | 3002      | jira-api            | Jira API wrapper          |
+| Slack API           | 3003      | slack-api           | Slack API wrapper         |
+| Sentry API          | 3004      | sentry-api          | Sentry API wrapper        |
+| Redis               | 6379      | redis               | Task queue & cache        |
+| PostgreSQL          | 5432      | postgres            | Persistent storage        |
 
 ---
 
@@ -343,29 +345,29 @@ agent-bot/
 
 ### Specialized Agents
 
-| Agent | Trigger Source | Purpose |
-|-------|----------------|---------|
-| **brain** | Internal routing | Main orchestrator, task decomposition |
-| **planning** | Discovery tasks | Code discovery, implementation planning |
-| **executor** | Implementation | TDD-based code implementation |
-| **verifier** | Quality checks | Code review, test verification |
-| **github-issue-handler** | GitHub issues | Issue analysis and response |
-| **github-pr-review** | GitHub PRs | PR review and feedback |
-| **jira-code-plan** | Jira tickets | AI-Fix ticket processing |
-| **slack-inquiry** | Slack mentions | Q&A and command handling |
-| **service-integrator** | Cross-service | External service coordination |
+| Agent                    | Trigger Source   | Purpose                                 |
+| ------------------------ | ---------------- | --------------------------------------- |
+| **brain**                | Internal routing | Main orchestrator, task decomposition   |
+| **planning**             | Discovery tasks  | Code discovery, implementation planning |
+| **executor**             | Implementation   | TDD-based code implementation           |
+| **verifier**             | Quality checks   | Code review, test verification          |
+| **github-issue-handler** | GitHub issues    | Issue analysis and response             |
+| **github-pr-review**     | GitHub PRs       | PR review and feedback                  |
+| **jira-code-plan**       | Jira tickets     | AI-Fix ticket processing                |
+| **slack-inquiry**        | Slack mentions   | Q&A and command handling                |
+| **service-integrator**   | Cross-service    | External service coordination           |
 
 ### Agent Routing
 
-| Source | Event Type | Target Agent |
-|--------|------------|--------------|
-| GitHub | Issue opened/commented | github-issue-handler |
-| GitHub | PR opened/reviewed | github-pr-review |
-| Jira | Issue with AI-Fix label | jira-code-plan |
-| Slack | @agent mention | slack-inquiry |
-| Sentry | Error alert | planning → executor |
-| Dashboard | Discovery request | planning |
-| Dashboard | Implementation | executor |
+| Source    | Event Type              | Target Agent         |
+| --------- | ----------------------- | -------------------- |
+| GitHub    | Issue opened/commented  | github-issue-handler |
+| GitHub    | PR opened/reviewed      | github-pr-review     |
+| Jira      | Issue with AI-Fix label | jira-code-plan       |
+| Slack     | @agent mention          | slack-inquiry        |
+| Sentry    | Error alert             | planning → executor  |
+| Dashboard | Discovery request       | planning             |
+| Dashboard | Implementation          | executor             |
 
 ### CLI Provider Selection
 
@@ -412,13 +414,13 @@ EXECUTION_AGENTS = ["executor", "github-issue-handler", "jira-code-plan"]
 
 ### MCP Tools by Server
 
-| Server | Tools |
-|--------|-------|
-| github-mcp | create_pull_request, get_file_contents, create_branch, add_comment, search_code |
-| jira-mcp | get_issue, create_issue, update_issue, add_comment, search_issues, transition_issue |
-| slack-mcp | post_message, get_conversations, list_channels, reply_in_thread |
-| sentry-mcp | get_issue, add_comment, update_status, get_events |
-| knowledge-graph-mcp | search_code, find_references, get_call_graph, get_dependencies |
+| Server              | Tools                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| github-mcp          | create_pull_request, get_file_contents, create_branch, add_comment, search_code     |
+| jira-mcp            | get_issue, create_issue, update_issue, add_comment, search_issues, transition_issue |
+| slack-mcp           | post_message, get_conversations, list_channels, reply_in_thread                     |
+| sentry-mcp          | get_issue, add_comment, update_status, get_events                                   |
+| knowledge-graph-mcp | search_code, find_references, get_call_graph, get_dependencies                      |
 
 ---
 
@@ -584,27 +586,32 @@ curl http://localhost:4000/health      # Knowledge Graph
 ## Key Benefits
 
 ### 1. Maximum Isolation
+
 - Each service in own container
 - Failure in one doesn't affect others
 - Easy to debug and monitor
 
 ### 2. Independent Scaling
+
 - Scale CLI workers horizontally (1-N instances)
 - Scale each MCP server independently
 - Scale each API service independently
 
 ### 3. Security
+
 - API keys only in API service containers
 - No keys in MCP servers, webhooks, or agents
 - Webhook signature validation
 - Loop prevention for agent-posted content
 
 ### 4. Maintainability
+
 - Update one service without affecting others
 - Clear boundaries and responsibilities
 - Easy to add new services or agents
 
 ### 5. Observability
+
 - Real-time WebSocket updates
 - Task output logging
 - Analytics and metrics dashboard
