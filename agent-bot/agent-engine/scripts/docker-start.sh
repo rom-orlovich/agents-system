@@ -31,7 +31,12 @@ if [ "$CLI_PROVIDER" = "cursor" ] && [ -f "/home/agent/.local/bin/agent" ]; then
     cat > /usr/local/bin/agent << 'WRAPPER'
 #!/bin/bash
 if [ "$(id -u)" = "0" ]; then
-    exec runuser -l agent -c "cd $(pwd) && /home/agent/.local/bin/agent $*"
+    # Properly escape arguments for runuser -c
+    ARGS=""
+    for arg in "$@"; do
+        ARGS="$ARGS '${arg//\'/\'\\\'\'}'"
+    done
+    exec runuser -l agent -c "cd '$(pwd)' && /home/agent/.local/bin/agent $ARGS"
 else
     exec /home/agent/.local/bin/agent "$@"
 fi
@@ -115,7 +120,12 @@ WRAPPER
             cat > /usr/bin/claude << 'WRAPPER'
 #!/bin/bash
 if [ "$(id -u)" = "0" ]; then
-    exec runuser -l agent -c "cd $(pwd) && /usr/bin/claude-original $*"
+    # Properly escape arguments for runuser -c
+    ARGS=""
+    for arg in "$@"; do
+        ARGS="$ARGS '${arg//\'/\'\\\'\'}'"
+    done
+    exec runuser -l agent -c "cd '$(pwd)' && /usr/bin/claude-original $ARGS"
 else
     exec /usr/bin/claude-original "$@"
 fi
