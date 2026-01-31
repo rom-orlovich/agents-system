@@ -3,7 +3,7 @@ import hmac
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 import structlog
 
 from config import get_settings
@@ -53,7 +53,14 @@ class GitHubAuthMiddleware(BaseHTTPMiddleware):
             has_signature=signature is not None,
         )
 
-        validate_github_signature(body, signature)
+        try:
+            validate_github_signature(body, signature)
+        except WebhookValidationError as e:
+            logger.warning("github_signature_validation_failed", error=str(e))
+            return JSONResponse(
+                status_code=401,
+                content={"error": "Unauthorized", "message": str(e)},
+            )
 
         async def receive():
             return {"type": "http.request", "body": body}

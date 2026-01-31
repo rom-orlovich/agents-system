@@ -5,7 +5,7 @@ import time
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 import structlog
 
 from config import get_settings
@@ -74,7 +74,14 @@ class SlackAuthMiddleware(BaseHTTPMiddleware):
             has_timestamp=timestamp is not None,
         )
 
-        validate_slack_signature(body, signature, timestamp)
+        try:
+            validate_slack_signature(body, signature, timestamp)
+        except WebhookValidationError as e:
+            logger.warning("slack_signature_validation_failed", error=str(e))
+            return JSONResponse(
+                status_code=401,
+                content={"error": "Unauthorized", "message": str(e)},
+            )
 
         async def receive():
             return {"type": "http.request", "body": body}

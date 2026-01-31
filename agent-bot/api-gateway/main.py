@@ -6,8 +6,6 @@ from fastapi import FastAPI
 
 from config import get_settings
 from routes import webhooks_router
-from middleware import error_handler
-from middleware.error_handler import WebhookValidationError
 from webhooks.github.validator import GitHubAuthMiddleware
 from webhooks.jira.validator import JiraAuthMiddleware
 from webhooks.slack.validator import SlackAuthMiddleware
@@ -35,8 +33,6 @@ def create_app() -> FastAPI:
     app.add_middleware(SlackAuthMiddleware)
     app.add_middleware(JiraAuthMiddleware)
     app.add_middleware(GitHubAuthMiddleware)
-    app.add_exception_handler(WebhookValidationError, error_handler)
-    app.add_exception_handler(Exception, error_handler)
 
     app.include_router(webhooks_router)
 
