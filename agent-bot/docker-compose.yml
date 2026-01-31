@@ -1,0 +1,227 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=agent_system
+      - POSTGRES_USER=agent
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-agent}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent -d agent_system"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://agent:${POSTGRES_PASSWORD:-agent}@postgres:5432/agent_system
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - JIRA_WEBHOOK_SECRET=${JIRA_WEBHOOK_SECRET}
+      - SLACK_WEBHOOK_SECRET=${SLACK_WEBHOOK_SECRET}
+      - KNOWLEDGE_GRAPH_URL=http://knowledge-graph:4000
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  agent-engine:
+    build: ./agent-engine
+    ports:
+      - "8080-8089:8080"
+    environment:
+      - CLI_PROVIDER=${CLI_PROVIDER:-claude}
+      - MAX_CONCURRENT_TASKS=${MAX_CONCURRENT_TASKS:-5}
+      - TASK_TIMEOUT_SECONDS=${TASK_TIMEOUT_SECONDS:-3600}
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://agent:${POSTGRES_PASSWORD:-agent}@postgres:5432/agent_system
+      - KNOWLEDGE_GRAPH_URL=http://knowledge-graph:4000
+    volumes:
+      - agent_data:/data
+      - ~/.anthropic:/root/.anthropic:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - agent-network
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+
+  github-mcp:
+    build: ./mcp-servers/github-mcp
+    container_name: github-mcp
+    ports:
+      - "9001:9001"
+    environment:
+      - PORT=9001
+      - GITHUB_API_URL=http://github-api:3001
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  jira-mcp:
+    build: ./mcp-servers/jira-mcp
+    container_name: jira-mcp
+    ports:
+      - "9002:9002"
+    environment:
+      - PORT=9002
+      - JIRA_API_URL=http://jira-api:3002
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  slack-mcp:
+    build: ./mcp-servers/slack-mcp
+    container_name: slack-mcp
+    ports:
+      - "9003:9003"
+    environment:
+      - PORT=9003
+      - SLACK_API_URL=http://slack-api:3003
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  sentry-mcp:
+    build: ./mcp-servers/sentry-mcp
+    container_name: sentry-mcp
+    ports:
+      - "9004:9004"
+    environment:
+      - PORT=9004
+      - SENTRY_API_URL=http://sentry-api:3004
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  github-api:
+    build: ./api-services/github-api
+    container_name: github-api
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  jira-api:
+    build: ./api-services/jira-api
+    container_name: jira-api
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - JIRA_URL=${JIRA_URL}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_TOKEN=${JIRA_API_TOKEN}
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  slack-api:
+    build: ./api-services/slack-api
+    container_name: slack-api
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  sentry-api:
+    build: ./api-services/sentry-api
+    container_name: sentry-api
+    ports:
+      - "3004:3004"
+    environment:
+      - PORT=3004
+      - SENTRY_DSN=${SENTRY_DSN}
+      - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  internal-dashboard-api:
+    build: ./internal-dashboard-api
+    container_name: internal-dashboard-api
+    ports:
+      - "5000:5000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql+asyncpg://agent:${POSTGRES_PASSWORD:-agent}@postgres:5432/agent_system
+      - AGENT_ENGINE_URL=http://agent-engine:8080
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  external-dashboard:
+    build: ./external-dashboard
+    container_name: external-dashboard
+    ports:
+      - "3005:3005"
+    environment:
+      - INTERNAL_API_URL=http://internal-dashboard-api:5000
+    depends_on:
+      - internal-dashboard-api
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  knowledge-graph:
+    build: ./knowledge-graph
+    container_name: knowledge-graph
+    ports:
+      - "4000:4000"
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+networks:
+  agent-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  agent_data:
