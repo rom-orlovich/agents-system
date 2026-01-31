@@ -39,7 +39,11 @@ cli-claude:
 	@$(DC) up -d redis postgres 2>/dev/null || true
 	@docker network create agent-network 2>/dev/null || true
 	@CLI_PROVIDER=claude $(DC) -f docker-compose.cli.yml -p claude-cli --env-file .env build cli
-	@CLI_PROVIDER=claude $(DC) -f docker-compose.cli.yml -p claude-cli --env-file .env up -d --scale cli=$(SCALE) cli
+	@EXISTING=$$(docker ps --filter "name=claude-cli-cli" -q | wc -l | tr -d ' '); \
+	TARGET=$${SCALE:-$$((EXISTING + 1))}; \
+	[ "$$TARGET" -lt 1 ] && TARGET=1; \
+	echo "Scaling to $$TARGET instance(s)..."; \
+	CLI_PROVIDER=claude $(DC) -f docker-compose.cli.yml -p claude-cli --env-file .env up -d --scale cli=$$TARGET cli
 	@echo "✅ Claude CLI started"
 	@$(DC) -f docker-compose.cli.yml -p claude-cli ps cli
 
@@ -48,7 +52,11 @@ cli-cursor:
 	@$(DC) up -d redis postgres 2>/dev/null || true
 	@docker network create agent-network 2>/dev/null || true
 	@CLI_PROVIDER=cursor $(DC) -f docker-compose.cli.yml -p cursor-cli --env-file .env build cli
-	@CLI_PROVIDER=cursor $(DC) -f docker-compose.cli.yml -p cursor-cli --env-file .env up -d --scale cli=$(SCALE) cli
+	@EXISTING=$$(docker ps --filter "name=cursor-cli-cli" -q | wc -l | tr -d ' '); \
+	TARGET=$${SCALE:-$$((EXISTING + 1))}; \
+	[ "$$TARGET" -lt 1 ] && TARGET=1; \
+	echo "Scaling to $$TARGET instance(s)..."; \
+	CLI_PROVIDER=cursor $(DC) -f docker-compose.cli.yml -p cursor-cli --env-file .env up -d --scale cli=$$TARGET cli
 	@echo "✅ Cursor CLI started"
 	@$(DC) -f docker-compose.cli.yml -p cursor-cli ps cli
 
