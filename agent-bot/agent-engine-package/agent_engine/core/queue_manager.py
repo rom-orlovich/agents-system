@@ -1,6 +1,9 @@
 from enum import Enum
-from typing import Any
-import redis.asyncio as redis
+from typing import Any, TYPE_CHECKING
+import redis.asyncio as aioredis
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
 
 
 class TaskStatus(str, Enum):
@@ -18,16 +21,16 @@ class QueueManager:
 
     def __init__(
         self,
-        redis_client: redis.Redis[Any] | None = None,
+        redis_client: Any = None,
         redis_url: str | None = None,
     ) -> None:
         if redis_client:
             self._client = redis_client
         elif redis_url:
-            self._client: redis.Redis[Any] = redis.from_url(redis_url)
+            self._client = aioredis.from_url(redis_url)
         else:
             from agent_engine.core.config import settings
-            self._client = redis.from_url(settings.redis_url)
+            self._client = aioredis.from_url(settings.redis_url)
 
     async def push_task(self, task_id: str) -> None:
         await self._client.lpush(self.TASK_QUEUE_KEY, task_id)

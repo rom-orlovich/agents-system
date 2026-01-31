@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  github-mcp:
+    build: ./github-mcp
+    container_name: github-mcp
+    ports:
+      - "9001:9001"
+    environment:
+      - PORT=9001
+      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_TOKEN}
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  jira-mcp:
+    build: ./jira-mcp
+    container_name: jira-mcp
+    ports:
+      - "9002:9002"
+    environment:
+      - PORT=9002
+      - JIRA_API_URL=http://jira-api:3002
+      - REQUEST_TIMEOUT=30
+    depends_on:
+      - jira-api
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  slack-mcp:
+    build: ./slack-mcp
+    container_name: slack-mcp
+    ports:
+      - "9003:9003"
+    environment:
+      - PORT=9003
+      - SLACK_API_URL=http://slack-api:3003
+      - REQUEST_TIMEOUT=30
+    depends_on:
+      - slack-api
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  sentry-mcp:
+    build: ./sentry-mcp
+    container_name: sentry-mcp
+    ports:
+      - "9004:9004"
+    environment:
+      - PORT=9004
+      - SENTRY_API_URL=http://sentry-api:3004
+      - REQUEST_TIMEOUT=30
+    depends_on:
+      - sentry-api
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  jira-api:
+    extends:
+      file: ../api-services/docker-compose.services.yml
+      service: jira-api
+
+  slack-api:
+    extends:
+      file: ../api-services/docker-compose.services.yml
+      service: slack-api
+
+  sentry-api:
+    extends:
+      file: ../api-services/docker-compose.services.yml
+      service: sentry-api
+
+networks:
+  agent-network:
+    external: true

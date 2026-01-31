@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  github-api:
+    build: ./github-api
+    container_name: github-api
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_API_BASE_URL=https://api.github.com
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - REQUEST_TIMEOUT=30
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  jira-api:
+    build: ./jira-api
+    container_name: jira-api
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - JIRA_URL=${JIRA_URL}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_TOKEN=${JIRA_API_TOKEN}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - REQUEST_TIMEOUT=30
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  slack-api:
+    build: ./slack-api
+    container_name: slack-api
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - SLACK_API_BASE_URL=https://slack.com/api
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - REQUEST_TIMEOUT=30
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  sentry-api:
+    build: ./sentry-api
+    container_name: sentry-api
+    ports:
+      - "3004:3004"
+    environment:
+      - PORT=3004
+      - SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
+      - SENTRY_ORG_SLUG=${SENTRY_ORG_SLUG}
+      - SENTRY_API_BASE_URL=https://sentry.io/api/0
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - REQUEST_TIMEOUT=30
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  agent-network:
+    external: true

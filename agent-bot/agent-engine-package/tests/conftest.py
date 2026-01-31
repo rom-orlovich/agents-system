@@ -1,7 +1,12 @@
 import pytest
 import asyncio
+import sys
+from pathlib import Path
 from typing import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock
+
+api_gateway_path = Path(__file__).parent.parent.parent.parent / "api-gateway"
+sys.path.insert(0, str(api_gateway_path))
 
 
 @pytest.fixture(scope="session")
