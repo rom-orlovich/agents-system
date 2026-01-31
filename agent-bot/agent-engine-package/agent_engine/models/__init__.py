@@ -5,6 +5,12 @@ from .conversation import (
     ConversationStatus,
     MessageRole,
 )
+from .installation import (
+    Installation,
+    InstallationStatus,
+    OAuthState,
+    Platform,
+)
 from .task import AgentExecution, Task, TaskSource, TaskStatus
 
 __all__ = [
@@ -13,7 +19,11 @@ __all__ = [
     "Conversation",
     "ConversationMessage",
     "ConversationStatus",
+    "Installation",
+    "InstallationStatus",
     "MessageRole",
+    "OAuthState",
+    "Platform",
     "Task",
     "TaskSource",
     "TaskStatus",
