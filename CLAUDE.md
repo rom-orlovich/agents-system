@@ -73,6 +73,33 @@ find . -name "*.py" -exec wc -l {} \; | awk '$1 > 300'
 3. **Refactor**: Clean up while keeping tests green
 4. **Verification**: Run tests (unit → integration → E2E)
 
+## Pre-Commit Checks (REQUIRED)
+
+**ALWAYS run before committing to agent-bot:**
+
+```bash
+cd agent-bot
+
+# 1. Run linter - must pass with NO errors
+uv run ruff check .
+
+# 2. Run formatter check
+uv run ruff format --check .
+
+# 3. Run all tests - must pass
+make test-all
+```
+
+**Quick one-liner:**
+
+```bash
+cd agent-bot && uv run ruff check . && uv run ruff format --check . && make test-all
+```
+
+**If lint fails:** Fix errors or run `uv run ruff check . --fix` for auto-fixes.
+
+**If tests fail:** Fix the failing tests before committing.
+
 ## Git Workflow
 
 **Commit format**:

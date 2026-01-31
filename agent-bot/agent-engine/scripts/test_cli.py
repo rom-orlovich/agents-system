@@ -21,7 +21,8 @@ async def test_version(provider: str) -> tuple[bool, str]:
     cmd = "claude" if provider == "claude" else "agent"
     try:
         process = await asyncio.create_subprocess_exec(
-            cmd, "--version",
+            cmd,
+            "--version",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -103,7 +104,11 @@ async def main() -> int:
         logger.info("cli_tests_passed", provider=provider, version=version)
         return 0
     else:
-        logger.warning("cli_tests_completed_with_warnings", version_ok=version_ok, prompt_ok=prompt_ok)
+        logger.warning(
+            "cli_tests_completed_with_warnings",
+            version_ok=version_ok,
+            prompt_ok=prompt_ok,
+        )
         return 0 if version_ok else 1
 
 

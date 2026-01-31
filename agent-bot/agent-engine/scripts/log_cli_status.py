@@ -8,7 +8,6 @@ import asyncio
 import os
 import sys
 from datetime import datetime
-from pathlib import Path
 
 import structlog
 
@@ -31,10 +30,7 @@ async def get_cli_version(provider: str) -> tuple[bool, str]:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await asyncio.wait_for(
-            process.communicate(),
-            timeout=10.0
-        )
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10.0)
 
         if process.returncode == 0:
             version = stdout.decode().strip()
@@ -64,11 +60,14 @@ async def log_status_to_db(provider: str, version: str, status: str):
             return
 
         engine = create_async_engine(db_url, echo=False)
-        async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async_session = sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
 
         async with async_session() as session:
             # Create health log table if not exists
-            await session.execute(text("""
+            await session.execute(
+                text("""
                 CREATE TABLE IF NOT EXISTS cli_health (
                     id SERIAL PRIMARY KEY,
                     provider VARCHAR(50) NOT NULL,
@@ -77,10 +76,12 @@ async def log_status_to_db(provider: str, version: str, status: str):
                     hostname VARCHAR(255),
                     checked_at TIMESTAMP DEFAULT NOW()
                 )
-            """))
+            """)
+            )
 
             # Create active instances table if not exists
-            await session.execute(text("""
+            await session.execute(
+                text("""
                 CREATE TABLE IF NOT EXISTS cli_instances (
                     id SERIAL PRIMARY KEY,
                     provider VARCHAR(50) NOT NULL,
@@ -92,7 +93,8 @@ async def log_status_to_db(provider: str, version: str, status: str):
                     last_heartbeat TIMESTAMP DEFAULT NOW(),
                     UNIQUE(hostname)
                 )
-            """))
+            """)
+            )
 
             hostname = os.environ.get("HOSTNAME", "unknown")
             container_id = hostname  # Docker sets HOSTNAME to container ID
@@ -108,8 +110,8 @@ async def log_status_to_db(provider: str, version: str, status: str):
                     "version": version,
                     "status": status,
                     "hostname": hostname,
-                    "checked_at": datetime.utcnow()
-                }
+                    "checked_at": datetime.utcnow(),
+                },
             )
 
             # Insert or update active instance
@@ -129,8 +131,8 @@ async def log_status_to_db(provider: str, version: str, status: str):
                     "provider": provider,
                     "version": version,
                     "hostname": hostname,
-                    "container_id": container_id
-                }
+                    "container_id": container_id,
+                },
             )
 
             await session.commit()
@@ -141,7 +143,7 @@ async def log_status_to_db(provider: str, version: str, status: str):
             version=version,
             status=status,
             hostname=hostname,
-            active=True
+            active=True,
         )
 
     except Exception as e:

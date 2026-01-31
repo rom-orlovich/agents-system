@@ -1,0 +1,59 @@
+[project]
+name = "agent-bot-tests"
+version = "1.0.0"
+description = "AI Agent Bot - Production system for autonomous code management"
+requires-python = ">=3.11"
+dependencies = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "pydantic>=2.6.0,<3.0.0",
+    "pydantic-settings>=2.1.0,<3.0.0",
+    "httpx>=0.26.0,<1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["tests"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = [
+    "tests",
+    "agent-engine/tests",
+    "api-gateway/tests",
+    "dashboard-api/tests",
+    "task-logger/tests",
+    "api-services/github-api/tests",
+    "api-services/jira-api/tests",
+    "api-services/slack-api/tests",
+    "api-services/sentry-api/tests",
+]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = [
+    "agent-engine",
+    "api-gateway",
+    "dashboard-api",
+    "task-logger",
+    "api-services",
+]
+omit = ["*/tests/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true

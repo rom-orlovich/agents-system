@@ -54,7 +54,9 @@ class SlackAPI:
             params["oldest"] = oldest
         if latest:
             params["latest"] = latest
-        response = await client.get(f"/api/v1/channels/{channel}/history", params=params)
+        response = await client.get(
+            f"/api/v1/channels/{channel}/history", params=params
+        )
         response.raise_for_status()
         return response.json()
 

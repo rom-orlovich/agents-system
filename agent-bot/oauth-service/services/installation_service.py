@@ -7,7 +7,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agent_engine.models import Installation, InstallationStatus, OAuthState, Platform
+from agent_engine.models import Installation, InstallationStatus, OAuthState
 from providers.base import InstallationInfo, OAuthTokens
 
 logger = structlog.get_logger(__name__)
@@ -71,7 +71,9 @@ class InstallationService:
             existing.permissions = info.permissions
             existing.metadata_json = info.metadata
             await self.session.commit()
-            logger.info("installation_updated", platform=platform, org_id=info.external_org_id)
+            logger.info(
+                "installation_updated", platform=platform, org_id=info.external_org_id
+            )
             return existing
 
         installation = Installation(
@@ -91,7 +93,9 @@ class InstallationService:
         self.session.add(installation)
         await self.session.commit()
 
-        logger.info("installation_created", platform=platform, org_id=info.external_org_id)
+        logger.info(
+            "installation_created", platform=platform, org_id=info.external_org_id
+        )
         return installation
 
     async def get_installation_by_org(
@@ -104,7 +108,9 @@ class InstallationService:
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_installation_by_id(self, installation_id: UUID) -> Installation | None:
+    async def get_installation_by_id(
+        self, installation_id: UUID
+    ) -> Installation | None:
         query = select(Installation).where(Installation.id == installation_id)
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
@@ -130,7 +136,9 @@ class InstallationService:
                 "install_id": inst.external_install_id,
                 "scopes": inst.scopes,
                 "created_at": inst.created_at.isoformat(),
-                "last_used_at": inst.last_used_at.isoformat() if inst.last_used_at else None,
+                "last_used_at": inst.last_used_at.isoformat()
+                if inst.last_used_at
+                else None,
             }
             for inst in installations
         ]

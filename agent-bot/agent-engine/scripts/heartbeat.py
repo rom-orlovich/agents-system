@@ -30,7 +30,8 @@ def signal_handler(signum, frame):
 
 async def ensure_table_exists(session):
     """Ensure cli_instances table exists."""
-    await session.execute(text("""
+    await session.execute(
+        text("""
         CREATE TABLE IF NOT EXISTS cli_instances (
             id SERIAL PRIMARY KEY,
             provider VARCHAR(50) NOT NULL,
@@ -42,7 +43,8 @@ async def ensure_table_exists(session):
             last_heartbeat TIMESTAMP DEFAULT NOW(),
             UNIQUE(hostname)
         )
-    """))
+    """)
+    )
     await session.commit()
 
 
@@ -54,7 +56,9 @@ async def update_heartbeat():
             return
 
         engine = create_async_engine(db_url, echo=False)
-        async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async_session = sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
 
         hostname = os.environ.get("HOSTNAME", "unknown")
         provider = os.environ.get("CLI_PROVIDER", "claude")
@@ -68,10 +72,7 @@ async def update_heartbeat():
                     SET last_heartbeat = :heartbeat
                     WHERE hostname = :hostname AND active = true
                 """),
-                {
-                    "heartbeat": datetime.utcnow(),
-                    "hostname": hostname
-                }
+                {"heartbeat": datetime.utcnow(), "hostname": hostname},
             )
 
             if result.rowcount == 0:
@@ -84,10 +85,7 @@ async def update_heartbeat():
                             active = true,
                             last_heartbeat = NOW()
                     """),
-                    {
-                        "provider": provider,
-                        "hostname": hostname
-                    }
+                    {"provider": provider, "hostname": hostname},
                 )
 
             await session.commit()
@@ -106,7 +104,9 @@ async def mark_inactive():
             return
 
         engine = create_async_engine(db_url, echo=False)
-        async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async_session = sessionmaker(
+            engine, class_=AsyncSession, expire_on_commit=False
+        )
 
         hostname = os.environ.get("HOSTNAME", "unknown")
 
@@ -119,10 +119,7 @@ async def mark_inactive():
                     SET active = false, last_heartbeat = :heartbeat
                     WHERE hostname = :hostname
                 """),
-                {
-                    "heartbeat": datetime.utcnow(),
-                    "hostname": hostname
-                }
+                {"heartbeat": datetime.utcnow(), "hostname": hostname},
             )
             await session.commit()
 

@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any
 from fastmcp import FastMCP
 
 from sentry_mcp import SentryAPI

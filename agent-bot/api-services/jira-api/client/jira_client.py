@@ -7,9 +7,7 @@ logger = structlog.get_logger(__name__)
 
 
 class JiraClient:
-    def __init__(
-        self, base_url: str, email: str, api_token: str, timeout: int = 30
-    ):
+    def __init__(self, base_url: str, email: str, api_token: str, timeout: int = 30):
         self._base_url = base_url.rstrip("/")
         self._email = email
         self._api_token = api_token

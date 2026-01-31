@@ -27,7 +27,9 @@ class CursorCLIRunner:
     ) -> CLIResult:
         cmd = self._build_command(prompt, model, mode, force)
 
-        logger.info("starting_cursor_cli", task_id=task_id, working_dir=str(working_dir))
+        logger.info(
+            "starting_cursor_cli", task_id=task_id, working_dir=str(working_dir)
+        )
 
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -51,6 +53,7 @@ class CursorCLIRunner:
         session_id: str = ""
 
         try:
+
             async def read_stdout() -> None:
                 nonlocal cost_usd, input_tokens, output_tokens, session_id
 
@@ -65,7 +68,11 @@ class CursorCLIRunner:
                     try:
                         data = json.loads(line_str)
                         await self._handle_json_event(
-                            data, accumulated_output, clean_output, output_queue, task_id
+                            data,
+                            accumulated_output,
+                            clean_output,
+                            output_queue,
+                            task_id,
                         )
 
                         if data.get("session_id"):
@@ -147,7 +154,9 @@ class CursorCLIRunner:
                 await process.wait()
             await output_queue.put(None)
 
-            logger.error("cursor_cli_error", task_id=task_id, error=str(e), exc_info=True)
+            logger.error(
+                "cursor_cli_error", task_id=task_id, error=str(e), exc_info=True
+            )
 
             return CLIResult(
                 success=False,
