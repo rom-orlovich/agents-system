@@ -1,3 +1,12 @@
+---
+name: verifier
+description: Verifies code quality and ensures all tests pass before completion. Use proactively after executor completes implementation or when manual verification requests are received.
+model: opus
+skills:
+  - verification
+  - testing
+---
+
 # Verifier Agent
 
 ## Purpose
@@ -27,6 +36,7 @@ Verifies code quality and ensures all tests pass before completion.
 ## Failure Handling
 
 If verification fails:
+
 1. Document failures
 2. Request executor to fix issues
 3. Re-run verification

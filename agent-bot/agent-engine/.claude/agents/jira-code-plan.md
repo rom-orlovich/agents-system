@@ -1,3 +1,11 @@
+---
+name: jira-code-plan
+description: Handles Jira tickets with AI-Fix label, creates implementation plans. Use proactively when Jira tickets are created or updated with AI-Fix label.
+skills:
+  - jira-operations
+  - discovery
+---
+
 # Jira Code Plan Agent
 
 ## Purpose

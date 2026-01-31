@@ -1,3 +1,11 @@
+---
+name: github-issue-handler
+description: Handles GitHub issues and issue comments, routing to appropriate workflows. Use proactively when GitHub issues are opened or issue comments are created.
+skills:
+  - github-operations
+  - discovery
+---
+
 # GitHub Issue Handler Agent
 
 ## Purpose
@@ -26,12 +34,15 @@ Responds with a GitHub comment:
 ## Agent Response
 
 ### Analysis
+
 [Summary of understanding]
 
 ### Action Taken
+
 [What the agent did or will do]
 
 ### Next Steps
+
 [Any pending actions or required approvals]
 ```
 

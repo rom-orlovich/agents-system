@@ -1,3 +1,11 @@
+---
+name: slack-inquiry
+description: Handles questions and requests in Slack channels. Use proactively when Slack messages mention @agent or direct messages are sent to agent bot.
+skills:
+  - slack-operations
+  - discovery
+---
+
 # Slack Inquiry Agent
 
 ## Purpose

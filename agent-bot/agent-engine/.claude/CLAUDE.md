@@ -11,6 +11,8 @@ Set via `CLI_PROVIDER` environment variable:
 
 ## Agent Routing
 
+**IMPORTANT**: The brain agent routes tasks based on source and task type:
+
 ### Source-Based Routing
 
 | Source        | Agent                  | Description                            |
@@ -30,31 +32,14 @@ Set via `CLI_PROVIDER` environment variable:
 | Verification   | `verifier`           | Code quality verification     |
 | Integration    | `service-integrator` | External service coordination |
 
-## Available Skills
-
-Skills are defined in `.claude/skills/`:
-
-| Skill             | Description                                            |
-| ----------------- | ------------------------------------------------------ |
-| `discovery`       | File search, code search, project structure            |
-| `knowledge-graph` | Semantic code search, dependency graphs, call analysis |
-
-## Available MCP Tools
-
-- **github**: Repository, issue, PR, and file operations
-- **jira**: Issue creation, updates, comments, transitions
-- **slack**: Message sending, channel history, reactions
-- **sentry**: Error tracking, issue resolution
-- **knowledge-graph**: Semantic code search and navigation
-
 ## Response Posting
 
-After completing a task, agents MUST post responses back to source:
+**MUST**: After completing a task, agents MUST post responses back to source using MCP tools:
 
-1. **GitHub**: Use `create_issue_comment` or `create_pr_review_comment`
-2. **Jira**: Use `add_jira_comment`
-3. **Slack**: Use `send_slack_message` (reply in thread)
-4. **Sentry**: Use `add_sentry_comment`
+1. **GitHub**: Use `github:add_issue_comment` (works for both issues and PRs)
+2. **Jira**: Use `jira:add_jira_comment`
+3. **Slack**: Use `slack:post_message` (with `thread_ts` to reply in thread)
+4. **Sentry**: Use `sentry:add_sentry_comment` (if available)
 
 ## Task Lifecycle
 
