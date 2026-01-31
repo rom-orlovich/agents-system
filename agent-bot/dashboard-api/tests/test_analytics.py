@@ -6,12 +6,10 @@ Tests analytics calculations and aggregations.
 import pytest
 import sys
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
-from typing import Any
+from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
 
-from factories import TaskFactory
 from factories.task_factory import TaskStatus
 
 

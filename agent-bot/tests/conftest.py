@@ -3,9 +3,7 @@
 import asyncio
 import hashlib
 import hmac
-import json
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Generator
 from unittest.mock import AsyncMock, MagicMock
 

@@ -3,8 +3,6 @@
 Tests processing of Jira webhook events with AI-Fix label filtering.
 """
 
-import json
-import pytest
 import sys
 from pathlib import Path
 

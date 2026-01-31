@@ -5,7 +5,6 @@ Tests the mechanism that prevents agents from responding to their own messages.
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from datetime import datetime, timezone
 
 
 class LoopPrevention:

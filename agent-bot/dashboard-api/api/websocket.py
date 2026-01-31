@@ -5,7 +5,6 @@ import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import structlog
 
-from shared import ChatMessage, TaskStopMessage, UserInputMessage
 from core.database.redis_client import redis_client
 
 logger = structlog.get_logger()

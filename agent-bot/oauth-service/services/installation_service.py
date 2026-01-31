@@ -7,7 +7,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agent_engine.models import Installation, InstallationStatus, OAuthState, Platform
+from agent_engine.models import Installation, InstallationStatus, OAuthState
 from providers.base import InstallationInfo, OAuthTokens
 
 logger = structlog.get_logger(__name__)

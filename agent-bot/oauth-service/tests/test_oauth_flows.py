@@ -1,8 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone
 
-from providers.base import OAuthTokens, InstallationInfo
 from providers.github import GitHubOAuthProvider
 from providers.slack import SlackOAuthProvider
 from providers.jira import JiraOAuthProvider

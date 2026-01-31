@@ -4,10 +4,8 @@ Tests the core event processing logic and routing.
 """
 
 import json
-import pytest
 from pathlib import Path
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, AsyncMock, patch
 
 
 class MockTaskLogger:

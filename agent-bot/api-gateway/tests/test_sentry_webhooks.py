@@ -3,7 +3,6 @@
 Tests processing of Sentry error alerts.
 """
 
-import pytest
 import sys
 from pathlib import Path
 

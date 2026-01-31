@@ -4,9 +4,6 @@ Tests the structured logging format and file organization.
 """
 
 import json
-import pytest
-from pathlib import Path
-from datetime import datetime
 
 from logger import TaskLogger
 

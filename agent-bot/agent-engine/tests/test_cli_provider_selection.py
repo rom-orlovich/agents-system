@@ -3,7 +3,6 @@
 Tests how agent types map to CLI providers and models.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
 

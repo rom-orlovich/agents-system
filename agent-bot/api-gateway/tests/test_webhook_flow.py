@@ -9,7 +9,6 @@ import json
 import pytest
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 from dataclasses import dataclass, field
 from typing import Any
 from datetime import datetime, timezone
@@ -21,7 +20,6 @@ from fixtures import (
     github_issue_comment_payload,
     github_pr_opened_payload,
     jira_issue_created_payload,
-    jira_comment_created_payload,
     slack_app_mention_payload,
     slack_message_payload,
     sentry_issue_created_payload,
@@ -226,7 +224,7 @@ class WebhookHandler:
         event = payload.get("webhookEvent", "")
         issue = payload.get("issue", {})
         fields = issue.get("fields", {})
-        labels = [l.get("name", l) if isinstance(l, dict) else l for l in fields.get("labels", [])]
+        labels = [lbl.get("name", lbl) if isinstance(lbl, dict) else lbl for lbl in fields.get("labels", [])]
 
         if "AI-Fix" not in labels:
             return WebhookResponse(

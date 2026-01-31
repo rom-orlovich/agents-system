@@ -1,6 +1,5 @@
 """Task data factory for testing."""
 
-import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import StrEnum

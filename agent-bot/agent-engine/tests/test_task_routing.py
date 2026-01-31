@@ -3,8 +3,6 @@
 Tests routing of tasks to specialized agents based on source.
 """
 
-import pytest
-from typing import Any
 
 
 ROUTING_TABLE: dict[str, dict[str, str]] = {

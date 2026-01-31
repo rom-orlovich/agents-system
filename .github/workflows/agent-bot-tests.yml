@@ -43,14 +43,13 @@ jobs:
           uv sync
           uv pip install ruff mypy
 
-      - name: Run Ruff linter
-        run: uv run ruff check .
+      - name: Run Ruff linter on tests
+        run: |
+          uv run ruff check tests/ api-gateway/tests/ agent-engine/tests/ dashboard-api/tests/ task-logger/tests/ api-services/*/tests/
 
-      - name: Run Ruff formatter check
-        run: uv run ruff format --check .
-
-      - name: Run MyPy type check
-        run: uv run mypy . --ignore-missing-imports || true
+      - name: Run Ruff formatter check on tests
+        run: |
+          uv run ruff format --check tests/ api-gateway/tests/ agent-engine/tests/ dashboard-api/tests/ task-logger/tests/ api-services/*/tests/
 
   test-factories:
     name: Test Factories

@@ -4,8 +4,6 @@ Tests business requirements for GitHub integration.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-import httpx
 
 
 class MockGitHubClient:
@@ -45,7 +43,7 @@ class MockGitHubClient:
             "number": 123,
             "title": title,
             "body": body,
-            "labels": [{"name": l} for l in (labels or [])],
+            "labels": [{"name": lbl} for lbl in (labels or [])],
             "html_url": f"https://github.com/{owner}/{repo}/issues/123",
         }
 

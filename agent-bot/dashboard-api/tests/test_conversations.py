@@ -3,15 +3,12 @@
 Tests conversation tracking and metric aggregation.
 """
 
-import pytest
 import sys
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
 
-from factories import ConversationFactory, TaskFactory
-from factories.task_factory import TaskStatus
 
 
 class TestConversationMetricsAggregation:

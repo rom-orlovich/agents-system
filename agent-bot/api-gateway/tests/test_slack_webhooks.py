@@ -3,7 +3,6 @@
 Tests processing of Slack events.
 """
 
-import pytest
 import sys
 from pathlib import Path
 

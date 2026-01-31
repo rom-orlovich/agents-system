@@ -1,12 +1,9 @@
-import asyncio
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 import structlog
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from api import analytics, conversations, dashboard, webhook_status, websocket
 from core.config import Settings

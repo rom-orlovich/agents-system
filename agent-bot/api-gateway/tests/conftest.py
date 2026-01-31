@@ -2,24 +2,14 @@
 
 import hashlib
 import hmac
-import json
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
 
-from fixtures import (
-    github_issue_opened_payload,
-    github_issue_comment_payload,
-    github_pr_opened_payload,
-    jira_issue_created_payload,
-    jira_comment_created_payload,
-    slack_app_mention_payload,
-    sentry_issue_created_payload,
-)
 
 
 @pytest.fixture
