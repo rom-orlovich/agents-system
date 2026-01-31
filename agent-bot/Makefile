@@ -8,21 +8,27 @@ help:
 	@echo "Setup:"
 	@echo "  init              Initialize project (install dependencies, create dirs)"
 	@echo "  build             Build all Docker containers"
+	@echo "  build-dashboard   Build dashboard services only"
 	@echo ""
 	@echo "Docker:"
 	@echo "  up                Start all services"
 	@echo "  up-infra          Start infrastructure only (Redis, PostgreSQL)"
+	@echo "  up-dashboard      Start dashboard services only"
 	@echo "  up-scale N=3      Start with N agent-engine replicas"
 	@echo "  down              Stop all services"
 	@echo "  restart           Restart all services"
+	@echo "  restart-dashboard Restart dashboard services"
 	@echo "  logs              View logs (all services)"
 	@echo "  logs-engine       View agent-engine logs"
 	@echo "  logs-gateway      View api-gateway logs"
+	@echo "  logs-dashboard    View dashboard-api logs"
+	@echo "  logs-ui           View external-dashboard logs"
 	@echo ""
 	@echo "Testing:"
 	@echo "  test              Run all tests"
 	@echo "  test-unit         Run unit tests"
 	@echo "  test-integration  Run integration tests"
+	@echo "  test-cli          Run CLI test (Claude/Cursor)"
 	@echo "  coverage          Run tests with coverage"
 	@echo ""
 	@echo "Code Quality:"
@@ -40,6 +46,8 @@ help:
 	@echo "  clean             Remove build artifacts"
 	@echo "  redis-cli         Open Redis CLI"
 	@echo "  shell             Open shell in agent-engine"
+	@echo "  shell-dashboard   Open shell in dashboard-api"
+	@echo "  health            Check all service health"
 
 # Setup
 init:
@@ -51,12 +59,18 @@ init:
 build:
 	docker-compose build
 
+build-dashboard:
+	docker-compose build dashboard-api external-dashboard
+
 # Docker
 up:
 	docker-compose up -d
 
 up-infra:
 	docker-compose up -d redis postgres
+
+up-dashboard:
+	docker-compose up -d dashboard-api external-dashboard
 
 up-scale:
 	docker-compose up -d --scale agent-engine=$(N)
@@ -67,6 +81,9 @@ down:
 restart:
 	docker-compose restart
 
+restart-dashboard:
+	docker-compose restart dashboard-api external-dashboard
+
 logs:
 	docker-compose logs -f
 
@@ -75,6 +92,12 @@ logs-engine:
 
 logs-gateway:
 	docker-compose logs -f api-gateway
+
+logs-dashboard:
+	docker-compose logs -f dashboard-api
+
+logs-ui:
+	docker-compose logs -f external-dashboard
 
 # Testing
 test:
@@ -85,6 +108,11 @@ test-unit:
 
 test-integration:
 	cd agent-engine-package && pytest tests/integration/
+
+test-cli:
+	@echo "🧪 Running CLI test in agent-engine container..."
+	@docker-compose exec -T agent-engine python scripts/test_cli_after_build.py || true
+	@echo "✅ CLI test completed"
 
 coverage:
 	cd agent-engine-package && pytest --cov=agent_engine --cov-report=html
@@ -126,10 +154,22 @@ redis-cli:
 shell:
 	docker-compose exec agent-engine bash
 
+shell-dashboard:
+	docker-compose exec dashboard-api bash
+
 # Health checks
 health:
-	@echo "Checking services..."
-	@curl -s http://localhost:8000/health || echo "API Gateway: DOWN"
-	@curl -s http://localhost:8080/health || echo "Agent Engine: DOWN"
-	@curl -s http://localhost:5000/health || echo "Dashboard API: DOWN"
-	@docker-compose exec redis redis-cli ping || echo "Redis: DOWN"
+	@echo "🔍 Checking services health..."
+	@echo ""
+	@echo -n "API Gateway (8000):      "
+	@curl -sf http://localhost:8000/health > /dev/null && echo "✅ UP" || echo "❌ DOWN"
+	@echo -n "Agent Engine (8080):     "
+	@curl -sf http://localhost:8080/health > /dev/null && echo "✅ UP" || echo "❌ DOWN"
+	@echo -n "Dashboard API (5000):    "
+	@curl -sf http://localhost:5000/api/health > /dev/null && echo "✅ UP" || echo "❌ DOWN"
+	@echo -n "External Dashboard (3005): "
+	@curl -sf http://localhost:3005/ > /dev/null && echo "✅ UP" || echo "❌ DOWN"
+	@echo -n "Redis:                   "
+	@docker-compose exec -T redis redis-cli ping > /dev/null 2>&1 && echo "✅ UP" || echo "❌ DOWN"
+	@echo -n "PostgreSQL:              "
+	@docker-compose exec -T postgres pg_isready -U agent > /dev/null 2>&1 && echo "✅ UP" || echo "❌ DOWN"

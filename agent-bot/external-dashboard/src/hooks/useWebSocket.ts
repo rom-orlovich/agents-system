@@ -3,25 +3,21 @@ import { useQueryClient } from "@tanstack/react-query";
 
 interface WebSocketMessage {
   type: string;
-  task_id?: string;
-  status?: string;
-  output?: string;
   [key: string]: unknown;
 }
 
 export function useWebSocket(sessionId: string = "dashboard") {
   const wsRef = useRef<WebSocket | null>(null);
   const queryClient = useQueryClient();
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     let ws: WebSocket | null = null;
 
     const connect = () => {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = import.meta.env.VITE_API_URL || window.location.host;
-      const wsUrl = `${protocol}//${host}/ws/${sessionId}`;
-
+      const wsUrl = `${protocol}//${window.location.host}/ws/${sessionId}`;
+      
       ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -36,21 +32,9 @@ export function useWebSocket(sessionId: string = "dashboard") {
       ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
-
-          switch (message.type) {
-            case "task_update":
-              queryClient.invalidateQueries({ queryKey: ["tasks"] });
-              if (message.task_id) {
-                queryClient.invalidateQueries({ queryKey: ["task", message.task_id] });
-                queryClient.invalidateQueries({ queryKey: ["task-logs", message.task_id] });
-              }
-              break;
-            case "metrics_update":
-              queryClient.invalidateQueries({ queryKey: ["metrics"] });
-              break;
-            case "agent_status":
-              queryClient.invalidateQueries({ queryKey: ["agents"] });
-              break;
+          
+          if (message.type === "cli_status_update") {
+            queryClient.invalidateQueries({ queryKey: ["cli-status"] });
           }
         } catch (error) {
           console.error("Failed to parse WebSocket message", error);

@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   agent-engine:
+    image: agent-engine:latest
     build: .
     ports:
       - "8080-8089:8080"
@@ -29,6 +30,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./repos:/app/repos
+      - ${HOME}/.claude/.credentials.json:/home/agent/.claude/.credentials.json:ro
     deploy:
       replicas: 3
       resources:

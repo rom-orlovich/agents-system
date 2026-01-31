@@ -1,14 +1,12 @@
 import json
 import uuid
-from typing import Annotated
 
-from fastapi import APIRouter, Header, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import redis.asyncio as redis
 import structlog
 
 from config import get_settings
-from .validator import validate_slack_signature
 from .events import should_process_event, extract_task_info
 
 logger = structlog.get_logger(__name__)
@@ -16,19 +14,12 @@ router = APIRouter(prefix="/webhooks/slack", tags=["slack-webhook"])
 
 
 @router.post("")
-async def handle_slack_webhook(
-    request: Request,
-    x_slack_signature: Annotated[str | None, Header()] = None,
-    x_slack_request_timestamp: Annotated[str | None, Header()] = None,
-):
+async def handle_slack_webhook(request: Request):
     payload = await request.body()
-
     data = json.loads(payload)
 
     if data.get("type") == "url_verification":
         return JSONResponse(content={"challenge": data.get("challenge")})
-
-    validate_slack_signature(payload, x_slack_signature, x_slack_request_timestamp)
 
     event = data.get("event", {})
     team_id = data.get("team_id", "")

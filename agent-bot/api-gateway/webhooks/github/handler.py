@@ -8,7 +8,6 @@ import redis.asyncio as redis
 import structlog
 
 from config import get_settings
-from .validator import validate_github_signature
 from .events import should_process_event, extract_task_info
 
 logger = structlog.get_logger(__name__)
@@ -19,11 +18,8 @@ router = APIRouter(prefix="/webhooks/github", tags=["github-webhook"])
 async def handle_github_webhook(
     request: Request,
     x_github_event: Annotated[str, Header()],
-    x_hub_signature_256: Annotated[str | None, Header()] = None,
 ):
     payload = await request.body()
-    validate_github_signature(payload, x_hub_signature_256)
-
     data = json.loads(payload)
     action = data.get("action")
 

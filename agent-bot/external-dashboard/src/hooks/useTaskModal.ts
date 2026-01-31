@@ -1,15 +1,15 @@
 import { create } from "zustand";
 
-interface TaskModalState {
+interface TaskModalStore {
   isOpen: boolean;
   taskId: string | null;
   openTask: (taskId: string) => void;
   closeTask: () => void;
 }
 
-export const useTaskModal = create<TaskModalState>((set) => ({
+export const useTaskModal = create<TaskModalStore>((set) => ({
   isOpen: false,
   taskId: null,
-  openTask: (taskId: string) => set({ isOpen: true, taskId }),
+  openTask: (taskId) => set({ isOpen: true, taskId }),
   closeTask: () => set({ isOpen: false, taskId: null }),
 }));

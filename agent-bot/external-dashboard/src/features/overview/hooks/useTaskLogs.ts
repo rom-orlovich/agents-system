@@ -1,30 +1,46 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../../../services/api";
 
-export interface TaskLogs {
+export interface TaskLogResponse {
   task_id: string;
-  status: "queued" | "running" | "completed" | "failed";
+  status: string;
   output: string;
+  error: string | null;
   is_live: boolean;
-  started_at: string | null;
-  completed_at: string | null;
 }
 
 export function useTaskLogs(taskId: string | null) {
-  return useQuery({
+  return useQuery<TaskLogResponse>({
     queryKey: ["task-logs", taskId],
-    queryFn: async (): Promise<TaskLogs> => {
-      if (!taskId) throw new Error("No task ID");
-      const response = await api.get(`/api/v1/tasks/${taskId}/logs`);
-      return response.data;
+    queryFn: async () => {
+      if (!taskId) return null;
+      const res = await fetch(`/api/tasks/${taskId}/logs`);
+      if (!res.ok) throw new Error("Failed to fetch task logs");
+      return res.json();
     },
     enabled: !!taskId,
     refetchInterval: (query) => {
-      const data = query.state.data;
-      if (data?.is_live) {
-        return 1000;
-      }
-      return false;
+      // Poll faster if it's live
+      return query.state.data?.is_live ? 1000 : 5000;
     },
+  });
+}
+
+export function useGlobalLogs() {
+  // For now, we'll just fetch logs for the most recent tasks
+  // In a real app, this would be a WebSocket stream
+  return useQuery<TaskLogResponse[]>({
+    queryKey: ["global-logs"],
+    queryFn: async () => {
+      const tasksRes = await fetch("/api/tasks?limit=5");
+      const tasks = await tasksRes.json();
+      
+      const logsPromises = tasks.map(async (task: any) => {
+        const res = await fetch(`/api/tasks/${task.task_id}/logs`);
+        return res.json();
+      });
+      
+      return Promise.all(logsPromises);
+    },
+    refetchInterval: 3000,
   });
 }

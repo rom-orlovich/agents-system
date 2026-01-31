@@ -1,9 +1,17 @@
 import hashlib
 import hmac
+import json
 import time
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+import structlog
 
 from config import get_settings
 from middleware.error_handler import WebhookValidationError
+
+logger = structlog.get_logger(__name__)
 
 
 def validate_slack_signature(
@@ -34,3 +42,42 @@ def validate_slack_signature(
 
     if not hmac.compare_digest(expected_signature, signature):
         raise WebhookValidationError("Invalid signature")
+
+
+class SlackAuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next) -> Response:
+        if request.url.path in ["/health", "/"]:
+            return await call_next(request)
+
+        if not request.url.path.startswith("/webhooks/slack"):
+            return await call_next(request)
+
+        body = await request.body()
+
+        try:
+            data = json.loads(body)
+            if data.get("type") == "url_verification":
+                async def receive():
+                    return {"type": "http.request", "body": body}
+                request = Request(request.scope, receive)
+                return await call_next(request)
+        except json.JSONDecodeError:
+            pass
+
+        signature = request.headers.get("x-slack-signature")
+        timestamp = request.headers.get("x-slack-request-timestamp")
+
+        logger.debug(
+            "slack_auth_validating",
+            path=request.url.path,
+            has_signature=signature is not None,
+            has_timestamp=timestamp is not None,
+        )
+
+        validate_slack_signature(body, signature, timestamp)
+
+        async def receive():
+            return {"type": "http.request", "body": body}
+
+        request = Request(request.scope, receive)
+        return await call_next(request)

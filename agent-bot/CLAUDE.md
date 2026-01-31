@@ -26,11 +26,12 @@
      ┌──────────────────────────────────────────────────────────────────┐
      │              Agent Engine :8080-8089 (Scalable)                  │
      │  ┌────────────────────────────────────────────────────────────┐ │
-     │  │  agent-engine-package/                                      │ │
-     │  │  ├── core/ (CLI providers: Claude, Cursor)                  │ │
-     │  │  ├── agents/ (13 specialized agents)                        │ │
-     │  │  ├── skills/ (9 reusable capabilities)                      │ │
-     │  │  └── memory/ (self-improvement)                             │ │
+     │  │  agent-engine/ container                                    │ │
+     │  │  ├── src/cli/ (CLI providers: Claude, Cursor)               │ │
+     │  │  ├── src/core/ (worker, queue, config)                      │ │
+     │  │  ├── .claude/agents/ (13 specialized agents)                │ │
+     │  │  ├── .claude/skills/ (9 reusable capabilities)              │ │
+     │  │  └── .claude/memory/ (self-improvement)                     │ │
      │  └────────────────────────────────────────────────────────────┘ │
      │  ┌────────────────────────────────────────────────────────────┐ │
      │  │  mcp.json → SSE connections to MCP servers                  │ │
@@ -125,7 +126,7 @@ docker-compose exec agent-engine bash         # Shell into container
 ### Testing
 
 ```bash
-cd agent-engine-package && pytest            # Test agent engine package
+cd agent-engine && pytest                    # Test agent engine
 cd api-gateway && pytest                     # Test API gateway
 cd mcp-servers/jira-mcp && pytest           # Test Jira MCP
 ```
@@ -141,29 +142,26 @@ agent-bot/
 ├── Makefile                            # Dev commands
 ├── .env.example
 │
-├── agent-engine-package/               # Core agent engine (Python package)
-│   ├── pyproject.toml
-│   ├── agent_engine/
-│   │   ├── core/                       # CLI providers, worker, queue
-│   │   │   ├── cli/
-│   │   │   │   ├── base.py             # CLIProvider protocol
-│   │   │   │   ├── executor.py         # Provider factory
-│   │   │   │   └── providers/
-│   │   │   │       ├── claude/         # Claude Code CLI
-│   │   │   │       └── cursor/         # Cursor CLI
-│   │   │   ├── worker.py               # Task worker
-│   │   │   ├── queue_manager.py        # Redis queue
-│   │   │   └── config.py               # Settings
-│   │   ├── models/                     # SQLAlchemy models
-│   │   ├── agents/                     # 13 specialized agents
-│   │   ├── skills/                     # 9 skill definitions
-│   │   └── memory/                     # Self-improvement
-│   └── tests/
-│
 ├── agent-engine/                       # Agent engine container
 │   ├── Dockerfile
 │   ├── CLAUDE.md
-│   └── mcp.json                        # MCP server connections
+│   ├── mcp.json                        # MCP server connections
+│   ├── src/
+│   │   ├── cli/                        # CLI providers
+│   │   │   ├── base.py                 # CLIProvider protocol
+│   │   │   ├── executor.py             # Provider factory
+│   │   │   └── providers/
+│   │   │       ├── claude/             # Claude Code CLI
+│   │   │       └── cursor/             # Cursor CLI
+│   │   └── core/                       # Core functionality
+│   │       ├── worker.py               # Task worker
+│   │       ├── queue_manager.py        # Redis queue
+│   │       └── config.py               # Settings
+│   ├── .claude/
+│   │   ├── agents/                     # 13 specialized agents
+│   │   ├── skills/                     # 9 skill definitions
+│   │   └── memory/                     # Self-improvement
+│   └── tests/                          # Unit and integration tests
 │
 ├── api-gateway/                        # Webhook reception
 │   ├── Dockerfile
@@ -450,10 +448,9 @@ SENTRY_API_URL=http://sentry-api:3004
 
 ## Implementation Documents
 
-- `INTEGRATION-IMPLEMENTATION-PLAN.md` - Full TDD implementation plan
-- `ARCHITECTURE.md` - Detailed architecture documentation
-- `IMPLEMENTATION-PLAN.md` - Phase-by-phase breakdown
-- `IMPLEMENTATION-TASKS.md` - Task checklist
+- `docs/ARCHITECTURE.md` - Detailed architecture documentation
+- `docs/INTEGRATION-IMPLEMENTATION-PLAN.md` - Full TDD implementation plan
+- `docs/ARCHIVED-agent-engine-package.md` - Historical reference (archived)
 
 ---
 

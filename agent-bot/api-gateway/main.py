@@ -6,8 +6,12 @@ from fastapi import FastAPI
 
 from config import get_settings
 from routes import webhooks_router
-from middleware import AuthMiddleware, error_handler
+from middleware import error_handler
 from middleware.error_handler import WebhookValidationError
+from webhooks.github.validator import GitHubAuthMiddleware
+from webhooks.jira.validator import JiraAuthMiddleware
+from webhooks.slack.validator import SlackAuthMiddleware
+from webhooks.sentry.validator import SentryAuthMiddleware
 
 logger = structlog.get_logger(__name__)
 
@@ -27,7 +31,10 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    app.add_middleware(AuthMiddleware)
+    app.add_middleware(SentryAuthMiddleware)
+    app.add_middleware(SlackAuthMiddleware)
+    app.add_middleware(JiraAuthMiddleware)
+    app.add_middleware(GitHubAuthMiddleware)
     app.add_exception_handler(WebhookValidationError, error_handler)
     app.add_exception_handler(Exception, error_handler)
 

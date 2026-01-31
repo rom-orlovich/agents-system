@@ -91,6 +91,8 @@ async def check_credentials() -> bool:
     """Check if credentials file exists."""
     creds_paths = [
         Path.home() / ".claude" / ".credentials.json",
+        Path("/home/agent/.claude/.credentials.json"),
+        Path("/root/.claude/.credentials.json"),
         Path("/data/credentials/.credentials.json"),
         Path("/app/.claude/.credentials.json"),
     ]

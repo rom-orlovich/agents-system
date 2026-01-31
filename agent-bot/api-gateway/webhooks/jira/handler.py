@@ -1,14 +1,12 @@
 import json
 import uuid
-from typing import Annotated
 
-from fastapi import APIRouter, Header, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import redis.asyncio as redis
 import structlog
 
 from config import get_settings
-from .validator import validate_jira_signature
 from .events import should_process_event, extract_task_info
 
 logger = structlog.get_logger(__name__)
@@ -16,13 +14,8 @@ router = APIRouter(prefix="/webhooks/jira", tags=["jira-webhook"])
 
 
 @router.post("")
-async def handle_jira_webhook(
-    request: Request,
-    x_hub_signature: Annotated[str | None, Header()] = None,
-):
+async def handle_jira_webhook(request: Request):
     payload = await request.body()
-    validate_jira_signature(payload, x_hub_signature)
-
     data = json.loads(payload)
     webhook_event = data.get("webhookEvent", "")
     issue = data.get("issue", {})

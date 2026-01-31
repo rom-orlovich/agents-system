@@ -1,23 +1,29 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import tailwindcss from "@tailwindcss/vite";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
 
+// https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
-    port: 3000,
     proxy: {
-      '/api': {
-        target: 'http://localhost:8090',
+      "/api": {
+        target: "http://localhost:8000",
         changeOrigin: true,
       },
-      '/ws': {
-        target: 'ws://localhost:8090',
+      "/webhooks": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/ws": {
+        target: "http://localhost:8000",
         ws: true,
       },
     },
   },
-  build: {
-    outDir: 'dist',
-    sourcemap: true,
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: "./src/test/setup.ts",
   },
 });

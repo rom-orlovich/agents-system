@@ -178,15 +178,16 @@ services:
       - agent-network
     restart: unless-stopped
 
-  internal-dashboard-api:
-    build: ./internal-dashboard-api
-    container_name: internal-dashboard-api
+  dashboard-api:
+    build: ./dashboard-api
+    container_name: dashboard-api
     ports:
       - "5000:5000"
     environment:
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql+asyncpg://agent:${POSTGRES_PASSWORD:-agent}@postgres:5432/agent_system
       - AGENT_ENGINE_URL=http://agent-engine:8080
+      - CORS_ORIGINS=http://localhost:3005,http://external-dashboard:80
     depends_on:
       redis:
         condition: service_healthy
@@ -200,11 +201,9 @@ services:
     build: ./external-dashboard
     container_name: external-dashboard
     ports:
-      - "3005:3005"
-    environment:
-      - INTERNAL_API_URL=http://internal-dashboard-api:5000
+      - "3005:80"
     depends_on:
-      - internal-dashboard-api
+      - dashboard-api
     networks:
       - agent-network
     restart: unless-stopped

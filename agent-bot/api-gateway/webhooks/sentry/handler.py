@@ -8,7 +8,6 @@ import redis.asyncio as redis
 import structlog
 
 from config import get_settings
-from .validator import validate_sentry_signature
 from .events import should_process_event, extract_task_info
 
 logger = structlog.get_logger(__name__)
@@ -18,12 +17,9 @@ router = APIRouter(prefix="/webhooks/sentry", tags=["sentry-webhook"])
 @router.post("")
 async def handle_sentry_webhook(
     request: Request,
-    sentry_hook_signature: Annotated[str | None, Header()] = None,
     sentry_hook_resource: Annotated[str | None, Header()] = None,
 ):
     payload = await request.body()
-    validate_sentry_signature(payload, sentry_hook_signature)
-
     data = json.loads(payload)
     action = data.get("action", "")
 

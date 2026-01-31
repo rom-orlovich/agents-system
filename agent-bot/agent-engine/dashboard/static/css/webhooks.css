@@ -1,0 +1,152 @@
+/* Industrial Brutalist Webhooks Styles */
+
+.webhook-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.webhook-urls-section {
+    background: #080808;
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.webhook-urls-section h3 {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+}
+
+#webhook-urls-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.webhook-url-card {
+    background: #111;
+    border: 1px solid var(--border);
+    padding: 1rem;
+}
+
+.webhook-url-card:hover {
+    border-color: var(--primary);
+}
+
+.webhook-name {
+    font-family: var(--font-display);
+    font-weight: 800;
+    text-transform: uppercase;
+    color: white;
+}
+
+.webhook-badge {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    background: #222;
+}
+
+.webhook-badge.builtin { color: var(--secondary); }
+.webhook-badge.custom { color: var(--primary); }
+
+.url-row {
+    margin-top: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    display: flex;
+    justify-content: space-between;
+}
+
+.url-row code {
+    color: var(--primary);
+    background: #000;
+    word-break: break-all;
+    white-space: pre-wrap;
+    padding: 2px 4px;
+}
+
+.copy-btn {
+    background: #222;
+    border: 1px solid var(--border);
+    color: white;
+    padding: 4px 10px;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    cursor: pointer;
+    transition: var(--transition);
+    border-radius: 2px;
+}
+
+.copy-btn:hover { background: var(--primary); color: #000; border-color: var(--primary); }
+
+.event-item {
+    background: #0d0d0d;
+    border: 1px solid var(--border);
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    display: grid;
+    grid-template-columns: 100px 1fr 150px;
+    align-items: center;
+}
+
+.event-item:hover { border-color: var(--primary); }
+
+.event-provider {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    background: #222;
+    padding: 2px 6px;
+    text-align: center;
+}
+
+.event-type {
+    font-weight: 700;
+    color: white;
+    font-family: var(--font-mono);
+}
+
+.event-time {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-align: right;
+}
+
+/* RESPONSIVE WEBHOOKS */
+@media (max-width: 768px) {
+    .webhook-stats {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .url-row {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .url-row code {
+        font-size: 0.65rem;
+    }
+
+    .event-item {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+
+    .event-time {
+        text-align: left;
+    }
+
+    .webhook-urls-section {
+        padding: 0.75rem;
+    }
+
+    #webhook-urls-list {
+        grid-template-columns: 1fr;
+    }
+}
