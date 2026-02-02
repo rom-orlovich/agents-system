@@ -4,13 +4,9 @@ Tests analytics calculations and aggregations.
 """
 
 import pytest
-import sys
-from pathlib import Path
 from datetime import datetime, timezone
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
-
-from factories.task_factory import TaskStatus
+from .factories.task_factory import TaskStatus
 
 
 CLAUDE_PRICING = {

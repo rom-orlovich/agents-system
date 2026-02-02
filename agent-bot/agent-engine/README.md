@@ -48,7 +48,35 @@ agent-engine/
 │   ├── agents/                # 13 agent definitions
 │   ├── skills/                # 9 skill definitions
 │   └── CLAUDE.md              # Agent orchestration config
-└── mcp.json                   # MCP server connections
+├── mcp.json                   # MCP server connections
+└── tests/                     # Co-located tests
+    ├── factories/             # Test data factories
+    │   ├── task_factory.py    # Task model and factory
+    │   └── session_factory.py # Session model and factory
+    ├── conftest.py            # Shared fixtures
+    └── test_*.py              # Test files
+```
+
+## Testing
+
+Tests are co-located with the service for portability.
+
+```bash
+# From agent-bot root
+make test-agent-engine
+
+# Or directly
+cd agent-bot
+PYTHONPATH=agent-engine:$PYTHONPATH uv run pytest agent-engine/tests/ -v
+```
+
+### Test Factories
+
+Test factories are in `tests/factories/`:
+
+```python
+from .factories import TaskFactory, SessionFactory, TaskStatus
+from .factories.task_factory import InvalidTransitionError, VALID_TRANSITIONS
 ```
 
 ## Business Logic
