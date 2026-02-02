@@ -212,7 +212,7 @@ Service automatically refreshes expired tokens:
 
 ## Setup
 
-For detailed setup instructions, see **[SETUP.md](./SETUP.md)**.
+For detailed setup instructions, see **[docs/SETUP.md](./docs/SETUP.md)**.
 
 Quick start:
 
@@ -221,7 +221,7 @@ Quick start:
 cp .env.example .env
 
 # Configure OAuth credentials in .env
-# See SETUP.md for OAuth app configuration
+# See docs/SETUP.md for OAuth app configuration
 
 # Start service
 cd agent-bot

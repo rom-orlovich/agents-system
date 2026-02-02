@@ -23,7 +23,7 @@ class SlackOAuthProvider(OAuthProvider):
         self.redirect_uri = f"{settings.base_url}/oauth/callback/slack"
         self.scopes = DEFAULT_SCOPES
 
-    def get_authorization_url(self, state: str) -> str:
+    async def get_authorization_url(self, state: str) -> str:
         scope_str = ",".join(self.scopes)
         return (
             f"https://slack.com/oauth/v2/authorize"

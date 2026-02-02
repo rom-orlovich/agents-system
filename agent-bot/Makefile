@@ -1,4 +1,4 @@
-.PHONY: help init build up down logs test test-all test-api-gateway test-agent-engine test-dashboard test-logger test-services test-cov lint format clean health cli-down cli-logs cli-claude cli-cursor
+.PHONY: help init build up down logs test test-all test-api-gateway test-agent-engine test-dashboard test-logger test-services test-cov lint format clean health cli-down cli-logs cli-claude cli-cursor tunnel service-up service-down service-restart service-logs service-build service-shell
 
 PROVIDER ?= claude
 SCALE ?= 1
@@ -16,6 +16,15 @@ help:
 	@echo "Services:"
 	@echo "  make start    Start full system"
 	@echo "  make health   Check services"
+	@echo "  make tunnel   Start ngrok tunnel for OAuth service"
+	@echo ""
+	@echo "Service Management:"
+	@echo "  make service-up S=oauth-service      Start a service"
+	@echo "  make service-down S=oauth-service    Stop a service"
+	@echo "  make service-restart S=oauth-service  Restart a service"
+	@echo "  make service-logs S=oauth-service     View service logs"
+	@echo "  make service-build S=oauth-service   Build a service"
+	@echo "  make service-shell S=oauth-service   Open shell in container"
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test-all           Run all tests"
@@ -88,8 +97,31 @@ health:
 	@echo "Services:"
 	@curl -sf http://localhost:8000/health >/dev/null && echo "  ✅ API Gateway" || echo "  ❌ API Gateway"
 	@curl -sf http://localhost:8080/health >/dev/null && echo "  ✅ Agent Engine" || echo "  ❌ Agent Engine"
+	@curl -sf http://localhost:8010/health >/dev/null && echo "  ✅ OAuth Service" || echo "  ❌ OAuth Service"
 	@$(DC) exec -T redis redis-cli ping >/dev/null 2>&1 && echo "  ✅ Redis" || echo "  ❌ Redis"
 	@$(DC) exec -T postgres pg_isready -U agent >/dev/null 2>&1 && echo "  ✅ PostgreSQL" || echo "  ❌ PostgreSQL"
+
+tunnel:
+	@echo "Starting ngrok tunnel for OAuth service..."
+	@bash oauth-service/start-ngrok.sh
+
+service-up:
+	@bash scripts/docker-service.sh $(S) up
+
+service-down:
+	@bash scripts/docker-service.sh $(S) down
+
+service-restart:
+	@bash scripts/docker-service.sh $(S) restart
+
+service-logs:
+	@bash scripts/docker-service.sh $(S) logs
+
+service-build:
+	@bash scripts/docker-service.sh $(S) build
+
+service-shell:
+	@bash scripts/docker-service.sh $(S) shell
 
 test:
 	@cd agent-engine-package && pytest
