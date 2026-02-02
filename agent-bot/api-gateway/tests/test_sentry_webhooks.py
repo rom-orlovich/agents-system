@@ -3,12 +3,7 @@
 Tests processing of Sentry error alerts.
 """
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
-
-from fixtures import (
+from .fixtures import (
     sentry_issue_created_payload,
     sentry_issue_regression_payload,
     sentry_issue_resolved_payload,

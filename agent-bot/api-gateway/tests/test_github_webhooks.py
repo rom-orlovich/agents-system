@@ -6,9 +6,7 @@ Tests processing of GitHub webhook events.
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
-
-from fixtures import (
+from .fixtures import (
     github_issue_opened_payload,
     github_issue_comment_payload,
     github_pr_opened_payload,

@@ -3,12 +3,7 @@
 Tests processing of Slack events.
 """
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
-
-from fixtures import (
+from .fixtures import (
     slack_app_mention_payload,
     slack_message_payload,
     slack_url_verification_payload,

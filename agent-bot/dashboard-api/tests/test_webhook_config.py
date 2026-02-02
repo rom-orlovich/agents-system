@@ -4,12 +4,8 @@ Tests webhook configuration management.
 """
 
 import pytest
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
-
-from factories.webhook_factory import (
+from .factories.webhook_factory import (
     WebhookCommand,
     WebhookValidationError,
 )

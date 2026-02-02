@@ -3,12 +3,7 @@
 Tests processing of Jira webhook events with AI-Fix label filtering.
 """
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "tests"))
-
-from fixtures import (
+from .fixtures import (
     jira_issue_created_payload,
     jira_issue_updated_payload,
     jira_comment_created_payload,

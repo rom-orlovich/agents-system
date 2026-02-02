@@ -1,4 +1,4 @@
-"""Test fixtures and payload generators for agent-bot."""
+"""Test fixtures and payload generators for api-gateway."""
 
 from .github_payloads import (
     github_issue_opened_payload,
