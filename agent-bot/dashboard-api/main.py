@@ -5,7 +5,14 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import analytics, conversations, dashboard, oauth_status, webhook_status, websocket
+from api import (
+    analytics,
+    conversations,
+    dashboard,
+    oauth_status,
+    webhook_status,
+    websocket,
+)
 from core.config import Settings
 from core.database import init_db, shutdown_db
 

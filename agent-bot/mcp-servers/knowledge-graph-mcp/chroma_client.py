@@ -71,13 +71,21 @@ class ChromaDBClient:
         formatted_results = []
         if results["ids"] and results["ids"][0]:
             for i, doc_id in enumerate(results["ids"][0]):
-                formatted_results.append({
-                    "id": doc_id,
-                    "content": results["documents"][0][i] if results["documents"] else "",
-                    "metadata": results["metadatas"][0][i] if results["metadatas"] else {},
-                    "distance": results["distances"][0][i] if results["distances"] else 0.0,
-                    "collection": collection_name,
-                })
+                formatted_results.append(
+                    {
+                        "id": doc_id,
+                        "content": results["documents"][0][i]
+                        if results["documents"]
+                        else "",
+                        "metadata": results["metadatas"][0][i]
+                        if results["metadatas"]
+                        else {},
+                        "distance": results["distances"][0][i]
+                        if results["distances"]
+                        else 0.0,
+                        "collection": collection_name,
+                    }
+                )
 
         return {
             "results": formatted_results,
@@ -89,9 +97,7 @@ class ChromaDBClient:
     async def list_collections(self) -> dict[str, Any]:
         collections = self.client.list_collections()
         return {
-            "collections": [
-                {"name": c.name, "count": c.count()} for c in collections
-            ],
+            "collections": [{"name": c.name, "count": c.count()} for c in collections],
             "action": "list",
             "message": f"Found {len(collections)} collections",
         }
