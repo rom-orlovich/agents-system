@@ -43,9 +43,7 @@ class GitHubOAuthProvider(OAuthProvider):
 
     async def get_authorization_url(self, state: str) -> str:
         app_slug = await self._get_app_slug()
-        return (
-            f"https://github.com/apps/{app_slug}/installations/new?state={state}"
-        )
+        return f"https://github.com/apps/{app_slug}/installations/new?state={state}"
 
     def _generate_jwt(self) -> str:
         now = int(datetime.now(timezone.utc).timestamp())

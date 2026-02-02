@@ -35,7 +35,9 @@ class JiraOAuthProvider(OAuthProvider):
         digest = hashlib.sha256(verifier.encode()).digest()
         return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
 
-    async def get_authorization_url(self, state: str, code_verifier: str | None = None) -> str:
+    async def get_authorization_url(
+        self, state: str, code_verifier: str | None = None
+    ) -> str:
         if code_verifier is None:
             code_verifier = self._generate_code_verifier()
         self._code_verifiers[state] = code_verifier
