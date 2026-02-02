@@ -221,11 +221,34 @@ services:
     environment:
       - KG_PORT=9005
       - KG_KNOWLEDGE_GRAPH_URL=http://knowledge-graph:4000
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - CHROMA_COLLECTION=${CHROMA_COLLECTION:-agent_knowledge}
     depends_on:
       - knowledge-graph
+      - chromadb
     networks:
       - agent-network
     restart: unless-stopped
+
+  chromadb:
+    image: chromadb/chroma:0.4.22
+    container_name: agent-chromadb
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   task-logger:
     build: ./task-logger
@@ -292,3 +315,4 @@ volumes:
   agent_data:
   knowledge_graph_data:
   task_logs:
+  chroma_data:
