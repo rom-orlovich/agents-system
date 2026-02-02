@@ -1,45 +1,22 @@
 # API Gateway
 
-## Purpose
-
-Central webhook reception and routing service. Receives webhooks from GitHub, Jira, Slack, Sentry, validates signatures, extracts routing metadata, and enqueues tasks to Redis.
-
-## Container Details
-
-| Property  | Value                |
-| --------- | -------------------- |
-| Port      | 8000                 |
-| Scalable  | No (single instance) |
-| Framework | FastAPI              |
+Central webhook reception (port 8000). Receives webhooks from GitHub, Jira, Slack, Sentry, validates signatures, and enqueues tasks to Redis.
 
 ## Webhook Endpoints
 
-| Endpoint           | Method | Purpose                                 |
-| ------------------ | ------ | --------------------------------------- |
-| `/webhooks/github` | POST   | GitHub events (PR, issues, comments)    |
-| `/webhooks/jira`   | POST   | Jira events (ticket assignment, status) |
-| `/webhooks/slack`  | POST   | Slack events (mentions, commands)       |
-| `/webhooks/sentry` | POST   | Sentry alerts                           |
-| `/health`          | GET    | Health check                            |
+- `/webhooks/github` - GitHub events (PR, issues, comments)
+- `/webhooks/jira` - Jira events (ticket assignment, status)
+- `/webhooks/slack` - Slack events (mentions, commands)
+- `/webhooks/sentry` - Sentry alerts
+- `/health` - Health check
 
-## Webhook Processing Flow
+## Processing Flow
 
-1. Receive POST to `/webhooks/{provider}`
-2. Verify signature (HMAC for GitHub/Slack, configurable for Jira)
-3. Parse event data and extract routing metadata
-4. Check for loop prevention (skip bot messages)
-5. Create task in PostgreSQL
-6. Queue task to Redis
-7. Return 200 OK
-
-## Loop Prevention
-
-Bot comments/messages tracked in Redis to prevent infinite loops:
-
-```python
-redis_key = f"posted_comments:{comment_id}"
-ttl = 3600  # 1 hour
-```
+1. Verify signature (HMAC for GitHub/Slack)
+2. Check loop prevention (skip bot messages via Redis: `posted_comments:{comment_id}`, TTL 3600s)
+3. Create task in PostgreSQL
+4. Queue task to Redis
+5. Return 200 OK
 
 ## Environment Variables
 
@@ -51,17 +28,8 @@ JIRA_WEBHOOK_SECRET=xxx
 SLACK_WEBHOOK_SECRET=xxx
 ```
 
-## Error Handling
-
-- 401: Invalid signature
-- 400: Invalid payload
-- 500: Internal error
-
-All errors logged with structured logging.
-
 ## Testing
 
 ```bash
-cd api-gateway
-pytest
+cd api-gateway && pytest
 ```
