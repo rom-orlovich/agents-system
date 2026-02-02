@@ -42,6 +42,20 @@ Each task gets its own directory with structured logs:
 └── 04-final-result.json      # Static: final results + metrics
 ```
 
+## Folder Structure
+
+```
+task-logger/
+├── main.py              # FastAPI app + Redis consumer
+├── worker.py            # Event processing worker
+├── logger.py            # File logging utilities
+├── models.py            # Pydantic models
+├── config.py            # Settings
+└── tests/               # Co-located tests (self-contained)
+    ├── conftest.py      # Shared fixtures
+    └── test_*.py        # Test files
+```
+
 ## API Endpoints
 
 - `GET /health` - Health check
@@ -91,12 +105,15 @@ curl http://localhost:8090/metrics
 
 ## Testing
 
-```bash
-# Run tests
-pytest tests/
+Tests are co-located and self-contained (no shared dependencies).
 
-# Run tests in container
-make test-task-logger
+```bash
+# From agent-bot root
+make test-logger
+
+# Or directly
+cd agent-bot
+PYTHONPATH=task-logger:$PYTHONPATH uv run pytest task-logger/tests/ -v
 ```
 
 ## Monitoring

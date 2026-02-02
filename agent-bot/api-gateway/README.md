@@ -69,8 +69,42 @@ api-gateway/
 │   └── sentry/               # Sentry webhook handler
 ├── middleware/
 │   └── error_handler.py      # WebhookValidationError class
-└── config/
-    └── settings.py           # Configuration
+├── config/
+│   └── settings.py           # Configuration
+└── tests/                     # Co-located tests
+    ├── fixtures/              # Webhook payload fixtures
+    │   ├── github_payloads.py
+    │   ├── jira_payloads.py
+    │   ├── slack_payloads.py
+    │   └── sentry_payloads.py
+    ├── conftest.py            # Shared fixtures
+    └── test_*.py              # Test files
+```
+
+## Testing
+
+Tests are co-located with the service for portability.
+
+```bash
+# From agent-bot root
+make test-api-gateway
+
+# Or directly
+cd agent-bot
+PYTHONPATH=api-gateway:$PYTHONPATH uv run pytest api-gateway/tests/ -v
+```
+
+### Test Fixtures
+
+Webhook payload fixtures are in `tests/fixtures/`:
+
+```python
+from .fixtures import (
+    github_issue_opened_payload,
+    jira_issue_created_payload,
+    slack_app_mention_payload,
+    sentry_issue_created_payload,
+)
 ```
 
 ## Business Logic

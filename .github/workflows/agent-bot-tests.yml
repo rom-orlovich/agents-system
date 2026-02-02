@@ -49,33 +49,6 @@ jobs:
       - name: Run Ruff formatter check
         run: uv run ruff format --check .
 
-  test-factories:
-    name: Test Factories
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: agent-bot
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          version: "latest"
-          enable-cache: true
-          cache-dependency-glob: "agent-bot/uv.lock"
-
-      - name: Set up Python
-        run: uv python install ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: uv sync
-
-      - name: Run factory tests
-        run: |
-          PYTHONPATH=tests:$PYTHONPATH uv run pytest tests/test_factories.py -v --tb=short
-
   test-api-gateway:
     name: Test API Gateway
     runs-on: ubuntu-latest
@@ -250,7 +223,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - lint
-      - test-factories
       - test-api-gateway
       - test-agent-engine
       - test-dashboard-api
@@ -261,8 +233,7 @@ jobs:
     steps:
       - name: Check test results
         run: |
-          if [ "${{ needs.test-factories.result }}" != "success" ] || \
-             [ "${{ needs.test-api-gateway.result }}" != "success" ] || \
+          if [ "${{ needs.test-api-gateway.result }}" != "success" ] || \
              [ "${{ needs.test-agent-engine.result }}" != "success" ] || \
              [ "${{ needs.test-dashboard-api.result }}" != "success" ] || \
              [ "${{ needs.test-task-logger.result }}" != "success" ] || \
