@@ -25,18 +25,30 @@ def mock_settings():
 
 
 class TestGitHubOAuthProvider:
-    def test_get_authorization_url(self, mock_settings):
+    @pytest.mark.asyncio
+    async def test_get_authorization_url(self, mock_settings):
         provider = GitHubOAuthProvider(mock_settings)
-        url = provider.get_authorization_url("test-state")
 
-        assert "https://github.com/apps/test-app/installations/new" in url
-        assert "state=test-state" in url
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"slug": "test-app-slug"}
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
+                return_value=mock_response
+            )
+
+            url = await provider.get_authorization_url("test-state")
+
+            assert "https://github.com/apps/test-app-slug/installations/new" in url
+            assert "state=test-state" in url
 
 
 class TestSlackOAuthProvider:
-    def test_get_authorization_url(self, mock_settings):
+    @pytest.mark.asyncio
+    async def test_get_authorization_url(self, mock_settings):
         provider = SlackOAuthProvider(mock_settings)
-        url = provider.get_authorization_url("test-state")
+        url = await provider.get_authorization_url("test-state")
 
         assert "https://slack.com/oauth/v2/authorize" in url
         assert "client_id=slack-client-id" in url
@@ -67,9 +79,10 @@ class TestSlackOAuthProvider:
 
 
 class TestJiraOAuthProvider:
-    def test_get_authorization_url(self, mock_settings):
+    @pytest.mark.asyncio
+    async def test_get_authorization_url(self, mock_settings):
         provider = JiraOAuthProvider(mock_settings)
-        url = provider.get_authorization_url("test-state")
+        url = await provider.get_authorization_url("test-state")
 
         assert "https://auth.atlassian.com/authorize" in url
         assert "client_id=jira-client-id" in url

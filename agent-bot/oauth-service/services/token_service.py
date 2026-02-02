@@ -5,7 +5,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agent_engine.models import Installation, InstallationStatus, Platform
+from models import Installation, InstallationStatus, Platform
 from config.settings import get_settings
 from providers.github import GitHubOAuthProvider
 from providers.jira import JiraOAuthProvider

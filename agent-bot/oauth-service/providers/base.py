@@ -24,7 +24,7 @@ class InstallationInfo:
 
 class OAuthProvider(ABC):
     @abstractmethod
-    def get_authorization_url(self, state: str) -> str:
+    async def get_authorization_url(self, state: str) -> str:
         pass
 
     @abstractmethod

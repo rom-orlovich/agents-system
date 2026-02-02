@@ -19,11 +19,31 @@ class GitHubOAuthProvider(OAuthProvider):
         self.client_secret = settings.github_client_secret
         self.private_key = settings.github_private_key
         self.redirect_uri = f"{settings.base_url}/oauth/callback/github"
+        self._app_slug: str | None = None
 
-    def get_authorization_url(self, state: str) -> str:
-        return (
-            f"https://github.com/apps/{self.app_name}/installations/new?state={state}"
-        )
+    async def _get_app_slug(self) -> str:
+        if self._app_slug:
+            return self._app_slug
+
+        jwt_token = self._generate_jwt()
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://api.github.com/app",
+                headers={
+                    "Authorization": f"Bearer {jwt_token}",
+                    "Accept": "application/vnd.github+json",
+                },
+            )
+            response.raise_for_status()
+            app_data = response.json()
+
+        self._app_slug = app_data["slug"]
+        return self._app_slug
+
+    async def get_authorization_url(self, state: str) -> str:
+        app_slug = await self._get_app_slug()
+        return f"https://github.com/apps/{app_slug}/installations/new?state={state}"
 
     def _generate_jwt(self) -> str:
         now = int(datetime.now(timezone.utc).timestamp())

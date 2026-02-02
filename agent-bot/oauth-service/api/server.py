@@ -3,9 +3,11 @@ from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from config.settings import get_settings
+from models import Base
 
 logger = structlog.get_logger(__name__)
 
@@ -20,6 +22,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
     engine = create_async_engine(settings.database_url, echo=False)
     async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
     logger.info("database_connected", url=settings.database_url[:30] + "...")
     yield
@@ -44,9 +49,15 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    from .routes import router
+    from .routes import router, dashboard_html
 
     app.include_router(router)
+
+    @app.get("/", response_class=HTMLResponse)
+    async def dashboard() -> HTMLResponse:
+        settings = get_settings()
+        html = dashboard_html(settings.base_url)
+        return HTMLResponse(content=html)
 
     @app.get("/health")
     async def health_check() -> dict[str, str]:
