@@ -8,7 +8,9 @@ from config import get_settings, Settings
 router = APIRouter(prefix="/api/v1", tags=["slack"])
 
 
-def get_slack_client(settings: Annotated[Settings, Depends(get_settings)]) -> SlackClient:
+def get_slack_client(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> SlackClient:
     return SlackClient(
         bot_token=settings.slack_bot_token,
         base_url=settings.slack_api_base_url,

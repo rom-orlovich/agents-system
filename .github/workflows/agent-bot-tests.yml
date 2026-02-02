@@ -1,0 +1,282 @@
+name: Agent Bot Tests
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'agent-bot/**'
+      - '.github/workflows/agent-bot-tests.yml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'agent-bot/**'
+      - '.github/workflows/agent-bot-tests.yml'
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+  UV_CACHE_DIR: /tmp/.uv-cache
+
+jobs:
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-bot
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "agent-bot/uv.lock"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          uv sync
+          uv pip install ruff mypy
+
+      - name: Run Ruff linter
+        run: uv run ruff check .
+
+      - name: Run Ruff formatter check
+        run: uv run ruff format --check .
+
+  test-factories:
+    name: Test Factories
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-bot
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "agent-bot/uv.lock"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run factory tests
+        run: |
+          PYTHONPATH=tests:$PYTHONPATH uv run pytest tests/test_factories.py -v --tb=short
+
+  test-api-gateway:
+    name: Test API Gateway
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-bot
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "agent-bot/uv.lock"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          uv sync
+          uv pip install fastapi structlog redis httpx
+
+      - name: Run API Gateway tests
+        run: |
+          PYTHONPATH=tests:api-gateway:$PYTHONPATH uv run pytest api-gateway/tests/ -v --tb=short --cov=api-gateway --cov-report=xml:coverage-api-gateway.xml
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-api-gateway
+          path: agent-bot/coverage-api-gateway.xml
+
+  test-agent-engine:
+    name: Test Agent Engine
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-bot
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "agent-bot/uv.lock"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run Agent Engine tests
+        run: |
+          PYTHONPATH=tests:agent-engine:$PYTHONPATH uv run pytest agent-engine/tests/ -v --tb=short --cov=agent-engine --cov-report=xml:coverage-agent-engine.xml
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-agent-engine
+          path: agent-bot/coverage-agent-engine.xml
+
+  test-dashboard-api:
+    name: Test Dashboard API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-bot
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "agent-bot/uv.lock"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run Dashboard API tests
+        run: |
+          PYTHONPATH=tests:dashboard-api:$PYTHONPATH uv run pytest dashboard-api/tests/ -v --tb=short --cov=dashboard-api --cov-report=xml:coverage-dashboard-api.xml
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-dashboard-api
+          path: agent-bot/coverage-dashboard-api.xml
+
+  test-task-logger:
+    name: Test Task Logger
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-bot
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "agent-bot/uv.lock"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run Task Logger tests
+        run: |
+          PYTHONPATH=tests:task-logger:$PYTHONPATH uv run pytest task-logger/tests/ -v --tb=short --cov=task-logger --cov-report=xml:coverage-task-logger.xml
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-task-logger
+          path: agent-bot/coverage-task-logger.xml
+
+  test-api-services:
+    name: Test API Services
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-bot
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "agent-bot/uv.lock"
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run GitHub API tests
+        run: uv run pytest api-services/github-api/tests/ -v --tb=short
+
+      - name: Run Jira API tests
+        run: uv run pytest api-services/jira-api/tests/ -v --tb=short
+
+      - name: Run Slack API tests
+        run: uv run pytest api-services/slack-api/tests/ -v --tb=short
+
+      - name: Run Sentry API tests
+        run: uv run pytest api-services/sentry-api/tests/ -v --tb=short
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+      - test-factories
+      - test-api-gateway
+      - test-agent-engine
+      - test-dashboard-api
+      - test-task-logger
+      - test-api-services
+    if: always()
+
+    steps:
+      - name: Check test results
+        run: |
+          if [ "${{ needs.test-factories.result }}" != "success" ] || \
+             [ "${{ needs.test-api-gateway.result }}" != "success" ] || \
+             [ "${{ needs.test-agent-engine.result }}" != "success" ] || \
+             [ "${{ needs.test-dashboard-api.result }}" != "success" ] || \
+             [ "${{ needs.test-task-logger.result }}" != "success" ] || \
+             [ "${{ needs.test-api-services.result }}" != "success" ]; then
+            echo "::error::One or more test jobs failed"
+            exit 1
+          fi
+          echo "All tests passed!"
+
+      - name: Download all coverage reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+
+      - name: Display coverage files
+        run: ls -la *.xml 2>/dev/null || echo "No coverage files found"

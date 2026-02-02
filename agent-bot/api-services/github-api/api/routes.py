@@ -8,7 +8,9 @@ from config import get_settings, Settings
 router = APIRouter(prefix="/api/v1", tags=["github"])
 
 
-def get_github_client(settings: Annotated[Settings, Depends(get_settings)]) -> GitHubClient:
+def get_github_client(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> GitHubClient:
     return GitHubClient(
         token=settings.github_token,
         base_url=settings.github_api_base_url,
@@ -97,7 +99,13 @@ async def create_pr_review_comment(
     client: Annotated[GitHubClient, Depends(get_github_client)],
 ):
     return await client.create_pr_review_comment(
-        owner, repo, pr_number, request.body, request.commit_id, request.path, request.line
+        owner,
+        repo,
+        pr_number,
+        request.body,
+        request.commit_id,
+        request.path,
+        request.line,
     )
 
 

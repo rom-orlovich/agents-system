@@ -51,7 +51,9 @@ class TokenService:
         await self._update_last_used(installation)
         return installation.access_token
 
-    async def get_github_installation_token(self, external_install_id: str) -> str | None:
+    async def get_github_installation_token(
+        self, external_install_id: str
+    ) -> str | None:
         query = select(Installation).where(
             Installation.platform == Platform.GITHUB.value,
             Installation.external_install_id == external_install_id,

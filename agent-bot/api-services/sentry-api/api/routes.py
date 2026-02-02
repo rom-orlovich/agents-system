@@ -8,7 +8,9 @@ from config import get_settings, Settings
 router = APIRouter(prefix="/api/v1", tags=["sentry"])
 
 
-def get_sentry_client(settings: Annotated[Settings, Depends(get_settings)]) -> SentryClient:
+def get_sentry_client(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> SentryClient:
     return SentryClient(
         auth_token=settings.sentry_auth_token,
         org_slug=settings.sentry_org_slug,

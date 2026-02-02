@@ -1,5 +1,5 @@
 from typing import Annotated, Any
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
 
 from client import JiraClient

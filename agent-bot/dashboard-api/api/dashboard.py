@@ -30,11 +30,13 @@ router = APIRouter()
 
 class ChatRequest(BaseModel):
     """Request model for chat endpoint."""
+
     message: str
 
 
 class TaskTableRow(BaseModel):
     """Task table row response."""
+
     task_id: str
     session_id: str
     status: str
@@ -45,7 +47,7 @@ class TaskTableRow(BaseModel):
     cost_usd: float
     duration_seconds: Optional[float]
     input_message: str
-    
+
     @classmethod
     def from_db(cls, task: TaskDB) -> "TaskTableRow":
         """Create from database model."""
@@ -65,6 +67,7 @@ class TaskTableRow(BaseModel):
 
 class TaskTableResponse(BaseModel):
     """Task table response with pagination."""
+
     tasks: List[TaskTableRow]
     total: int
     page: int
@@ -90,7 +93,7 @@ async def list_tasks(
     db: AsyncSession = Depends(get_db_session),
     session_id: str | None = Query(None),
     status: str | None = Query(None),
-    limit: int = Query(50)
+    limit: int = Query(50),
 ):
     """List tasks with optional filters."""
     query = select(TaskDB).order_by(TaskDB.created_at.desc()).limit(limit)
@@ -131,7 +134,7 @@ async def list_tasks_table(
 ) -> TaskTableResponse:
     """List tasks with pagination and sorting for table view."""
     query = select(TaskDB)
-    
+
     # Apply filters
     if session_id:
         query = query.where(TaskDB.session_id == session_id)
@@ -139,24 +142,24 @@ async def list_tasks_table(
         query = query.where(TaskDB.status == status)
     if subagent:
         query = query.where(TaskDB.assigned_agent == subagent)
-    
+
     # Count total
     count_query = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_query)).scalar() or 0
-    
+
     # Apply sorting
     sort_column = getattr(TaskDB, sort_by, TaskDB.created_at)
     if sort_order == "desc":
         query = query.order_by(sort_column.desc())
     else:
         query = query.order_by(sort_column.asc())
-    
+
     # Apply pagination
     query = query.offset((page - 1) * page_size).limit(page_size)
-    
+
     result = await db.execute(query)
     tasks = result.scalars().all()
-    
+
     return TaskTableResponse(
         tasks=[TaskTableRow.from_db(t) for t in tasks],
         total=total,
@@ -167,14 +170,9 @@ async def list_tasks_table(
 
 
 @router.get("/tasks/{task_id}")
-async def get_task(
-    task_id: str,
-    db: AsyncSession = Depends(get_db_session)
-):
+async def get_task(task_id: str, db: AsyncSession = Depends(get_db_session)):
     """Get task details."""
-    result = await db.execute(
-        select(TaskDB).where(TaskDB.task_id == task_id)
-    )
+    result = await db.execute(select(TaskDB).where(TaskDB.task_id == task_id))
     task = result.scalar_one_or_none()
 
     if not task:
@@ -203,14 +201,9 @@ async def get_task(
 
 
 @router.get("/tasks/{task_id}/logs")
-async def get_task_logs(
-    task_id: str,
-    db: AsyncSession = Depends(get_db_session)
-):
+async def get_task_logs(task_id: str, db: AsyncSession = Depends(get_db_session)):
     """Get task logs/output stream."""
-    result = await db.execute(
-        select(TaskDB).where(TaskDB.task_id == task_id)
-    )
+    result = await db.execute(select(TaskDB).where(TaskDB.task_id == task_id))
     task = result.scalar_one_or_none()
 
     if not task:
@@ -218,7 +211,7 @@ async def get_task_logs(
 
     # Try to get live output from Redis first (for running tasks)
     redis_output = await redis_client.get_output(task_id)
-    
+
     return {
         "task_id": task.task_id,
         "status": task.status,
@@ -229,14 +222,9 @@ async def get_task_logs(
 
 
 @router.post("/tasks/{task_id}/stop")
-async def stop_task(
-    task_id: str,
-    db: AsyncSession = Depends(get_db_session)
-):
+async def stop_task(task_id: str, db: AsyncSession = Depends(get_db_session)):
     """Stop a running task."""
-    result = await db.execute(
-        select(TaskDB).where(TaskDB.task_id == task_id)
-    )
+    result = await db.execute(select(TaskDB).where(TaskDB.task_id == task_id))
     task = result.scalar_one_or_none()
 
     if not task:
@@ -244,8 +232,7 @@ async def stop_task(
 
     if task.status not in [TaskStatus.QUEUED, TaskStatus.RUNNING]:
         return APIResponse(
-            success=False,
-            message=f"Cannot stop task in status: {task.status}"
+            success=False, message=f"Cannot stop task in status: {task.status}"
         )
 
     # Update status
@@ -257,10 +244,7 @@ async def stop_task(
 
     logger.info("Task stopped", task_id=task_id)
 
-    return APIResponse(
-        success=True,
-        message="Task stopped successfully"
-    )
+    return APIResponse(success=True, message="Task stopped successfully")
 
 
 @router.post("/chat")
@@ -268,12 +252,12 @@ async def chat_with_brain(
     request: ChatRequest,
     session_id: str = Query(...),
     conversation_id: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db_session),
 ):
     """Send chat message to Brain with conversation context support. Creates new conversation if conversation_id is not provided."""
     from core.database.models import ConversationDB, ConversationMessageDB
     import json
-    
+
     result = await db.execute(
         select(SessionDB).where(SessionDB.session_id == session_id)
     )
@@ -282,23 +266,26 @@ async def chat_with_brain(
     if not session_db:
         user_id = "default-user"
         active = True
-        
+
         try:
             from core.config import settings
             from api.credentials import ClaudeCredentials
             import json
-            
+
             creds_path = settings.credentials_path
             if creds_path.exists():
                 creds_data = json.loads(creds_path.read_text())
                 creds = ClaudeCredentials.from_dict(creds_data)
                 user_id = creds.account_id
-                
+
                 if not user_id:
                     import hashlib
-                    token_hash = hashlib.sha256(creds.access_token.encode()).hexdigest()[:16]
+
+                    token_hash = hashlib.sha256(
+                        creds.access_token.encode()
+                    ).hexdigest()[:16]
                     user_id = f"user-{token_hash}"
-                
+
                 existing_sessions_result = await db.execute(
                     select(SessionDB)
                     .where(SessionDB.user_id == user_id)
@@ -310,13 +297,13 @@ async def chat_with_brain(
                     active = existing_session.active
         except Exception:
             pass
-        
+
         session_db = SessionDB(
             session_id=session_id,
             user_id=user_id,
             machine_id="claude-agent-001",
             connected_at=datetime.now(timezone.utc),
-            active=active
+            active=active,
         )
         db.add(session_db)
         await db.commit()
@@ -327,7 +314,9 @@ async def chat_with_brain(
 
     if conversation_id:
         conv_result = await db.execute(
-            select(ConversationDB).where(ConversationDB.conversation_id == conversation_id)
+            select(ConversationDB).where(
+                ConversationDB.conversation_id == conversation_id
+            )
         )
         conversation = conv_result.scalar_one_or_none()
 
@@ -348,13 +337,19 @@ async def chat_with_brain(
                     content_preview = msg.content[:10000]
                     if len(msg.content) > 10000:
                         content_preview += "... (truncated)"
-                    conversation_context += f"**{msg.role.capitalize()}**: {content_preview}\n"
+                    conversation_context += (
+                        f"**{msg.role.capitalize()}**: {content_preview}\n"
+                    )
                 conversation_context += "\n## Current Message:\n"
 
             # Get last 10 tasks for this conversation
             tasks_result = await db.execute(
                 select(TaskDB)
-                .where(TaskDB.source_metadata.like(f'%"conversation_id": "{conversation_id}"%'))
+                .where(
+                    TaskDB.source_metadata.like(
+                        f'%"conversation_id": "{conversation_id}"%'
+                    )
+                )
                 .order_by(TaskDB.created_at.desc())
                 .limit(10)
             )
@@ -368,13 +363,21 @@ async def chat_with_brain(
                         TaskStatus.FAILED: "❌",
                         TaskStatus.RUNNING: "🔄",
                         TaskStatus.QUEUED: "⏳",
-                        TaskStatus.CANCELLED: "🚫"
+                        TaskStatus.CANCELLED: "🚫",
                     }.get(task.status, "❓")
 
-                    task_summary = task.input_message[:200] + "..." if len(task.input_message or "") > 200 else task.input_message or ""
+                    task_summary = (
+                        task.input_message[:200] + "..."
+                        if len(task.input_message or "") > 200
+                        else task.input_message or ""
+                    )
                     task_result_preview = ""
                     if task.result:
-                        task_result_preview = f" | Result: {task.result[:200]}..." if len(task.result) > 200 else f" | Result: {task.result}"
+                        task_result_preview = (
+                            f" | Result: {task.result[:200]}..."
+                            if len(task.result) > 200
+                            else f" | Result: {task.result}"
+                        )
                     elif task.error:
                         task_result_preview = f" | Error: {task.error[:100]}..."
 
@@ -382,21 +385,28 @@ async def chat_with_brain(
                 task_history_context += "\n"
     else:
         conversation_id = f"conv-{uuid.uuid4().hex[:12]}"
-        conversation_title = request.message[:50] + "..." if len(request.message) > 50 else request.message
-        
+        conversation_title = (
+            request.message[:50] + "..."
+            if len(request.message) > 50
+            else request.message
+        )
+
         conversation = ConversationDB(
             conversation_id=conversation_id,
             user_id=session_db.user_id,
             title=conversation_title,
-            metadata_json=json.dumps({
-                "source": "dashboard",
-                "created_from": "execute_chat"
-            }),
+            metadata_json=json.dumps(
+                {"source": "dashboard", "created_from": "execute_chat"}
+            ),
         )
         db.add(conversation)
         await db.commit()
-        logger.info("New conversation created for execute chat", conversation_id=conversation_id, session_id=session_id)
-    
+        logger.info(
+            "New conversation created for execute chat",
+            conversation_id=conversation_id,
+            session_id=session_id,
+        )
+
     # Combine context: task history + conversation context + current message
     context_parts = []
     if task_history_context:
@@ -406,7 +416,7 @@ async def chat_with_brain(
     context_parts.append(request.message)
 
     full_input_message = "".join(context_parts)
-    
+
     task_id = f"task-{uuid.uuid4().hex[:12]}"
     task_db = TaskDB(
         task_id=task_id,
@@ -417,15 +427,17 @@ async def chat_with_brain(
         status=TaskStatus.QUEUED,
         input_message=full_input_message,
         source="dashboard",
-        source_metadata=json.dumps({
-            "conversation_id": conversation_id,
-            "has_context": bool(conversation_context),
-            "has_task_history": bool(task_history_context)
-        }),
+        source_metadata=json.dumps(
+            {
+                "conversation_id": conversation_id,
+                "has_context": bool(conversation_context),
+                "has_task_history": bool(task_history_context),
+            }
+        ),
     )
     db.add(task_db)
     await db.commit()
-    
+
     user_msg_id = f"msg-{uuid.uuid4().hex[:12]}"
     user_message = ConversationMessageDB(
         message_id=user_msg_id,
@@ -441,7 +453,12 @@ async def chat_with_brain(
     await redis_client.push_task(task_id)
     await redis_client.add_session_task(session_id, task_id)
 
-    logger.info("Chat message queued", task_id=task_id, session_id=session_id, conversation_id=conversation_id)
+    logger.info(
+        "Chat message queued",
+        task_id=task_id,
+        session_id=session_id,
+        conversation_id=conversation_id,
+    )
 
     return APIResponse(
         success=True,
@@ -449,7 +466,7 @@ async def chat_with_brain(
         data={
             "task_id": task_id,
             "conversation_id": conversation_id,
-        }
+        },
     )
 
 
@@ -479,7 +496,7 @@ async def list_webhooks(db: AsyncSession = Depends(get_db_session)):
     # Get webhooks from database (dynamic webhooks only)
     result = await db.execute(select(WebhookConfigDB))
     webhooks = result.scalars().all()
-    
+
     return [
         {
             "name": webhook.name,
@@ -496,17 +513,19 @@ async def list_webhooks(db: AsyncSession = Depends(get_db_session)):
 async def list_webhook_events(
     db: AsyncSession = Depends(get_db_session),
     webhook_id: str | None = Query(None),
-    limit: int = Query(50, ge=1, le=200)
+    limit: int = Query(50, ge=1, le=200),
 ):
     """List recent webhook events."""
-    query = select(WebhookEventDB).order_by(WebhookEventDB.created_at.desc()).limit(limit)
-    
+    query = (
+        select(WebhookEventDB).order_by(WebhookEventDB.created_at.desc()).limit(limit)
+    )
+
     if webhook_id:
         query = query.where(WebhookEventDB.webhook_id == webhook_id)
-    
+
     result = await db.execute(query)
     events = result.scalars().all()
-    
+
     return [
         {
             "event_id": event.event_id,
@@ -523,19 +542,16 @@ async def list_webhook_events(
 
 
 @router.get("/webhooks/events/{event_id}")
-async def get_webhook_event(
-    event_id: str,
-    db: AsyncSession = Depends(get_db_session)
-):
+async def get_webhook_event(event_id: str, db: AsyncSession = Depends(get_db_session)):
     """Get detailed webhook event logs including payload."""
     result = await db.execute(
         select(WebhookEventDB).where(WebhookEventDB.event_id == event_id)
     )
     event = result.scalar_one_or_none()
-    
+
     if not event:
         raise HTTPException(status_code=404, detail="Webhook event not found")
-    
+
     return {
         "event_id": event.event_id,
         "webhook_id": event.webhook_id,
@@ -553,59 +569,63 @@ async def get_webhook_event(
 async def get_webhook_stats(db: AsyncSession = Depends(get_db_session)):
     """Get webhook statistics."""
     import os
-    
+
     # Count total webhooks from database
     total_query = select(func.count()).select_from(WebhookConfigDB)
     db_total = (await db.execute(total_query)).scalar() or 0
-    
+
     # Count active webhooks from database
-    active_query = select(func.count()).select_from(WebhookConfigDB).where(WebhookConfigDB.enabled == True)
+    active_query = (
+        select(func.count())
+        .select_from(WebhookConfigDB)
+        .where(WebhookConfigDB.enabled.is_(True))
+    )
     db_active = (await db.execute(active_query)).scalar() or 0
-    
+
     # Count events by webhook name (for matching with static webhooks)
     events_query = select(
-        WebhookEventDB.provider,
-        func.count(WebhookEventDB.event_id).label("count")
+        WebhookEventDB.provider, func.count(WebhookEventDB.event_id).label("count")
     ).group_by(WebhookEventDB.provider)
     events_result = await db.execute(events_query)
     events_by_provider = {row[0]: row[1] for row in events_result}
-    
+
     # Also get events by webhook_id for database webhooks
     events_by_id_query = select(
-        WebhookEventDB.webhook_id,
-        func.count(WebhookEventDB.event_id).label("count")
+        WebhookEventDB.webhook_id, func.count(WebhookEventDB.event_id).label("count")
     ).group_by(WebhookEventDB.webhook_id)
     events_by_id_result = await db.execute(events_by_id_query)
     events_by_webhook = {row[0]: row[1] for row in events_by_id_result}
-    
+
     # Add static webhook names to events_by_webhook for frontend compatibility
     # Count active static webhooks (those with secrets configured)
     static_active_count = 0
     for config in WEBHOOK_CONFIGS:
         if config.source in events_by_provider:
             events_by_webhook[config.name] = events_by_provider[config.source]
-        
+
         # Check if static webhook is active (has secret if required)
         is_active = True
         if config.requires_signature and config.secret_env_var:
             secret_value = os.getenv(config.secret_env_var)
             is_active = bool(secret_value)
-        
+
         if is_active:
             static_active_count += 1
-    
+
     # Add static webhooks to totals
     static_count = len(WEBHOOK_CONFIGS)
     total = db_total + static_count
     active = db_active + static_active_count  # Only count active static webhooks
-    
+
     return {
         "total_webhooks": total,
         "active_webhooks": active,
         "events_by_webhook": events_by_webhook,
     }
 
+
 # Task Log Endpoints
+
 
 @router.get("/tasks/{task_id}/logs/metadata")
 async def get_task_log_metadata(task_id: str):
