@@ -1,0 +1,2 @@
+class WebhookValidationError(Exception):
+    pass
