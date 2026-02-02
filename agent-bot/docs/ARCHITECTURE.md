@@ -35,92 +35,77 @@ A fully containerized, scalable multi-agent system where **each service runs in 
 
 ## System Diagram
 
-```
-External Services (GitHub, Jira, Slack, Sentry)
-                      │
-                      ▼
-        ┌─────────────────────────┐
-        │   API Gateway :8000     │
-        │  ┌──────────────────┐  │
-        │  │ GitHub Webhook   │  │
-        │  │ Jira Webhook     │  │
-        │  │ Slack Webhook    │  │
-        │  │ Sentry Webhook   │  │
-        │  └──────────────────┘  │
-        └─────────────────────────┘
-          │                    │
-          ▼                    ▼
-    ┌──────────┐      ┌────────────────┐
-    │  Redis   │      │ PostgreSQL     │
-    │  :6379   │      │   :5432        │
-    └──────────┘      └────────────────┘
-          │                    │
-          ▼                    │
-┌──────────────────────────────────────┐
-│        CLI (Agent Engine)            │
-│        :8080-8089 (Scalable)         │
-│  ┌────────────────────────────────┐ │
-│  │ .claude/agents/                │ │
-│  │ - brain, planning, executor    │ │
-│  │ - github-issue-handler         │ │
-│  │ - github-pr-review             │ │
-│  │ - jira-code-plan               │ │
-│  │ - slack-inquiry, verifier      │ │
-│  │ (Supports Claude & Cursor)      │ │
-│  └────────────────────────────────┘ │
-│  ┌────────────────────────────────┐ │
-│  │ MCP Connections (SSE)          │ │
-│  │ - github-mcp:9001              │ │
-│  │ - jira-mcp:9002                │ │
-│  │ - slack-mcp:9003               │ │
-│  │ - sentry-mcp:9004              │ │
-│  │ - knowledge-graph-mcp:9005     │ │
-│  └────────────────────────────────┘ │
-└──────────────────────────────────────┘
-          │ (SSE Connections)
-          ▼
-┌─────────────────────────────────────────────────────────┐
-│         MCP Servers (Each in Own Container)             │
-│  ┌────────┬────────┬────────┬────────┬────────────────┐│
-│  │ GitHub │  Jira  │ Slack  │ Sentry │ Knowledge-Graph ││
-│  │  MCP   │  MCP   │  MCP   │  MCP   │      MCP        ││
-│  │ :9001  │ :9002  │ :9003  │ :9004  │     :9005       ││
-│  └────────┴────────┴────────┴────────┴────────────────┘│
-└─────────────────────────────────────────────────────────┘
-          │ (HTTP API Calls)
-          ▼
-┌─────────────────────────────────────────────────┐
-│     API Services (Each in Own Container)        │
-│  ┌──────────┬──────────┬──────────┬──────────┐ │
-│  │ GitHub   │  Jira    │  Slack   │ Sentry   │ │
-│  │  API     │  API     │  API     │  API     │ │
-│  │ :3001    │ :3002    │ :3003    │ :3004    │ │
-│  │ (Token)  │ (APIKey) │ (Token)  │ (DSN)    │ │
-│  └──────────┴──────────┴──────────┴──────────┘ │
-└─────────────────────────────────────────────────┘
-          │
-          ▼
-External Services (GitHub, Jira, Slack, Sentry)
+```mermaid
+graph TB
+    subgraph External["External Services"]
+        GitHub[GitHub]
+        Jira[Jira]
+        Slack[Slack]
+        Sentry[Sentry]
+    end
 
+    subgraph Gateway["API Gateway :8000"]
+        Webhooks["GitHub Webhook<br/>Jira Webhook<br/>Slack Webhook<br/>Sentry Webhook"]
+    end
 
-┌─────────────────────────────────────────────────┐
-│          Monitoring & Management                 │
-│  ┌───────────────┐  ┌───────────────────────┐  │
-│  │ Dashboard API │  │ External Dashboard    │  │
-│  │    :5000      │  │   :3005 (React)       │  │
-│  │  - WebSocket  │──│  - Real-time updates  │  │
-│  │  - Analytics  │  │  - Task monitoring    │  │
-│  │  - Webhooks   │  │  - Agent registry     │  │
-│  └───────────────┘  └───────────────────────┘  │
-│                                                  │
-│  ┌───────────────┐  ┌───────────────────────┐  │
-│  │ OAuth Service │  │ Task Logger           │  │
-│  │    :8010      │  │    :8090              │  │
-│  │  - GitHub     │  │  - Redis Pub/Sub      │  │
-│  │  - Slack      │  │  - File logging       │  │
-│  │  - Jira OAuth │  │  - Output streaming   │  │
-│  └───────────────┘  └───────────────────────┘  │
-└─────────────────────────────────────────────────┘
+    subgraph Storage["Storage Layer"]
+        Redis[Redis :6379]
+        Postgres[PostgreSQL :5432]
+    end
+
+    subgraph Engine["CLI Agent Engine :8080-8089"]
+        Agents[".claude/agents/<br/>brain, planning, executor<br/>github-issue-handler<br/>github-pr-review<br/>jira-code-plan<br/>slack-inquiry, verifier<br/>(Supports Claude & Cursor)"]
+        MCPConn["MCP Connections SSE"]
+    end
+
+    subgraph MCPServers["MCP Servers"]
+        GitHubMCP[GitHub MCP :9001]
+        JiraMCP[Jira MCP :9002]
+        SlackMCP[Slack MCP :9003]
+        SentryMCP[Sentry MCP :9004]
+        KGMCP[Knowledge Graph MCP :9005]
+    end
+
+    subgraph APIServices["API Services"]
+        GitHubAPI[GitHub API :3001<br/>Token]
+        JiraAPI[Jira API :3002<br/>API Key]
+        SlackAPI[Slack API :3003<br/>Token]
+        SentryAPI[Sentry API :3004<br/>DSN]
+    end
+
+    subgraph Monitoring["Monitoring & Management"]
+        DashboardAPI[Dashboard API :5000<br/>WebSocket, Analytics]
+        ExternalDash[External Dashboard :3005<br/>React UI]
+        OAuth[OAuth Service :8010<br/>GitHub, Slack, Jira]
+        TaskLogger[Task Logger :8090<br/>Redis Pub/Sub, File logging]
+    end
+
+    External -->|Webhooks| Gateway
+    Gateway --> Webhooks
+    Webhooks --> Redis
+    Webhooks --> Postgres
+    Redis --> Engine
+    Postgres --> Engine
+    Engine --> Agents
+    Engine --> MCPConn
+    MCPConn -->|SSE| MCPServers
+    MCPServers --> GitHubMCP
+    MCPServers --> JiraMCP
+    MCPServers --> SlackMCP
+    MCPServers --> SentryMCP
+    MCPServers --> KGMCP
+    GitHubMCP -->|HTTP| GitHubAPI
+    JiraMCP -->|HTTP| JiraAPI
+    SlackMCP -->|HTTP| SlackAPI
+    SentryMCP -->|HTTP| SentryAPI
+    GitHubAPI --> GitHub
+    JiraAPI --> Jira
+    SlackAPI --> Slack
+    SentryAPI --> Sentry
+    Engine --> DashboardAPI
+    DashboardAPI -->|WebSocket| ExternalDash
+    Engine --> TaskLogger
+    Engine --> OAuth
 ```
 
 ---
@@ -129,51 +114,39 @@ External Services (GitHub, Jira, Slack, Sentry)
 
 ### Task Lifecycle
 
-```
-1. External Event (GitHub, Jira, Slack, Sentry)
-   ↓
-2. Webhook → api-gateway:8000
-   ↓
-3. Validate signature + extract metadata
-   ↓
-4. Create task in PostgreSQL
-   ↓
-5. Enqueue to Redis (agent:tasks queue)
-   ↓
-6. CLI (agent-engine):8080 picks up task (BRPOP)
-   ↓
-7. Update status: QUEUED → RUNNING
-   ↓
-8. Execute CLI provider (claude or cursor)
-   ↓
-9. Stream output to Redis Pub/Sub
-   ↓
-10. task-logger:8090 captures output to files
-   ↓
-11. dashboard-api:5000 broadcasts via WebSocket
-   ↓
-12. Agent calls MCP tools as needed
-   ↓
-13. Post response back to source system
-   ↓
-14. Update status: RUNNING → COMPLETED/FAILED
+```mermaid
+flowchart TD
+    A[External Event<br/>GitHub, Jira, Slack, Sentry] --> B[Webhook → api-gateway:8000]
+    B --> C[Validate signature + extract metadata]
+    C --> D[Create task in PostgreSQL]
+    D --> E[Enqueue to Redis<br/>agent:tasks queue]
+    E --> F[CLI agent-engine:8080<br/>picks up task BRPOP]
+    F --> G[Update status:<br/>QUEUED → RUNNING]
+    G --> H[Execute CLI provider<br/>claude or cursor]
+    H --> I[Stream output to<br/>Redis Pub/Sub]
+    I --> J[task-logger:8090<br/>captures output to files]
+    I --> K[dashboard-api:5000<br/>broadcasts via WebSocket]
+    H --> L[Agent calls MCP tools<br/>as needed]
+    L --> M[Post response back<br/>to source system]
+    M --> N[Update status:<br/>RUNNING → COMPLETED/FAILED]
 ```
 
 ### Task Status State Machine
 
-```
-QUEUED ──────────────────┬─────────────────────────────> CANCELLED
-   │                     │
-   v                     │
-RUNNING ─────────────────┼─────────────────────────────> CANCELLED
-   │                     │                      │
-   ├───> WAITING_INPUT ──┼──────────────────────┤
-   │          │          │                      │
-   │          └──────────┤                      │
-   │                     │                      │
-   ├─────────────────────┼──────────────────────┼─────> COMPLETED
-   │                     │                      │
-   └─────────────────────┴──────────────────────┴─────> FAILED
+```mermaid
+stateDiagram-v2
+    [*] --> QUEUED
+    QUEUED --> RUNNING
+    QUEUED --> CANCELLED
+    RUNNING --> WAITING_INPUT
+    RUNNING --> COMPLETED
+    RUNNING --> FAILED
+    RUNNING --> CANCELLED
+    WAITING_INPUT --> RUNNING
+    WAITING_INPUT --> CANCELLED
+    COMPLETED --> [*]
+    FAILED --> [*]
+    CANCELLED --> [*]
 ```
 
 **Valid Transitions:**
@@ -428,28 +401,25 @@ EXECUTION_AGENTS = ["executor", "github-issue-handler", "jira-code-plan"]
 
 ### Credential Isolation
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    CREDENTIAL-FREE ZONE                      │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │ API Gateway │  │ MCP Servers │  │ CLI (Agent Engine)  │  │
-│  │   :8000     │  │ :9001-9005  │  │    :8080-8089       │  │
-│  │ No API keys │  │ No API keys │  │   No API keys       │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼ (HTTP only)
-┌─────────────────────────────────────────────────────────────┐
-│                   API SERVICES (Keys Here)                   │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │ GitHub   │  │ Jira     │  │ Slack    │  │ Sentry   │    │
-│  │ API      │  │ API      │  │ API      │  │ API      │    │
-│  │ :3001    │  │ :3002    │  │ :3003    │  │ :3004    │    │
-│  │ GITHUB_  │  │ JIRA_    │  │ SLACK_   │  │ SENTRY_  │    │
-│  │ TOKEN    │  │ API_KEY  │  │ BOT_     │  │ DSN      │    │
-│  └──────────┘  └──────────┘  │ TOKEN    │  └──────────┘    │
-│                              └──────────┘                    │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph CredentialFree["CREDENTIAL-FREE ZONE"]
+        APIGateway[API Gateway :8000<br/>No API keys]
+        MCPServers[MCP Servers :9001-9005<br/>No API keys]
+        CLI[CLI Agent Engine :8080-8089<br/>No API keys]
+    end
+
+    subgraph APIServicesZone["API SERVICES (Keys Here)"]
+        GitHubAPI[GitHub API :3001<br/>GITHUB_TOKEN]
+        JiraAPI[Jira API :3002<br/>JIRA_API_KEY]
+        SlackAPI[Slack API :3003<br/>SLACK_BOT_TOKEN]
+        SentryAPI[Sentry API :3004<br/>SENTRY_DSN]
+    end
+
+    CredentialFree -->|HTTP only| APIServicesZone
+    APIGateway -.->|No credentials| MCPServers
+    MCPServers -.->|No credentials| CLI
+    CLI -.->|No credentials| MCPServers
 ```
 
 ### Webhook Signature Validation
