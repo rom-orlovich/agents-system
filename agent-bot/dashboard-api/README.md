@@ -51,8 +51,39 @@ dashboard-api/
 │   │   └── redis_client.py    # Redis client
 │   ├── websocket_hub.py       # WebSocket connection manager
 │   └── webhook_configs.py     # Webhook configuration loader
-└── shared/
-    └── machine_models.py      # Shared Pydantic models
+├── shared/
+│   └── machine_models.py      # Shared Pydantic models
+└── tests/                     # Co-located tests
+    ├── factories/             # Test data factories
+    │   ├── task_factory.py    # Task model and factory
+    │   ├── session_factory.py # Session model and factory
+    │   ├── conversation_factory.py # Conversation factory
+    │   └── webhook_factory.py # Webhook config factory
+    ├── conftest.py            # Shared fixtures
+    └── test_*.py              # Test files
+```
+
+## Testing
+
+Tests are co-located with the service for portability.
+
+```bash
+# From agent-bot root
+make test-dashboard
+
+# Or directly
+cd agent-bot
+PYTHONPATH=dashboard-api:$PYTHONPATH uv run pytest dashboard-api/tests/ -v
+```
+
+### Test Factories
+
+Test factories are in `tests/factories/`:
+
+```python
+from .factories import TaskFactory, SessionFactory, TaskStatus
+from .factories import ConversationFactory, WebhookFactory
+from .factories.webhook_factory import WebhookValidationError
 ```
 
 ## Business Logic
