@@ -1,0 +1,178 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # CHROMADB - Vector Database
+  # =============================================================================
+  chromadb:
+    image: chromadb/chroma:0.4.22
+    container_name: agent-chromadb
+    ports:
+      - "8001:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+      - ALLOW_RESET=FALSE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  # =============================================================================
+  # LLAMAINDEX SERVICE - Hybrid RAG Orchestration
+  # =============================================================================
+  llamaindex-service:
+    build:
+      context: ./llamaindex-service
+      dockerfile: Dockerfile
+    container_name: agent-llamaindex
+    ports:
+      - "8002:8002"
+    environment:
+      - CHROMADB_URL=http://chromadb:8000
+      - GKG_URL=http://gkg-service:8003
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_URL=${DATABASE_URL}
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
+      - LOG_LEVEL=INFO
+    depends_on:
+      chromadb:
+        condition: service_healthy
+      gkg-service:
+        condition: service_started
+      redis:
+        condition: service_started
+    volumes:
+      - llama_cache:/app/cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  # =============================================================================
+  # LLAMAINDEX MCP SERVER - Tool Interface
+  # =============================================================================
+  llamaindex-mcp:
+    build:
+      context: ./mcp-servers/llamaindex-mcp
+      dockerfile: Dockerfile
+    container_name: agent-llamaindex-mcp
+    ports:
+      - "9006:9006"
+    environment:
+      - LLAMAINDEX_URL=http://llamaindex-service:8002
+      - MCP_PORT=9006
+    depends_on:
+      - llamaindex-service
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  # =============================================================================
+  # GKG SERVICE - GitLab Knowledge Graph
+  # =============================================================================
+  gkg-service:
+    build:
+      context: ./gkg-service
+      dockerfile: Dockerfile
+    container_name: agent-gkg
+    ports:
+      - "8003:8003"
+    environment:
+      - DATA_DIR=/data/gkg
+      - REPOS_DIR=/data/repos
+      - LOG_LEVEL=INFO
+    volumes:
+      - gkg_data:/data/gkg
+      - repos_data:/data/repos
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  # =============================================================================
+  # GKG MCP SERVER - Tool Interface
+  # =============================================================================
+  gkg-mcp:
+    build:
+      context: ./mcp-servers/gkg-mcp
+      dockerfile: Dockerfile
+    container_name: agent-gkg-mcp
+    ports:
+      - "9007:9007"
+    environment:
+      - GKG_URL=http://gkg-service:8003
+      - MCP_PORT=9007
+    depends_on:
+      - gkg-service
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  # =============================================================================
+  # INDEXER WORKER - Background Indexing Service
+  # =============================================================================
+  indexer-worker:
+    build:
+      context: ./indexer-worker
+      dockerfile: Dockerfile
+    container_name: agent-indexer
+    ports:
+      - "8004:8004"
+    environment:
+      - CHROMADB_URL=http://chromadb:8000
+      - GKG_URL=http://gkg-service:8003
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_URL=${DATABASE_URL}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - JIRA_URL=${JIRA_URL}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - JIRA_API_TOKEN=${JIRA_API_TOKEN}
+      - CONFLUENCE_URL=${CONFLUENCE_URL:-${JIRA_URL}}
+      - CONFLUENCE_EMAIL=${CONFLUENCE_EMAIL:-${JIRA_EMAIL}}
+      - CONFLUENCE_API_TOKEN=${CONFLUENCE_API_TOKEN:-${JIRA_API_TOKEN}}
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - REPOS_DIR=/data/repos
+      - LOG_LEVEL=INFO
+    depends_on:
+      - chromadb
+      - gkg-service
+      - redis
+      - postgres
+    volumes:
+      - repos_data:/data/repos
+      - indexer_cache:/app/cache
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+volumes:
+  chromadb_data:
+    driver: local
+  gkg_data:
+    driver: local
+  repos_data:
+    driver: local
+  llama_cache:
+    driver: local
+  indexer_cache:
+    driver: local
+
+networks:
+  agent-network:
+    external: true
