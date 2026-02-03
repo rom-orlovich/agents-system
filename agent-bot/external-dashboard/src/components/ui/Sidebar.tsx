@@ -4,6 +4,7 @@ import {
   BarChart3,
   Database,
   LayoutDashboard,
+  Link2,
   MessageSquare,
   Package,
   Webhook,
@@ -22,6 +23,7 @@ const navItems = [
   { icon: Webhook, label: "04_WEBHOOKS", path: "/webhooks" },
   { icon: MessageSquare, label: "05_COMMS", path: "/chat" },
   { icon: Package, label: "06_REGISTRY", path: "/registry" },
+  { icon: Link2, label: "07_INTEGRATIONS", path: "/integrations" },
 ];
 
 interface SidebarProps {

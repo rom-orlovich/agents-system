@@ -5,7 +5,14 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api import analytics, conversations, dashboard, webhook_status, websocket
+from api import (
+    analytics,
+    conversations,
+    dashboard,
+    oauth_status,
+    webhook_status,
+    websocket,
+)
 from core.config import Settings
 from core.database import init_db, shutdown_db
 
@@ -44,6 +51,7 @@ app.include_router(dashboard.router, prefix="/api", tags=["dashboard"])
 app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(conversations.router, prefix="/api", tags=["conversations"])
 app.include_router(webhook_status.router, prefix="/api", tags=["webhooks"])
+app.include_router(oauth_status.router, prefix="/api", tags=["oauth"])
 app.include_router(websocket.router, tags=["websocket"])
 
 

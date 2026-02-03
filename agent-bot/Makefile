@@ -1,152 +1,111 @@
-.PHONY: help init build up down logs test test-all test-api-gateway test-agent-engine test-dashboard test-logger test-services test-cov lint format clean health cli-down cli-logs cli-claude cli-cursor
+.PHONY: help init build up down logs test test-all test-api-gateway test-agent-engine test-dashboard test-logger test-services test-cov lint format clean health cli cli-down cli-logs cli-claude cli-cursor db-migrate db-upgrade env-validate
 
 PROVIDER ?= claude
 SCALE ?= 1
+SERVICE ?=
 DC = docker-compose
 
+# ============================================
+# HELP
+# ============================================
 help:
-	@echo "Agent Bot Commands"
-	@echo ""
-	@echo "CLI:"
-	@echo "  make cli-claude         Start Claude CLI"
-	@echo "  make cli-cursor         Start Cursor CLI"
-	@echo "  make cli-down P=claude  Stop CLI"
-	@echo "  make cli-logs P=claude  View logs"
-	@echo ""
-	@echo "Services:"
-	@echo "  make start    Start full system"
-	@echo "  make health   Check services"
-	@echo ""
-	@echo "Testing:"
-	@echo "  make test-all           Run all tests"
-	@echo "  make test-api-gateway   Run API Gateway tests"
-	@echo "  make test-agent-engine  Run Agent Engine tests"
-	@echo "  make test-dashboard     Run Dashboard API tests"
-	@echo "  make test-logger        Run Task Logger tests"
-	@echo "  make test-services      Run API Services tests"
-	@echo "  make test-cov           Run tests with coverage"
-	@echo ""
-	@echo "Dev:"
-	@echo "  make lint / format"
+	@./scripts/utils/help.sh
 
+# ============================================
+# INITIALIZATION
+# ============================================
 init:
 	@cp -n .env.example .env 2>/dev/null || true
 	@cd agent-engine-package && pip install -e ".[dev]"
-	@echo "Done. Update .env with API keys."
+	@echo "✅ Initialized. Update .env with your credentials."
 
+env-validate:
+	@./scripts/env/validate.sh
+
+# ============================================
+# SERVICES
+# ============================================
 build:
 	@$(DC) build
 
 up:
-	@$(DC) up -d
+	@./scripts/services/start.sh
 
 down:
-	@$(DC) down
+	@./scripts/services/stop.sh
 
-cli-claude:
-	@echo "Starting Claude CLI..."
-	@$(DC) up -d redis postgres 2>/dev/null || true
-	@docker network create agent-network 2>/dev/null || true
-	@CLI_PROVIDER=claude $(DC) -f docker-compose.cli.yml -p claude-cli --env-file .env build cli
-	@EXISTING=$$(docker ps --filter "name=claude-cli-cli" -q | wc -l | tr -d ' '); \
-	TARGET=$${SCALE:-$$((EXISTING + 1))}; \
-	[ "$$TARGET" -lt 1 ] && TARGET=1; \
-	echo "Scaling to $$TARGET instance(s)..."; \
-	CLI_PROVIDER=claude $(DC) -f docker-compose.cli.yml -p claude-cli --env-file .env up -d --scale cli=$$TARGET cli
-	@echo "✅ Claude CLI started"
-	@$(DC) -f docker-compose.cli.yml -p claude-cli ps cli
-
-cli-cursor:
-	@echo "Starting Cursor CLI..."
-	@$(DC) up -d redis postgres 2>/dev/null || true
-	@docker network create agent-network 2>/dev/null || true
-	@CLI_PROVIDER=cursor $(DC) -f docker-compose.cli.yml -p cursor-cli --env-file .env build cli
-	@EXISTING=$$(docker ps --filter "name=cursor-cli-cli" -q | wc -l | tr -d ' '); \
-	TARGET=$${SCALE:-$$((EXISTING + 1))}; \
-	[ "$$TARGET" -lt 1 ] && TARGET=1; \
-	echo "Scaling to $$TARGET instance(s)..."; \
-	CLI_PROVIDER=cursor $(DC) -f docker-compose.cli.yml -p cursor-cli --env-file .env up -d --scale cli=$$TARGET cli
-	@echo "✅ Cursor CLI started"
-	@$(DC) -f docker-compose.cli.yml -p cursor-cli ps cli
-
-cli-down:
-	@P=$${P:-$(PROVIDER)}; echo "Stopping $$P CLI..."; $(DC) -f docker-compose.cli.yml -p $$P-cli down 2>/dev/null || true
-
-cli-logs:
-	@P=$${P:-$(PROVIDER)}; $(DC) -f docker-compose.cli.yml -p $$P-cli logs -f cli
-
-start:
-	@echo "Starting Agent Bot..."
-	@test -f .env || cp .env.example .env
-	@$(DC) build --quiet
-	@$(DC) up -d
-	@sleep 5
-	@$(MAKE) health
-	@echo "✅ Ready: http://localhost:8000"
+start: up
 
 health:
-	@echo "Services:"
-	@curl -sf http://localhost:8000/health >/dev/null && echo "  ✅ API Gateway" || echo "  ❌ API Gateway"
-	@curl -sf http://localhost:8080/health >/dev/null && echo "  ✅ Agent Engine" || echo "  ❌ Agent Engine"
-	@$(DC) exec -T redis redis-cli ping >/dev/null 2>&1 && echo "  ✅ Redis" || echo "  ❌ Redis"
-	@$(DC) exec -T postgres pg_isready -U agent >/dev/null 2>&1 && echo "  ✅ PostgreSQL" || echo "  ❌ PostgreSQL"
+	@./scripts/services/health.sh
 
-test:
-	@cd agent-engine-package && pytest
+logs:
+	@./scripts/services/logs.sh $(SERVICE)
+
+# ============================================
+# CLI AGENTS
+# ============================================
+cli:
+	@./scripts/cli/start.sh $(PROVIDER) $(SCALE)
+
+cli-down:
+	@./scripts/cli/stop.sh $(PROVIDER)
+
+cli-logs:
+	@./scripts/cli/logs.sh $(PROVIDER)
+
+cli-claude:
+	@./scripts/cli/start.sh claude $(SCALE)
+
+cli-cursor:
+	@./scripts/cli/start.sh cursor $(SCALE)
+
+# ============================================
+# TESTING
+# ============================================
+test: test-all
 
 test-all:
-	@echo "Running all tests..."
-	@PYTHONPATH=api-gateway:$$PYTHONPATH uv run pytest api-gateway/tests/ -v --tb=short
-	@PYTHONPATH=dashboard-api:$$PYTHONPATH uv run pytest dashboard-api/tests/ -v --tb=short
-	@PYTHONPATH=agent-engine:$$PYTHONPATH uv run pytest agent-engine/tests/ -v --tb=short
-	@PYTHONPATH=task-logger:$$PYTHONPATH uv run pytest task-logger/tests/ -v --tb=short
-	@uv run pytest api-services/github-api/tests/ -v --tb=short
-	@uv run pytest api-services/jira-api/tests/ -v --tb=short
-	@uv run pytest api-services/slack-api/tests/ -v --tb=short
-	@uv run pytest api-services/sentry-api/tests/ -v --tb=short
-	@echo "✅ All tests passed!"
+	@./scripts/test/run-all.sh
 
 test-api-gateway:
-	@echo "Running API Gateway tests..."
-	@PYTHONPATH=api-gateway:$$PYTHONPATH uv run pytest api-gateway/tests/ -v --tb=short
+	@./scripts/test/run-service.sh api-gateway
 
 test-agent-engine:
-	@echo "Running Agent Engine tests..."
-	@PYTHONPATH=agent-engine:$$PYTHONPATH uv run pytest agent-engine/tests/ -v --tb=short
+	@./scripts/test/run-service.sh agent-engine
 
 test-dashboard:
-	@echo "Running Dashboard API tests..."
-	@PYTHONPATH=dashboard-api:$$PYTHONPATH uv run pytest dashboard-api/tests/ -v --tb=short
+	@./scripts/test/run-service.sh dashboard-api
 
 test-logger:
-	@echo "Running Task Logger tests..."
-	@PYTHONPATH=task-logger:$$PYTHONPATH uv run pytest task-logger/tests/ -v --tb=short
+	@./scripts/test/run-service.sh task-logger
 
 test-services:
-	@echo "Running API Services tests..."
-	@uv run pytest api-services/github-api/tests/ api-services/jira-api/tests/ api-services/slack-api/tests/ api-services/sentry-api/tests/ -v --tb=short
+	@./scripts/test/run-service.sh services
 
 test-cov:
-	@echo "Running tests with coverage..."
-	@PYTHONPATH=api-gateway:agent-engine:dashboard-api:task-logger:$$PYTHONPATH uv run pytest \
-		api-gateway/tests/ \
-		agent-engine/tests/ \
-		dashboard-api/tests/ \
-		task-logger/tests/ \
-		--cov=. --cov-report=html --cov-report=term-missing -v --tb=short
-	@echo "✅ Coverage report: htmlcov/index.html"
+	@./scripts/test/coverage.sh
 
+# ============================================
+# CODE QUALITY
+# ============================================
 lint:
-	@cd agent-engine-package && ruff check .
+	@uv run ruff check .
 
 format:
-	@cd agent-engine-package && ruff format .
+	@uv run ruff format .
 
+# ============================================
+# DATABASE
+# ============================================
 db-migrate:
-	@cd agent-engine-package && alembic revision --autogenerate -m "$(MSG)"
+	@./scripts/db/migrate.sh "$(MSG)"
 
 db-upgrade:
-	@cd agent-engine-package && alembic upgrade head
+	@./scripts/db/upgrade.sh
 
+# ============================================
+# CLEANUP
+# ============================================
 clean:
-	@find . -type d \( -name "__pycache__" -o -name ".pytest_cache" -o -name ".mypy_cache" \) -exec rm -rf {} + 2>/dev/null || true
+	@./scripts/utils/clean.sh
