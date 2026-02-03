@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import uuid
@@ -23,7 +24,7 @@ class FeatureFlags:
     batch_size: int = 100
 
 
-IndexerFactory = callable[[str, str, dict], SourceIndexerProtocol]
+IndexerFactory = Callable[[str, str, dict], SourceIndexerProtocol]
 
 
 class IndexerOrchestrator:

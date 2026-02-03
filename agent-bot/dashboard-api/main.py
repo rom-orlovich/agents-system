@@ -10,6 +10,7 @@ from api import (
     conversations,
     dashboard,
     oauth_status,
+    sources,
     webhook_status,
     websocket,
 )
@@ -52,6 +53,7 @@ app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(conversations.router, prefix="/api", tags=["conversations"])
 app.include_router(webhook_status.router, prefix="/api", tags=["webhooks"])
 app.include_router(oauth_status.router, prefix="/api", tags=["oauth"])
+app.include_router(sources.router, tags=["sources"])
 app.include_router(websocket.router, tags=["websocket"])
 
 

@@ -3,6 +3,7 @@ import {
   Activity,
   BarChart3,
   Database,
+  HardDrive,
   LayoutDashboard,
   Link2,
   MessageSquare,
@@ -20,10 +21,11 @@ const navItems = [
   { icon: LayoutDashboard, label: "01_OVERVIEW", path: "/" },
   { icon: BarChart3, label: "02_ANALYTICS", path: "/analytics" },
   { icon: Database, label: "03_LEDGER", path: "/ledger" },
-  { icon: Webhook, label: "04_WEBHOOKS", path: "/webhooks" },
-  { icon: MessageSquare, label: "05_COMMS", path: "/chat" },
-  { icon: Package, label: "06_REGISTRY", path: "/registry" },
-  { icon: Link2, label: "07_INTEGRATIONS", path: "/integrations" },
+  { icon: HardDrive, label: "04_SOURCES", path: "/sources" },
+  { icon: Webhook, label: "05_WEBHOOKS", path: "/webhooks" },
+  { icon: MessageSquare, label: "06_COMMS", path: "/chat" },
+  { icon: Package, label: "07_REGISTRY", path: "/registry" },
+  { icon: Link2, label: "08_INTEGRATIONS", path: "/integrations" },
 ];
 
 interface SidebarProps {

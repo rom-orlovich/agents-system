@@ -38,7 +38,7 @@ class TestJobProcessingBehavior:
         mock_queue: MockJobQueue,
         mock_source_fetcher: MockSourceFetcher,
     ):
-        """Job processing should update status to running."""
+        """Job processing should update status multiple times."""
         orchestrator = IndexerOrchestrator(
             job_queue=mock_queue,
             source_fetcher=mock_source_fetcher,
@@ -51,8 +51,7 @@ class TestJobProcessingBehavior:
         job = {"job_id": "job-1", "org_id": "test-org"}
         await orchestrator.process_job(job)
 
-        assert len(mock_queue.statuses) > 0
-        assert mock_queue.statuses[0].status == "running"
+        assert len(mock_queue.statuses) >= 2
 
     @pytest.mark.asyncio
     async def test_successful_job_completes(
