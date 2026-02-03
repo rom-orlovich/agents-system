@@ -2,7 +2,39 @@
 
 > **Enterprise Knowledge Graph & RAG System for Agent Bot**
 >
-> Integration of ChromaDB, LlamaIndex, and GitLab Knowledge Graph (GKG) as separate Docker microservices with configurable data source management.
+> Integration of ChromaDB, LlamaIndex, and GitLab Knowledge Graph (GKG) with a two-tier architecture: basic knowledge tools in the core system, advanced features as optional services.
+
+---
+
+## Quick Start
+
+### Basic Knowledge Tools (Core System)
+
+ChromaDB and basic knowledge tools are included in the main docker-compose:
+
+```bash
+cd agent-bot
+make up                  # Starts all core services including ChromaDB
+```
+
+Basic tools available via `knowledge-graph-mcp`:
+- `knowledge_store` - Store documents in ChromaDB
+- `knowledge_query` - Semantic search
+- `knowledge_collections` - Manage collections
+- `knowledge_update` / `knowledge_delete` - CRUD operations
+
+### Advanced Knowledge Services (Optional)
+
+For enterprise features (hybrid RAG, code graph, background indexing):
+
+```bash
+make knowledge-up        # Start LlamaIndex, GKG, Indexer
+make up-full             # Start everything including advanced features
+```
+
+Advanced tools available:
+- **LlamaIndex MCP** (:9006) - Hybrid search, code search, Jira/Confluence search
+- **GKG MCP** (:9007) - Dependency analysis, call graphs, class hierarchies
 
 ---
 
@@ -25,21 +57,33 @@
 
 ## Executive Summary
 
-This document describes the integration of three knowledge systems into the Agent Bot architecture:
+This document describes the **two-tier knowledge system** integrated into Agent Bot:
 
-| System | Purpose | Port | Technology |
-|--------|---------|------|------------|
-| **ChromaDB** | Vector embeddings for semantic search | 8001 | Python/Rust |
-| **LlamaIndex** | Hybrid RAG orchestration (vectors + graphs) | 9006 | Python |
-| **GitLab Knowledge Graph (GKG)** | Code entity relationships & dependencies | 9007 | Rust |
+### Tier 1: Core Knowledge (Always Available)
+
+| System | Purpose | Port | Status |
+|--------|---------|------|--------|
+| **ChromaDB** | Vector embeddings for semantic search | 8001 | Core |
+| **Knowledge Graph MCP** | Basic knowledge tools (store, query, CRUD) | 9005 | Core |
+
+### Tier 2: Advanced Knowledge (Optional Profile)
+
+| System | Purpose | Port | Status |
+|--------|---------|------|--------|
+| **LlamaIndex Service** | Hybrid RAG orchestration (vectors + graphs) | 8002 | Optional |
+| **LlamaIndex MCP** | Advanced search tools | 9006 | Optional |
+| **GKG Service** | GitLab Knowledge Graph (code relationships) | 8003 | Optional |
+| **GKG MCP** | Code graph query tools | 9007 | Optional |
+| **Indexer Worker** | Background indexing (GitHub, Jira, Confluence) | 8004 | Optional |
 
 **Key Design Principles:**
 
-1. **Separate Docker Services** - Each system runs independently with its own container
+1. **Two-Tier Architecture** - Basic features in core, advanced features via Docker profile
 2. **Configurable Data Sources** - UI-driven selection of repos, Jira projects, Confluence spaces
 3. **Organization-Agnostic** - Multi-tenant support with `org_id` partitioning
 4. **Modular MCP Integration** - Each service exposes tools via MCP protocol
 5. **No External Orchestration** - No n8n; Redis pub/sub for event-driven indexing
+6. **Profile-Based Deployment** - Use `--profile knowledge` for advanced features
 
 ---
 
