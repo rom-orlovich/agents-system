@@ -9,7 +9,9 @@ class Settings(BaseSettings):
     gkg_url: str = "http://gkg-service:8003"
     redis_url: str = "redis://redis:6379/0"
     postgres_url: str = "postgresql+asyncpg://agent:agent@postgres:5432/agent_system"
+    oauth_service_url: str = "http://oauth-service:8010"
 
+    use_oauth: bool = True
     github_token: str = ""
     jira_url: str = ""
     jira_email: str = ""

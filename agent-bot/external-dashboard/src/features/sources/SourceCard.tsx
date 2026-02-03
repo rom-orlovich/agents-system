@@ -1,4 +1,5 @@
-import { GitBranch, FileText, TicketIcon, RefreshCw, Trash2, Power, PowerOff } from "lucide-react";
+import { GitBranch, FileText, TicketIcon, RefreshCw, Trash2, Power, PowerOff, Link2, AlertTriangle } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { DataSource } from "./hooks/useSources";
 
 interface SourceCardProps {
@@ -76,7 +77,15 @@ export function SourceCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          {!source.oauth_connected && (
+            <div
+              className="text-amber-500"
+              title="OAuth not connected"
+            >
+              <AlertTriangle size={14} />
+            </div>
+          )}
           <div
             className={`w-2 h-2 rounded-full ${getStatusColor(
               source.last_sync_status
@@ -85,6 +94,25 @@ export function SourceCard({
           />
         </div>
       </div>
+
+      {!source.oauth_connected && (
+        <div className="mb-3 p-2 bg-amber-50 border border-amber-200 text-[10px]">
+          <div className="flex items-center gap-1 text-amber-700 mb-1">
+            <AlertTriangle size={10} />
+            <span className="font-heading">OAUTH_NOT_CONNECTED</span>
+          </div>
+          <p className="text-amber-600 mb-2">
+            Connect {source.oauth_platform} to enable syncing.
+          </p>
+          <Link
+            to="/integrations"
+            className="inline-flex items-center gap-1 text-amber-700 hover:text-amber-900 font-heading"
+          >
+            <Link2 size={10} />
+            GO_TO_INTEGRATIONS
+          </Link>
+        </div>
+      )}
 
       <div className="space-y-2 mb-4 text-[10px] text-gray-500">
         <div className="flex justify-between">
@@ -127,8 +155,9 @@ export function SourceCard({
         <button
           type="button"
           onClick={onSync}
-          disabled={isSyncing || !source.enabled}
+          disabled={isSyncing || !source.enabled || !source.oauth_connected}
           className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 border border-gray-200 hover:bg-gray-50 text-[10px] font-heading disabled:opacity-50 disabled:cursor-not-allowed"
+          title={!source.oauth_connected ? "OAuth not connected" : undefined}
         >
           <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
           {isSyncing ? "SYNCING..." : "SYNC"}
@@ -137,13 +166,19 @@ export function SourceCard({
         <button
           type="button"
           onClick={onToggle}
-          disabled={isUpdating}
+          disabled={isUpdating || (!source.enabled && !source.oauth_connected)}
           className={`flex items-center justify-center gap-1 px-2 py-1.5 border text-[10px] font-heading disabled:opacity-50 ${
             source.enabled
               ? "border-orange-200 text-orange-600 hover:bg-orange-50"
               : "border-green-200 text-green-600 hover:bg-green-50"
           }`}
-          title={source.enabled ? "Disable source" : "Enable source"}
+          title={
+            !source.oauth_connected && !source.enabled
+              ? "Connect OAuth first"
+              : source.enabled
+              ? "Disable source"
+              : "Enable source"
+          }
         >
           {source.enabled ? <PowerOff size={12} /> : <Power size={12} />}
         </button>

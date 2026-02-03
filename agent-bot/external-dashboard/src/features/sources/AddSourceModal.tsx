@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { X, GitBranch, TicketIcon, FileText } from "lucide-react";
-import type { CreateSourceRequest } from "./hooks/useSources";
+import { X, GitBranch, TicketIcon, FileText, AlertTriangle, Link2, CheckCircle } from "lucide-react";
+import { Link } from "react-router-dom";
+import type { CreateSourceRequest, SourceTypeInfo } from "./hooks/useSources";
+import { useSourceTypes } from "./hooks/useSources";
 
 interface AddSourceModalProps {
   isOpen: boolean;
@@ -11,31 +13,11 @@ interface AddSourceModalProps {
 
 type SourceType = "github" | "jira" | "confluence";
 
-const SOURCE_OPTIONS: {
-  type: SourceType;
-  name: string;
-  icon: typeof GitBranch;
-  description: string;
-}[] = [
-  {
-    type: "github",
-    name: "GitHub",
-    icon: GitBranch,
-    description: "Index code repositories",
-  },
-  {
-    type: "jira",
-    name: "Jira",
-    icon: TicketIcon,
-    description: "Index tickets and issues",
-  },
-  {
-    type: "confluence",
-    name: "Confluence",
-    icon: FileText,
-    description: "Index documentation pages",
-  },
-];
+const SOURCE_ICONS: Record<string, typeof GitBranch> = {
+  github: GitBranch,
+  jira: TicketIcon,
+  confluence: FileText,
+};
 
 interface GitHubConfig {
   include_patterns: string;
@@ -65,7 +47,10 @@ export function AddSourceModal({
 }: AddSourceModalProps) {
   const [step, setStep] = useState<"select" | "configure">("select");
   const [selectedType, setSelectedType] = useState<SourceType | null>(null);
+  const [selectedTypeInfo, setSelectedTypeInfo] = useState<SourceTypeInfo | null>(null);
   const [name, setName] = useState("");
+
+  const { data: sourceTypes, isLoading: isLoadingTypes } = useSourceTypes();
 
   const [githubConfig, setGithubConfig] = useState<GitHubConfig>({
     include_patterns: "",
@@ -87,9 +72,10 @@ export function AddSourceModal({
     content_types: "page, blogpost",
   });
 
-  const handleTypeSelect = (type: SourceType) => {
-    setSelectedType(type);
-    setName(`${type.charAt(0).toUpperCase() + type.slice(1)} Source`);
+  const handleTypeSelect = (typeInfo: SourceTypeInfo) => {
+    setSelectedType(typeInfo.source_type as SourceType);
+    setSelectedTypeInfo(typeInfo);
+    setName(`${typeInfo.name} Source`);
     setStep("configure");
   };
 
@@ -158,6 +144,7 @@ export function AddSourceModal({
   const handleClose = () => {
     setStep("select");
     setSelectedType(null);
+    setSelectedTypeInfo(null);
     setName("");
     onClose();
   };
@@ -187,29 +174,82 @@ export function AddSourceModal({
                 Select the type of data source you want to add. Each source will
                 be indexed and made searchable for the AI agent.
               </p>
-              {SOURCE_OPTIONS.map((option) => (
-                <button
-                  type="button"
-                  key={option.type}
-                  onClick={() => handleTypeSelect(option.type)}
-                  className="flex items-center gap-3 p-3 border border-gray-200 hover:border-gray-400 hover:bg-gray-50 text-left transition-colors"
-                >
-                  <div className="p-2 border border-gray-200">
-                    <option.icon size={20} />
-                  </div>
-                  <div>
-                    <div className="font-heading text-sm">{option.name}</div>
-                    <div className="text-[10px] text-gray-500">
-                      {option.description}
-                    </div>
-                  </div>
-                </button>
-              ))}
+              {isLoadingTypes ? (
+                <div className="text-center py-4 text-[10px] text-gray-500">
+                  Loading source types...
+                </div>
+              ) : (
+                sourceTypes?.map((typeInfo) => {
+                  const Icon = SOURCE_ICONS[typeInfo.source_type] || FileText;
+                  return (
+                    <button
+                      type="button"
+                      key={typeInfo.source_type}
+                      onClick={() => handleTypeSelect(typeInfo)}
+                      className={`flex items-center gap-3 p-3 border text-left transition-colors ${
+                        typeInfo.oauth_connected
+                          ? "border-gray-200 hover:border-gray-400 hover:bg-gray-50"
+                          : "border-amber-200 bg-amber-50/50"
+                      }`}
+                    >
+                      <div className="p-2 border border-gray-200">
+                        <Icon size={20} />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-heading text-sm">{typeInfo.name}</span>
+                          {typeInfo.oauth_connected ? (
+                            <CheckCircle size={12} className="text-green-500" />
+                          ) : (
+                            <AlertTriangle size={12} className="text-amber-500" />
+                          )}
+                        </div>
+                        <div className="text-[10px] text-gray-500">
+                          {typeInfo.description}
+                        </div>
+                        {!typeInfo.oauth_connected && (
+                          <div className="text-[10px] text-amber-600 mt-1">
+                            OAuth not connected -
+                            <Link
+                              to="/integrations"
+                              className="inline-flex items-center gap-1 ml-1 hover:text-amber-800"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Link2 size={10} />
+                              Connect
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
           )}
 
           {step === "configure" && selectedType && (
             <div className="space-y-4">
+              {selectedTypeInfo && !selectedTypeInfo.oauth_connected && (
+                <div className="p-3 bg-amber-50 border border-amber-200 text-[10px]">
+                  <div className="flex items-center gap-1 text-amber-700 mb-1">
+                    <AlertTriangle size={12} />
+                    <span className="font-heading">OAUTH_NOT_CONNECTED</span>
+                  </div>
+                  <p className="text-amber-600 mb-2">
+                    You can configure this source, but it will be created as disabled.
+                    Connect {selectedTypeInfo.oauth_platform} OAuth to enable syncing.
+                  </p>
+                  <Link
+                    to="/integrations"
+                    className="inline-flex items-center gap-1 text-amber-700 hover:text-amber-900 font-heading"
+                  >
+                    <Link2 size={10} />
+                    GO_TO_INTEGRATIONS
+                  </Link>
+                </div>
+              )}
+
               <div>
                 <label className="block text-[10px] font-heading text-gray-500 mb-1">
                   SOURCE_NAME

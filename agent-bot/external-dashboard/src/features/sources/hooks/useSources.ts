@@ -14,6 +14,17 @@ export interface DataSource {
   last_sync_status: string | null;
   created_at: string;
   updated_at: string;
+  oauth_connected: boolean;
+  oauth_platform: string | null;
+}
+
+export interface SourceTypeInfo {
+  source_type: string;
+  name: string;
+  oauth_platform: string;
+  oauth_connected: boolean;
+  oauth_required: boolean;
+  description: string;
 }
 
 export interface IndexingJob {
@@ -43,6 +54,14 @@ export interface UpdateSourceRequest {
   name?: string;
   config?: Record<string, unknown>;
   enabled?: boolean;
+}
+
+async function fetchSourceTypes(): Promise<SourceTypeInfo[]> {
+  const response = await fetch(`${API_BASE}/api/sources/types/available`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch source types");
+  }
+  return response.json();
 }
 
 async function fetchSources(orgId: string): Promise<DataSource[]> {
@@ -208,5 +227,13 @@ export function useSource(orgId: string, sourceId: string) {
     queryKey: ["source", orgId, sourceId],
     queryFn: () => fetchSource(orgId, sourceId),
     enabled: !!sourceId,
+  });
+}
+
+export function useSourceTypes() {
+  return useQuery({
+    queryKey: ["source-types"],
+    queryFn: fetchSourceTypes,
+    staleTime: 60000,
   });
 }

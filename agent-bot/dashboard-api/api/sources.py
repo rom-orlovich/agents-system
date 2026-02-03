@@ -1,6 +1,10 @@
 import json
+import os
 import uuid
 from datetime import datetime, timezone
+
+import httpx
+import structlog
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
@@ -13,7 +17,59 @@ from core.database.knowledge_models import (
 )
 
 
+logger = structlog.get_logger()
 router = APIRouter(prefix="/api/sources", tags=["sources"])
+
+OAUTH_SERVICE_URL = os.getenv("OAUTH_SERVICE_URL", "http://oauth-service:8010")
+
+SOURCE_TYPE_TO_PLATFORM = {
+    "github": "github",
+    "jira": "jira",
+    "confluence": "jira",
+}
+
+
+class SourceTypeInfo(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    source_type: str
+    name: str
+    oauth_platform: str
+    oauth_connected: bool
+    oauth_required: bool
+    description: str
+
+
+async def check_oauth_connected(platform: str) -> bool:
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                f"{OAUTH_SERVICE_URL}/oauth/installations",
+                params={"platform": platform},
+            )
+            if response.status_code == 200:
+                data = response.json()
+                installations = data.get("installations", [])
+                return len(installations) > 0
+    except httpx.RequestError as e:
+        logger.warning("oauth_service_unreachable", platform=platform, error=str(e))
+    return False
+
+
+async def get_oauth_token(platform: str, org_id: str) -> str | None:
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                f"{OAUTH_SERVICE_URL}/oauth/token/{platform}",
+                params={"org_id": org_id},
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("available"):
+                    return data.get("token")
+    except httpx.RequestError as e:
+        logger.warning("oauth_token_fetch_failed", platform=platform, error=str(e))
+    return None
 
 
 class GitHubSourceConfig(BaseModel):
@@ -77,6 +133,8 @@ class DataSourceResponse(BaseModel):
     last_sync_status: str | None
     created_at: datetime
     updated_at: datetime
+    oauth_connected: bool = False
+    oauth_platform: str | None = None
 
 
 class TriggerSyncRequest(BaseModel):
@@ -111,6 +169,55 @@ async def get_db_session():
         yield session
 
 
+@router.get("/types/available", response_model=list[SourceTypeInfo])
+async def get_available_source_types():
+    """Get all available source types with their OAuth connection status."""
+    source_types_info = [
+        {
+            "source_type": "github",
+            "name": "GitHub",
+            "oauth_platform": "github",
+            "oauth_required": True,
+            "description": "Index code repositories",
+        },
+        {
+            "source_type": "jira",
+            "name": "Jira",
+            "oauth_platform": "jira",
+            "oauth_required": True,
+            "description": "Index tickets and issues",
+        },
+        {
+            "source_type": "confluence",
+            "name": "Confluence",
+            "oauth_platform": "jira",
+            "oauth_required": True,
+            "description": "Index documentation pages (uses Jira OAuth)",
+        },
+    ]
+
+    results = []
+    oauth_status_cache: dict[str, bool] = {}
+
+    for info in source_types_info:
+        platform = info["oauth_platform"]
+        if platform not in oauth_status_cache:
+            oauth_status_cache[platform] = await check_oauth_connected(platform)
+
+        results.append(
+            SourceTypeInfo(
+                source_type=info["source_type"],
+                name=info["name"],
+                oauth_platform=platform,
+                oauth_connected=oauth_status_cache[platform],
+                oauth_required=info["oauth_required"],
+                description=info["description"],
+            )
+        )
+
+    return results
+
+
 @router.get("/{org_id}", response_model=list[DataSourceResponse])
 async def list_data_sources(
     org_id: str,
@@ -124,21 +231,35 @@ async def list_data_sources(
     result = await db.execute(query)
     sources = result.scalars().all()
 
-    return [
-        DataSourceResponse(
-            source_id=s.source_id,
-            org_id=s.org_id,
-            source_type=s.source_type,
-            name=s.name,
-            enabled=s.enabled,
-            config_json=s.config_json,
-            last_sync_at=s.last_sync_at,
-            last_sync_status=s.last_sync_status,
-            created_at=s.created_at,
-            updated_at=s.updated_at,
+    oauth_status_cache: dict[str, bool] = {}
+    responses = []
+
+    for s in sources:
+        platform = SOURCE_TYPE_TO_PLATFORM.get(s.source_type)
+        oauth_connected = False
+        if platform:
+            if platform not in oauth_status_cache:
+                oauth_status_cache[platform] = await check_oauth_connected(platform)
+            oauth_connected = oauth_status_cache[platform]
+
+        responses.append(
+            DataSourceResponse(
+                source_id=s.source_id,
+                org_id=s.org_id,
+                source_type=s.source_type,
+                name=s.name,
+                enabled=s.enabled,
+                config_json=s.config_json,
+                last_sync_at=s.last_sync_at,
+                last_sync_status=s.last_sync_status,
+                created_at=s.created_at,
+                updated_at=s.updated_at,
+                oauth_connected=oauth_connected,
+                oauth_platform=platform,
+            )
         )
-        for s in sources
-    ]
+
+    return responses
 
 
 @router.get("/{org_id}/{source_id}", response_model=DataSourceResponse)
@@ -158,6 +279,9 @@ async def get_data_source(
     if not source:
         raise HTTPException(status_code=404, detail="Data source not found")
 
+    platform = SOURCE_TYPE_TO_PLATFORM.get(source.source_type)
+    oauth_connected = await check_oauth_connected(platform) if platform else False
+
     return DataSourceResponse(
         source_id=source.source_id,
         org_id=source.org_id,
@@ -169,6 +293,8 @@ async def get_data_source(
         last_sync_status=source.last_sync_status,
         created_at=source.created_at,
         updated_at=source.updated_at,
+        oauth_connected=oauth_connected,
+        oauth_platform=platform,
     )
 
 
@@ -178,6 +304,18 @@ async def create_data_source(
     request: CreateDataSourceRequest,
     db: AsyncSession = Depends(get_db_session),
 ):
+    platform = SOURCE_TYPE_TO_PLATFORM.get(request.source_type)
+    oauth_connected = False
+
+    if platform:
+        oauth_connected = await check_oauth_connected(platform)
+        if request.enabled and not oauth_connected:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot enable source: OAuth not connected for {platform}. "
+                f"Please connect {platform} in the Integrations page first.",
+            )
+
     org_result = await db.execute(
         select(OrganizationDB).where(OrganizationDB.org_id == org_id)
     )
@@ -193,7 +331,7 @@ async def create_data_source(
         org_id=org_id,
         source_type=request.source_type,
         name=request.name,
-        enabled=request.enabled,
+        enabled=request.enabled if oauth_connected else False,
         config_json=json.dumps(request.config),
         created_by="system",
     )
@@ -212,6 +350,8 @@ async def create_data_source(
         last_sync_status=source.last_sync_status,
         created_at=source.created_at,
         updated_at=source.updated_at,
+        oauth_connected=oauth_connected,
+        oauth_platform=platform,
     )
 
 
@@ -232,6 +372,16 @@ async def update_data_source(
 
     if not source:
         raise HTTPException(status_code=404, detail="Data source not found")
+
+    platform = SOURCE_TYPE_TO_PLATFORM.get(source.source_type)
+    oauth_connected = await check_oauth_connected(platform) if platform else False
+
+    if request.enabled and not oauth_connected:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot enable source: OAuth not connected for {platform}. "
+            f"Please connect {platform} in the Integrations page first.",
+        )
 
     if request.name is not None:
         source.name = request.name
@@ -255,6 +405,8 @@ async def update_data_source(
         last_sync_status=source.last_sync_status,
         created_at=source.created_at,
         updated_at=source.updated_at,
+        oauth_connected=oauth_connected,
+        oauth_platform=platform,
     )
 
 
