@@ -41,7 +41,9 @@ class DataSourceDB(Base):
 
     source_id = Column(String(255), primary_key=True)
     org_id = Column(
-        String(255), ForeignKey("organizations.org_id", ondelete="CASCADE"), nullable=False
+        String(255),
+        ForeignKey("organizations.org_id", ondelete="CASCADE"),
+        nullable=False,
     )
     source_type = Column(String(50), nullable=False)
     name = Column(String(255), nullable=False)
@@ -55,7 +57,9 @@ class DataSourceDB(Base):
     created_by = Column(String(255), nullable=False)
 
     __table_args__ = (
-        UniqueConstraint("org_id", "source_type", "name", name="uq_data_source_org_type_name"),
+        UniqueConstraint(
+            "org_id", "source_type", "name", name="uq_data_source_org_type_name"
+        ),
         Index("idx_data_sources_org", "org_id"),
         Index("idx_data_sources_type", "source_type"),
     )
@@ -71,10 +75,14 @@ class IndexingJobDB(Base):
 
     job_id = Column(String(255), primary_key=True)
     org_id = Column(
-        String(255), ForeignKey("organizations.org_id", ondelete="CASCADE"), nullable=False
+        String(255),
+        ForeignKey("organizations.org_id", ondelete="CASCADE"),
+        nullable=False,
     )
     source_id = Column(
-        String(255), ForeignKey("data_sources.source_id", ondelete="SET NULL"), nullable=True
+        String(255),
+        ForeignKey("data_sources.source_id", ondelete="SET NULL"),
+        nullable=True,
     )
     job_type = Column(String(50), nullable=False)
     status = Column(String(50), nullable=False)
@@ -102,7 +110,9 @@ class IndexedItemDB(Base):
     item_id = Column(String(255), primary_key=True)
     org_id = Column(String(255), nullable=False)
     source_id = Column(
-        String(255), ForeignKey("data_sources.source_id", ondelete="CASCADE"), nullable=False
+        String(255),
+        ForeignKey("data_sources.source_id", ondelete="CASCADE"),
+        nullable=False,
     )
     source_type = Column(String(50), nullable=False)
     external_id = Column(String(500), nullable=False)
@@ -113,7 +123,9 @@ class IndexedItemDB(Base):
     metadata_json = Column(Text, default="{}", nullable=False)
 
     __table_args__ = (
-        UniqueConstraint("org_id", "source_type", "external_id", name="uq_indexed_item_org_type_ext"),
+        UniqueConstraint(
+            "org_id", "source_type", "external_id", name="uq_indexed_item_org_type_ext"
+        ),
         Index("idx_indexed_items_org", "org_id"),
         Index("idx_indexed_items_source", "source_id"),
     )

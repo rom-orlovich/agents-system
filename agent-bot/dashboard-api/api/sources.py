@@ -305,12 +305,14 @@ async def trigger_sync(
     redis_client = redis.from_url("redis://redis:6379/0")
     await redis_client.lpush(
         "indexer:jobs",
-        json.dumps({
-            "job_id": job_id,
-            "org_id": org_id,
-            "source_id": request.source_id,
-            "job_type": request.job_type,
-        }),
+        json.dumps(
+            {
+                "job_id": job_id,
+                "org_id": org_id,
+                "source_id": request.source_id,
+                "job_type": request.job_type,
+            }
+        ),
     )
     await redis_client.close()
 

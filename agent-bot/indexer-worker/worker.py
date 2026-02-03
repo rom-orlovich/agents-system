@@ -9,7 +9,6 @@ from sentence_transformers import SentenceTransformer
 
 from config import settings
 from models import (
-    IndexJobRequest,
     IndexJobStatus,
     DataSourceConfig,
     GitHubSourceConfig,
@@ -94,7 +93,9 @@ class IndexerWorker:
         await self._update_status(status)
         await self._publish_completion(status)
 
-    async def _fetch_sources(self, org_id: str, source_id: str | None) -> list[DataSourceConfig]:
+    async def _fetch_sources(
+        self, org_id: str, source_id: str | None
+    ) -> list[DataSourceConfig]:
         async with httpx.AsyncClient() as client:
             url = f"http://dashboard-api:5000/api/sources/{org_id}"
             if source_id:
@@ -141,7 +142,11 @@ class IndexerWorker:
             logger.info("skipping_disabled_source", source_id=source.source_id)
             return
 
-        logger.info("indexing_source", source_id=source.source_id, source_type=source.source_type)
+        logger.info(
+            "indexing_source",
+            source_id=source.source_id,
+            source_type=source.source_type,
+        )
 
         if source.source_type == "github":
             await self._index_github(source, status)
@@ -167,7 +172,9 @@ class IndexerWorker:
                 repo_url = repo.get("clone_url", repo.get("html_url", ""))
                 repo_name = repo.get("full_name", repo.get("name", ""))
 
-                repo_path = await indexer.clone_or_pull_repo(repo_url, repo_name.replace("/", "_"))
+                repo_path = await indexer.clone_or_pull_repo(
+                    repo_url, repo_name.replace("/", "_")
+                )
 
                 chunks = await indexer.index_repo(repo_path, repo_name)
                 all_chunks.extend(chunks)
@@ -175,11 +182,15 @@ class IndexerWorker:
                 await self._index_to_gkg(source.org_id, str(repo_path))
 
                 status.items_processed += 1
-                status.progress_percent = int((status.items_processed / status.items_total) * 100)
+                status.progress_percent = int(
+                    (status.items_processed / status.items_total) * 100
+                )
                 await self._update_status(status)
 
             except Exception as e:
-                logger.error("repo_indexing_failed", repo=repo.get("name"), error=str(e))
+                logger.error(
+                    "repo_indexing_failed", repo=repo.get("name"), error=str(e)
+                )
                 status.items_failed += 1
 
         await self._store_code_chunks(source.org_id, all_chunks)
@@ -260,7 +271,9 @@ class IndexerWorker:
 
         logger.info("code_chunks_stored", count=len(chunks))
 
-    async def _store_document_chunks(self, org_id: str, chunks: list[DocumentChunk], collection: str):
+    async def _store_document_chunks(
+        self, org_id: str, chunks: list[DocumentChunk], collection: str
+    ):
         if not chunks or not self.embedding_model:
             return
 
@@ -275,7 +288,10 @@ class IndexerWorker:
             metadatas = [
                 {
                     "org_id": org_id,
-                    **{k: (json.dumps(v) if isinstance(v, list) else v) for k, v in c.metadata.items()},
+                    **{
+                        k: (json.dumps(v) if isinstance(v, list) else v)
+                        for k, v in c.metadata.items()
+                    },
                 }
                 for c in batch
             ]

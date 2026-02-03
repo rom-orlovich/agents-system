@@ -59,13 +59,18 @@ class ConfluenceIndexer:
                 start += limit
 
             except Exception as e:
-                logger.error("confluence_page_fetch_failed", space=space_key, error=str(e))
+                logger.error(
+                    "confluence_page_fetch_failed", space=space_key, error=str(e)
+                )
                 break
 
         return pages
 
     def _should_include_page(self, page: dict) -> bool:
-        labels = [label.get("name", "") for label in page.get("metadata", {}).get("labels", {}).get("results", [])]
+        labels = [
+            label.get("name", "")
+            for label in page.get("metadata", {}).get("labels", {}).get("results", [])
+        ]
 
         if self.config.include_labels:
             if not any(label in self.config.include_labels for label in labels):
@@ -102,7 +107,10 @@ class ConfluenceIndexer:
         body = page.get("body", {}).get("storage", {}).get("value", "")
         clean_content = self._clean_html(body)
 
-        labels = [label.get("name", "") for label in page.get("metadata", {}).get("labels", {}).get("results", [])]
+        labels = [
+            label.get("name", "")
+            for label in page.get("metadata", {}).get("labels", {}).get("results", [])
+        ]
 
         version = page.get("version", {}).get("number", 1)
         last_modified = page.get("version", {}).get("when", "")

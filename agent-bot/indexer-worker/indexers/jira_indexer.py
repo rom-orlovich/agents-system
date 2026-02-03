@@ -63,7 +63,7 @@ class JiraIndexer:
             conditions.append(f"issuetype IN ({types})")
 
         if self.config.include_labels:
-            labels = ", ".join(f'"{l}"' for l in self.config.include_labels)
+            labels = ", ".join(f'"{label}"' for label in self.config.include_labels)
             conditions.append(f"labels IN ({labels})")
 
         if self.config.exclude_labels:
@@ -95,7 +95,9 @@ class JiraIndexer:
 
         summary = fields.get("summary", "")
         description = fields.get("description", "") or ""
-        rendered_description = ticket.get("renderedFields", {}).get("description", "") or ""
+        rendered_description = (
+            ticket.get("renderedFields", {}).get("description", "") or ""
+        )
 
         content_parts = [
             f"# {key}: {summary}",
@@ -113,7 +115,10 @@ class JiraIndexer:
 
         content = "\n".join(content_parts)
 
-        labels = [label.get("name", label) if isinstance(label, dict) else label for label in fields.get("labels", [])]
+        labels = [
+            label.get("name", label) if isinstance(label, dict) else label
+            for label in fields.get("labels", [])
+        ]
 
         return DocumentChunk(
             id=self._generate_chunk_id(key),
@@ -127,7 +132,9 @@ class JiraIndexer:
                 "project": fields.get("project", {}).get("key", ""),
                 "issue_type": fields.get("issuetype", {}).get("name", ""),
                 "status": fields.get("status", {}).get("name", ""),
-                "priority": fields.get("priority", {}).get("name", "") if fields.get("priority") else "",
+                "priority": fields.get("priority", {}).get("name", "")
+                if fields.get("priority")
+                else "",
                 "labels": labels,
                 "created": fields.get("created", ""),
                 "updated": fields.get("updated", ""),

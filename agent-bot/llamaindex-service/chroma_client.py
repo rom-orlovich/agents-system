@@ -52,7 +52,9 @@ class ChromaClientManager:
                     error=str(e),
                 )
 
-        logger.info("chromadb_client_initialized", collections=list(self.collections.keys()))
+        logger.info(
+            "chromadb_client_initialized", collections=list(self.collections.keys())
+        )
 
     def get_collection(self, name: str) -> chromadb.Collection:
         if name not in self.collections:

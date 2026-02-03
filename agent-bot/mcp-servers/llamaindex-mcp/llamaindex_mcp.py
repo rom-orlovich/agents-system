@@ -49,10 +49,10 @@ async def knowledge_query(
     for i, result in enumerate(results.get("results", []), 1):
         formatted.append(
             f"""
-### Result {i} ({result['source_type']}) - Score: {result['relevance_score']:.3f}
-**Source:** {result['source_id']}
+### Result {i} ({result["source_type"]}) - Score: {result["relevance_score"]:.3f}
+**Source:** {result["source_id"]}
 ```
-{result['content'][:2000]}
+{result["content"][:2000]}
 ```
 """
         )
@@ -102,9 +102,9 @@ async def code_search(
         meta = result.get("metadata", {})
         formatted.append(
             f"""
-**{meta.get('repo', 'unknown')}/{meta.get('file_path', 'unknown')}** (lines {meta.get('line_start', '?')}-{meta.get('line_end', '?')})
-```{meta.get('language', '')}
-{result['content']}
+**{meta.get("repo", "unknown")}/{meta.get("file_path", "unknown")}** (lines {meta.get("line_start", "?")}-{meta.get("line_end", "?")})
+```{meta.get("language", "")}
+{result["content"]}
 ```
 """
         )
@@ -151,7 +151,9 @@ async def find_related_code(
     for rel_type, entities in results.get("relationships", {}).items():
         formatted.append(f"\n### {rel_type.upper()}\n")
         for ent in entities:
-            formatted.append(f"- `{ent.get('name', '?')}` in {ent.get('file', '?')} (line {ent.get('line', '?')})")
+            formatted.append(
+                f"- `{ent.get('name', '?')}` in {ent.get('file', '?')} (line {ent.get('line', '?')})"
+            )
 
     return "\n".join(formatted)
 
@@ -201,11 +203,11 @@ async def search_jira_tickets(
             labels = [labels]
         formatted.append(
             f"""
-**[{meta.get('key', '?')}] {meta.get('summary', 'No summary')}**
-- Status: {meta.get('status', '?')} | Priority: {meta.get('priority', '?')}
-- Labels: {', '.join(labels) if labels else 'None'}
+**[{meta.get("key", "?")}] {meta.get("summary", "No summary")}**
+- Status: {meta.get("status", "?")} | Priority: {meta.get("priority", "?")}
+- Labels: {", ".join(labels) if labels else "None"}
 
-{result['content'][:500]}...
+{result["content"][:500]}...
 """
         )
 
@@ -252,10 +254,10 @@ async def search_confluence(
         meta = result.get("metadata", {})
         formatted.append(
             f"""
-**{meta.get('page_title', 'Unknown')}** ({meta.get('space', '?')})
-Last updated: {meta.get('last_modified', 'Unknown')}
+**{meta.get("page_title", "Unknown")}** ({meta.get("space", "?")})
+Last updated: {meta.get("last_modified", "Unknown")}
 
-{result['content'][:1000]}...
+{result["content"][:1000]}...
 """
         )
 

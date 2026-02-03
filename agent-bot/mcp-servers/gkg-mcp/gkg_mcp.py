@@ -79,9 +79,15 @@ async def find_usages(
 
     formatted = [f"## Usages of `{symbol}`\n"]
     for usage in results.get("usages", []):
-        formatted.append(f"- {usage.get('file', '?')}:{usage.get('line', '?')} ({usage.get('context', '')})")
+        formatted.append(
+            f"- {usage.get('file', '?')}:{usage.get('line', '?')} ({usage.get('context', '')})"
+        )
 
-    return "\n".join(formatted) if len(formatted) > 1 else f"No usages found for `{symbol}`"
+    return (
+        "\n".join(formatted)
+        if len(formatted) > 1
+        else f"No usages found for `{symbol}`"
+    )
 
 
 @mcp.tool()
@@ -197,6 +203,12 @@ async def get_related_entities(
         if entities:
             formatted.append(f"\n### {rel_type.upper()}")
             for ent in entities:
-                formatted.append(f"- `{ent.get('name', '?')}` in {ent.get('file', '?')}:{ent.get('line', '?')}")
+                formatted.append(
+                    f"- `{ent.get('name', '?')}` in {ent.get('file', '?')}:{ent.get('line', '?')}"
+                )
 
-    return "\n".join(formatted) if len(formatted) > 1 else f"No related entities found for `{entity}`"
+    return (
+        "\n".join(formatted)
+        if len(formatted) > 1
+        else f"No related entities found for `{entity}`"
+    )

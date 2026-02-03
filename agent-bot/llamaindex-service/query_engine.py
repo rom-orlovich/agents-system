@@ -91,8 +91,12 @@ class HybridQueryEngine:
         results = []
         if query_result and query_result.get("documents"):
             documents = query_result["documents"][0]
-            metadatas = query_result["metadatas"][0] if query_result.get("metadatas") else []
-            distances = query_result["distances"][0] if query_result.get("distances") else []
+            metadatas = (
+                query_result["metadatas"][0] if query_result.get("metadatas") else []
+            )
+            distances = (
+                query_result["distances"][0] if query_result.get("distances") else []
+            )
 
             for i, doc in enumerate(documents):
                 metadata = metadatas[i] if i < len(metadatas) else {}
@@ -192,8 +196,12 @@ class HybridQueryEngine:
         results = []
         if query_result and query_result.get("documents"):
             documents = query_result["documents"][0]
-            metadatas = query_result["metadatas"][0] if query_result.get("metadatas") else []
-            distances = query_result["distances"][0] if query_result.get("distances") else []
+            metadatas = (
+                query_result["metadatas"][0] if query_result.get("metadatas") else []
+            )
+            distances = (
+                query_result["distances"][0] if query_result.get("distances") else []
+            )
 
             for i, doc in enumerate(documents):
                 metadata = metadatas[i] if i < len(metadatas) else {}
@@ -236,8 +244,12 @@ class HybridQueryEngine:
         results = []
         if query_result and query_result.get("documents"):
             documents = query_result["documents"][0]
-            metadatas = query_result["metadatas"][0] if query_result.get("metadatas") else []
-            distances = query_result["distances"][0] if query_result.get("distances") else []
+            metadatas = (
+                query_result["metadatas"][0] if query_result.get("metadatas") else []
+            )
+            distances = (
+                query_result["distances"][0] if query_result.get("distances") else []
+            )
 
             for i, doc in enumerate(documents):
                 metadata = metadatas[i] if i < len(metadatas) else {}
@@ -278,8 +290,12 @@ class HybridQueryEngine:
         results = []
         if query_result and query_result.get("documents"):
             documents = query_result["documents"][0]
-            metadatas = query_result["metadatas"][0] if query_result.get("metadatas") else []
-            distances = query_result["distances"][0] if query_result.get("distances") else []
+            metadatas = (
+                query_result["metadatas"][0] if query_result.get("metadatas") else []
+            )
+            distances = (
+                query_result["distances"][0] if query_result.get("distances") else []
+            )
 
             for i, doc in enumerate(documents):
                 metadata = metadatas[i] if i < len(metadatas) else {}

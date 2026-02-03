@@ -1,6 +1,4 @@
-import asyncio
 import hashlib
-import os
 from pathlib import Path
 from fnmatch import fnmatch
 import structlog
@@ -70,7 +68,9 @@ class GitHubIndexer:
                                 break
 
                             for repo in page_repos:
-                                if fnmatch(repo["name"], repo_pattern.replace("*", "*")):
+                                if fnmatch(
+                                    repo["name"], repo_pattern.replace("*", "*")
+                                ):
                                     if not self._is_excluded(repo["full_name"]):
                                         repos.append(repo)
                             page += 1
@@ -202,7 +202,9 @@ class GitHubIndexer:
                 )
 
                 overlap_lines = int(overlap / (char_count / len(current_chunk)))
-                current_chunk = current_chunk[-overlap_lines:] if overlap_lines > 0 else []
+                current_chunk = (
+                    current_chunk[-overlap_lines:] if overlap_lines > 0 else []
+                )
                 current_start = max(1, i - overlap_lines + 1)
                 char_count = sum(len(line) + 1 for line in current_chunk)
 

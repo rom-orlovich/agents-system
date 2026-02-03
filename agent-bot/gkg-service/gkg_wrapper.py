@@ -1,6 +1,5 @@
 import asyncio
 import json
-import os
 from pathlib import Path
 import structlog
 
@@ -20,7 +19,9 @@ class GKGWrapper:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.repos_dir.mkdir(parents=True, exist_ok=True)
 
-    async def _run_gkg_command(self, args: list[str], cwd: str | None = None) -> tuple[str, str, int]:
+    async def _run_gkg_command(
+        self, args: list[str], cwd: str | None = None
+    ) -> tuple[str, str, int]:
         cmd = [self.gkg_binary] + args
         logger.debug("gkg_command", cmd=" ".join(cmd), cwd=cwd)
 
@@ -71,7 +72,10 @@ class GKGWrapper:
         db_path = self.data_dir / org_id
 
         if not db_path.exists():
-            return {"dependencies": [], "formatted_output": "No index found for this organization"}
+            return {
+                "dependencies": [],
+                "formatted_output": "No index found for this organization",
+            }
 
         query = f"""
         MATCH (f:File {{path: '{file_path}'}})-[:IMPORTS*1..{depth}]->(dep)
@@ -93,7 +97,9 @@ class GKGWrapper:
 
         formatted_lines = [f"Dependencies for {file_path}:"]
         for dep in results:
-            formatted_lines.append(f"  - {dep.get('path', 'unknown')} ({dep.get('type', 'unknown')})")
+            formatted_lines.append(
+                f"  - {dep.get('path', 'unknown')} ({dep.get('type', 'unknown')})"
+            )
 
         return {
             "dependencies": results,
@@ -177,11 +183,15 @@ class GKGWrapper:
         if callers:
             formatted_lines.append("\nCallers:")
             for c in callers:
-                formatted_lines.append(f"  <- {c.get('name', '?')} ({c.get('file', '?')}:{c.get('line', '?')})")
+                formatted_lines.append(
+                    f"  <- {c.get('name', '?')} ({c.get('file', '?')}:{c.get('line', '?')})"
+                )
         if callees:
             formatted_lines.append("\nCallees:")
             for c in callees:
-                formatted_lines.append(f"  -> {c.get('name', '?')} ({c.get('file', '?')}:{c.get('line', '?')})")
+                formatted_lines.append(
+                    f"  -> {c.get('name', '?')} ({c.get('file', '?')}:{c.get('line', '?')})"
+                )
 
         return {
             "callers": callers,
@@ -198,7 +208,11 @@ class GKGWrapper:
         db_path = self.data_dir / org_id
 
         if not db_path.exists():
-            return {"parents": [], "children": [], "formatted_hierarchy": "No index found"}
+            return {
+                "parents": [],
+                "children": [],
+                "formatted_hierarchy": "No index found",
+            }
 
         parents = []
         children = []
@@ -233,12 +247,16 @@ class GKGWrapper:
         if parents:
             formatted_lines.append("\nParents (extends/implements):")
             for p in parents:
-                formatted_lines.append(f"  ^ {p.get('name', '?')} ({p.get('file', '?')})")
+                formatted_lines.append(
+                    f"  ^ {p.get('name', '?')} ({p.get('file', '?')})"
+                )
         formatted_lines.append(f"\n  [{class_name}]")
         if children:
             formatted_lines.append("\nChildren (extended by):")
             for c in children:
-                formatted_lines.append(f"  v {c.get('name', '?')} ({c.get('file', '?')})")
+                formatted_lines.append(
+                    f"  v {c.get('name', '?')} ({c.get('file', '?')})"
+                )
 
         return {
             "parents": parents,
@@ -259,7 +277,11 @@ class GKGWrapper:
             return {}
 
         relationships: dict[str, list[dict]] = {}
-        rel_types = ["calls", "imports", "extends", "references"] if relationship == "all" else [relationship]
+        rel_types = (
+            ["calls", "imports", "extends", "references"]
+            if relationship == "all"
+            else [relationship]
+        )
 
         for rel in rel_types:
             query = f"""
