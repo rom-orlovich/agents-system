@@ -1,25 +1,16 @@
-"""Tests for task logger log structure business logic.
-
-Tests the structured logging format and file organization.
-"""
-
 import json
 
 from logger import TaskLogger
 
 
 class TestLogDirectoryStructure:
-    """Tests for log directory structure."""
-
     def test_task_directory_created_atomically(self, tmp_path):
-        """Business requirement: Directory isolation."""
         logger = TaskLogger("task-001", tmp_path)
 
         assert logger.log_dir.exists()
         assert logger.log_dir == tmp_path / "task-001"
 
     def test_each_task_has_separate_directory(self, tmp_path):
-        """Each task gets its own directory."""
         logger1 = TaskLogger("task-001", tmp_path)
         logger2 = TaskLogger("task-002", tmp_path)
 
@@ -29,10 +20,7 @@ class TestLogDirectoryStructure:
 
 
 class TestJsonFileValidity:
-    """Tests for JSON file validity."""
-
     def test_metadata_json_is_valid_json(self, tmp_path):
-        """Business requirement: Machine readable."""
         logger = TaskLogger("task-001", tmp_path)
         metadata = {
             "task_id": "task-001",
@@ -50,7 +38,6 @@ class TestJsonFileValidity:
             assert loaded == metadata
 
     def test_input_json_is_valid_json(self, tmp_path):
-        """Business requirement: Machine readable."""
         logger = TaskLogger("task-001", tmp_path)
         input_data = {"message": "Fix the authentication bug"}
 
@@ -64,7 +51,6 @@ class TestJsonFileValidity:
             assert loaded == input_data
 
     def test_final_result_json_is_valid_json(self, tmp_path):
-        """Business requirement: Machine readable."""
         logger = TaskLogger("task-001", tmp_path)
         result = {
             "success": True,
@@ -75,7 +61,7 @@ class TestJsonFileValidity:
 
         logger.write_final_result(result)
 
-        result_file = tmp_path / "task-001" / "04-final-result.json"
+        result_file = tmp_path / "task-001" / "06-final-result.json"
         assert result_file.exists()
 
         with open(result_file) as f:
@@ -87,7 +73,6 @@ class TestJsonlFileValidity:
     """Tests for JSONL file validity."""
 
     def test_webhook_flow_jsonl_valid(self, tmp_path):
-        """Business requirement: JSONL format."""
         logger = TaskLogger("task-001", tmp_path)
 
         events = [
@@ -99,7 +84,7 @@ class TestJsonlFileValidity:
         for event in events:
             logger.append_webhook_event(event)
 
-        webhook_file = tmp_path / "task-001" / "02-webhook-flow.jsonl"
+        webhook_file = tmp_path / "task-001" / "03-webhook-flow.jsonl"
         assert webhook_file.exists()
 
         with open(webhook_file) as f:
@@ -110,7 +95,6 @@ class TestJsonlFileValidity:
                 assert loaded == events[i]
 
     def test_agent_output_jsonl_valid(self, tmp_path):
-        """Business requirement: JSONL format."""
         logger = TaskLogger("task-001", tmp_path)
 
         outputs = [
@@ -129,7 +113,7 @@ class TestJsonlFileValidity:
         for output in outputs:
             logger.append_agent_output(output)
 
-        output_file = tmp_path / "task-001" / "03-agent-output.jsonl"
+        output_file = tmp_path / "task-001" / "04-agent-output.jsonl"
         assert output_file.exists()
 
         with open(output_file) as f:
@@ -140,7 +124,6 @@ class TestJsonlFileValidity:
                 assert loaded == outputs[i]
 
     def test_user_inputs_jsonl_valid(self, tmp_path):
-        """Business requirement: JSONL format."""
         logger = TaskLogger("task-001", tmp_path)
 
         user_input = {
@@ -152,7 +135,7 @@ class TestJsonlFileValidity:
 
         logger.append_user_input(user_input)
 
-        user_input_file = tmp_path / "task-001" / "03-user-inputs.jsonl"
+        user_input_file = tmp_path / "task-001" / "02-user-inputs.jsonl"
         assert user_input_file.exists()
 
         with open(user_input_file) as f:
@@ -161,12 +144,32 @@ class TestJsonlFileValidity:
             loaded = json.loads(lines[0])
             assert loaded == user_input
 
+    def test_knowledge_interactions_jsonl_valid(self, tmp_path):
+        logger = TaskLogger("task-001", tmp_path)
+
+        interaction = {
+            "timestamp": "2026-01-31T12:00:00Z",
+            "tool_name": "knowledge_query",
+            "query": "authentication bug",
+            "source_types": ["code", "jira"],
+            "results_count": 5,
+            "query_time_ms": 150.5,
+        }
+
+        logger.append_knowledge_interaction(interaction)
+
+        knowledge_file = tmp_path / "task-001" / "05-knowledge-interactions.jsonl"
+        assert knowledge_file.exists()
+
+        with open(knowledge_file) as f:
+            lines = f.readlines()
+            assert len(lines) == 1
+            loaded = json.loads(lines[0])
+            assert loaded == interaction
+
 
 class TestCompleteLogStructure:
-    """Tests for complete log structure."""
-
     def test_complete_log_structure(self, tmp_path):
-        """Business requirement: Each task gets complete structured logs."""
         task_id = "task-001"
         logger = TaskLogger(task_id, tmp_path)
 
@@ -180,9 +183,18 @@ class TestCompleteLogStructure:
 
         logger.write_input({"message": "Fix bug"})
 
-        logger.append_webhook_event(
+        logger.append_user_input(
             {
                 "timestamp": "2026-01-31T12:00:00Z",
+                "type": "user_response",
+                "question_type": "approval",
+                "content": "yes",
+            }
+        )
+
+        logger.append_webhook_event(
+            {
+                "timestamp": "2026-01-31T12:00:01Z",
                 "stage": "received",
                 "data": {},
             }
@@ -190,18 +202,18 @@ class TestCompleteLogStructure:
 
         logger.append_agent_output(
             {
-                "timestamp": "2026-01-31T12:00:01Z",
+                "timestamp": "2026-01-31T12:00:02Z",
                 "type": "output",
                 "content": "Working...",
             }
         )
 
-        logger.append_user_input(
+        logger.append_knowledge_interaction(
             {
-                "timestamp": "2026-01-31T12:00:02Z",
-                "type": "user_response",
-                "question_type": "approval",
-                "content": "yes",
+                "timestamp": "2026-01-31T12:00:03Z",
+                "tool_name": "code_search",
+                "query": "authentication",
+                "results_count": 3,
             }
         )
 
@@ -209,42 +221,64 @@ class TestCompleteLogStructure:
             {
                 "success": True,
                 "result": "Done",
-                "completed_at": "2026-01-31T12:00:03Z",
+                "completed_at": "2026-01-31T12:00:04Z",
             }
         )
 
         task_dir = tmp_path / task_id
         assert (task_dir / "metadata.json").exists()
         assert (task_dir / "01-input.json").exists()
-        assert (task_dir / "02-webhook-flow.jsonl").exists()
-        assert (task_dir / "03-agent-output.jsonl").exists()
-        assert (task_dir / "03-user-inputs.jsonl").exists()
-        assert (task_dir / "04-final-result.json").exists()
+        assert (task_dir / "02-user-inputs.jsonl").exists()
+        assert (task_dir / "03-webhook-flow.jsonl").exists()
+        assert (task_dir / "04-agent-output.jsonl").exists()
+        assert (task_dir / "05-knowledge-interactions.jsonl").exists()
+        assert (task_dir / "06-final-result.json").exists()
 
 
 class TestLogFileNaming:
-    """Tests for log file naming conventions."""
-
     def test_file_naming_convention(self, tmp_path):
-        """Files follow expected naming convention."""
         logger = TaskLogger("task-001", tmp_path)
 
         logger.write_metadata({"task_id": "task-001"})
         logger.write_input({"message": "test"})
+        logger.append_user_input({"type": "test"})
         logger.append_webhook_event({"stage": "test"})
         logger.append_agent_output({"type": "test"})
-        logger.append_user_input({"type": "test"})
+        logger.append_knowledge_interaction({"tool_name": "test"})
         logger.write_final_result({"success": True})
 
         task_dir = tmp_path / "task-001"
         expected_files = [
             "metadata.json",
             "01-input.json",
-            "02-webhook-flow.jsonl",
-            "03-agent-output.jsonl",
-            "03-user-inputs.jsonl",
-            "04-final-result.json",
+            "02-user-inputs.jsonl",
+            "03-webhook-flow.jsonl",
+            "04-agent-output.jsonl",
+            "05-knowledge-interactions.jsonl",
+            "06-final-result.json",
         ]
 
         for filename in expected_files:
             assert (task_dir / filename).exists(), f"Missing: {filename}"
+
+    def test_file_order_reflects_workflow(self, tmp_path):
+        logger = TaskLogger("task-001", tmp_path)
+
+        logger.write_input({"message": "test"})
+        logger.append_user_input({"type": "approval"})
+        logger.append_webhook_event({"stage": "received"})
+        logger.append_agent_output({"type": "output"})
+        logger.append_knowledge_interaction({"tool_name": "search"})
+        logger.write_final_result({"success": True})
+
+        task_dir = tmp_path / "task-001"
+        files = sorted([f.name for f in task_dir.iterdir()])
+
+        assert files == [
+            "01-input.json",
+            "02-user-inputs.jsonl",
+            "03-webhook-flow.jsonl",
+            "04-agent-output.jsonl",
+            "05-knowledge-interactions.jsonl",
+            "06-final-result.json",
+        ]

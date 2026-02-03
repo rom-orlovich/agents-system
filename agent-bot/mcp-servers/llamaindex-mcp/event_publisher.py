@@ -40,7 +40,9 @@ async def publish_knowledge_event(
             "data": json.dumps(data),
         }
         await client.xadd("task_events", event)
-        logger.debug("knowledge_event_published", event_type=event_type, task_id=task_id)
+        logger.debug(
+            "knowledge_event_published", event_type=event_type, task_id=task_id
+        )
     except Exception as e:
         logger.warning("knowledge_event_publish_failed", error=str(e))
 
