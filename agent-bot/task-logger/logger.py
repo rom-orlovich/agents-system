@@ -34,6 +34,10 @@ class TaskLogger:
         result_file = self.log_dir / "04-final-result.json"
         self._atomic_write_json(result_file, data)
 
+    def append_knowledge_interaction(self, interaction: dict):
+        knowledge_file = self.log_dir / "05-knowledge-interactions.jsonl"
+        self._atomic_append_jsonl(knowledge_file, interaction)
+
     def _atomic_write_json(self, file_path: Path, data: dict):
         temp_fd, temp_path = tempfile.mkstemp(dir=self.log_dir, suffix=".tmp")
         try:

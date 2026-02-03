@@ -17,6 +17,10 @@ class TaskEventType(StrEnum):
     TASK_METRICS = "task:metrics"
     TASK_COMPLETED = "task:completed"
     TASK_FAILED = "task:failed"
+    KNOWLEDGE_QUERY = "knowledge:query"
+    KNOWLEDGE_RESULT = "knowledge:result"
+    KNOWLEDGE_TOOL_CALL = "knowledge:tool_call"
+    KNOWLEDGE_CONTEXT_USED = "knowledge:context_used"
 
 
 class TaskEvent(BaseModel):
@@ -75,3 +79,17 @@ class FinalResult(BaseModel):
     error: Optional[str] = None
     metrics: Optional[dict] = None
     completed_at: str
+
+
+class KnowledgeInteraction(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    timestamp: str
+    tool_name: str
+    query: str
+    source_types: list[str] = []
+    results_count: int = 0
+    results_preview: list[dict] = []
+    query_time_ms: float = 0.0
+    relevance_scores: list[float] = []
+    cached: bool = False

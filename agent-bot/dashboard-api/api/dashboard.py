@@ -804,6 +804,17 @@ async def get_task_logs_full(task_id: str):
             with open(result_file, "r") as f:
                 result["final_result"] = json.load(f)
 
+        # Read knowledge interactions (optional)
+        knowledge_file = log_dir / "05-knowledge-interactions.jsonl"
+        if knowledge_file.exists():
+            interactions = []
+            with open(knowledge_file, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        interactions.append(json.loads(line))
+            result["knowledge_interactions"] = interactions
+
         return result
 
     except FileNotFoundError:
@@ -813,4 +824,90 @@ async def get_task_logs_full(task_id: str):
         raise HTTPException(status_code=500, detail="Invalid log format")
     except Exception as e:
         logger.error("get_full_logs_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}/logs/knowledge-interactions")
+async def get_task_log_knowledge_interactions(task_id: str):
+    """Get knowledge interactions (05-knowledge-interactions.jsonl) as JSON array."""
+    try:
+        log_dir = settings.task_logs_dir / task_id
+        knowledge_file = log_dir / "05-knowledge-interactions.jsonl"
+
+        if not knowledge_file.exists():
+            return []
+
+        interactions = []
+        with open(knowledge_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    interactions.append(json.loads(line))
+
+        return interactions
+
+    except FileNotFoundError:
+        return []
+    except json.JSONDecodeError as e:
+        logger.error("knowledge_parse_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Invalid knowledge log format")
+    except Exception as e:
+        logger.error("get_knowledge_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}/knowledge-summary")
+async def get_task_knowledge_summary(task_id: str):
+    """Get a summary of knowledge service usage for a task."""
+    try:
+        log_dir = settings.task_logs_dir / task_id
+        knowledge_file = log_dir / "05-knowledge-interactions.jsonl"
+
+        if not knowledge_file.exists():
+            return {
+                "task_id": task_id,
+                "knowledge_enabled": False,
+                "total_queries": 0,
+                "total_results": 0,
+                "tools_used": [],
+                "source_types_queried": [],
+                "total_query_time_ms": 0,
+                "cache_hit_rate": 0,
+            }
+
+        interactions = []
+        with open(knowledge_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    interactions.append(json.loads(line))
+
+        queries = [i for i in interactions if i.get("type") == "query"]
+        results = [i for i in interactions if i.get("type") == "result"]
+
+        tools_used = list(set(i.get("tool_name") for i in interactions))
+        source_types = []
+        for q in queries:
+            source_types.extend(q.get("source_types", []))
+        source_types = list(set(source_types))
+
+        total_results = sum(r.get("results_count", 0) for r in results)
+        total_query_time = sum(r.get("query_time_ms", 0) for r in results)
+        cached_count = sum(1 for r in results if r.get("cached"))
+        cache_hit_rate = (cached_count / len(results) * 100) if results else 0
+
+        return {
+            "task_id": task_id,
+            "knowledge_enabled": True,
+            "total_queries": len(queries),
+            "total_results": total_results,
+            "tools_used": tools_used,
+            "source_types_queried": source_types,
+            "total_query_time_ms": round(total_query_time, 2),
+            "cache_hit_rate": round(cache_hit_rate, 1),
+            "interactions": interactions,
+        }
+
+    except Exception as e:
+        logger.error("get_knowledge_summary_error", task_id=task_id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
