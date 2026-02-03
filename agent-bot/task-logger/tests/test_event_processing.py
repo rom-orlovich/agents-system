@@ -19,6 +19,7 @@ class MockTaskLogger:
         self.webhook_events = []
         self.agent_outputs = []
         self.user_inputs = []
+        self.knowledge_interactions = []
         self.final_result = None
 
     def write_metadata(self, metadata: dict) -> None:
@@ -35,6 +36,9 @@ class MockTaskLogger:
 
     def append_user_input(self, user_input: dict) -> None:
         self.user_inputs.append(user_input)
+
+    def append_knowledge_interaction(self, interaction: dict) -> None:
+        self.knowledge_interactions.append(interaction)
 
     def write_final_result(self, result: dict) -> None:
         self.final_result = result
@@ -422,3 +426,342 @@ class TestEventResilience:
 
         task_logger = loggers_cache["task-001"]
         assert task_logger.input_written["message"] == "Fix bug"
+
+
+async def process_knowledge_event_mock(event: dict):
+    """Mock knowledge event processor."""
+    task_id = event.get("task_id")
+    if not task_id:
+        return
+
+    event_type = event.get("type")
+    data = event.get("data", {})
+    timestamp = event.get("timestamp", datetime.now(timezone.utc).isoformat())
+
+    if isinstance(data, str):
+        data = json.loads(data)
+
+    task_logger = get_or_create_mock_logger(task_id)
+
+    if event_type == "knowledge:query":
+        task_logger.append_knowledge_interaction(
+            {
+                "timestamp": timestamp,
+                "type": "query",
+                "tool_name": data.get("tool_name", "unknown"),
+                "query": data.get("query", ""),
+                "source_types": data.get("source_types", []),
+                "org_id": data.get("org_id"),
+            }
+        )
+
+    elif event_type == "knowledge:result":
+        task_logger.append_knowledge_interaction(
+            {
+                "timestamp": timestamp,
+                "type": "result",
+                "tool_name": data.get("tool_name", "unknown"),
+                "query": data.get("query", ""),
+                "results_count": data.get("results_count", 0),
+                "results_preview": data.get("results_preview", [])[:5],
+                "query_time_ms": data.get("query_time_ms", 0.0),
+                "cached": data.get("cached", False),
+            }
+        )
+
+    elif event_type == "knowledge:tool_call":
+        task_logger.append_knowledge_interaction(
+            {
+                "timestamp": timestamp,
+                "type": "tool_call",
+                "tool_name": data.get("tool_name", "unknown"),
+                "parameters": data.get("parameters", {}),
+            }
+        )
+
+    elif event_type == "knowledge:context_used":
+        task_logger.append_knowledge_interaction(
+            {
+                "timestamp": timestamp,
+                "type": "context_used",
+                "tool_name": data.get("tool_name", "unknown"),
+                "contexts_count": data.get("contexts_count", 0),
+                "relevance_scores": data.get("relevance_scores", []),
+                "total_tokens": data.get("total_tokens"),
+            }
+        )
+
+
+class TestKnowledgeEventProcessing:
+    """Tests for knowledge event processing business logic."""
+
+    def setup_method(self):
+        """Reset state before each test."""
+        reset_test_state()
+
+    async def test_knowledge_query_event_logged(self):
+        """Knowledge query events are captured with all fields."""
+        task_id = "task-001"
+
+        await process_task_event_mock(
+            {
+                "type": "task:created",
+                "task_id": task_id,
+                "data": {"input_message": "test"},
+            }
+        )
+
+        await process_knowledge_event_mock(
+            {
+                "type": "knowledge:query",
+                "task_id": task_id,
+                "timestamp": "2026-01-31T12:00:00Z",
+                "data": {
+                    "tool_name": "knowledge_query",
+                    "query": "authentication error handling",
+                    "source_types": ["code", "jira"],
+                    "org_id": "org-123",
+                },
+            }
+        )
+
+        task_logger = loggers_cache[task_id]
+        assert len(task_logger.knowledge_interactions) == 1
+
+        interaction = task_logger.knowledge_interactions[0]
+        assert interaction["type"] == "query"
+        assert interaction["tool_name"] == "knowledge_query"
+        assert interaction["query"] == "authentication error handling"
+        assert interaction["source_types"] == ["code", "jira"]
+        assert interaction["org_id"] == "org-123"
+
+    async def test_knowledge_result_event_logged(self):
+        """Knowledge result events capture search results."""
+        task_id = "task-001"
+
+        await process_task_event_mock(
+            {
+                "type": "task:created",
+                "task_id": task_id,
+                "data": {"input_message": "test"},
+            }
+        )
+
+        await process_knowledge_event_mock(
+            {
+                "type": "knowledge:result",
+                "task_id": task_id,
+                "timestamp": "2026-01-31T12:00:01Z",
+                "data": {
+                    "tool_name": "knowledge_query",
+                    "query": "authentication error handling",
+                    "results_count": 5,
+                    "results_preview": [
+                        {
+                            "source_type": "code",
+                            "source_id": "auth/handler.py",
+                            "relevance_score": 0.92,
+                        }
+                    ],
+                    "query_time_ms": 245.7,
+                    "cached": False,
+                },
+            }
+        )
+
+        task_logger = loggers_cache[task_id]
+        assert len(task_logger.knowledge_interactions) == 1
+
+        interaction = task_logger.knowledge_interactions[0]
+        assert interaction["type"] == "result"
+        assert interaction["results_count"] == 5
+        assert interaction["query_time_ms"] == 245.7
+        assert interaction["cached"] is False
+        assert len(interaction["results_preview"]) == 1
+        assert interaction["results_preview"][0]["relevance_score"] == 0.92
+
+    async def test_knowledge_query_result_pair_captured(self):
+        """Query and result events form a complete interaction."""
+        task_id = "task-001"
+
+        await process_task_event_mock(
+            {
+                "type": "task:created",
+                "task_id": task_id,
+                "data": {"input_message": "test"},
+            }
+        )
+
+        await process_knowledge_event_mock(
+            {
+                "type": "knowledge:query",
+                "task_id": task_id,
+                "timestamp": "2026-01-31T12:00:00Z",
+                "data": {
+                    "tool_name": "code_search",
+                    "query": "validate_token",
+                    "source_types": ["code"],
+                    "org_id": "org-123",
+                },
+            }
+        )
+
+        await process_knowledge_event_mock(
+            {
+                "type": "knowledge:result",
+                "task_id": task_id,
+                "timestamp": "2026-01-31T12:00:01Z",
+                "data": {
+                    "tool_name": "code_search",
+                    "query": "validate_token",
+                    "results_count": 3,
+                    "results_preview": [],
+                    "query_time_ms": 150.0,
+                    "cached": True,
+                },
+            }
+        )
+
+        task_logger = loggers_cache[task_id]
+        assert len(task_logger.knowledge_interactions) == 2
+
+        query = task_logger.knowledge_interactions[0]
+        result = task_logger.knowledge_interactions[1]
+
+        assert query["type"] == "query"
+        assert result["type"] == "result"
+        assert query["tool_name"] == result["tool_name"]
+        assert query["query"] == result["query"]
+
+    async def test_knowledge_context_used_event_logged(self):
+        """Context usage events track how results were used."""
+        task_id = "task-001"
+
+        await process_task_event_mock(
+            {
+                "type": "task:created",
+                "task_id": task_id,
+                "data": {"input_message": "test"},
+            }
+        )
+
+        await process_knowledge_event_mock(
+            {
+                "type": "knowledge:context_used",
+                "task_id": task_id,
+                "timestamp": "2026-01-31T12:00:02Z",
+                "data": {
+                    "tool_name": "knowledge_query",
+                    "contexts_count": 3,
+                    "relevance_scores": [0.92, 0.87, 0.81],
+                    "total_tokens": 2450,
+                },
+            }
+        )
+
+        task_logger = loggers_cache[task_id]
+        assert len(task_logger.knowledge_interactions) == 1
+
+        interaction = task_logger.knowledge_interactions[0]
+        assert interaction["type"] == "context_used"
+        assert interaction["contexts_count"] == 3
+        assert interaction["relevance_scores"] == [0.92, 0.87, 0.81]
+        assert interaction["total_tokens"] == 2450
+
+    async def test_knowledge_event_without_task_id_ignored(self):
+        """Knowledge events without task_id are gracefully ignored."""
+        await process_knowledge_event_mock(
+            {
+                "type": "knowledge:query",
+                "timestamp": "2026-01-31T12:00:00Z",
+                "data": {
+                    "tool_name": "knowledge_query",
+                    "query": "test",
+                },
+            }
+        )
+
+        assert len(loggers_cache) == 0
+
+    async def test_results_preview_limited_to_five(self):
+        """Results preview is limited to 5 items."""
+        task_id = "task-001"
+
+        await process_task_event_mock(
+            {
+                "type": "task:created",
+                "task_id": task_id,
+                "data": {"input_message": "test"},
+            }
+        )
+
+        many_results = [
+            {"source_id": f"file-{i}.py", "relevance_score": 0.9 - i * 0.05}
+            for i in range(10)
+        ]
+
+        await process_knowledge_event_mock(
+            {
+                "type": "knowledge:result",
+                "task_id": task_id,
+                "timestamp": "2026-01-31T12:00:01Z",
+                "data": {
+                    "tool_name": "code_search",
+                    "query": "test",
+                    "results_count": 10,
+                    "results_preview": many_results,
+                    "query_time_ms": 100.0,
+                },
+            }
+        )
+
+        task_logger = loggers_cache[task_id]
+        interaction = task_logger.knowledge_interactions[0]
+        assert len(interaction["results_preview"]) == 5
+
+    async def test_multiple_knowledge_tools_tracked_separately(self):
+        """Different knowledge tools are tracked in sequence."""
+        task_id = "task-001"
+
+        await process_task_event_mock(
+            {
+                "type": "task:created",
+                "task_id": task_id,
+                "data": {"input_message": "test"},
+            }
+        )
+
+        await process_knowledge_event_mock(
+            {
+                "type": "knowledge:query",
+                "task_id": task_id,
+                "timestamp": "2026-01-31T12:00:00Z",
+                "data": {
+                    "tool_name": "knowledge_query",
+                    "query": "auth",
+                    "source_types": ["code", "jira"],
+                    "org_id": "org-1",
+                },
+            }
+        )
+
+        await process_knowledge_event_mock(
+            {
+                "type": "knowledge:query",
+                "task_id": task_id,
+                "timestamp": "2026-01-31T12:00:02Z",
+                "data": {
+                    "tool_name": "code_search",
+                    "query": "validate_token",
+                    "source_types": ["code"],
+                    "org_id": "org-1",
+                },
+            }
+        )
+
+        task_logger = loggers_cache[task_id]
+        assert len(task_logger.knowledge_interactions) == 2
+
+        tools_used = [i["tool_name"] for i in task_logger.knowledge_interactions]
+        assert "knowledge_query" in tools_used
+        assert "code_search" in tools_used

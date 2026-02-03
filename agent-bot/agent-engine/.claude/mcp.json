@@ -22,6 +22,14 @@
     "knowledge-graph": {
       "url": "http://knowledge-graph-mcp:9005/sse",
       "transport": "sse"
+    },
+    "llamaindex": {
+      "url": "http://llamaindex-mcp:9006/sse",
+      "transport": "sse"
+    },
+    "gkg": {
+      "url": "http://gkg-mcp:9007/sse",
+      "transport": "sse"
     }
   }
 }

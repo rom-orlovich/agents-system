@@ -671,22 +671,50 @@ async def get_task_log_input(task_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/tasks/{task_id}/logs/webhook-flow")
-async def get_task_log_webhook_flow(task_id: str):
-    """Get webhook flow events (02-webhook-flow.jsonl) as JSON array."""
+@router.get("/tasks/{task_id}/logs/user-inputs")
+async def get_task_log_user_inputs(task_id: str):
+    """Get user inputs (02-user-inputs.jsonl) as JSON array."""
     try:
         log_dir = settings.task_logs_dir / task_id
-        webhook_file = log_dir / "02-webhook-flow.jsonl"
+        user_inputs_file = log_dir / "02-user-inputs.jsonl"
+
+        if not user_inputs_file.exists():
+            return []
+
+        inputs = []
+        with open(user_inputs_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    inputs.append(json.loads(line))
+
+        return inputs
+
+    except FileNotFoundError:
+        return []
+    except json.JSONDecodeError as e:
+        logger.error("user_inputs_parse_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Invalid user inputs format")
+    except Exception as e:
+        logger.error("get_user_inputs_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}/logs/webhook-flow")
+async def get_task_log_webhook_flow(task_id: str):
+    """Get webhook flow events (03-webhook-flow.jsonl) as JSON array."""
+    try:
+        log_dir = settings.task_logs_dir / task_id
+        webhook_file = log_dir / "03-webhook-flow.jsonl"
 
         if not webhook_file.exists():
             raise HTTPException(status_code=404, detail="Webhook flow log not found")
 
-        # Parse JSONL file into array
         events = []
         with open(webhook_file, "r") as f:
             for line in f:
                 line = line.strip()
-                if line:  # Skip empty lines
+                if line:
                     events.append(json.loads(line))
 
         return events
@@ -703,20 +731,19 @@ async def get_task_log_webhook_flow(task_id: str):
 
 @router.get("/tasks/{task_id}/logs/agent-output")
 async def get_task_log_agent_output(task_id: str):
-    """Get agent output (03-agent-output.jsonl) as JSON array."""
+    """Get agent output (04-agent-output.jsonl) as JSON array."""
     try:
         log_dir = settings.task_logs_dir / task_id
-        output_file = log_dir / "03-agent-output.jsonl"
+        output_file = log_dir / "04-agent-output.jsonl"
 
         if not output_file.exists():
             raise HTTPException(status_code=404, detail="Agent output log not found")
 
-        # Parse JSONL file into array
         outputs = []
         with open(output_file, "r") as f:
             for line in f:
                 line = line.strip()
-                if line:  # Skip empty lines
+                if line:
                     outputs.append(json.loads(line))
 
         return outputs
@@ -733,10 +760,10 @@ async def get_task_log_agent_output(task_id: str):
 
 @router.get("/tasks/{task_id}/logs/final-result")
 async def get_task_log_final_result(task_id: str):
-    """Get final result (04-final-result.json)."""
+    """Get final result (06-final-result.json)."""
     try:
         log_dir = settings.task_logs_dir / task_id
-        result_file = log_dir / "04-final-result.json"
+        result_file = log_dir / "06-final-result.json"
 
         if not result_file.exists():
             raise HTTPException(status_code=404, detail="Final result log not found")
@@ -776,8 +803,19 @@ async def get_task_logs_full(task_id: str):
             with open(input_file, "r") as f:
                 result["input"] = json.load(f)
 
+        # Read user inputs (optional)
+        user_inputs_file = log_dir / "02-user-inputs.jsonl"
+        if user_inputs_file.exists():
+            inputs = []
+            with open(user_inputs_file, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        inputs.append(json.loads(line))
+            result["user_inputs"] = inputs
+
         # Read webhook flow (optional)
-        webhook_file = log_dir / "02-webhook-flow.jsonl"
+        webhook_file = log_dir / "03-webhook-flow.jsonl"
         if webhook_file.exists():
             events = []
             with open(webhook_file, "r") as f:
@@ -788,7 +826,7 @@ async def get_task_logs_full(task_id: str):
             result["webhook_flow"] = events
 
         # Read agent output (optional)
-        output_file = log_dir / "03-agent-output.jsonl"
+        output_file = log_dir / "04-agent-output.jsonl"
         if output_file.exists():
             outputs = []
             with open(output_file, "r") as f:
@@ -798,8 +836,19 @@ async def get_task_logs_full(task_id: str):
                         outputs.append(json.loads(line))
             result["agent_output"] = outputs
 
+        # Read knowledge interactions (optional)
+        knowledge_file = log_dir / "05-knowledge-interactions.jsonl"
+        if knowledge_file.exists():
+            interactions = []
+            with open(knowledge_file, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        interactions.append(json.loads(line))
+            result["knowledge_interactions"] = interactions
+
         # Read final result (optional)
-        result_file = log_dir / "04-final-result.json"
+        result_file = log_dir / "06-final-result.json"
         if result_file.exists():
             with open(result_file, "r") as f:
                 result["final_result"] = json.load(f)
@@ -813,4 +862,90 @@ async def get_task_logs_full(task_id: str):
         raise HTTPException(status_code=500, detail="Invalid log format")
     except Exception as e:
         logger.error("get_full_logs_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}/logs/knowledge-interactions")
+async def get_task_log_knowledge_interactions(task_id: str):
+    """Get knowledge interactions (05-knowledge-interactions.jsonl) as JSON array."""
+    try:
+        log_dir = settings.task_logs_dir / task_id
+        knowledge_file = log_dir / "05-knowledge-interactions.jsonl"
+
+        if not knowledge_file.exists():
+            return []
+
+        interactions = []
+        with open(knowledge_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    interactions.append(json.loads(line))
+
+        return interactions
+
+    except FileNotFoundError:
+        return []
+    except json.JSONDecodeError as e:
+        logger.error("knowledge_parse_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Invalid knowledge log format")
+    except Exception as e:
+        logger.error("get_knowledge_error", task_id=task_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tasks/{task_id}/knowledge-summary")
+async def get_task_knowledge_summary(task_id: str):
+    """Get a summary of knowledge service usage for a task."""
+    try:
+        log_dir = settings.task_logs_dir / task_id
+        knowledge_file = log_dir / "05-knowledge-interactions.jsonl"
+
+        if not knowledge_file.exists():
+            return {
+                "task_id": task_id,
+                "knowledge_enabled": False,
+                "total_queries": 0,
+                "total_results": 0,
+                "tools_used": [],
+                "source_types_queried": [],
+                "total_query_time_ms": 0,
+                "cache_hit_rate": 0,
+            }
+
+        interactions = []
+        with open(knowledge_file, "r") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    interactions.append(json.loads(line))
+
+        queries = [i for i in interactions if i.get("type") == "query"]
+        results = [i for i in interactions if i.get("type") == "result"]
+
+        tools_used = list(set(i.get("tool_name") for i in interactions))
+        source_types = []
+        for q in queries:
+            source_types.extend(q.get("source_types", []))
+        source_types = list(set(source_types))
+
+        total_results = sum(r.get("results_count", 0) for r in results)
+        total_query_time = sum(r.get("query_time_ms", 0) for r in results)
+        cached_count = sum(1 for r in results if r.get("cached"))
+        cache_hit_rate = (cached_count / len(results) * 100) if results else 0
+
+        return {
+            "task_id": task_id,
+            "knowledge_enabled": True,
+            "total_queries": len(queries),
+            "total_results": total_results,
+            "tools_used": tools_used,
+            "source_types_queried": source_types,
+            "total_query_time_ms": round(total_query_time, 2),
+            "cache_hit_rate": round(cache_hit_rate, 1),
+            "interactions": interactions,
+        }
+
+    except Exception as e:
+        logger.error("get_knowledge_summary_error", task_id=task_id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))

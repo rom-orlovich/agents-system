@@ -1,8 +1,10 @@
-from typing import Any
+from typing import Any, Literal
+
 from fastmcp import FastMCP
 
-from kg_client import KnowledgeGraphClient
+from chroma_client import chroma_client
 from config import get_settings
+from kg_client import KnowledgeGraphClient
 
 mcp = FastMCP("Knowledge Graph MCP Server")
 kg_client = KnowledgeGraphClient()
@@ -131,6 +133,136 @@ async def get_graph_stats() -> dict[str, Any]:
         Total nodes, edges, and breakdown by type
     """
     return await kg_client.get_stats()
+
+
+@mcp.tool()
+async def knowledge_store(
+    content: str,
+    metadata: dict[str, Any] | None = None,
+    collection: str = "default",
+    doc_id: str | None = None,
+) -> dict[str, Any]:
+    """
+    Store knowledge in the ChromaDB vector database.
+
+    Args:
+        content: The text content to store
+        metadata: Optional metadata (tags, source, category, etc.)
+        collection: Collection name (default: "default")
+        doc_id: Optional document ID (auto-generated if not provided)
+
+    Returns:
+        Storage confirmation with document ID
+    """
+    return await chroma_client.store_document(
+        content=content,
+        metadata=metadata or {},
+        collection_name=collection,
+        doc_id=doc_id,
+    )
+
+
+@mcp.tool()
+async def knowledge_query(
+    query: str,
+    n_results: int = 5,
+    collection: str = "default",
+    filter_metadata: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """
+    Query similar knowledge from the ChromaDB vector database.
+
+    Args:
+        query: Search query text
+        n_results: Number of results to return (1-100)
+        collection: Collection to search
+        filter_metadata: Optional metadata filters
+
+    Returns:
+        List of similar documents with distances
+    """
+    return await chroma_client.query_documents(
+        query=query,
+        n_results=n_results,
+        collection_name=collection,
+        filter_metadata=filter_metadata,
+    )
+
+
+@mcp.tool()
+async def knowledge_collections(
+    action: Literal["list", "create", "delete"],
+    collection: str | None = None,
+) -> dict[str, Any]:
+    """
+    Manage ChromaDB knowledge collections.
+
+    Args:
+        action: Operation to perform (list, create, delete)
+        collection: Collection name (required for create/delete)
+
+    Returns:
+        Collection information or confirmation
+    """
+    if action == "list":
+        return await chroma_client.list_collections()
+    elif action == "create":
+        if not collection:
+            return {"error": "Collection name required for create action"}
+        return await chroma_client.create_collection(collection)
+    elif action == "delete":
+        if not collection:
+            return {"error": "Collection name required for delete action"}
+        return await chroma_client.delete_collection(collection)
+    return {"error": f"Unknown action: {action}"}
+
+
+@mcp.tool()
+async def knowledge_update(
+    doc_id: str,
+    content: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    collection: str = "default",
+) -> dict[str, Any]:
+    """
+    Update an existing document in ChromaDB.
+
+    Args:
+        doc_id: Document ID to update
+        content: New content (optional)
+        metadata: New metadata (optional)
+        collection: Collection name
+
+    Returns:
+        Update confirmation
+    """
+    return await chroma_client.update_document(
+        doc_id=doc_id,
+        content=content,
+        metadata=metadata,
+        collection_name=collection,
+    )
+
+
+@mcp.tool()
+async def knowledge_delete(
+    doc_id: str,
+    collection: str = "default",
+) -> dict[str, Any]:
+    """
+    Delete a document from ChromaDB.
+
+    Args:
+        doc_id: Document ID to delete
+        collection: Collection name
+
+    Returns:
+        Deletion confirmation
+    """
+    return await chroma_client.delete_document(
+        doc_id=doc_id,
+        collection_name=collection,
+    )
 
 
 if __name__ == "__main__":

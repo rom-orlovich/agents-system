@@ -107,6 +107,70 @@ async def process_task_event(event: dict):
         )
 
 
+async def process_knowledge_event(event: dict):
+    task_id = event.get("task_id")
+    if not task_id:
+        logger.warning("knowledge_event_missing_task_id", event=event)
+        return
+
+    event_type = event.get("type")
+    data = event.get("data", {})
+    timestamp = event.get("timestamp", datetime.now(timezone.utc).isoformat())
+
+    if isinstance(data, str):
+        data = json.loads(data)
+
+    task_logger = get_or_create_logger(task_id)
+
+    if event_type == TaskEventType.KNOWLEDGE_QUERY:
+        task_logger.append_knowledge_interaction(
+            {
+                "timestamp": timestamp,
+                "type": "query",
+                "tool_name": data.get("tool_name", "unknown"),
+                "query": data.get("query", ""),
+                "source_types": data.get("source_types", []),
+                "org_id": data.get("org_id"),
+            }
+        )
+
+    elif event_type == TaskEventType.KNOWLEDGE_RESULT:
+        task_logger.append_knowledge_interaction(
+            {
+                "timestamp": timestamp,
+                "type": "result",
+                "tool_name": data.get("tool_name", "unknown"),
+                "query": data.get("query", ""),
+                "results_count": data.get("results_count", 0),
+                "results_preview": data.get("results_preview", [])[:5],
+                "query_time_ms": data.get("query_time_ms", 0.0),
+                "cached": data.get("cached", False),
+            }
+        )
+
+    elif event_type == TaskEventType.KNOWLEDGE_TOOL_CALL:
+        task_logger.append_knowledge_interaction(
+            {
+                "timestamp": timestamp,
+                "type": "tool_call",
+                "tool_name": data.get("tool_name", "unknown"),
+                "parameters": data.get("parameters", {}),
+            }
+        )
+
+    elif event_type == TaskEventType.KNOWLEDGE_CONTEXT_USED:
+        task_logger.append_knowledge_interaction(
+            {
+                "timestamp": timestamp,
+                "type": "context_used",
+                "tool_name": data.get("tool_name", "unknown"),
+                "contexts_count": data.get("contexts_count", 0),
+                "relevance_scores": data.get("relevance_scores", []),
+                "total_tokens": data.get("total_tokens"),
+            }
+        )
+
+
 async def process_event(event: dict):
     event_type = event.get("type")
 
@@ -114,6 +178,8 @@ async def process_event(event: dict):
         await process_webhook_event(event)
     elif event_type.startswith("task:"):
         await process_task_event(event)
+    elif event_type.startswith("knowledge:"):
+        await process_knowledge_event(event)
     else:
         logger.warning("unknown_event_type", event_type=event_type)
 

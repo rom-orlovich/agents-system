@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 import redis.asyncio as redis
 
 from config import get_settings
+from services.knowledge import KnowledgeService, NoopKnowledgeService
 
 logger = structlog.get_logger(__name__)
 
@@ -17,10 +18,15 @@ shutdown_event = asyncio.Event()
 
 
 class TaskWorker:
-    def __init__(self, settings: Any):
+    def __init__(
+        self,
+        settings: Any,
+        knowledge_service: KnowledgeService | NoopKnowledgeService,
+    ):
         self._settings = settings
         self._redis: redis.Redis | None = None
         self._running = False
+        self._knowledge = knowledge_service
 
     async def start(self) -> None:
         self._redis = redis.from_url(self._settings.redis_url)
@@ -136,13 +142,33 @@ class TaskWorker:
 
 
 worker: TaskWorker | None = None
+knowledge_service: KnowledgeService | NoopKnowledgeService | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global worker
+    global worker, knowledge_service
     settings = get_settings()
-    worker = TaskWorker(settings)
+
+    if settings.knowledge_services_enabled:
+        knowledge_service = KnowledgeService(
+            llamaindex_url=settings.llamaindex_url,
+            gkg_url=settings.knowledge_graph_url,
+            enabled=True,
+            timeout=settings.knowledge_timeout_seconds,
+            retry_count=settings.knowledge_retry_count,
+        )
+        status = await knowledge_service.health_check()
+        logger.info(
+            "knowledge_services_initialized",
+            llamaindex_available=status.llamaindex_available,
+            gkg_available=status.gkg_available,
+        )
+    else:
+        knowledge_service = NoopKnowledgeService()
+        logger.info("knowledge_services_disabled")
+
+    worker = TaskWorker(settings, knowledge_service)
 
     worker_task = asyncio.create_task(worker.start())
 
@@ -179,6 +205,40 @@ def create_app() -> FastAPI:
     async def health_check():
         return {"status": "healthy", "service": "agent-engine"}
 
+    @app.get("/health/detailed")
+    async def detailed_health_check():
+        settings = get_settings()
+        result = {
+            "status": "healthy",
+            "service": "agent-engine",
+            "components": {
+                "worker": worker._running if worker else False,
+                "redis": False,
+            },
+            "knowledge_services": {
+                "enabled": settings.knowledge_services_enabled,
+                "available": False,
+                "llamaindex": False,
+                "gkg": False,
+            },
+        }
+
+        try:
+            redis_client = redis.from_url(settings.redis_url)
+            await redis_client.ping()
+            result["components"]["redis"] = True
+            await redis_client.aclose()
+        except Exception:
+            result["status"] = "degraded"
+
+        if knowledge_service:
+            ks_status = await knowledge_service.health_check()
+            result["knowledge_services"]["available"] = knowledge_service.is_available
+            result["knowledge_services"]["llamaindex"] = ks_status.llamaindex_available
+            result["knowledge_services"]["gkg"] = ks_status.gkg_available
+
+        return result
+
     @app.get("/status")
     async def get_status():
         settings = get_settings()
@@ -187,6 +247,28 @@ def create_app() -> FastAPI:
             "cli_provider": settings.cli_provider,
             "max_concurrent_tasks": settings.max_concurrent_tasks,
             "worker_running": worker._running if worker else False,
+            "knowledge_services_enabled": settings.knowledge_services_enabled,
+            "knowledge_available": (
+                knowledge_service.is_available if knowledge_service else False
+            ),
+        }
+
+    @app.post("/knowledge/toggle")
+    async def toggle_knowledge_services(enabled: bool):
+        if knowledge_service is None:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Knowledge service not initialized"},
+            )
+
+        if enabled:
+            knowledge_service.enable()
+        else:
+            knowledge_service.disable()
+
+        return {
+            "knowledge_services_enabled": enabled,
+            "message": f"Knowledge services {'enabled' if enabled else 'disabled'}",
         }
 
     @app.post("/tasks")

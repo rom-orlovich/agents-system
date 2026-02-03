@@ -25,6 +25,9 @@ The system consists of 18 containerized services:
 | **OAuth Service**      | 8010      | Multi-provider OAuth flows                                     |
 | **Task Logger**        | 8090      | Task output logging                                            |
 | **Knowledge Graph**    | 4000      | Code entity indexing (Rust)                                    |
+| **LlamaIndex Service** | 8100      | Semantic search & RAG (optional)                               |
+| **Indexer Worker**     | 8004      | Data source indexing (optional)                                |
+| **ChromaDB**           | 8000      | Vector database (optional)                                     |
 | **MCP Servers**        | 9001-9005 | Tool interfaces (GitHub, Jira, Slack, Sentry, Knowledge Graph) |
 | **API Services**       | 3001-3004 | REST API wrappers (GitHub, Jira, Slack, Sentry)                |
 | **Redis**              | 6379      | Task queue & cache                                             |
@@ -37,9 +40,51 @@ The system consists of 18 containerized services:
 - **MCP Protocol**: Model Context Protocol servers for external service integration
 - **TDD Workflow**: Test-Driven Development methodology enforced throughout
 
-For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/SYSTEM-ARCHITECTURE.md](docs/SYSTEM-ARCHITECTURE.md).
 
 For integration and implementation details, see [docs/INTEGRATION-IMPLEMENTATION-PLAN.md](docs/INTEGRATION-IMPLEMENTATION-PLAN.md).
+
+### Knowledge Layer (Optional)
+
+The system includes an **optional knowledge layer** for enhanced context retrieval:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Optional Knowledge Layer                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
+│  │   Indexer    │    │  LlamaIndex  │    │   ChromaDB   │       │
+│  │   Worker     │───▶│   Service    │───▶│   (Vectors)  │       │
+│  └──────────────┘    └──────────────┘    └──────────────┘       │
+│         │                                                        │
+│         ▼                                                        │
+│  ┌──────────────┐                        ┌──────────────┐       │
+│  │    OAuth     │                        │  Knowledge   │       │
+│  │   Service    │                        │    Graph     │       │
+│  └──────────────┘                        └──────────────┘       │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Features:**
+
+- **Graceful Degradation**: Agent Engine works without knowledge services
+- **OAuth Integration**: Data sources use OAuth tokens for API access
+- **Multi-Source Support**: GitHub, Jira, Confluence indexing
+- **Runtime Toggle**: Enable/disable via API without restart
+
+**Start with Knowledge Services:**
+
+```bash
+# Start with knowledge profile
+docker-compose --profile knowledge up -d
+
+# Or set environment variable
+KNOWLEDGE_SERVICES_ENABLED=true make start
+```
+
+See [docs/SYSTEM-ARCHITECTURE.md](docs/SYSTEM-ARCHITECTURE.md) for complete knowledge layer documentation.
 
 ## Quick Start
 
@@ -194,6 +239,8 @@ agent-bot/
 ├── oauth-service/         # OAuth flows
 ├── task-logger/          # Task output logging
 ├── knowledge-graph/      # Code entity indexing
+├── llamaindex-service/   # Semantic search (optional)
+├── indexer-worker/       # Data source indexing (optional)
 ├── docs/                 # Documentation
 ├── docker-compose.yml     # Main orchestration
 ├── Makefile              # Development commands
@@ -305,6 +352,7 @@ For detailed security architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE
 ### Core Documentation
 
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Complete system architecture, data flow, service interactions, and deployment details
+- **[docs/SYSTEM-ARCHITECTURE.md](docs/SYSTEM-ARCHITECTURE.md)** - Detailed system architecture with diagrams, layers, and data flows
 - **[docs/INTEGRATION-IMPLEMENTATION-PLAN.md](docs/INTEGRATION-IMPLEMENTATION-PLAN.md)** - Integration guide and TDD implementation plan
 - **[CLAUDE.md](CLAUDE.md)** - Development rules, conventions, and coding standards
 
@@ -331,8 +379,15 @@ For detailed security architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE
 #### Supporting Services
 
 - **[oauth-service/README.md](oauth-service/README.md)** - OAuth flows and multi-provider authentication
+- **[oauth-service/CLAUDE.md](oauth-service/CLAUDE.md)** - OAuth service architecture and integration guide
 - **[task-logger/README.md](task-logger/README.md)** - Task output logging and capture
 - **[knowledge-graph/README.md](knowledge-graph/README.md)** - Code entity indexing and graph database
+
+#### Knowledge Layer (Optional)
+
+- **[llamaindex-service/README.md](llamaindex-service/README.md)** - Semantic search and RAG service
+- **[indexer-worker/README.md](indexer-worker/README.md)** - Data source indexing worker
+- **[agent-engine/CLAUDE.md](agent-engine/CLAUDE.md)** - Agent engine architecture and knowledge integration
 
 ## License
 

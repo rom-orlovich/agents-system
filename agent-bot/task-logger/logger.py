@@ -18,20 +18,24 @@ class TaskLogger:
         input_file = self.log_dir / "01-input.json"
         self._atomic_write_json(input_file, data)
 
+    def append_user_input(self, user_input: dict):
+        user_input_file = self.log_dir / "02-user-inputs.jsonl"
+        self._atomic_append_jsonl(user_input_file, user_input)
+
     def append_webhook_event(self, event: dict):
-        webhook_file = self.log_dir / "02-webhook-flow.jsonl"
+        webhook_file = self.log_dir / "03-webhook-flow.jsonl"
         self._atomic_append_jsonl(webhook_file, event)
 
     def append_agent_output(self, output: dict):
-        output_file = self.log_dir / "03-agent-output.jsonl"
+        output_file = self.log_dir / "04-agent-output.jsonl"
         self._atomic_append_jsonl(output_file, output)
 
-    def append_user_input(self, user_input: dict):
-        user_input_file = self.log_dir / "03-user-inputs.jsonl"
-        self._atomic_append_jsonl(user_input_file, user_input)
+    def append_knowledge_interaction(self, interaction: dict):
+        knowledge_file = self.log_dir / "05-knowledge-interactions.jsonl"
+        self._atomic_append_jsonl(knowledge_file, interaction)
 
     def write_final_result(self, data: dict):
-        result_file = self.log_dir / "04-final-result.json"
+        result_file = self.log_dir / "06-final-result.json"
         self._atomic_write_json(result_file, data)
 
     def _atomic_write_json(self, file_path: Path, data: dict):
